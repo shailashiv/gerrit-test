@@ -1,0 +1,271 @@
+From dc2281699ebc53a90873dbe712bb52a3b9dcf0ce Mon Sep 17 00:00:00 2001
+From: nsingh <nsingh@habana.ai>
+Date: Tue, 05 Nov 2024 12:07:01 +0200
+Subject: [PATCH] [SW-207603] Use symbol value hash for force_static_recipe
+
+Change-Id: I16939d7855539e56a3afc280e2df39d8a837e9d1
+---
+
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 10a7ed8..71cc115 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -3173,7 +3173,8 @@
+       uint64_t curr_st_id = habana::ShapeInference::GetShapeTensorId();
+       HabanaKernel->AllocateAndAddSynapseNode(
+           *syn_graph, input_stack, outputs_metadata);
+-      // ST_Id is incremented only when the node is dynamic and it creates ST(s)
++      // ST_Id is incremented only when the node is dynamic and it creates
++      // backend ST(s)
+       uint64_t changed_st_id = habana::ShapeInference::GetShapeTensorId();
+ 
+       if (enable_optim_output_sif_ &&
+@@ -4871,7 +4872,7 @@
+       graph_key_,
+       ", hash_code with data layout : ",
+       graph_key_with_perm_,
+-      "is dynamic : ",
++      ", is dynamic : ",
+       refine_ds_enabled_);
+ 
+   if (enable_optim_output_sif_) {
+diff --git a/habana_eager/passes/handle_input_views.cpp b/habana_eager/passes/handle_input_views.cpp
+index 7e802d9..27734e1 100644
+--- a/habana_eager/passes/handle_input_views.cpp
++++ b/habana_eager/passes/handle_input_views.cpp
+@@ -93,7 +93,15 @@
+         }
+ 
+         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
+-        auto output_size = "[" + range_infos[input_idx].expr + "]";
++
++        std::string output_size;
++        if (range_infos.size()) {
++          output_size = "[" + range_infos[input_idx].expr + "]";
++        } else {
++          // node output_size attribute remains used in static
++          output_size = "[STATIC]";
++        }
++
+         insert_strided_view_node(
+             input_tensor,
+             first_user,
+@@ -107,24 +115,26 @@
+         // tensor in the stack, we have to do the same in range_info DS. The
+         // problem being we dont have a way currently to fetch shapes of base
+         // tensor in form of symbolic so that min max can be inferred.
+-        std::stringstream ss;
+-        ss << "[";
+-        for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
+-          ss << value << ", ";
++        if (range_infos.size()) {
++          std::stringstream ss;
++          ss << "[";
++          for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
++            ss << value << ", ";
++          }
++          std::string result = ss.str();
++          if (!result.empty()) {
++            result.erase(result.size() - 2);
++          }
++          result += "]";
++          range_infos[input_idx].expr = result;
++          PT_DYNAMIC_SHAPE_DEBUG(
++              "HandleViewPass filling RangeInfo at index ",
++              range_infos[input_idx].index,
++              " with static min and max = ",
++              result);
++          // Change the index to -1 so that min and max range be processed
++          range_infos[input_idx].index = -1;
+         }
+-        std::string result = ss.str();
+-        if (!result.empty()) {
+-          result.erase(result.size() - 2);
+-        }
+-        result += "]";
+-        range_infos[input_idx].expr = result;
+-        PT_DYNAMIC_SHAPE_DEBUG(
+-            "HandleViewPass filling RangeInfo at index ",
+-            range_infos[input_idx].index,
+-            " with static min and max = ",
+-            result);
+-        // Change the index to -1 so that min and max range be processed
+-        range_infos[input_idx].index = -1;
+ 
+         changed |= true;
+ 
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+index 03aa0af..7841513 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+@@ -2497,12 +2497,8 @@
+             jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
+             jit_node_annotation_propagation(jit_ir_function, submod_updated)
+ 
+-            is_submod_dynamic = False
+-
++            is_submod_dynamic = is_module_dynamic(submod)
+             if not hpu_backend_config.force_static_compile:
+-                # Submodule dynamicity has to recheck and set to the collable.
+-                is_submod_dynamic = is_module_dynamic(submod)
+-
+                 if refine_dynamic:
+                     is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
+ 
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.cpp b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.cpp
+index 63821f4..e03f441 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.cpp
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.cpp
+@@ -55,22 +55,38 @@
+   return result;
+ }
+ 
+-std::size_t calculate_hash_code(const py::tuple& inputs) {
+-  torch::jit::Stack stack;
+-  stack.reserve(inputs.size());
+-  for (auto& obj : inputs)
+-    stack.push_back(torch::jit::toTypeInferredIValue(obj));
+-
++std::size_t calculate_symval_hashcode(
++    const py::tuple& inputs,
++    InputSymbolIndexMap& symbol_idx_map) {
+   size_t hash_code = 0;
+-  for (const auto& input : stack) {
+-    if (!input.isTensor())
+-      continue;
+-    const auto& tensor = input.toTensor();
+-    if (!tensor.defined())
+-      continue;
+-    size_t tensor_hash = c10::get_hash(tensor.sizes(), tensor.strides());
+-    hash_code = c10::hash_combine(hash_code, tensor_hash);
+-  }
++  std::for_each(
++      symbol_idx_map.begin(),
++      symbol_idx_map.end(),
++      [&](const std::pair<std::string, int64_t>& p) {
++        int64_t scalar_index = p.second;
++        HABANA_ASSERT(
++            scalar_index >= 0 ||
++                static_cast<size_t>(scalar_index) < inputs.size(),
++            "Symbol index received is out of bounds!!",
++            scalar_index);
++        const auto& obj = inputs[scalar_index];
++        HABANA_ASSERT(
++            py::isinstance<py::float_>(obj) || py::isinstance<py::int_>(obj),
++            "Expected scalar but got non-scalar object!!",
++            scalar_index);
++        double value;
++        if (py::isinstance<py::float_>(obj)) {
++          value = obj.cast<double>(); // Cast directly to double if it's a float
++        } else {
++          value = static_cast<double>(
++              obj.cast<int64_t>()); // Cast to double if it's an int
++        }
++
++        auto symbol_hash = c10::get_hash(p.first);
++        hash_code = c10::hash_combine(hash_code, symbol_hash);
++        auto value_hash = c10::get_hash(value);
++        hash_code = c10::hash_combine(hash_code, value_hash);
++      });
+   return hash_code;
+ }
+ }; // namespace
+@@ -166,7 +182,7 @@
+       .def_readwrite("expr_strides", &habana_helpers::RangeInfo::expr_strides)
+       .def_readwrite("index", &habana_helpers::RangeInfo::index);
+   m.def(
+-      "calculate_hash_code",
+-      &calculate_hash_code,
++      "calculate_symval_hashcode",
++      &calculate_symval_hashcode,
+       "Calculate hash key of graph input tensor shapes and strides");
+ }
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
+index ca35bc0..e03db64 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
+@@ -230,7 +230,7 @@
+         outputs = []
+         inputs = tuple(args)
+ 
+-        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_hash_code, graph_compile, graph_launch
++        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
+ 
+         if self._ds_output_prealloc:
+             self._symbol_evaluator.clear_symbolic_value_dict()
+@@ -244,18 +244,21 @@
+         # recompilation will happen everytime
+         # except for static cache hit scenario
+         if self._force_static_compile:
+-            new_hash_key = calculate_hash_code(inputs)
++            new_hash_key = calculate_symval_hashcode(inputs, self._pholder_symbolic_dict)
+             if self._hash_key != new_hash_key:
+                 self._hash_key = new_hash_key
+                 self._recipe_id = None
+ 
+         if self._recipe_id is None:
+-            self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
+             self.check_for_random_ops()
++            if self._dynamic:
++                self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
++                if self._has_randoms:
++                    self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
++                    self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
++
+             if self._has_randoms:
+                 inputs = (None, None) + inputs
+-                self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
+-                self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
+ 
+             if bc.get_pt_hpu_use_jit_fork():
+                 graph = self._jit_ir
+@@ -312,6 +315,11 @@
+     outputs_metadata = []
+     symbolic_metadata = {}
+     pholder_symbolic_dict = {}
++
++    if hpu_backend_config.force_static_compile and is_dynamic:
++        pholder_symbolic_dict = get_symbol_input_indices(graph_module)
++        is_dynamic = False
++
+     if not is_dynamic:
+         outputs_metadata = get_outputs_metadata(graph_module)
+     elif is_dynamic and enable_dynamic_output_preallocate:
+@@ -370,7 +378,6 @@
+                     tmeta_val,
+                 )
+             input_index += 1
+-
+     symbolic_meta = {}
+     for md in outputs_metadata:
+         out_shape_meta = md[0]
+@@ -401,6 +408,29 @@
+     return symbolic_meta, pholder_symbolic_dict
+ 
+ 
++def get_symbol_input_indices(graph_module):
++    """
++    Return dict of symbols and their input indices
++
++    """
++    pholder_symbolic_dict = {}
++    input_index = 0
++    pexpr = PythonPrinter().doprint
++    for node in graph_module.graph.nodes:
++        if node.op == "placeholder":
++            tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
++            if isinstance(tmeta_val, py_sym_types):
++                val_str = pexpr(tmeta_val)
++                pholder_symbolic_dict[val_str] = input_index
++            else:
++                logger.debug(
++                    "Graph input node index not inserted to pholder_symbolic_dict!!!:",
++                    tmeta_val,
++                )
++            input_index += 1
++    return pholder_symbolic_dict
++
++
+ def get_outputs_metadata(graph_module):
+     """
+     Returns a list of metadata of outputs from the graph, in the form of

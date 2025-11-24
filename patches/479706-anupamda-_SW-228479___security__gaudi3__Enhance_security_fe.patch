@@ -1,0 +1,41 @@
+From bc7ab630102564c5fd254f13413c316841697c68 Mon Sep 17 00:00:00 2001
+From: Anupam Datta <andatta@habana.ai>
+Date: Wed, 14 May 2025 06:59:18 +0300
+Subject: [PATCH] [SW-228479]: security: gaudi3: Enhance security features in Makefile with additional compiler flags
+
+This commit updates the BOOT_ROM_CFLAGS in the Makefile to
+include several security-related compiler flags.
+
+-D_FORTIFY_SOURCE=2: Enables compile-time and runtime checks
+for buffer overflows in certain functions, enhancing security
+against such vulnerabilities.
+
+-fstack-protector-all: Adds stack canaries to all functions,
+providing protection against stack buffer overflow attacks.
+
+-Wl,-z,now: Enables full RELRO, which helps protect against
+certain types of memory corruption attacks by making the
+relocation sections read-only. This helps protect against
+memory corruption attacks such as GOT overwrite attacks,
+function pointer hijacking, and return-to-libc attacks.
+
+-fPIE -pie: Generates position-independent code and links it as
+a position-independent executable, which is useful for
+Address Space Layout Randomization (ASLR).
+
+Change-Id: I80843bb05d7b55d8a848057280115d13cb81dac9
+Signed-off-by: Anupam Datta <andatta@habana.ai>
+---
+
+diff --git a/Makefile b/Makefile
+index 9317b40..2f99de3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -23,6 +23,7 @@
+ 
+ LIBDIR = sdk/lib
+ BOOT_ROM_CFLAGS = -Wall -W -Werror -Wno-misleading-indentation -O3 -g
++BOOT_ROM_CFLAGS += -D_FORTIFY_SOURCE=2 -fstack-protector-all -Wl,-z,now -fPIE -pie
+ BOOT_ROM_CFLAGS += -Iinclude
+ BOOT_ROM_CFLAGS += -Icommon
+ BOOT_ROM_CFLAGS += -Icommon/rsa

@@ -1,0 +1,492 @@
+From 27081ee7b9b1fe4e222b259c4df09d4f091667cc Mon Sep 17 00:00:00 2001
+From: Ramesh Babu <rbabu@habana.ai>
+Date: Tue, 22 Oct 2024 06:49:50 +0000
+Subject: [PATCH] Revert "[SW-185210] validate st and h2d under eager mode"
+
+This reverts commit e9df93ea96ca0bbb0d9df06d0ae75a1d0da777ad.
+
+Change-Id: Iceef13816fd13cf77080928ae733f43d64b9bd3a
+---
+
+diff --git a/hpu_ops/cpu_fallback.h b/hpu_ops/cpu_fallback.h
+index 6ce9379..067632a 100644
+--- a/hpu_ops/cpu_fallback.h
++++ b/hpu_ops/cpu_fallback.h
+@@ -143,47 +143,35 @@
+   return dispatch_fallback<ATEN_OP2(input, overload)>::call( \
+       OpSupportLevel::Value::unsupported, param2);
+ 
+-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, check_st_h2d, args...) \
+-  if (ABSL_PREDICT_FALSE(                                                \
+-          !validator_##opname.Validate({args}, false, check_st_h2d))) {  \
+-    return dispatch_fallback<ATEN_OP(opname)>::call(                     \
+-        OpSupportLevel::Value::unsupported_dtype, args);                 \
+-  } else {                                                               \
+-    require_h2d = validator_##opname.IsRequireH2D();                     \
+-    require_st = validator_##opname.IsRequireST();                       \
++#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, args...)        \
++  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate({args}))) { \
++    return dispatch_fallback<ATEN_OP(opname)>::call(              \
++        OpSupportLevel::Value::unsupported_dtype, args);          \
++  } else {                                                        \
++    require_h2d = validator_##opname.IsRequireH2D();              \
++    require_st = validator_##opname.IsRequireST();                \
+   }
+ 
+-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(                         \
+-    opname, overload, check_st_h2d, args...)                        \
+-  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
+-          {args}, false, check_st_h2d))) {                          \
+-    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(     \
+-        OpSupportLevel::Value::unsupported_dtype, args);            \
+-  } else {                                                          \
+-    require_h2d = validator_##opname##_##overload.IsRequireH2D();   \
+-    require_st = validator_##opname##_##overload.IsRequireST();     \
++#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(opname, overload, args...)          \
++  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate({args}))) { \
++    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(                \
++        OpSupportLevel::Value::unsupported_dtype, args);                       \
++  } else {                                                                     \
++    require_h2d = validator_##opname##_##overload.IsRequireH2D();              \
++    require_st = validator_##opname##_##overload.IsRequireST();                \
+   }
+ 
+-#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(                             \
+-    opname, check_st_h2d, args...)                                            \
+-  if (ABSL_PREDICT_FALSE(                                                     \
+-          !validator_##opname.ValidateCustom({args}, false, check_st_h2d))) { \
+-    return dispatch_fallback<ATEN_OP(opname)>::call(                          \
+-        OpSupportLevel::Value::unsupported_dtype, args);                      \
+-  } else {                                                                    \
+-    require_h2d = validator_##opname.IsRequireH2D();                          \
+-    require_st = validator_##opname.IsRequireST();                            \
++#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, args...)       \
++  if (ABSL_PREDICT_FALSE(!validator_##opname.ValidateCustom({args}))) { \
++    return dispatch_fallback<ATEN_OP(opname)>::call(                    \
++        OpSupportLevel::Value::unsupported_dtype, args);                \
+   }
+ 
+-#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE2(                        \
+-    opname, overload, check_st_h2d, args...)                              \
+-  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.ValidateCustom( \
+-          {args}, false, check_st_h2d))) {                                \
+-    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(           \
+-        OpSupportLevel::Value::unsupported_dtype, args);                  \
+-  } else {                                                                \
+-    require_h2d = validator_##opname##_##overload.IsRequireH2D();         \
+-    require_st = validator_##opname##_##overload.IsRequireST();           \
++#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE2(opname, overload, args...) \
++  if (ABSL_PREDICT_FALSE(                                                    \
++          !validator_##opname##_##overload.ValidateCustom({args}))) {        \
++    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(              \
++        OpSupportLevel::Value::unsupported_dtype, args);                     \
+   }
+ 
+ namespace habana {
+diff --git a/hpu_ops/op_validator.cpp b/hpu_ops/op_validator.cpp
+index 6a98f98..d3b89a6 100644
+--- a/hpu_ops/op_validator.cpp
++++ b/hpu_ops/op_validator.cpp
+@@ -149,9 +149,7 @@
+     const std::string& guid,
+     const detail::TensorDescrArray& input_values,
+     const detail::TensorDescrArray& output_values,
+-    bool is_dynamic = false,
+-    bool valid_shape_tensor = true,
+-    bool valid_h2d_tensor = true) {
++    bool is_dynamic = false) {
+   SharedLayer::ParamsV2_t params{};
+   params.apiVersion = 1;
+   auto deviceId = getDeviceType();
+@@ -195,8 +193,6 @@
+   params.inputTensors = input_tensors;
+   params.outputTensors = output_tensors;
+   params.supportsDynamicShapes = is_dynamic;
+-  params.requiresShapeTensor = valid_shape_tensor;
+-  params.requiresH2DTensor = valid_h2d_tensor;
+ 
+   return synSharedLayerValidateGuidV2(&params);
+ }
+@@ -364,10 +360,6 @@
+       return "MISSING_PRIVATE_STRUCTURE";
+     case SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT:
+       return "MISSING_DYNAMIC_SUPPORT";
+-    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT:
+-      return "HAS_NO_SHAPE_TENSOR_INPUT";
+-    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT:
+-      return "HAS_NO_H2D_TENSOR_INPUT";
+     case SharedLayer::Return_t::SHARED_LAYER_FAILED:
+     default:
+       return "UNKNOWN_FAILURE";
+@@ -465,7 +457,6 @@
+ bool CheckNodeWithSharedLayerValidator::Validate(
+     const at::Stack& values,
+     bool is_dynamic,
+-    bool check_st_h2d,
+     const SharedMetaVector& meta) {
+   auto promoted_type = ComputePromotedType(values);
+ 
+@@ -493,8 +484,7 @@
+ 
+   auto inputs = CreateInputList(values, promoted_type, outputs.size());
+ 
+-  auto validation_result = ValidateGuid(
+-      m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
++  auto validation_result = ValidateGuid(m_guid, inputs, outputs, is_dynamic);
+ 
+   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
+       is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
+@@ -503,32 +493,55 @@
+   }
+ 
+   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+-    if (validation_result ==
+-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
+-      validation_result =
+-          ValidateGuid(m_guid, inputs, outputs, is_dynamic, false, true);
+-      if (validation_result !=
+-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+-        m_require_h2d = true;
+-      }
+-    } else if (
+-        validation_result ==
+-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+-      m_require_st = true;
+-    } else {
++    // This log line is used by the logging analysis tool. Please be cautious
++    // when changing.
++    PT_OP_INFO(
++        "Shared layer rejected op: ",
++        m_opname,
++        ":  guid=",
++        m_guid,
++        " inputlist=",
++        ToDebugString(inputs),
++        " outputlist=",
++        ToDebugString(outputs),
++        " values=",
++        ToDebugString(values),
++        " is_dynamic=",
++        ToDebugString(is_dynamic),
++        " reason=",
++        ToDebugString(validation_result));
++    PT_OP_INFO("Fallback for op: ", m_opname);
++    return false;
++  }
++
++  // (TODO)query if h2d and st are needed
++  m_require_h2d = false;
++  m_require_st = false;
++  return true;
++}
++
++bool CheckNodeWithSharedLayerValidator::ValidateCustom(
++    const at::Stack& values,
++    bool is_dynamic) {
++  for (const auto& meta : m_sharedMetaFunc(values)) {
++    auto inputs = CreateTensorList(meta.inputs_data);
++    auto outputs = CreateTensorList(meta.outputs_data);
++
++    auto validation_result =
++        ValidateGuid(meta.guid, inputs, outputs, is_dynamic);
++
++    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+       // This log line is used by the logging analysis tool. Please be cautious
+       // when changing.
+       PT_OP_INFO(
+-          "Shared layer rejected op: ",
++          "Shared layer rejected complex op: ",
+           m_opname,
+           ":  guid=",
+-          m_guid,
++          meta.guid,
+           " inputlist=",
+           ToDebugString(inputs),
+           " outputlist=",
+           ToDebugString(outputs),
+-          " values=",
+-          ToDebugString(values),
+           " is_dynamic=",
+           ToDebugString(is_dynamic),
+           " reason=",
+@@ -536,83 +549,6 @@
+       PT_OP_INFO("Fallback for op: ", m_opname);
+       return false;
+     }
+-  } else {
+-    m_require_st = true;
+-    m_require_h2d = true;
+-  }
+-
+-  if (check_st_h2d) {
+-    PT_OP_INFO(
+-        "Shared layer op: ",
+-        m_opname,
+-        ":  guid=",
+-        m_guid,
+-        " require_shape_tensor=",
+-        m_require_st,
+-        " require_h2d_tensor=",
+-        m_require_h2d);
+-  }
+-
+-  return true;
+-}
+-
+-bool CheckNodeWithSharedLayerValidator::ValidateCustom(
+-    const at::Stack& values,
+-    bool is_dynamic,
+-    bool check_st_h2d) {
+-  for (const auto& meta : m_sharedMetaFunc(values)) {
+-    auto inputs = CreateTensorList(meta.inputs_data);
+-    auto outputs = CreateTensorList(meta.outputs_data);
+-
+-    auto validation_result = ValidateGuid(
+-        meta.guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
+-
+-    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+-      if (validation_result ==
+-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
+-        validation_result =
+-            ValidateGuid(meta.guid, inputs, outputs, is_dynamic, false, true);
+-        if (validation_result !=
+-            SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+-          m_require_h2d = true;
+-        }
+-      } else if (
+-          validation_result ==
+-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+-        m_require_st = true;
+-      } else {
+-        // This log line is used by the logging analysis tool. Please be
+-        // cautious when changing.
+-        PT_OP_INFO(
+-            "Shared layer rejected complex op: ",
+-            m_opname,
+-            ":  guid=",
+-            meta.guid,
+-            " inputlist=",
+-            ToDebugString(inputs),
+-            " outputlist=",
+-            ToDebugString(outputs),
+-            " is_dynamic=",
+-            ToDebugString(is_dynamic),
+-            " reason=",
+-            ToDebugString(validation_result));
+-        PT_OP_INFO("Fallback for op: ", m_opname);
+-        return false;
+-      }
+-    } else {
+-      m_require_st = true;
+-      m_require_h2d = true;
+-    }
+-  }
+-
+-  if (check_st_h2d) {
+-    PT_OP_INFO(
+-        "Shared layer complex op: ",
+-        m_opname,
+-        " require_shape_tensor=",
+-        m_require_st,
+-        " require_h2d_tensor=",
+-        m_require_h2d);
+   }
+ 
+   return true;
+diff --git a/hpu_ops/op_validator.h b/hpu_ops/op_validator.h
+index 6ef2482..a9dd619 100644
+--- a/hpu_ops/op_validator.h
++++ b/hpu_ops/op_validator.h
+@@ -98,13 +98,9 @@
+   bool Validate(
+       const at::Stack& values,
+       bool is_dynamic = false,
+-      bool check_st_h2d = false,
+       const SharedMetaVector& meta = {});
+ 
+-  bool ValidateCustom(
+-      const at::Stack& values,
+-      bool is_dynamic = false,
+-      bool check_st_h2d = false);
++  bool ValidateCustom(const at::Stack& values, bool is_dynamic = false);
+ 
+   bool IsRequireH2D() const {
+     return m_require_h2d;
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h b/python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h
+index 3194c1d..64dbb00 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h
+@@ -131,16 +131,16 @@
+ 
+ #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
+ 
+-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...) \
+-  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(               \
+-          {args}, is_dynamic, false, m_shared_meta))) {              \
+-    return false;                                                    \
++#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...)          \
++  if (ABSL_PREDICT_FALSE(                                                     \
++          !validator_##opname.Validate({args}, is_dynamic, m_shared_meta))) { \
++    return false;                                                             \
+   }
+ 
+ #define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \
+     opname, is_dynamic, overload, args...)                          \
+   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
+-          {args}, is_dynamic, false, m_shared_meta))) {             \
++          {args}, is_dynamic, m_shared_meta))) {                    \
+     return false;                                                   \
+   }
+ 
+diff --git a/scripts/gen_op.py b/scripts/gen_op.py
+index db6a226..12673d3 100755
+--- a/scripts/gen_op.py
++++ b/scripts/gen_op.py
+@@ -592,7 +592,6 @@
+     param_vars,
+     check_per_tensor,
+     prefix,
+-    check_st_h2d_str,
+     is_check_kernel_support=False,
+ ):
+     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
+@@ -603,7 +602,7 @@
+ 
+     def single_fallback(tensor_opt=""):
+         tensor_string = tensor_opt + ", " if tensor_opt else ""
+-        return "  {}{}{}{}({}{}{}, {}{}{})\n".format(
++        return "  {}{}{}{}({}{}{}, {}{})\n".format(
+             prefix,
+             fallback_string,
+             per_tensor_string,
+@@ -612,7 +611,6 @@
+             opname,
+             is_dynamic_string,
+             overload_string,
+-            check_st_h2d_str,
+             ", ".join(param_vars),
+         )
+ 
+@@ -1174,15 +1172,7 @@
+ 
+ 
+ def handle_validator_generator(
+-    ctxop,
+-    use_compute_type,
+-    overload,
+-    opname,
+-    param_vars,
+-    tfetcher,
+-    fname,
+-    is_check_kernel_support=False,
+-    check_st_h2d=False,
++    ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, is_check_kernel_support=False
+ ):
+     dtypes = ctxop.get_dtypes()
+     op_validator_generator = ctxop.get_op_validator_generator()
+@@ -1194,16 +1184,8 @@
+ 
+     # Check with compute_type when using compute_type
+     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
+-
+-    # check shape tensor and h2d tensor string
+-    check_st_h2d_str = ""
+-    if fallback_if_prefix and not is_check_kernel_support:
+-        if check_st_h2d:
+-            check_st_h2d_str = "true, "
+-        else:
+-            check_st_h2d_str = "false, "
+     if use_compute_type:
+-        code += "  {}{}{}({}{}{}, {}{}{})\n".format(
++        code += "  {}{}{}({}{}{}, {}{})\n".format(
+             fallback_if_prefix,
+             fallback_string,
+             "2" if overload else "",
+@@ -1211,7 +1193,6 @@
+             opname,
+             ", is_dynamic" if is_check_kernel_support else "",
+             overload + ", " if overload else "",
+-            check_st_h2d_str,
+             ", ".join(param_vars),
+         )
+     else:
+@@ -1232,7 +1213,6 @@
+             param_vars,
+             check_per_tensor,
+             fallback_if_prefix,
+-            check_st_h2d_str,
+             is_check_kernel_support,
+         )
+     code += "\n"
+@@ -1556,9 +1536,7 @@
+     )
+ 
+     code += promotion_code
+-    code += handle_validator_generator(
+-        ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, False, True
+-    )
++    code += handle_validator_generator(ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname)
+     code += handle_fallback_check(ctxop, overload, opname, param_vars)
+ 
+     is_eager_op_supported = is_eager_op(ctxop)
+diff --git a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp
+index d26bd36..b703b1d 100644
+--- a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp
++++ b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp
+@@ -26,7 +26,7 @@
+   [[maybe_unused]] bool require_h2d = false;
+   [[maybe_unused]] bool require_st = false;
+ 
+-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, true, self, batch1, batch2, beta, alpha)
++  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
+ 
+   eager::EagerOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+   hpu_op.SetOutputMetaFn(AddBMMMeta);
+diff --git a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp
+index 09a3baa..b0fca26 100644
+--- a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp
++++ b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp
+@@ -29,7 +29,7 @@
+   auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+   static_cast<void>(compute_type);
+ 
+-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, true, self, boundaries, out_int32, right)
++  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)
+ 
+   eager::EagerOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+   hpu_op.set_scalar_types({compute_type});
+diff --git a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp
+index 0bda883..a4885b1 100644
+--- a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp
++++ b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp
+@@ -43,7 +43,7 @@
+   [[maybe_unused]] bool require_h2d = false;
+   [[maybe_unused]] bool require_st = false;
+ 
+-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, false, self, batch1, batch2, beta, alpha)
++  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
+ 
+   LazyOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+   hpu_op.SetOutputMetaFn(AddBMMMeta);
+diff --git a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp
+index 140bfa2..42a3141 100644
+--- a/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp
++++ b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp
+@@ -36,7 +36,7 @@
+   auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+   static_cast<void>(compute_type);
+ 
+-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, false, self, boundaries, out_int32, right)
++  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)
+ 
+   LazyOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+   hpu_op.set_scalar_types({compute_type});
+@@ -52,7 +52,7 @@
+   [[maybe_unused]] bool require_h2d = false;
+   [[maybe_unused]] bool require_st = false;
+ 
+-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, false, self, alpha, scale, input_scale)
++  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, self, alpha, scale, input_scale)
+ 
+   LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};
+   RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);

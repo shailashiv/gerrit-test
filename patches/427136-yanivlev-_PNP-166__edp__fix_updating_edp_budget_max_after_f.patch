@@ -1,0 +1,23 @@
+From 9afd0a3fc3eb9cbbe697ae28fb16267da55d93a2 Mon Sep 17 00:00:00 2001
+From: Yaniv Levinsky <ylevinsky@habana.ai>
+Date: Wed, 17 Apr 2024 12:37:37 +0300
+Subject: [PATCH] [PNP-166] edp: fix updating edp budget max after factor change
+
+The EDP budgets limit must be updated after updating the EDP factors.
+
+Change-Id: I3c32987617dae963430ac60594f9178ffc0ad3c4
+Signed-off-by: Yaniv Levinsky <ylevinsky@habana.ai>
+---
+
+diff --git a/lib/common/api.c b/lib/common/api.c
+index ec76249..b74e0fd 100644
+--- a/lib/common/api.c
++++ b/lib/common/api.c
+@@ -103,6 +103,7 @@
+ 		if (arg0 > power->excursion.num_edps)
+ 			return PID_API_INVALID_ARGUMENT;
+ 		power->excursion.edps[arg0].tdp_multiplier = data + 100;
++		update_edp_budget_max(platdata);
+ 		break;
+ 	case PID_API_SETVAR_EDP_WINDOW_DURATION:
+ 		if (arg0 > power->excursion.num_edps)

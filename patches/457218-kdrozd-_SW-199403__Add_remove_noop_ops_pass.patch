@@ -1,0 +1,191 @@
+From d65388287955aa0130a94bb4fc8c7e6c1b2d1584 Mon Sep 17 00:00:00 2001
+From: Konrad Drozd <kdrozd@habana.ai>
+Date: Wed, 16 Oct 2024 15:03:14 +0300
+Subject: [PATCH] [SW-199403] Add remove_noop_ops pass
+
+Change-Id: I7ece153403c15657a4b65a59b92cae7f996c4f98
+---
+
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+index 9e05346..692589d 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+@@ -82,6 +82,7 @@
+             pass_remove_unnecessary_full_copy,
+             pass_remove_unnecessary_expand,
+             pass_remove_unnecessary_bmm_view,
++            pass_remove_noops,
+             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+             pass_reinplace_inplaceable_ops,
+             pass_mark_collective_input,
+@@ -3098,3 +3099,94 @@
+     ctx.graph_module.graph.lint()
+     ctx.graph_module.recompile()
+     return True
++
++
++def pass_remove_noops(ctx: OptimizerContext):
++    from torch._inductor.fx_passes.post_grad import noop_registry
++    from torch._inductor.fx_utils import get_fake_args_kwargs, get_node_storage
++
++    def same_meta(node1: torch.fx.Node, node2: torch.fx.Node):
++        """True if two nodes have the same metadata"""
++        from torch.fx.experimental.symbolic_shapes import statically_known_true, sym_eq
++
++        val1 = node1.meta.get("val")
++        val2 = node2.meta.get("val")
++
++        return (
++            val1 is not None
++            and val2 is not None
++            and node1.meta["output_shapes"] == node2.meta["output_shapes"]
++            and node1.meta["output_layouts"] == node2.meta["output_layouts"]
++            and node1.meta["output_dtypes"] == node2.meta["output_dtypes"]
++            and node1.meta["output_device"] == node2.meta["output_device"]
++            and (
++                "torch.strided" not in node1.meta["output_layouts"]
++                or node1.meta["output_strides"] == node2.meta["output_strides"]
++            )
++        )
++
++    def remove_noop_ops(graph: torch.fx.Graph):
++        """
++        Removes both operations that are essentially aten.clone and operations that are essentially aten.alias from the graph.
++        """
++        graph_changed = False
++        inputs = set()
++        input_storages = set()
++        output_storages = set()
++        for node in graph.find_nodes(op="placeholder"):
++            inputs.add(node)
++            input_storages.add(get_node_storage(node))
++
++        output_node = next(iter(reversed(graph.nodes)))
++        assert output_node.op == "output"
++        outputs = output_node.args[0]
++        if not isinstance(outputs, (list, tuple)):
++            # nested subgraphs can have singleton outputs
++            outputs = (outputs,)
++        for out in outputs:
++            if isinstance(out, torch.fx.Node):
++                output_storages.add(get_node_storage(out))
++
++        for node in graph.nodes:
++            if node.target in noop_registry:
++                cond, src_index = noop_registry[node.target]
++
++                if isinstance(src_index, int):
++                    src = node.args[src_index]
++                else:
++                    src = src_index(node.args)
++                if not isinstance(src, torch.fx.Node):
++                    continue
++                # Don't introduce new aliasing between inputs and outputs.
++                # See fx_passes/README.md for a discussion of why this is
++                # necessary.
++                node_storage = get_node_storage(node)
++                src_storage = get_node_storage(src)
++                node_is_view = node_storage == src_storage
++                if (
++                    not node_is_view
++                    and node_storage in output_storages
++                    and (src_storage in input_storages or src_storage in output_storages)
++                ):
++                    continue
++
++                # Even if input and outputs are expected to alias,
++                # don't make "node is src" True
++                if node_is_view and node in output_node.args and (src in inputs or src in output_node.args):
++                    continue
++
++                is_valid, args, kwargs = get_fake_args_kwargs(node)
++                if not is_valid:
++                    continue
++                if same_meta(node, src) and cond(*args, **kwargs):
++                    node.replace_all_uses_with(src)
++                    graph.erase_node(node)
++                    graph_changed = True
++        return graph_changed
++
++    if remove_noop_ops(ctx.graph_module.graph):
++        ctx.graph_module.graph.eliminate_dead_code()
++        ctx.graph_module.graph.lint()
++        ctx.graph_module.recompile()
++        return True
++    return False
+diff --git a/tests/pytest_working/compile/test_remove_noop.py b/tests/pytest_working/compile/test_remove_noop.py
+new file mode 100644
+index 0000000..955c96a
+--- /dev/null
++++ b/tests/pytest_working/compile/test_remove_noop.py
+@@ -0,0 +1,70 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++import habana_frameworks.torch
++import pytest
++import torch
++from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
++from test_utils import format_tc
++
++
++def test_clone():
++    def fn(x):
++        x = x + x
++        y = x.clone()
++        x = x - x / 2
++        return x + y
++
++    input = torch.tensor([1, 2], device="hpu")
++    fn_cmp = torch.compile(fn, backend="hpu_backend")
++
++    with FxGraphAnalyzer() as fga:
++        res = fn_cmp(input)
++        print(res)
++        print(fga.get_ops_summary())
++
++
++# Issue repro
++dtypes = [torch.float32]  # , torch.bfloat16, torch.int, torch.int64]
++
++
++@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
++def test_copy(dtype):
++    op = "copy"
++    make_view = lambda t: t[0:8:2, 0:6:2]
++
++    def fn_op(dst, src):
++        getattr(dst, op + "_")(src)
++        return dst
++
++    src_shape = (4, 3)
++    dst_shape = (8, 6)
++
++    fn_cmp = torch.compile(fn_op, backend="inductor")
++    cpu_tensors_dst = torch.zeros(dst_shape, device="cpu", dtype=dtype)
++    cpu_tensors_src = torch.randint(-10, 10, src_shape, device="cpu", dtype=dtype)
++    cpu_dst_view = make_view(cpu_tensors_dst)
++    res = fn_cmp(cpu_dst_view, cpu_tensors_src)
++    print(res)
++    assert True
++
++    print("CPU ok")
++
++    fn_cmp = torch.compile(fn_op, backend="hpu_backend")
++    hpu_tensors_dst = cpu_tensors_dst.to("hpu")
++    hpu_tensors_src = cpu_tensors_src.to("hpu")
++    hpu_dst_view = make_view(hpu_tensors_dst)
++    res = fn_cmp(hpu_dst_view, hpu_tensors_src)
++    print(res)
++    assert True
++
++    print("HPU ok")

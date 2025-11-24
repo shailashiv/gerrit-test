@@ -1,0 +1,132 @@
+From a92aa0592f28af17e6e9c120b41a04ee343e6855 Mon Sep 17 00:00:00 2001
+From: mwehbe <mwehbe@habana.ai>
+Date: Mon, 07 Apr 2025 17:17:38 +0300
+Subject: [PATCH] add die.strap name + error messge if put error value
+
+Change-Id: I4b6c2ea278c95ed7e057c8d18fb96279acb25549
+Signed-off-by: mwehbe <mwehbe@habana.ai>
+(cherry picked from commit 8476fb7293fb35d2e4d6b84320d7460cedebea0b)
+---
+
+diff --git a/json/tests/HL325/dut_spec/definitions/HL325_GUI_definitions.json b/json/tests/HL325/dut_spec/definitions/HL325_GUI_definitions.json
+index ef0eb16..fccb592 100644
+--- a/json/tests/HL325/dut_spec/definitions/HL325_GUI_definitions.json
++++ b/json/tests/HL325/dut_spec/definitions/HL325_GUI_definitions.json
+@@ -1,5 +1,5 @@
+ {
+-  "command": "sudo python tools/HL338/get_hl338_data.py",
++  "command": "sudo python tools/HL325/get_hl325_data.py",
+   "get_dut_info":{
+     "Get Fan RPM": "--rpm",
+     "Read TMP432": "--tmp432",
+@@ -52,19 +52,25 @@
+         "flag":"--vdd",
+         "values": "None",
+         "add_entry": true,
+-        "add_combox": false
++        "add_combox": false,
++        "max_value":850,
++        "min_value":650
+       },
+       "Set C_VDD Value": {
+         "flag":"--c_vdd ",
+         "values": "None",
+         "add_entry": true,
+-        "add_combox": false
++        "add_combox": false,
++        "max_value":850,
++        "min_value":650
+       },
+       "Set D2D_VDD Value":{
+         "flag":"--d2d_vdd ",
+         "values": "None",
+         "add_entry": true,
+-        "add_combox": false
++        "add_combox": false,
++        "max_value":850,
++        "min_value":650
+       },
+       "Reset CPLD Faults":{
+         "flag":"--reset_cpld_faults",
+diff --git a/tools/GUI/Widget/create_config_dut.py b/tools/GUI/Widget/create_config_dut.py
+index 851f088..f64b527 100644
+--- a/tools/GUI/Widget/create_config_dut.py
++++ b/tools/GUI/Widget/create_config_dut.py
+@@ -80,19 +80,32 @@
+         command = ""
+         if self.label_name == "Set Fan Speed":
+             selected = self.combo_var.get()
+-            command = "echo '%s' | " % self.values.index(selected)
++            command = "echo '%s' | " % (self.values.index(selected) + 1)
+         command += self.data["command"]
+ 
+         options = dict(self.data["config_dut"]["options"])
+         if self.label_name in options.keys():
+             command += " " + options[self.label_name]["flag"]
+ 
++        if self.label_name == "Set Strap":
++            command = command + " " + self.combo_var.get() + " " + self.entry_var.get()
++        if self.label_name in ["Set C_VDD & D2D_VDD Value", "Set C_VDD Value", "Set D2D_VDD Value"]:
++            value = int(self.entry_var.get())
++            if value < options[self.label_name]["min_value"] or value > options[self.label_name]["max_value"]:
++                self.show_error("please put value between %s-%s" % (
++                options[self.label_name]["min_value"], options[self.label_name]["max_value"]))
++                return
++            command = command + " " + str(value)
+         print(f"Executing: {command}")
+ 
+         # Run command in a separate thread
+         thread = threading.Thread(target=self.run_command, args=(command,))
+         thread.start()
+ 
++    def show_error(self, messge):
++        from tkinter import messagebox
++        messagebox.showerror("Error", messge)
++
+     def run_command(self, command):
+         """Runs the command and updates the UI safely using queue."""
+         try:
+diff --git a/tools/GUI/gui_manager.py b/tools/GUI/gui_manager.py
+index a3fbc5e..3624993 100644
+--- a/tools/GUI/gui_manager.py
++++ b/tools/GUI/gui_manager.py
+@@ -11,7 +11,7 @@
+ from pages.cfg_page import CfgPage
+ from pages.get_data import GetData
+ from pages.tests_trigger import TestRunner
+-from pages.config_dut import Page3
++from pages.config_dut import  configDut
+ from exec import executer
+ 
+ 
+@@ -36,7 +36,7 @@
+             "Get Info": GetData,
+             "Test Runner": TestRunner,
+             "Config Machines":CfgPage,
+-            "Config DUT": Page3  # Placeholder for default tab
++            "Config DUT":  configDut  # Placeholder for default tab
+         }
+ 
+         for tab_name, PageClass in pages.items():
+diff --git a/tools/GUI/pages/config_dut.py b/tools/GUI/pages/config_dut.py
+index 3b43612..480a4ab 100644
+--- a/tools/GUI/pages/config_dut.py
++++ b/tools/GUI/pages/config_dut.py
+@@ -9,7 +9,7 @@
+ 
+ 
+ # second window frame page1
+-class Page3(tk.Frame):
++class configDut(tk.Frame):
+ 
+     def __init__(self, parent, controller):
+         tk.Frame.__init__(self, parent)
+@@ -39,7 +39,7 @@
+         strap_help_dict = dict()
+         for die in list_die:
+             for strap, help in data[die].items():
+-                strap_help_dict[strap] = help['help']
++                strap_help_dict[die +"." +strap] = help['help']
+         return strap_help_dict
+ 
+     def get_data_definition(self):

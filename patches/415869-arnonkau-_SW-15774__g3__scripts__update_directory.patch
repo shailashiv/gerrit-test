@@ -1,0 +1,96 @@
+From 6cc0edb334b86df6ebe0a75aea4f2475c9e81269 Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Sat, 11 May 2024 16:03:20 +0300
+Subject: [PATCH] [SW-15774] g3: scripts: update directory
+
+Prepare to use new directories
+
+Change-Id: I0982bf340d3673773c50e035cf7117c6df878abe
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/scripts/make/gaudi3/Makefile b/scripts/make/gaudi3/Makefile
+index 76a818a..118c877 100644
+--- a/scripts/make/gaudi3/Makefile
++++ b/scripts/make/gaudi3/Makefile
+@@ -49,18 +49,18 @@
+ 
+ .PHONY: gaudi3-eeprom-set-defaults
+ gaudi3-eeprom-set-defaults:
+-	@echo "Layout Version=6" > $(IMAGES_DIR)/eeprom.txt
+-	@echo "DDR Type and Speed=1c1b" >> $(IMAGES_DIR)/eeprom.txt
+-	@echo "Max Frequency [MHz]=640" >> $(IMAGES_DIR)/eeprom.txt
+-	@echo "Max Power [Watt]=0352" >> $(IMAGES_DIR)/eeprom.txt
+-	@echo "Version=$(HL_EEPROM_VER)" >> $(IMAGES_DIR)/eeprom.txt
+-	@echo "Scratch Pad=0000" >> $(IMAGES_DIR)/eeprom.txt
++	@echo "Layout Version=6" > $(STAGE_DIR)/eeprom.txt
++	@echo "DDR Type and Speed=1c1b" >> $(STAGE_DIR)/eeprom.txt
++	@echo "Max Frequency [MHz]=640" >> $(STAGE_DIR)/eeprom.txt
++	@echo "Max Power [Watt]=0352" >> $(STAGE_DIR)/eeprom.txt
++	@echo "Version=$(HL_EEPROM_VER)" >> $(STAGE_DIR)/eeprom.txt
++	@echo "Scratch Pad=0000" >> $(STAGE_DIR)/eeprom.txt
+ 
+ .PHONY: gaudi3-eeprom-create-default
+ gaudi3-eeprom-create-default: gaudi3-eeprom-set-defaults gaudi3-eeprom-create
+ 	@echo "default eeprom created"
+ 
+-EEPROM_DATA_FILE = $(IMAGES_DIR)/eeprom-recovery.txt
++EEPROM_DATA_FILE = $(STAGE_DIR)/eeprom-recovery.txt
+ .PHONY: gaudi3-eeprom-set-recovery
+ gaudi3-eeprom-set-recovery:
+ 	@echo "Layout Version=6" > $(EEPROM_DATA_FILE)
+@@ -77,7 +77,7 @@
+ 	$(HOST_MAKE_ENV) ${BR2_EXTERNAL}/board/habanalabs/common/create-eeprom-fit.sh 1 $(RECOVERY_PROP_NAME) recovery
+ 	@echo "recovery eeprom created"
+ 
+-EFUSE_DATA_FILE = $(IMAGES_DIR)/efuse_spare_bit_write.txt
++EFUSE_DATA_FILE = $(STAGE_DIR)/efuse_spare_bit_write.txt
+ .PHONY: gaudi3-efuse-write-set-default
+ gaudi3-efuse-write-set-default:
+ 	@echo "0" > $(EFUSE_DATA_FILE)
+@@ -127,11 +127,11 @@
+ 				gaudi3-copy-efuse-to-fake-efuse-create
+ 
+ 	@$(call hl-check-files,$(GAUDI3_INTERNAL_FITS))
+-	@tar czf $(IMAGES_DIR)/${DEV_PREFIX}-int-fit.tgz -C $(ITBS_DIR)/ $(GAUDI3_INTERNAL_FITS)
++	@tar czf $(BINS_DIR)/${DEV_PREFIX}-int-fit.tgz -C $(ITBS_DIR)/ $(GAUDI3_INTERNAL_FITS)
+ 
+ .PHONY: gaudi3-internal-fit-install
+ gaudi3-internal-fit-install:
+-	sshpass -p$(HL_PASSWD) $(SCP) $(IMAGES_DIR)/${DEV_PREFIX}-int-fit.tgz root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(DEV_PREFIX)/
++	sshpass -p$(HL_PASSWD) $(SCP) $(BINS_DIR)/${DEV_PREFIX}-int-fit.tgz root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(DEV_PREFIX)/
+ 
+ GAUDI3_SECURITY_FITS := ${DEV_PREFIX}-eeprom_read.itb	\
+ 	${DEV_PREFIX}-revoke_key.itb			\
+@@ -160,11 +160,11 @@
+ 				gaudi3-psu-ctrl-create
+ 
+ 	@$(call hl-check-files,$(GAUDI3_SECURITY_FITS))
+-	@tar czf $(IMAGES_DIR)/${DEV_PREFIX}-sec-fit.tgz -C $(ITBS_DIR)/ $(GAUDI3_SECURITY_FITS)
++	@tar czf $(BINS_DIR)/${DEV_PREFIX}-sec-fit.tgz -C $(ITBS_DIR)/ $(GAUDI3_SECURITY_FITS)
+ 
+ .PHONY: gaudi3-security-fit-install
+ gaudi3-security-fit-install:
+-	sshpass -p$(HL_PASSWD) $(SCP) $(IMAGES_DIR)/${DEV_PREFIX}-sec-fit.tgz root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(DEV_PREFIX)/
++	sshpass -p$(HL_PASSWD) $(SCP) $(BINS_DIR)/${DEV_PREFIX}-sec-fit.tgz root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(DEV_PREFIX)/
+ 
+ GAUDI3_UTILS := i2c_indirect fake_fuse
+ 
+@@ -172,7 +172,7 @@
+ gaudi3-utils-create:
+ 	@pushd scripts &&				\
+ 	tar czf gaudi3-utils.tgz ${GAUDI3_UTILS} &&	\
+-	cp gaudi3-utils.tgz $(IMAGES_DIR)/ &&		\
++	cp gaudi3-utils.tgz $(BINS_DIR)/ &&		\
+ 	popd
+ 
+ .PHONY: gaudi3-cpld-create
+@@ -181,7 +181,7 @@
+ 
+ .PHONY: gaudi3-cpld-install
+ gaudi3-cpld-install:
+-	sshpass -p$(HL_PASSWD) $(SCP) $(IMAGES_DIR)/${HL_DEV}-cpld.itb	root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(HL_DEV)/
++	sshpass -p$(HL_PASSWD) $(SCP) $(ITBS_DIR)/${HL_DEV}-cpld.itb	root@$(HL_INSTALL_LAB_IP):/lib/firmware/habanalabs/$(HL_DEV)/
+ 
+ .PHONY: gaudi3-pldm-package-spi-flash-create
+ gaudi3-pldm-package-spi-flash-create:

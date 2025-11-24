@@ -1,0 +1,36 @@
+From df147781d7e8857ae1ee9f735758b02f878d4d44 Mon Sep 17 00:00:00 2001
+From: Sanyog Kale <skale@habana.ai>
+Date: Sun, 03 Nov 2024 18:10:25 +0200
+Subject: [PATCH] [SW-207417] gaudi3: lock interrupts while sending heartbeat
+
+Whenever there is flood of interrupts, arcevent remains busy
+executing ISRs or pre-empting from main thread to process
+ISR and push interrupt to be processed in main thread. In such
+scenarios, arcevent fails to send heartbeat to arcmgmt. This patch
+locks interrupt in heartbeat send function.
+
+Change-Id: Ice99bad0be20b013afdaabb78d0bf4006e0d6ef3
+---
+
+diff --git a/src/gaudi3/dev.c b/src/gaudi3/dev.c
+index 04b2dad..e8e5e1e 100644
+--- a/src/gaudi3/dev.c
++++ b/src/gaudi3/dev.c
+@@ -399,6 +399,8 @@
+ #define HEARTBEAT_TIMEOUT	3000
+ void hl_event_send_heartbeat(struct hl_event_config *config)
+ {
++	int key = arch_irq_lock();
++
+ 	int64_t curr_time = k_uptime_get();
+ 
+ 	if ((curr_time - config->hb_prev_update_time) >= HEARTBEAT_TIMEOUT) {
+@@ -409,6 +411,8 @@
+ 
+ 		config->hb_prev_update_time = curr_time;
+ 	}
++
++	arch_irq_unlock(key);
+ }
+ 
+ #define EVT_CHECK_TIMEOUT_MS	2

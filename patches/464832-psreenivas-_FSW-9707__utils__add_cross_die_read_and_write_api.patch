@@ -1,0 +1,144 @@
+From bc9d99a8db73efa79717cab706b3c2c11b034064 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 11 Mar 2025 12:15:22 +0200
+Subject: [PATCH] [FSW-9707] utils: add cross die read and write apis
+
+This patch adds CFG_ADDR_MNPL_WREG32, CFG_ADDR_MNPL_RREG32
+and CFG_HBW_ADDR_MNPL apis which will be used when accessing
+other die config space. These apis disables the address manipulation
+control and then perform read/write operations and renables
+this bit.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: Icd586754538c1d5588ffd9566ec5e4f3ca0bbb24
+---
+
+diff --git a/drivers/misc/common_utils/gpu/fs1/common_utils.c b/drivers/misc/common_utils/gpu/fs1/common_utils.c
+index 5222d83..859137e 100644
+--- a/drivers/misc/common_utils/gpu/fs1/common_utils.c
++++ b/drivers/misc/common_utils/gpu/fs1/common_utils.c
+@@ -14,6 +14,7 @@
+ #include <fs1_efuse.h>
+ #include <efuse.h>
+ #include <zephyr/device.h>
++#include <soc/intel/gpu/fs1/soc.h>
+ 
+ #include <hl_platform_defs.h>
+ 
+@@ -22,8 +23,11 @@
+ 
+ #define DIE_ID_MASK		(BIT(27)|BIT(26)|BIT(25))
+ #define DIE_ID_BIT_OFFSET	25
++#define FS1_INVALID_CORE_ID	0xFF
+ 
+ static enum fs1_die_id fs1_die_id = FS1_INVALID_DIE_ID;
++static uint32_t core_id = FS1_INVALID_CORE_ID;
++static uint32_t offset;
+ 
+ uint32_t dev_read_die_id(void)
+ {
+@@ -98,3 +102,56 @@
+ {
+ 	return 0;
+ }
++
++#define FS1_NUM_OF_IO_PSOC_ARCS		4
++#define FS1_NUM_OF_COMPUTE_PSOC_ARCS	2
++#define COMPUTE_DIST (mmCOMPUTE_1_CFG_PSOC_ARC_MNG_LOCAL_BASE -\
++			mmCOMPUTE_0_CFG_PSOC_ARC_MNG_LOCAL_BASE)
++static const uint32_t io_base_addr[FS1_NUM_OF_IO_PSOC_ARCS] = {
++	mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_LOCAL_BASE,
++	mmIO_0_CFG_HALF_0_PSOC_ARC_RST_LOCAL_BASE,
++	mmIO_0_CFG_HALF_0_PSOC_ARC_PID_LOCAL_BASE,
++	mmIO_0_CFG_HALF_0_PSOC_ARC_MISC_LOCAL_BASE,
++};
++
++static const uint32_t cmpt_base_addr[FS1_NUM_OF_COMPUTE_PSOC_ARCS] = {
++	mmCOMPUTE_0_CFG_PSOC_ARC_MNG_LOCAL_BASE,
++	mmCOMPUTE_0_CFG_PSOC_ARC_RST_LOCAL_BASE,
++};
++
++/*
++ * Note: It is the responsiblity of the caller to do arch_irq_lock/unlock such that
++ * the caller is not preempted which otherwise might result in undefined behaviour
++ */
++void fs1_addr_mnpl_ctrl(bool en, bool hbw_mem)
++{
++	uint32_t reg = hbw_mem ? mmARC_LOCAL_CONF_MEM_ADDR_MNPL_CTRL :
++				mmARC_LOCAL_CONF_CFG_ADDR_MNPL_CTRL;
++	if (fs1_die_id == FS1_INVALID_DIE_ID)
++		fs1_die_id = dev_read_die_id();
++	if (core_id == FS1_INVALID_CORE_ID)
++		core_id = FS_ARC_V2_CORE_ID();
++
++	if (offset)
++		goto addr_cntrl;
++
++	switch (fs1_die_id) {
++	case FS1_IO_DIE_0:
++		if (core_id == IO0_PCIE_ARC_CXL_ID)
++			return;
++		offset = io_base_addr[core_id];
++	break;
++	case FS1_COMPUTE_DIE_0:
++		offset = cmpt_base_addr[core_id];
++	break;
++	case FS1_COMPUTE_DIE_1:
++		offset = COMPUTE_DIST + cmpt_base_addr[core_id];
++	break;
++	default:
++		LOG_DBG("Invalid die id %u", fs1_die_id);
++	return;
++	}
++
++addr_cntrl:
++	CFG_WREG32((offset + reg), en ? 1 : 0);
++}
+diff --git a/include/zephyr/drivers/misc/common/fs1/gpu_utils.h b/include/zephyr/drivers/misc/common/fs1/gpu_utils.h
+index 77f54e7..a531f24 100644
+--- a/include/zephyr/drivers/misc/common/fs1/gpu_utils.h
++++ b/include/zephyr/drivers/misc/common/fs1/gpu_utils.h
+@@ -16,5 +16,6 @@
+ bool dev_is_standalone_io(void);
+ bool dev_is_cfg_addr_valid(uint32_t addr, uint8_t current_die_id,
+ 			uint8_t num_dies, bool spi_gw_dis);
++void fs1_addr_mnpl_ctrl(bool en, bool fw_mem);
+ 
+ #endif /* __GPU_UTILS_H___ */
+diff --git a/include/zephyr/drivers/misc/common/fs1/hl_platform_defs.h b/include/zephyr/drivers/misc/common/fs1/hl_platform_defs.h
+index 2ce9ff9..791fd0a 100644
+--- a/include/zephyr/drivers/misc/common/fs1/hl_platform_defs.h
++++ b/include/zephyr/drivers/misc/common/fs1/hl_platform_defs.h
+@@ -16,6 +16,7 @@
+ #define HL_CFG_BASE_MASK	0x7FFFFFFF
+ #define CFG_RREG32(c)		sys_read32((HL_CFG_BASE | ((c) & HL_CFG_BASE_MASK)))
+ #define CFG_WREG32(c, v)	sys_write32((v), (HL_CFG_BASE | ((c) & HL_CFG_BASE_MASK)))
++#define CFG_HBW_ADDR_MNPL(v)	fs1_addr_mnpl_ctrl(v, true);
+ 
+ #define CFG_RMWREG32(reg, val, mask)				\
+ 	do {							\
+@@ -25,6 +26,24 @@
+ 		CFG_WREG32((reg), tmp_);			\
+ 	} while (0)
+ 
++#define CFG_ADDR_MNPL_WREG32(c, v)				\
++	({							\
++		unsigned int key = arch_irq_lock();		\
++		fs1_addr_mnpl_ctrl(0, false);			\
++		CFG_WREG32(c, v);				\
++		fs1_addr_mnpl_ctrl(1, false);			\
++		arch_irq_unlock(key);				\
++	})
++
++#define CFG_ADDR_MNPL_RREG32(c)					\
++	({							\
++		unsigned int key = arch_irq_lock();		\
++		fs1_addr_mnpl_ctrl(0, false);			\
++		uint32_t val = CFG_RREG32(c);			\
++		fs1_addr_mnpl_ctrl(1, false);			\
++		arch_irq_unlock(key);				\
++		val;						\
++	})
+ 
+ /*
+  * Note: Below API's should be only used with compute die 0 addresses,

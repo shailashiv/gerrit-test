@@ -1,0 +1,217 @@
+From 5fb8a9c2d3f27147c98971f221251aa62f7bec8f Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Tue, 14 Jan 2025 20:50:46 +0200
+Subject: [PATCH] [SW-214213] add centos7.5
+
+Change-Id: Ic9835910c5d8b1c96a7c376cfa5284f95c8efda1
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/templates/ansible/playbooks/cd.yml b/templates/ansible/playbooks/cd.yml
+index c0f34f8..742cee5 100644
+--- a/templates/ansible/playbooks/cd.yml
++++ b/templates/ansible/playbooks/cd.yml
+@@ -36,9 +36,10 @@
+         name: habana/proxy
+     - include_role:
+         name: kernel
+-      when: ansible_os_family != 'Suse'
++      when: ansible_os_family != 'Suse' and ansible_distribution != "CentOS"
+     - include_role:
+         name: tools/docker
++      when: ansible_distribution != "CentOS"
+     - include_role:
+         name: habana/repos
+     - include_role:
+diff --git a/templates/ansible/roles/habana/common/tasks/main.yml b/templates/ansible/roles/habana/common/tasks/main.yml
+index 7aed0ac..f8d2775 100644
+--- a/templates/ansible/roles/habana/common/tasks/main.yml
++++ b/templates/ansible/roles/habana/common/tasks/main.yml
+@@ -57,7 +57,7 @@
+     owner: root
+     group: root
+     mode: 0755
+-  when: ansible_distribution == "Amazon"
++  when: ansible_distribution == "Amazon" or ansible_distribution == "CentOS"
+ 
+ # - name: Add habanalabs udev rules
+ #   template:
+diff --git a/templates/ansible/roles/habana/repos/templates/centos-7.5.j2 b/templates/ansible/roles/habana/repos/templates/centos-7.5.j2
+index 89deb4b..d6f4510 100644
+--- a/templates/ansible/roles/habana/repos/templates/centos-7.5.j2
++++ b/templates/ansible/roles/habana/repos/templates/centos-7.5.j2
+@@ -1,14 +1,7 @@
+ [habanalabs-testing]
+ name=pre release Centos7 - Testing
+-baseurl={{ atifactory_server }}/pre-release-centos7/7/7.5/testing
++baseurl={{ atifactory_server }}/hl-centos-prerel-local/7/7.5/testing
+ failovermethod=priority
+ enabled=1
+ gpgcheck=0
+ gpgkey={{ public_key }}
+-
+-[habanalabs-qa]
+-name=pre release Centos7 - QA
+-baseurl={{ atifactory_server }}/pre-release-centos7/7/7.5/qa
+-enabled=1
+-gpgcheck=0
+-gpgkey={{ public_key }}
+\ No newline at end of file
+diff --git a/templates/ansible/roles/habana/repos/vars/centos-7.5.yml b/templates/ansible/roles/habana/repos/vars/centos-7.5.yml
+new file mode 100644
+index 0000000..fea883a
+--- /dev/null
++++ b/templates/ansible/roles/habana/repos/vars/centos-7.5.yml
+@@ -0,0 +1,5 @@
++---
++repos:
++  - name: habanalabs
++    repo_file_name: /etc/yum.repos.d/habanalabs.repo
++    repo_template_name: centos-7.5.j2
+\ No newline at end of file
+diff --git a/templates/base/centos/centos7.5.json b/templates/base/centos/centos7.5.json
+new file mode 100644
+index 0000000..fc43a93
+--- /dev/null
++++ b/templates/base/centos/centos7.5.json
+@@ -0,0 +1,4 @@
++{
++    "name": "centos7.5",
++    "base_box_name": "os/centos/centos7.5-libvirt.box"
++}
+\ No newline at end of file
+diff --git a/templates/base/centos/scripts/common.sh b/templates/base/centos/scripts/common.sh
+index c09dd7d..ae79b7b 100644
+--- a/templates/base/centos/scripts/common.sh
++++ b/templates/base/centos/scripts/common.sh
+@@ -15,7 +15,7 @@
+ # if [ "$major_version" -ge 8 ]; then
+ #     $pkg_cmd update -y
+ # fi
+-$pkg_cmd install -y wget nfs-utils lsof vim git pciutils redhat-lsb-core #vim bc autoconf flex bison libcmocka-devel ncurses-devel git-lfs
++$pkg_cmd install -y wget nfs-utils lsof vim git git-lfs pciutils redhat-lsb-core #vim bc autoconf flex bison libcmocka-devel ncurses-devel git-lfs
+ 
+ # $pkg_cmd --enablerepo=epel install -y \
+ #     python3 \
+@@ -39,8 +39,8 @@
+ 
+ sed -i 's/\(Defaults.*secure_path.*\)/#\1/g' /etc/sudoers
+ 
+-sed -i 's/quiet//g' /etc/default/grub
+-sed -i 's/splash//g' /etc/default/grub
+-sed -i -e 's/^GRUB_TIMEOUT=[0-9]\+$/GRUB_TIMEOUT=1/' /etc/default/grub
++# sed -i 's/quiet//g' /etc/default/grub
++# sed -i 's/splash//g' /etc/default/grub
++# sed -i -e 's/^GRUB_TIMEOUT=[0-9]\+$/GRUB_TIMEOUT=1/' /etc/default/grub
+ 
+-grub2-mkconfig -o /boot/grub2/grub.cfg
+\ No newline at end of file
++# grub2-mkconfig -o /boot/grub2/grub.cfg
+\ No newline at end of file
+diff --git a/templates/cd/centos/centos7.5.json b/templates/cd/centos/centos7.5.json
+new file mode 100644
+index 0000000..28ee9e1
+--- /dev/null
++++ b/templates/cd/centos/centos7.5.json
+@@ -0,0 +1,3 @@
++{
++    "base_box_name": "centos7.5-base"
++}
+\ No newline at end of file
+diff --git a/templates/cd/centos/scripts/cleanup.sh b/templates/cd/centos/scripts/cleanup.sh
+index 725e518..d1fc78c 100644
+--- a/templates/cd/centos/scripts/cleanup.sh
++++ b/templates/cd/centos/scripts/cleanup.sh
+@@ -51,37 +51,37 @@
+     fi
+ done
+ 
+-# new-style network device naming for centos7
+-if [ "$major_version" -eq 7 ]; then
+-  # radio off & remove all interface configration
+-  nmcli radio all off
+-  /bin/systemctl stop NetworkManager.service
+-  for ifcfg in `ls /etc/sysconfig/network-scripts/ifcfg-* |grep -v ifcfg-lo` ; do
+-    rm -f $ifcfg
+-  done
+-  rm -rf /var/lib/NetworkManager/*
++# # new-style network device naming for centos7
++# if [ "$major_version" -eq 7 ]; then
++#   # radio off & remove all interface configration
++#   nmcli radio all off
++#   /bin/systemctl stop NetworkManager.service
++#   for ifcfg in `ls /etc/sysconfig/network-scripts/ifcfg-* |grep -v ifcfg-lo` ; do
++#     rm -f $ifcfg
++#   done
++#   rm -rf /var/lib/NetworkManager/*
+ 
+-  echo "==> Setup /etc/rc.d/rc.local for EL7"
+-  cat <<_EOF_ | cat >> /etc/rc.d/rc.local
+-#BENTO-BEGIN
+-LANG=C
+-# delete all connection
+-for con in \`nmcli -t -f uuid con\`; do
+-  if [ "\$con" != "" ]; then
+-    nmcli con del \$con
+-  fi
+-done
+-# add gateway interface connection.
+-gwdev=\`nmcli dev | grep ethernet | egrep -v 'unmanaged' | head -n 1 | awk '{print \$1}'\`
+-if [ "\$gwdev" != "" ]; then
+-  nmcli connection add type ethernet ifname \$gwdev con-name \$gwdev
+-fi
+-sed -i "/^#BENTO-BEGIN/,/^#BENTO-END/d" /etc/rc.d/rc.local
+-chmod -x /etc/rc.d/rc.local
+-#BENTO-END
+-_EOF_
+-  chmod +x /etc/rc.d/rc.local
+-fi
++#   echo "==> Setup /etc/rc.d/rc.local for EL7"
++#   cat <<_EOF_ | cat >> /etc/rc.d/rc.local
++# #BENTO-BEGIN
++# LANG=C
++# # delete all connection
++# for con in \`nmcli -t -f uuid con\`; do
++#   if [ "\$con" != "" ]; then
++#     nmcli con del \$con
++#   fi
++# done
++# # add gateway interface connection.
++# gwdev=\`nmcli dev | grep ethernet | egrep -v 'unmanaged' | head -n 1 | awk '{print \$1}'\`
++# if [ "\$gwdev" != "" ]; then
++#   nmcli connection add type ethernet ifname \$gwdev con-name \$gwdev
++# fi
++# sed -i "/^#BENTO-BEGIN/,/^#BENTO-END/d" /etc/rc.d/rc.local
++# chmod -x /etc/rc.d/rc.local
++# #BENTO-END
++# _EOF_
++#   chmod +x /etc/rc.d/rc.local
++# fi
+ 
+ echo "truncate any logs that have built up during the install"
+ find /var/log -type f -exec truncate --size=0 {} \;
+diff --git a/templates/os/centos/7.5.sh b/templates/os/centos/7.5.sh
+new file mode 100755
+index 0000000..463d3b4
+--- /dev/null
++++ b/templates/os/centos/7.5.sh
+@@ -0,0 +1,19 @@
++#!/bin/sh -eux
++
++VAGRANT_HOME="${HOME}/.vagrant.d"
++box_os="centos"
++box_name="${box_os}-7.5"
++# box_version="201808.24.0"
++box_version="20250114"
++box_url="https://app.vagrantup.com/bento/boxes/${box_name}/versions/${box_version}/providers/virtualbox.box"
++
++sudo rm -f box
++
++vagrant mutate "${box_url}" libvirt
++
++./templates/_common/create_box.sh "${VAGRANT_HOME}/boxes/virtualbox/${box_version}/libvirt/box.img" box
++
++"curl -H 'X-JFrog-Art-Api:${MY_JFROG_API_KEY}' -T box \"https://artifactory-kfs.habana-labs.com/artifactory/vagrant-hl-local/os/${box_os}/${box_name}-libvirt-${box_version}.box;box_name=${box_name}-libvirt;box_provider=libvirt;box_version=${box_version}\""
++
++
++# wget https://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-2004_01.LibVirt.box

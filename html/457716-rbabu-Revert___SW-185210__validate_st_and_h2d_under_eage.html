@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 457716: Revert &quot;[SW-185210] validate st and h2d under eager mode&quot;</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 457716: Revert &quot;[SW-185210] validate st and h2d under eager mode&quot;</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> pytorch-integration</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Ramesh Babu &lt;rbabu@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-10-22 06:49:50.601000000</p>
+            <p><strong>Updated:</strong> 2024-11-02 12:50:31.685000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>Revert &quot;[SW-185210] validate st and h2d under eager mode&quot;
+
+This reverts commit e9df93ea96ca0bbb0d9df06d0ae75a1d0da777ad.
+
+Change-Id: Iceef13816fd13cf77080928ae733f43d64b9bd3a
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: +2 by Ramesh Babu</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>hpu_ops/cpu_fallback.h</code> (M) +23 -35</li><li><code>hpu_ops/op_validator.cpp</code> (M) +42 -106</li><li><code>hpu_ops/op_validator.h</code> (M) +1 -5</li><li><code>python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h</code> (M) +5 -5</li><li><code>scripts/gen_op.py</code> (M) +4 -26</li><li><code>scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp</code> (M) +1 -1</li><li><code>scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp</code> (M) +1 -1</li><li><code>scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp</code> (M) +1 -1</li><li><code>scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp</code> (M) +2 -2</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/hpu_ops/cpu_fallback.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -143,47 +143,35 @@</span>
+<span class="diff-ctx">   return dispatch_fallback&lt;ATEN_OP2(input, overload)&gt;::call( \</span>
+<span class="diff-ctx">       OpSupportLevel::Value::unsupported, param2);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, check_st_h2d, args...) \</span>
+<span class="diff-del">-  if (ABSL_PREDICT_FALSE(                                                \</span>
+<span class="diff-del">-          !validator_##opname.Validate({args}, false, check_st_h2d))) {  \</span>
+<span class="diff-del">-    return dispatch_fallback&lt;ATEN_OP(opname)&gt;::call(                     \</span>
+<span class="diff-del">-        OpSupportLevel::Value::unsupported_dtype, args);                 \</span>
+<span class="diff-del">-  } else {                                                               \</span>
+<span class="diff-del">-    require_h2d = validator_##opname.IsRequireH2D();                     \</span>
+<span class="diff-del">-    require_st = validator_##opname.IsRequireST();                       \</span>
+<span class="diff-add">+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, args...)        \</span>
+<span class="diff-add">+  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate({args}))) { \</span>
+<span class="diff-add">+    return dispatch_fallback&lt;ATEN_OP(opname)&gt;::call(              \</span>
+<span class="diff-add">+        OpSupportLevel::Value::unsupported_dtype, args);          \</span>
+<span class="diff-add">+  } else {                                                        \</span>
+<span class="diff-add">+    require_h2d = validator_##opname.IsRequireH2D();              \</span>
+<span class="diff-add">+    require_st = validator_##opname.IsRequireST();                \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(                         \</span>
+<span class="diff-del">-    opname, overload, check_st_h2d, args...)                        \</span>
+<span class="diff-del">-  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \</span>
+<span class="diff-del">-          {args}, false, check_st_h2d))) {                          \</span>
+<span class="diff-del">-    return dispatch_fallback&lt;ATEN_OP2(opname, overload)&gt;::call(     \</span>
+<span class="diff-del">-        OpSupportLevel::Value::unsupported_dtype, args);            \</span>
+<span class="diff-del">-  } else {                                                          \</span>
+<span class="diff-del">-    require_h2d = validator_##opname##_##overload.IsRequireH2D();   \</span>
+<span class="diff-del">-    require_st = validator_##opname##_##overload.IsRequireST();     \</span>
+<span class="diff-add">+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(opname, overload, args...)          \</span>
+<span class="diff-add">+  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate({args}))) { \</span>
+<span class="diff-add">+    return dispatch_fallback&lt;ATEN_OP2(opname, overload)&gt;::call(                \</span>
+<span class="diff-add">+        OpSupportLevel::Value::unsupported_dtype, args);                       \</span>
+<span class="diff-add">+  } else {                                                                     \</span>
+<span class="diff-add">+    require_h2d = validator_##opname##_##overload.IsRequireH2D();              \</span>
+<span class="diff-add">+    require_st = validator_##opname##_##overload.IsRequireST();                \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(                             \</span>
+<span class="diff-del">-    opname, check_st_h2d, args...)                                            \</span>
+<span class="diff-del">-  if (ABSL_PREDICT_FALSE(                                                     \</span>
+<span class="diff-del">-          !validator_##opname.ValidateCustom({args}, false, check_st_h2d))) { \</span>
+<span class="diff-del">-    return dispatch_fallback&lt;ATEN_OP(opname)&gt;::call(                          \</span>
+<span class="diff-del">-        OpSupportLevel::Value::unsupported_dtype, args);                      \</span>
+<span class="diff-del">-  } else {                                                                    \</span>
+<span class="diff-del">-    require_h2d = validator_##opname.IsRequireH2D();                          \</span>
+<span class="diff-del">-    require_st = validator_##opname.IsRequireST();                            \</span>
+<span class="diff-add">+#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(opname, args...)       \</span>
+<span class="diff-add">+  if (ABSL_PREDICT_FALSE(!validator_##opname.ValidateCustom({args}))) { \</span>
+<span class="diff-add">+    return dispatch_fallback&lt;ATEN_OP(opname)&gt;::call(                    \</span>
+<span class="diff-add">+        OpSupportLevel::Value::unsupported_dtype, args);                \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE2(                        \</span>
+<span class="diff-del">-    opname, overload, check_st_h2d, args...)                              \</span>
+<span class="diff-del">-  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.ValidateCustom( \</span>
+<span class="diff-del">-          {args}, false, check_st_h2d))) {                                \</span>
+<span class="diff-del">-    return dispatch_fallback&lt;ATEN_OP2(opname, overload)&gt;::call(           \</span>
+<span class="diff-del">-        OpSupportLevel::Value::unsupported_dtype, args);                  \</span>
+<span class="diff-del">-  } else {                                                                \</span>
+<span class="diff-del">-    require_h2d = validator_##opname##_##overload.IsRequireH2D();         \</span>
+<span class="diff-del">-    require_st = validator_##opname##_##overload.IsRequireST();           \</span>
+<span class="diff-add">+#define VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE2(opname, overload, args...) \</span>
+<span class="diff-add">+  if (ABSL_PREDICT_FALSE(                                                    \</span>
+<span class="diff-add">+          !validator_##opname##_##overload.ValidateCustom({args}))) {        \</span>
+<span class="diff-add">+    return dispatch_fallback&lt;ATEN_OP2(opname, overload)&gt;::call(              \</span>
+<span class="diff-add">+        OpSupportLevel::Value::unsupported_dtype, args);                     \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> namespace habana {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6a98f98..d3b89a6 100644</span>
+<h4 class="diff-filename">b/hpu_ops/op_validator.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -149,9 +149,7 @@</span>
+<span class="diff-ctx">     const std::string&amp; guid,</span>
+<span class="diff-ctx">     const detail::TensorDescrArray&amp; input_values,</span>
+<span class="diff-ctx">     const detail::TensorDescrArray&amp; output_values,</span>
+<span class="diff-del">-    bool is_dynamic = false,</span>
+<span class="diff-del">-    bool valid_shape_tensor = true,</span>
+<span class="diff-del">-    bool valid_h2d_tensor = true) {</span>
+<span class="diff-add">+    bool is_dynamic = false) {</span>
+<span class="diff-ctx">   SharedLayer::ParamsV2_t params{};</span>
+<span class="diff-ctx">   params.apiVersion = 1;</span>
+<span class="diff-ctx">   auto deviceId = getDeviceType();</span>
+<span class="diff-hunk">@@ -195,8 +193,6 @@</span>
+<span class="diff-ctx">   params.inputTensors = input_tensors;</span>
+<span class="diff-ctx">   params.outputTensors = output_tensors;</span>
+<span class="diff-ctx">   params.supportsDynamicShapes = is_dynamic;</span>
+<span class="diff-del">-  params.requiresShapeTensor = valid_shape_tensor;</span>
+<span class="diff-del">-  params.requiresH2DTensor = valid_h2d_tensor;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   return synSharedLayerValidateGuidV2(&amp;params);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-hunk">@@ -364,10 +360,6 @@</span>
+<span class="diff-ctx">       return &quot;MISSING_PRIVATE_STRUCTURE&quot;;</span>
+<span class="diff-ctx">     case SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT:</span>
+<span class="diff-ctx">       return &quot;MISSING_DYNAMIC_SUPPORT&quot;;</span>
+<span class="diff-del">-    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT:</span>
+<span class="diff-del">-      return &quot;HAS_NO_SHAPE_TENSOR_INPUT&quot;;</span>
+<span class="diff-del">-    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT:</span>
+<span class="diff-del">-      return &quot;HAS_NO_H2D_TENSOR_INPUT&quot;;</span>
+<span class="diff-ctx">     case SharedLayer::Return_t::SHARED_LAYER_FAILED:</span>
+<span class="diff-ctx">     default:</span>
+<span class="diff-ctx">       return &quot;UNKNOWN_FAILURE&quot;;</span>
+<span class="diff-hunk">@@ -465,7 +457,6 @@</span>
+<span class="diff-ctx"> bool CheckNodeWithSharedLayerValidator::Validate(</span>
+<span class="diff-ctx">     const at::Stack&amp; values,</span>
+<span class="diff-ctx">     bool is_dynamic,</span>
+<span class="diff-del">-    bool check_st_h2d,</span>
+<span class="diff-ctx">     const SharedMetaVector&amp; meta) {</span>
+<span class="diff-ctx">   auto promoted_type = ComputePromotedType(values);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -493,8 +484,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   auto inputs = CreateInputList(values, promoted_type, outputs.size());</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  auto validation_result = ValidateGuid(</span>
+<span class="diff-del">-      m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);</span>
+<span class="diff-add">+  auto validation_result = ValidateGuid(m_guid, inputs, outputs, is_dynamic);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &amp;&amp;</span>
+<span class="diff-ctx">       is_dynamic &amp;&amp; !is_guid_support_dynamic_shape(m_guid)) {</span>
+<span class="diff-hunk">@@ -503,32 +493,55 @@</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {</span>
+<span class="diff-del">-    if (validation_result ==</span>
+<span class="diff-del">-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {</span>
+<span class="diff-del">-      validation_result =</span>
+<span class="diff-del">-          ValidateGuid(m_guid, inputs, outputs, is_dynamic, false, true);</span>
+<span class="diff-del">-      if (validation_result !=</span>
+<span class="diff-del">-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {</span>
+<span class="diff-del">-        m_require_h2d = true;</span>
+<span class="diff-del">-      }</span>
+<span class="diff-del">-    } else if (</span>
+<span class="diff-del">-        validation_result ==</span>
+<span class="diff-del">-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {</span>
+<span class="diff-del">-      m_require_st = true;</span>
+<span class="diff-del">-    } else {</span>
+<span class="diff-add">+    // This log line is used by the logging analysis tool. Please be cautious</span>
+<span class="diff-add">+    // when changing.</span>
+<span class="diff-add">+    PT_OP_INFO(</span>
+<span class="diff-add">+        &quot;Shared layer rejected op: &quot;,</span>
+<span class="diff-add">+        m_opname,</span>
+<span class="diff-add">+        &quot;:  guid=&quot;,</span>
+<span class="diff-add">+        m_guid,</span>
+<span class="diff-add">+        &quot; inputlist=&quot;,</span>
+<span class="diff-add">+        ToDebugString(inputs),</span>
+<span class="diff-add">+        &quot; outputlist=&quot;,</span>
+<span class="diff-add">+        ToDebugString(outputs),</span>
+<span class="diff-add">+        &quot; values=&quot;,</span>
+<span class="diff-add">+        ToDebugString(values),</span>
+<span class="diff-add">+        &quot; is_dynamic=&quot;,</span>
+<span class="diff-add">+        ToDebugString(is_dynamic),</span>
+<span class="diff-add">+        &quot; reason=&quot;,</span>
+<span class="diff-add">+        ToDebugString(validation_result));</span>
+<span class="diff-add">+    PT_OP_INFO(&quot;Fallback for op: &quot;, m_opname);</span>
+<span class="diff-add">+    return false;</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  // (TODO)query if h2d and st are needed</span>
+<span class="diff-add">+  m_require_h2d = false;</span>
+<span class="diff-add">+  m_require_st = false;</span>
+<span class="diff-add">+  return true;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool CheckNodeWithSharedLayerValidator::ValidateCustom(</span>
+<span class="diff-add">+    const at::Stack&amp; values,</span>
+<span class="diff-add">+    bool is_dynamic) {</span>
+<span class="diff-add">+  for (const auto&amp; meta : m_sharedMetaFunc(values)) {</span>
+<span class="diff-add">+    auto inputs = CreateTensorList(meta.inputs_data);</span>
+<span class="diff-add">+    auto outputs = CreateTensorList(meta.outputs_data);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    auto validation_result =</span>
+<span class="diff-add">+        ValidateGuid(meta.guid, inputs, outputs, is_dynamic);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {</span>
+<span class="diff-ctx">       // This log line is used by the logging analysis tool. Please be cautious</span>
+<span class="diff-ctx">       // when changing.</span>
+<span class="diff-ctx">       PT_OP_INFO(</span>
+<span class="diff-del">-          &quot;Shared layer rejected op: &quot;,</span>
+<span class="diff-add">+          &quot;Shared layer rejected complex op: &quot;,</span>
+<span class="diff-ctx">           m_opname,</span>
+<span class="diff-ctx">           &quot;:  guid=&quot;,</span>
+<span class="diff-del">-          m_guid,</span>
+<span class="diff-add">+          meta.guid,</span>
+<span class="diff-ctx">           &quot; inputlist=&quot;,</span>
+<span class="diff-ctx">           ToDebugString(inputs),</span>
+<span class="diff-ctx">           &quot; outputlist=&quot;,</span>
+<span class="diff-ctx">           ToDebugString(outputs),</span>
+<span class="diff-del">-          &quot; values=&quot;,</span>
+<span class="diff-del">-          ToDebugString(values),</span>
+<span class="diff-ctx">           &quot; is_dynamic=&quot;,</span>
+<span class="diff-ctx">           ToDebugString(is_dynamic),</span>
+<span class="diff-ctx">           &quot; reason=&quot;,</span>
+<span class="diff-hunk">@@ -536,83 +549,6 @@</span>
+<span class="diff-ctx">       PT_OP_INFO(&quot;Fallback for op: &quot;, m_opname);</span>
+<span class="diff-ctx">       return false;</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-del">-  } else {</span>
+<span class="diff-del">-    m_require_st = true;</span>
+<span class="diff-del">-    m_require_h2d = true;</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  if (check_st_h2d) {</span>
+<span class="diff-del">-    PT_OP_INFO(</span>
+<span class="diff-del">-        &quot;Shared layer op: &quot;,</span>
+<span class="diff-del">-        m_opname,</span>
+<span class="diff-del">-        &quot;:  guid=&quot;,</span>
+<span class="diff-del">-        m_guid,</span>
+<span class="diff-del">-        &quot; require_shape_tensor=&quot;,</span>
+<span class="diff-del">-        m_require_st,</span>
+<span class="diff-del">-        &quot; require_h2d_tensor=&quot;,</span>
+<span class="diff-del">-        m_require_h2d);</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  return true;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-bool CheckNodeWithSharedLayerValidator::ValidateCustom(</span>
+<span class="diff-del">-    const at::Stack&amp; values,</span>
+<span class="diff-del">-    bool is_dynamic,</span>
+<span class="diff-del">-    bool check_st_h2d) {</span>
+<span class="diff-del">-  for (const auto&amp; meta : m_sharedMetaFunc(values)) {</span>
+<span class="diff-del">-    auto inputs = CreateTensorList(meta.inputs_data);</span>
+<span class="diff-del">-    auto outputs = CreateTensorList(meta.outputs_data);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    auto validation_result = ValidateGuid(</span>
+<span class="diff-del">-        meta.guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {</span>
+<span class="diff-del">-      if (validation_result ==</span>
+<span class="diff-del">-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {</span>
+<span class="diff-del">-        validation_result =</span>
+<span class="diff-del">-            ValidateGuid(meta.guid, inputs, outputs, is_dynamic, false, true);</span>
+<span class="diff-del">-        if (validation_result !=</span>
+<span class="diff-del">-            SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {</span>
+<span class="diff-del">-          m_require_h2d = true;</span>
+<span class="diff-del">-        }</span>
+<span class="diff-del">-      } else if (</span>
+<span class="diff-del">-          validation_result ==</span>
+<span class="diff-del">-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {</span>
+<span class="diff-del">-        m_require_st = true;</span>
+<span class="diff-del">-      } else {</span>
+<span class="diff-del">-        // This log line is used by the logging analysis tool. Please be</span>
+<span class="diff-del">-        // cautious when changing.</span>
+<span class="diff-del">-        PT_OP_INFO(</span>
+<span class="diff-del">-            &quot;Shared layer rejected complex op: &quot;,</span>
+<span class="diff-del">-            m_opname,</span>
+<span class="diff-del">-            &quot;:  guid=&quot;,</span>
+<span class="diff-del">-            meta.guid,</span>
+<span class="diff-del">-            &quot; inputlist=&quot;,</span>
+<span class="diff-del">-            ToDebugString(inputs),</span>
+<span class="diff-del">-            &quot; outputlist=&quot;,</span>
+<span class="diff-del">-            ToDebugString(outputs),</span>
+<span class="diff-del">-            &quot; is_dynamic=&quot;,</span>
+<span class="diff-del">-            ToDebugString(is_dynamic),</span>
+<span class="diff-del">-            &quot; reason=&quot;,</span>
+<span class="diff-del">-            ToDebugString(validation_result));</span>
+<span class="diff-del">-        PT_OP_INFO(&quot;Fallback for op: &quot;, m_opname);</span>
+<span class="diff-del">-        return false;</span>
+<span class="diff-del">-      }</span>
+<span class="diff-del">-    } else {</span>
+<span class="diff-del">-      m_require_st = true;</span>
+<span class="diff-del">-      m_require_h2d = true;</span>
+<span class="diff-del">-    }</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  if (check_st_h2d) {</span>
+<span class="diff-del">-    PT_OP_INFO(</span>
+<span class="diff-del">-        &quot;Shared layer complex op: &quot;,</span>
+<span class="diff-del">-        m_opname,</span>
+<span class="diff-del">-        &quot; require_shape_tensor=&quot;,</span>
+<span class="diff-del">-        m_require_st,</span>
+<span class="diff-del">-        &quot; require_h2d_tensor=&quot;,</span>
+<span class="diff-del">-        m_require_h2d);</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   return true;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6ef2482..a9dd619 100644</span>
+<h4 class="diff-filename">b/hpu_ops/op_validator.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -98,13 +98,9 @@</span>
+<span class="diff-ctx">   bool Validate(</span>
+<span class="diff-ctx">       const at::Stack&amp; values,</span>
+<span class="diff-ctx">       bool is_dynamic = false,</span>
+<span class="diff-del">-      bool check_st_h2d = false,</span>
+<span class="diff-ctx">       const SharedMetaVector&amp; meta = {});</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  bool ValidateCustom(</span>
+<span class="diff-del">-      const at::Stack&amp; values,</span>
+<span class="diff-del">-      bool is_dynamic = false,</span>
+<span class="diff-del">-      bool check_st_h2d = false);</span>
+<span class="diff-add">+  bool ValidateCustom(const at::Stack&amp; values, bool is_dynamic = false);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   bool IsRequireH2D() const {</span>
+<span class="diff-ctx">     return m_require_h2d;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 3194c1d..64dbb00 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/compile_backend/cpu_fallback.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -131,16 +131,16 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...) \</span>
+<span class="diff-del">-  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(               \</span>
+<span class="diff-del">-          {args}, is_dynamic, false, m_shared_meta))) {              \</span>
+<span class="diff-del">-    return false;                                                    \</span>
+<span class="diff-add">+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...)          \</span>
+<span class="diff-add">+  if (ABSL_PREDICT_FALSE(                                                     \</span>
+<span class="diff-add">+          !validator_##opname.Validate({args}, is_dynamic, m_shared_meta))) { \</span>
+<span class="diff-add">+    return false;                                                             \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \</span>
+<span class="diff-ctx">     opname, is_dynamic, overload, args...)                          \</span>
+<span class="diff-ctx">   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \</span>
+<span class="diff-del">-          {args}, is_dynamic, false, m_shared_meta))) {             \</span>
+<span class="diff-add">+          {args}, is_dynamic, m_shared_meta))) {                    \</span>
+<span class="diff-ctx">     return false;                                                   \</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index db6a226..12673d3 100755</span>
+<h4 class="diff-filename">b/scripts/gen_op.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -592,7 +592,6 @@</span>
+<span class="diff-ctx">     param_vars,</span>
+<span class="diff-ctx">     check_per_tensor,</span>
+<span class="diff-ctx">     prefix,</span>
+<span class="diff-del">-    check_st_h2d_str,</span>
+<span class="diff-ctx">     is_check_kernel_support=False,</span>
+<span class="diff-ctx"> ):</span>
+<span class="diff-ctx">     fallback_string = f&quot;{&#x27;RETURN&#x27; if is_check_kernel_support else &#x27;FALLBACK&#x27;}_IF_UNSUPPORTED_DTYPE&quot;</span>
+<span class="diff-hunk">@@ -603,7 +602,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def single_fallback(tensor_opt=&quot;&quot;):</span>
+<span class="diff-ctx">         tensor_string = tensor_opt + &quot;, &quot; if tensor_opt else &quot;&quot;</span>
+<span class="diff-del">-        return &quot;  {}{}{}{}({}{}{}, {}{}{})\n&quot;.format(</span>
+<span class="diff-add">+        return &quot;  {}{}{}{}({}{}{}, {}{})\n&quot;.format(</span>
+<span class="diff-ctx">             prefix,</span>
+<span class="diff-ctx">             fallback_string,</span>
+<span class="diff-ctx">             per_tensor_string,</span>
+<span class="diff-hunk">@@ -612,7 +611,6 @@</span>
+<span class="diff-ctx">             opname,</span>
+<span class="diff-ctx">             is_dynamic_string,</span>
+<span class="diff-ctx">             overload_string,</span>
+<span class="diff-del">-            check_st_h2d_str,</span>
+<span class="diff-ctx">             &quot;, &quot;.join(param_vars),</span>
+<span class="diff-ctx">         )</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -1174,15 +1172,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> def handle_validator_generator(</span>
+<span class="diff-del">-    ctxop,</span>
+<span class="diff-del">-    use_compute_type,</span>
+<span class="diff-del">-    overload,</span>
+<span class="diff-del">-    opname,</span>
+<span class="diff-del">-    param_vars,</span>
+<span class="diff-del">-    tfetcher,</span>
+<span class="diff-del">-    fname,</span>
+<span class="diff-del">-    is_check_kernel_support=False,</span>
+<span class="diff-del">-    check_st_h2d=False,</span>
+<span class="diff-add">+    ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, is_check_kernel_support=False</span>
+<span class="diff-ctx"> ):</span>
+<span class="diff-ctx">     dtypes = ctxop.get_dtypes()</span>
+<span class="diff-ctx">     op_validator_generator = ctxop.get_op_validator_generator()</span>
+<span class="diff-hunk">@@ -1194,16 +1184,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     # Check with compute_type when using compute_type</span>
+<span class="diff-ctx">     fallback_string = f&quot;{&#x27;RETURN&#x27; if is_check_kernel_support else &#x27;FALLBACK&#x27;}_IF_UNSUPPORTED_DTYPE&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # check shape tensor and h2d tensor string</span>
+<span class="diff-del">-    check_st_h2d_str = &quot;&quot;</span>
+<span class="diff-del">-    if fallback_if_prefix and not is_check_kernel_support:</span>
+<span class="diff-del">-        if check_st_h2d:</span>
+<span class="diff-del">-            check_st_h2d_str = &quot;true, &quot;</span>
+<span class="diff-del">-        else:</span>
+<span class="diff-del">-            check_st_h2d_str = &quot;false, &quot;</span>
+<span class="diff-ctx">     if use_compute_type:</span>
+<span class="diff-del">-        code += &quot;  {}{}{}({}{}{}, {}{}{})\n&quot;.format(</span>
+<span class="diff-add">+        code += &quot;  {}{}{}({}{}{}, {}{})\n&quot;.format(</span>
+<span class="diff-ctx">             fallback_if_prefix,</span>
+<span class="diff-ctx">             fallback_string,</span>
+<span class="diff-ctx">             &quot;2&quot; if overload else &quot;&quot;,</span>
+<span class="diff-hunk">@@ -1211,7 +1193,6 @@</span>
+<span class="diff-ctx">             opname,</span>
+<span class="diff-ctx">             &quot;, is_dynamic&quot; if is_check_kernel_support else &quot;&quot;,</span>
+<span class="diff-ctx">             overload + &quot;, &quot; if overload else &quot;&quot;,</span>
+<span class="diff-del">-            check_st_h2d_str,</span>
+<span class="diff-ctx">             &quot;, &quot;.join(param_vars),</span>
+<span class="diff-ctx">         )</span>
+<span class="diff-ctx">     else:</span>
+<span class="diff-hunk">@@ -1232,7 +1213,6 @@</span>
+<span class="diff-ctx">             param_vars,</span>
+<span class="diff-ctx">             check_per_tensor,</span>
+<span class="diff-ctx">             fallback_if_prefix,</span>
+<span class="diff-del">-            check_st_h2d_str,</span>
+<span class="diff-ctx">             is_check_kernel_support,</span>
+<span class="diff-ctx">         )</span>
+<span class="diff-ctx">     code += &quot;\n&quot;</span>
+<span class="diff-hunk">@@ -1556,9 +1536,7 @@</span>
+<span class="diff-ctx">     )</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     code += promotion_code</span>
+<span class="diff-del">-    code += handle_validator_generator(</span>
+<span class="diff-del">-        ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, False, True</span>
+<span class="diff-del">-    )</span>
+<span class="diff-add">+    code += handle_validator_generator(ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname)</span>
+<span class="diff-ctx">     code += handle_fallback_check(ctxop, overload, opname, param_vars)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     is_eager_op_supported = is_eager_op(ctxop)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index d26bd36..b703b1d 100644</span>
+<h4 class="diff-filename">b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op5.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -26,7 +26,7 @@</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_h2d = false;</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_st = false;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, true, self, batch1, batch2, beta, alpha)</span>
+<span class="diff-add">+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   eager::EagerOp&lt;at::Tensor&gt; hpu_op{&quot;aten::addbmm&quot;, {self, batch1, batch2, beta, alpha}};</span>
+<span class="diff-ctx">   hpu_op.SetOutputMetaFn(AddBMMMeta);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 09a3baa..b0fca26 100644</span>
+<h4 class="diff-filename">b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/eager/hpu_op6.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -29,7 +29,7 @@</span>
+<span class="diff-ctx">   auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);</span>
+<span class="diff-ctx">   static_cast&lt;void&gt;(compute_type);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, true, self, boundaries, out_int32, right)</span>
+<span class="diff-add">+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   eager::EagerOp&lt;at::Tensor&gt; hpu_op{&quot;aten::bucketize&quot;, {self, boundaries, out_int32, right}};</span>
+<span class="diff-ctx">   hpu_op.set_scalar_types({compute_type});</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0bda883..a4885b1 100644</span>
+<h4 class="diff-filename">b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op2.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -43,7 +43,7 @@</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_h2d = false;</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_st = false;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, false, self, batch1, batch2, beta, alpha)</span>
+<span class="diff-add">+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   LazyOp&lt;at::Tensor&gt; hpu_op{&quot;aten::addbmm&quot;, {self, batch1, batch2, beta, alpha}};</span>
+<span class="diff-ctx">   hpu_op.SetOutputMetaFn(AddBMMMeta);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 140bfa2..42a3141 100644</span>
+<h4 class="diff-filename">b/scripts/tests/files/ops_generation_e2e/reference_output/2.4/lazy/hpu_op3.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -36,7 +36,7 @@</span>
+<span class="diff-ctx">   auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);</span>
+<span class="diff-ctx">   static_cast&lt;void&gt;(compute_type);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, false, self, boundaries, out_int32, right)</span>
+<span class="diff-add">+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   LazyOp&lt;at::Tensor&gt; hpu_op{&quot;aten::bucketize&quot;, {self, boundaries, out_int32, right}};</span>
+<span class="diff-ctx">   hpu_op.set_scalar_types({compute_type});</span>
+<span class="diff-hunk">@@ -52,7 +52,7 @@</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_h2d = false;</span>
+<span class="diff-ctx">   [[maybe_unused]] bool require_st = false;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, false, self, alpha, scale, input_scale)</span>
+<span class="diff-add">+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, self, alpha, scale, input_scale)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   LazyOp&lt;at::Tensor&gt; hpu_op{&quot;aten::elu&quot;, {self, alpha, scale, input_scale}};</span>
+<span class="diff-ctx">   RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Ramesh Babu</strong> <span class="date">(2024-10-22 06:49:50.601000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Ramesh Babu</strong> <span class="date">(2024-10-22 06:49:53.702000000)</span><pre>Patch Set 1: Code-Review+2</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:50:00.878000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13346/ (1/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.712000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12403/ (2/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.745000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/6743/ (5/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.746000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12472/ (4/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.766000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12473/ (3/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.789000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12463/ (6/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.793000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12460/ (7/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.794000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12394/ (8/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.818000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/12693/ (9/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.834000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7042/ (10/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.852000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6749/ (12/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.877000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/12639/ (11/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.895000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12385/ (13/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.898000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/12678/ (14/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.919000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6791/ (15/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.941000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12462/ (16/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.947000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/12555/ (17/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.976000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12408/ (18/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.985000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12408/ (19/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:48.991000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6631/ (20/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.014000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/6852/ (21/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.044000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/12727/ (23/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.065000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/12700/ (24/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.077000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12360/ (22/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.098000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/6875/ (25/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.108000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/12595/ (26/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.134000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12473/ (27/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.177000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/6759/ (28/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.183000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12444/ (29/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.216000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/12630/ (30/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.246000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5298/ (31/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 06:58:49.291000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12405/ (32/32)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-10-22 09:10:23.362000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/12630/ : UNSTABLE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/12630/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/6875/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/6875/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7120/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7120/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7120/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/6852/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/6852/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7096/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7096/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7096/ )
+
+Connection timed out ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7096/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6631/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6631/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6836/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6836/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/6836/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6791/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6791/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6973/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6973/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/6973/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6749/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6749/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6959/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6959/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6959/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/6959/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7042/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7042/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7355/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7355/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7355/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7355/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/6759/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12403/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12405/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5298/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12473/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/12595/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/12700/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/12727/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12360/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12408/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12462/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12408/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/12555/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12385/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/12639/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/12678/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/12693/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12394/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12473/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12460/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12463/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12472/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/6743/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13346/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12444/ : SUCCESS</pre></div><div class="message"><strong>Roopak Srivastava</strong> <span class="date">(2024-10-29 06:26:28.624000000)</span><pre>Removed reviewer Roopak Srivastava.</pre></div><div class="message"><strong>Xinyu Chen</strong> <span class="date">(2024-11-02 12:50:31.685000000)</span><pre>Patch Set 1: Code-Review-1
+
+fix has been merged.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

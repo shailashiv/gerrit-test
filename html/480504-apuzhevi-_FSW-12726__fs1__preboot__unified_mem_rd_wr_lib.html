@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 480504: [FSW-12726] fs1: preboot: unified mem rd/wr lib</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 480504: [FSW-12726] fs1: preboot: unified mem rd/wr lib</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> preboot_rtos</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Alexey Puzhevich &lt;apuzhevi@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-26 12:16:38.365000000</p>
+            <p><strong>Updated:</strong> 2025-06-03 08:00:44.510000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-12726] fs1: preboot: unified mem rd/wr lib
+
+Duplicated functionality was consolidated in the
+stand-alone header only library.
+
+Change-Id: Idaf0a09ea471e1c5ddcba7bd81d53c51857cdf85
+Signed-off-by: Alexey Puzhevich &lt;alexey.puzhevich@intel.com&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: +2 by Vitaly Margolin</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>include/preboot.h</code> (M) +2 -24</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/include/preboot.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -36,6 +36,8 @@</span>
+<span class="diff-ctx"> #include &lt;types.h&gt;</span>
+<span class="diff-ctx"> #include &quot;auto_generated.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+#include &lt;regmap_io.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #define VERSION_MAX_LEN		128</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define VERSION_STR	&quot;version &quot; PREBOOT_VER \</span>
+<span class="diff-hunk">@@ -86,30 +88,6 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> extern u8 hl_asic_sn[FUSE_DEVID_SIZE];</span>
+<span class="diff-ctx"> extern u8 hl_stepping;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline u8 regmap_readb(u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return (u8)(reg &amp; 0xFF);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline void regmap_writeb(u8 val, u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	*((volatile u32 *)(HL_CFG_BASE + offset)) = (u32)val;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline u32 regmap_readl(u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return reg;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline void regmap_writel(u32 val, u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	*((volatile u32 *)(HL_CFG_BASE + offset)) = val;</span>
+<span class="diff-del">-}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static inline void regmap_rmwritel(u32 addr, u32 data, u32 mask)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Alexey Puzhevich</strong> <span class="date">(2025-05-26 12:16:38.365000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:16:44.819000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8043/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:16:45.575000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36115/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:19:22.655000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7246/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:19:22.675000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6587/ (3/3)</pre></div><div class="message"><strong>Alexey Puzhevich</strong> <span class="date">(2025-05-26 12:20:24.134000000)</span><pre>Patch Set 2: Patch Set 1 was rebased</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:20:29.836000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8046/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:20:30.690000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36118/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:23:14.279000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22387/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:23:14.331000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24853/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:23:16.849000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7248/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:23:16.852000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6588/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:24:27.251000000)</span><pre>Patch Set 1: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7246/ : ABORTED
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6677/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6677/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8043/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6587/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:25:04.019000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22387/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22387/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24853/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24853/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36115/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36115/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36115/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:25:57.178000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22388/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:25:57.219000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24855/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-26 12:28:39.169000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7248/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6679/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8046/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6588/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-26 12:40:53.968000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22388/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/25057/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24855/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27014/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36118/ : SUCCESS</pre></div><div class="message"><strong>Vitaly Margolin</strong> <span class="date">(2025-05-28 08:40:03.470000000)</span><pre>Patch Set 2: Code-Review+2</pre></div><div class="message"><strong>Alexey Puzhevich</strong> <span class="date">(2025-06-03 07:24:19.622000000)</span><pre>Patch Set 3: Patch Set 2 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-03 07:24:27.560000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36430/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-03 07:24:29.772000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8309/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-03 07:26:56.290000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7501/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-03 07:26:56.302000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6816/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-03 07:30:02.175000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22631/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-03 07:30:02.191000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25125/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-03 07:32:21.220000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7501/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6931/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8309/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6816/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-03 08:00:44.510000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25125/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27264/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22631/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36430/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

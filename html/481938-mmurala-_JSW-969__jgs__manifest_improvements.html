@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 481938: [JSW-969] jgs: manifest improvements</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 481938: [JSW-969] jgs: manifest improvements</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-06-17 11:07:59.072000000</p>
+            <p><strong>Updated:</strong> 2025-06-19 10:04:52.210000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[JSW-969] jgs: manifest improvements
+
+This patch has changes related to boot flow to
+simplify the usage of manifest index and type.
+Added simplified prefetch status structure to
+maintain prefetch status as done, failed, valid,
+and manifest index based on fw update/flip.
+Used very simple approach to maintain manifest
+type with structure array, to avoid frequent
+manifest index switching based on type.
+
+Change-Id: I92fd1f9e4b89c7bb82c44b9986bd9123e3d20cc3
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Subrahmanyeswara Swamy Murala: +0, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: +2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>app/boot_rom.c</code> (M) +1 -1</li><li><code>arch/jgs/arc/common.c</code> (M) +6 -2</li><li><code>common/boot_flow.c</code> (M) +69 -98</li><li><code>common/boot_flow.h</code> (M) +11 -1</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/app/boot_rom.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -59,7 +59,7 @@</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	/* If any ppboot secondary prefetch is not done, start prefetch */</span>
+<span class="diff-del">-	if (boot_rom_boot_flow_is_secondary_manifest_valid())</span>
+<span class="diff-add">+	if (boot_rom_boot_flow_is_manifest_valid(BOOT_ROM_SECONDARY))</span>
+<span class="diff-ctx"> 		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_PRIMARY)) {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 831cfe7..f5206b1 100644</span>
+<h4 class="diff-filename">b/arch/jgs/arc/common.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -32,6 +32,7 @@</span>
+<span class="diff-ctx"> #include &lt;boot_desc.h&gt;</span>
+<span class="diff-ctx"> #include &lt;dev_spi_flash.h&gt;</span>
+<span class="diff-ctx"> #include &lt;dev_boot_info.h&gt;</span>
+<span class="diff-add">+#include &lt;boot_flow.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> extern const int gpu_die_type;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -171,10 +172,13 @@</span>
+<span class="diff-ctx"> 	boot_rom_global.tpm_extend_done = cold_rst_data.tpm_validation_flag;</span>
+<span class="diff-ctx"> 	boot_rom_global.fuse_emulation_init_done = cold_rst_data.fuse_emulation_init_done;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (fw_upd_status == FLOPS_UPD_PENDING)</span>
+<span class="diff-add">+	/* TODO: who will set/clear FLOPS_UPD_PENDING */</span>
+<span class="diff-add">+	if (fw_upd_status == FLOPS_UPD_PENDING) {</span>
+<span class="diff-ctx"> 		boot_rom_global.fw_upd_switch_manifest = 1;</span>
+<span class="diff-del">-	else</span>
+<span class="diff-add">+		boot_flow_flip_manifest();</span>
+<span class="diff-add">+	} else {</span>
+<span class="diff-ctx"> 		boot_rom_global.fw_upd_switch_manifest = 0;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int boot_rom_mem_init(uint64_t addr, uint32_t size)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 26d6a1c..6212061 100644</span>
+<h4 class="diff-filename">b/common/boot_flow.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -17,28 +17,37 @@</span>
+<span class="diff-ctx"> #include &lt;dev_security.h&gt;</span>
+<span class="diff-ctx"> #include &lt;secure_boot.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-/* These fields will be added to proper structure later */</span>
+<span class="diff-del">-static enum hl_fw_manifest_type primary_manifest_idx = HL_FW_SPI_MANIFEST_0;</span>
+<span class="diff-del">-bool primary_manifest_valid;</span>
+<span class="diff-del">-bool secondary_manifest_valid;</span>
+<span class="diff-del">-bool primary_ppboot_prefetch_started;</span>
+<span class="diff-del">-bool primary_ppboot_prefetch_failed;</span>
+<span class="diff-del">-bool secondary_ppboot_prefetch_started;</span>
+<span class="diff-del">-bool secondary_ppboot_prefetch_failed;</span>
+<span class="diff-add">+/* pf_sts[0] primary, pf_sts[1] secondary */</span>
+<span class="diff-add">+struct pre_fetch_status pf_sts[BOOT_ROM_NUM_OF_MANIFESTS] = {</span>
+<span class="diff-add">+	{.man_idx = HL_FW_SPI_MANIFEST_0, .resv = 0, .resv2 = 0,</span>
+<span class="diff-add">+		.valid = false, .started = false, .failed = false, .done = false},</span>
+<span class="diff-add">+	{.man_idx = HL_FW_SPI_MANIFEST_1, .resv = 0, .resv2 = 0,</span>
+<span class="diff-add">+		.valid = false, .started = false, .failed = false, .done = false},</span>
+<span class="diff-add">+};</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static uint32_t boot_flow_prefetch_img_sub(enum hl_fw_manifest_type manifest_idx,</span>
+<span class="diff-del">-					enum hl_fw_img_type img_type, struct boot_desc *desc,</span>
+<span class="diff-del">-					enum boot_rom_progress img_sts_base)</span>
+<span class="diff-add">+void boot_flow_flip_manifest()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	pf_sts[BOOT_ROM_PRIMARY].man_idx = HL_FW_SPI_MANIFEST_1;</span>
+<span class="diff-add">+	pf_sts[BOOT_ROM_SECONDARY].man_idx = HL_FW_SPI_MANIFEST_0;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static uint32_t boot_flow_prefetch_img_sub(enum hl_fw_manifest_type man_idx,</span>
+<span class="diff-add">+					enum hl_fw_img_type img_type, struct boot_desc *desc)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	int err;</span>
+<span class="diff-add">+	/* TODO: Image status base is complicated. Handle based on img_type */</span>
+<span class="diff-add">+	enum boot_rom_progress img_sts_base;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (!boot_rom_boot_desc_init_done(manifest_idx))</span>
+<span class="diff-add">+	img_sts_base = (man_idx == HL_FW_SPI_MANIFEST_1) ? PROGRESS_BRINGUP_PCI_SEC_TOO_BIG :</span>
+<span class="diff-add">+		PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (!boot_rom_boot_desc_init_done(man_idx))</span>
+<span class="diff-ctx"> 		return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_START);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	/* get image descriptor from the manifest */</span>
+<span class="diff-del">-	if (boot_desc_get_img_desc(manifest_idx, img_type, desc, 0) != BOOT_ROM_SUCCESS) {</span>
+<span class="diff-add">+	if (boot_desc_get_img_desc(man_idx, img_type, desc, 0) != BOOT_ROM_SUCCESS) {</span>
+<span class="diff-ctx"> 		boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_NO_IMG_DESC);</span>
+<span class="diff-ctx"> 		return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-hunk">@@ -48,11 +57,11 @@</span>
+<span class="diff-ctx"> 	    != BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 		return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	err = boot_rom_spi_dma(desc-&gt;img_size, desc-&gt;spi_offset[manifest_idx], desc-&gt;loadaddr,</span>
+<span class="diff-add">+	err = boot_rom_spi_dma(desc-&gt;img_size, desc-&gt;spi_offset[man_idx], desc-&gt;loadaddr,</span>
+<span class="diff-ctx"> 		true);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (boot_rom_process_dma_err(err, img_sts_base)) {</span>
+<span class="diff-del">-		boot_rom_report_image_status(manifest_idx, CRC_FAIL);</span>
+<span class="diff-add">+		boot_rom_report_image_status(man_idx, CRC_FAIL);</span>
+<span class="diff-ctx"> 		return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -62,8 +71,6 @@</span>
+<span class="diff-ctx"> uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct boot_desc desc = {0};</span>
+<span class="diff-del">-	/* TODO: Image status base is complicated. Handle based on img_type */</span>
+<span class="diff-del">-	enum boot_rom_progress img_sts_base = PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;</span>
+<span class="diff-ctx"> 	enum hl_fw_manifest_type curr_manifest_idx;</span>
+<span class="diff-ctx"> 	uint32_t ret = BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -77,39 +84,28 @@</span>
+<span class="diff-ctx"> 	 * All manifest switches should be tracked through</span>
+<span class="diff-ctx"> 	 * single source file boot_flow.c</span>
+<span class="diff-ctx"> 	 */</span>
+<span class="diff-del">-	/* TODO: If 2ndary image disable, we will not support fw update ?*/</span>
+<span class="diff-del">-	if (boot_rom_second_image_enabled() &amp;&amp;</span>
+<span class="diff-del">-		(!!boot_rom_global.fw_upd_switch_manifest)) {</span>
+<span class="diff-del">-		primary_manifest_idx = HL_FW_SPI_MANIFEST_1;</span>
+<span class="diff-del">-		img_sts_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	curr_manifest_idx = primary_manifest_idx;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (!primary_ppboot_prefetch_started &amp;&amp; !primary_ppboot_prefetch_failed) {</span>
+<span class="diff-del">-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc, img_sts_base);</span>
+<span class="diff-del">-		if (!ret) {</span>
+<span class="diff-del">-			primary_ppboot_prefetch_started = true;</span>
+<span class="diff-add">+	curr_manifest_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;</span>
+<span class="diff-add">+	if (!pf_sts[BOOT_ROM_PRIMARY].done &amp;&amp; !pf_sts[BOOT_ROM_PRIMARY].failed) {</span>
+<span class="diff-add">+		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc);</span>
+<span class="diff-add">+		if (ret == BOOT_ROM_SUCCESS) {</span>
+<span class="diff-add">+			pf_sts[BOOT_ROM_PRIMARY].done = true;</span>
+<span class="diff-ctx"> 			return BOOT_ROM_SUCCESS;</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-del">-		primary_ppboot_prefetch_failed = true;</span>
+<span class="diff-add">+		pf_sts[BOOT_ROM_PRIMARY].failed = true;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!boot_rom_second_image_enabled())</span>
+<span class="diff-ctx"> 		return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (!secondary_ppboot_prefetch_started &amp;&amp; !secondary_ppboot_prefetch_failed) {</span>
+<span class="diff-del">-		curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		/* TODO: What to do if fw upd switch enabled and flow comes here? */</span>
+<span class="diff-del">-		img_sts_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc, img_sts_base);</span>
+<span class="diff-del">-		if (!ret) {</span>
+<span class="diff-del">-			secondary_ppboot_prefetch_started = true;</span>
+<span class="diff-add">+	curr_manifest_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;</span>
+<span class="diff-add">+	if (!pf_sts[BOOT_ROM_SECONDARY].done &amp;&amp; !pf_sts[BOOT_ROM_SECONDARY].failed) {</span>
+<span class="diff-add">+		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc);</span>
+<span class="diff-add">+		if (ret == BOOT_ROM_SUCCESS) {</span>
+<span class="diff-add">+			pf_sts[BOOT_ROM_SECONDARY].done = true;</span>
+<span class="diff-ctx"> 			return BOOT_ROM_SUCCESS;</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-del">-		secondary_ppboot_prefetch_failed = true;</span>
+<span class="diff-add">+		pf_sts[BOOT_ROM_SECONDARY].failed = true;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return BOOT_ROM_FAIL;</span>
+<span class="diff-hunk">@@ -140,11 +136,9 @@</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	void (*ppboot)();</span>
+<span class="diff-ctx"> 	struct boot_desc desc = {0};</span>
+<span class="diff-del">-	enum hl_fw_manifest_type man_idx = primary_manifest_idx;</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (man_type == BOOT_ROM_SECONDARY) {</span>
+<span class="diff-del">-		man_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-add">+	man_idx = pf_sts[man_type].man_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!boot_rom_boot_flow_is_manifest_valid(man_type))</span>
+<span class="diff-ctx"> 		return;</span>
+<span class="diff-hunk">@@ -182,37 +176,26 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void boot_rom_boot_flow_validate_manifests(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	enum hl_fw_manifest_type curr_manifest_idx = HL_FW_SPI_MANIFEST_0;</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (!!boot_rom_global.fw_upd_switch_manifest)</span>
+<span class="diff-del">-		curr_manifest_idx = HL_FW_SPI_MANIFEST_1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {</span>
+<span class="diff-del">-		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-del">-			primary_manifest_valid = true;</span>
+<span class="diff-add">+	if (boot_rom_boot_desc_init_done(man_idx)) {</span>
+<span class="diff-add">+		if (boot_rom_verify_manifest(man_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-add">+			pf_sts[BOOT_ROM_PRIMARY].valid = true;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!boot_rom_second_image_enabled())</span>
+<span class="diff-ctx"> 		return;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {</span>
+<span class="diff-del">-		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-del">-			secondary_manifest_valid = true;</span>
+<span class="diff-add">+	man_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;;</span>
+<span class="diff-add">+	if (boot_rom_boot_desc_init_done(man_idx)) {</span>
+<span class="diff-add">+		if (boot_rom_verify_manifest(man_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-add">+			pf_sts[BOOT_ROM_SECONDARY].valid = true;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests rom_manifest_type)</span>
+<span class="diff-add">+bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests man_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	if (rom_manifest_type)</span>
+<span class="diff-del">-		return secondary_manifest_valid;</span>
+<span class="diff-del">-	else</span>
+<span class="diff-del">-		return primary_manifest_valid;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-bool boot_rom_boot_flow_is_secondary_manifest_valid(void)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	return secondary_manifest_valid;</span>
+<span class="diff-add">+	return pf_sts[man_type].valid;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void boot_rom_boot_flow_wait_for_dma_finish(void)</span>
+<span class="diff-hunk">@@ -227,22 +210,19 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests rom_manifest_type)</span>
+<span class="diff-add">+bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests man_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	enum boot_rom_progress status_base = PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;</span>
+<span class="diff-del">-	enum hl_fw_manifest_type man_idx = primary_manifest_idx;</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx = pf_sts[man_type].man_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (!boot_rom_boot_flow_is_manifest_valid(rom_manifest_type))</span>
+<span class="diff-add">+	if (!boot_rom_boot_flow_is_manifest_valid(man_type))</span>
+<span class="diff-ctx"> 		return false;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!security_efuse_image_validation_en())</span>
+<span class="diff-ctx"> 		return true;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (rom_manifest_type == BOOT_ROM_SECONDARY)</span>
+<span class="diff-del">-		man_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (man_idx == HL_FW_SPI_MANIFEST_1)</span>
+<span class="diff-del">-		status_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;</span>
+<span class="diff-add">+	status_base = (man_idx == HL_FW_SPI_MANIFEST_1) ? PROGRESS_BRINGUP_PCI_SEC_TOO_BIG :</span>
+<span class="diff-add">+		PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (boot_rom_verify_fw_image_hash384(man_idx, HL_FW_IMG_PPBOOT)) {</span>
+<span class="diff-ctx"> 		boot_rom_status_update_bringup(status_base, PROGRESS_BRINGUP_VERIFY_SUCCESS);</span>
+<span class="diff-hunk">@@ -255,35 +235,29 @@</span>
+<span class="diff-ctx"> 	return false;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests recovery_manifest)</span>
+<span class="diff-add">+uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests rec_man_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	enum hl_fw_manifest_type manifest_idx = primary_manifest_idx;</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx = pf_sts[rec_man_type].man_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (recovery_manifest == BOOT_ROM_SECONDARY)</span>
+<span class="diff-del">-		manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (!boot_rom_boot_flow_is_manifest_valid(recovery_manifest))</span>
+<span class="diff-add">+	if (!boot_rom_boot_flow_is_manifest_valid(rec_man_type))</span>
+<span class="diff-ctx"> 		return 0;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	return boot_desc_get_recovery_img_count(manifest_idx);</span>
+<span class="diff-add">+	return boot_desc_get_recovery_img_count(man_idx);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests recovery_manifest,</span>
+<span class="diff-add">+uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests rec_man_type,</span>
+<span class="diff-ctx"> 						  uint32_t img_count,</span>
+<span class="diff-ctx"> 						  enum boot_rom_progress img_sts_base)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	enum hl_fw_manifest_type manifest_idx = primary_manifest_idx;</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx = pf_sts[rec_man_type].man_idx;</span>
+<span class="diff-ctx"> 	struct boot_desc desc = {0};</span>
+<span class="diff-ctx"> 	uint32_t i;</span>
+<span class="diff-ctx"> 	int err;</span>
+<span class="diff-ctx"> 	void (*recovery)();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (recovery_manifest == BOOT_ROM_SECONDARY)</span>
+<span class="diff-del">-		manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> 	/* get image descriptor from the manifest */</span>
+<span class="diff-ctx"> 	for (i = 0; i &lt; img_count; i++) {</span>
+<span class="diff-del">-		if (boot_desc_get_img_desc(manifest_idx, HL_FW_IMG_RECOVERY, &amp;desc, i)</span>
+<span class="diff-add">+		if (boot_desc_get_img_desc(man_idx, HL_FW_IMG_RECOVERY, &amp;desc, i)</span>
+<span class="diff-ctx"> 			!= BOOT_ROM_SUCCESS) {</span>
+<span class="diff-ctx"> 			boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_NO_IMG_DESC);</span>
+<span class="diff-ctx"> 			return BOOT_ROM_FAIL;</span>
+<span class="diff-hunk">@@ -294,7 +268,7 @@</span>
+<span class="diff-ctx"> 		!= BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 			return BOOT_ROM_FAIL;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-		err = boot_rom_spi_dma(desc.img_size, desc.spi_offset[manifest_idx], desc.loadaddr,</span>
+<span class="diff-add">+		err = boot_rom_spi_dma(desc.img_size, desc.spi_offset[man_idx], desc.loadaddr,</span>
+<span class="diff-ctx"> 			true);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 		if (boot_rom_process_dma_err(err, img_sts_base))</span>
+<span class="diff-hunk">@@ -314,30 +288,27 @@</span>
+<span class="diff-ctx"> 	return BOOT_ROM_SUCCESS;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type manifest_idx)</span>
+<span class="diff-add">+uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type man_idx)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct boot_desc desc;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (boot_desc_get_img_desc(manifest_idx, HL_FW_IMG_FAKE_EFUSE, &amp;desc, 0) == BOOT_ROM_FAIL)</span>
+<span class="diff-add">+	if (boot_desc_get_img_desc(man_idx, HL_FW_IMG_FAKE_EFUSE, &amp;desc, 0) == BOOT_ROM_FAIL)</span>
+<span class="diff-ctx"> 		return 0;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	return desc.spi_offset[manifest_idx];</span>
+<span class="diff-add">+	return desc.spi_offset[man_idx];</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> enum boot_rom_status boot_flow_spi_efuse_manifest_init(uint8_t *slv_en)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	enum hl_fw_manifest_type curr_manifest_idx;</span>
+<span class="diff-del">-</span>
+<span class="diff-add">+	enum hl_fw_manifest_type man_idx;</span>
+<span class="diff-ctx"> 	/* TODO: primary manifest init should be part of boot rom init */</span>
+<span class="diff-del">-	if (!!boot_rom_global.fw_upd_switch_manifest)</span>
+<span class="diff-del">-		primary_manifest_idx = HL_FW_SPI_MANIFEST_1;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	curr_manifest_idx = primary_manifest_idx;</span>
+<span class="diff-del">-	if (boot_desc_spi_efuse_init(curr_manifest_idx, slv_en) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-add">+	man_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;</span>
+<span class="diff-add">+	if (boot_desc_spi_efuse_init(man_idx, slv_en) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 		return BOOT_ROM_SUCCESS;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-del">-	if (boot_desc_spi_efuse_init(curr_manifest_idx, slv_en) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-add">+	man_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;</span>
+<span class="diff-add">+	if (boot_desc_spi_efuse_init(man_idx, slv_en) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 		return BOOT_ROM_SUCCESS;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return BOOT_ROM_FAIL;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index da1114b..94ad9ce 100644</span>
+<h4 class="diff-filename">b/common/boot_flow.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -8,13 +8,22 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #include &lt;progress_bits.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+struct pre_fetch_status {</span>
+<span class="diff-add">+	uint8_t man_idx;</span>
+<span class="diff-add">+	uint8_t resv;</span>
+<span class="diff-add">+	uint16_t resv2;</span>
+<span class="diff-add">+	bool valid;</span>
+<span class="diff-add">+	bool started;</span>
+<span class="diff-add">+	bool failed;</span>
+<span class="diff-add">+	bool done;</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type);</span>
+<span class="diff-ctx"> void boot_rom_boot_flow_boot_ppboot(enum hl_fw_manifest_type man_idx);</span>
+<span class="diff-ctx"> void boot_rom_boot_flow_boot_ppboot_sub(enum boot_rom_manifests man_type);</span>
+<span class="diff-ctx"> void boot_rom_boot_flow_validate_manifests(void);</span>
+<span class="diff-ctx"> bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests rom_manifest_type);</span>
+<span class="diff-ctx"> bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests rom_manifest_type);</span>
+<span class="diff-del">-bool boot_rom_boot_flow_is_secondary_manifest_valid(void);</span>
+<span class="diff-ctx"> void boot_rom_boot_flow_wait_for_dma_finish(void);</span>
+<span class="diff-ctx"> uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests recovery_manifest);</span>
+<span class="diff-ctx"> uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests recovery_manifest,</span>
+<span class="diff-hunk">@@ -22,5 +31,6 @@</span>
+<span class="diff-ctx"> 						  enum boot_rom_progress img_sts_base);</span>
+<span class="diff-ctx"> uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type manifest_idx);</span>
+<span class="diff-ctx"> enum boot_rom_status boot_flow_spi_efuse_manifest_init(uint8_t *slv_en);</span>
+<span class="diff-add">+void boot_flow_flip_manifest(void);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #endif /* _BOOT_FLOW_H_ */</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-19 04:02:01.795000000)</span><pre>Uploaded patch set 3: Commit message was updated.</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-19 09:25:37.433000000)</span><pre>Patch Set 3:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 09:25:43.771000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37109/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 09:25:43.843000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8929/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 09:28:27.006000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/190/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 09:30:33.725000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/95/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 09:55:33.548000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37109/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/95/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 10:04:52.210000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8929/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/190/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

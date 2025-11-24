@@ -1,0 +1,47 @@
+From 896306973465fd209663ee0c92306b449eac96f7 Mon Sep 17 00:00:00 2001
+From: shaik shabana <sshabana@habana.ai>
+Date: Thu, 02 Jan 2025 19:58:20 +0200
+Subject: [PATCH] [SIV-5885] drivers: hbm: gaudi3: move rl fix after extest
+
+HBM reset is added after phy io dc as part of the
+wa SIV-5885. This is causing issue in aligning the
+hbm remap code on efuse burnt cards. Hence moving
+the hbm reset before the remap alignment and soon
+after extest.
+
+Signed-off-by: shaik shabana <sshabana@habana.ai>
+Change-Id: I7e9ee5be8fca8ce31f93f2692cdcc7e94f4a91db
+---
+
+diff --git a/drivers/misc/hl_hbm/gaudi3/hbm.c b/drivers/misc/hl_hbm/gaudi3/hbm.c
+index cc7e1e6..a04e880 100644
+--- a/drivers/misc/hl_hbm/gaudi3/hbm.c
++++ b/drivers/misc/hl_hbm/gaudi3/hbm.c
+@@ -4761,6 +4761,13 @@
+ 		return rc;
+ 	}
+ 
++	/* HBM Reset is mandatory after EXTEST as prescribed in SIV-5885 */
++	rc = hbm_reset(hbm_dev);
++	if (rc) {
++		LOG_ERR("HBM%d - FAILED on hbm reset", hbm_dev);
++		return rc;
++	}
++
+ 	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+ 		if (slr_is_needed[ch]) {
+ 			rc = align_hbm_lane_remap(hbm_dev, ch, &remap_info);
+@@ -4790,13 +4797,6 @@
+ 	rc = phy_test_io_dc(hbm_dev);
+ 	if (rc)
+ 		goto exit_pre_train;
+-
+-	/* HBM Reset is mandatory after EXTEST as prescribed in SIV-5885 */
+-	rc = hbm_reset(hbm_dev);
+-	if (rc) {
+-		LOG_ERR("HBM%d - FAILED on hbm reset", hbm_dev);
+-		return rc;
+-	}
+ 
+ 	/* IO DC test is triggering hbm reset which resets the efuse WP */
+ 	hbm_efuse_write_protect(hbm_dev);

@@ -1,0 +1,56 @@
+From dad1b716102c8e5eefc016254fe59f865dc69cc4 Mon Sep 17 00:00:00 2001
+From: Karthik Nagasubramanian <knagasubramanian@habana.ai>
+Date: Fri, 08 Nov 2024 09:28:29 +0000
+Subject: [PATCH] Experiment Revert "[SW-176505] Fix output permutation for batchnorm"
+
+This reverts commit 60e9e36c794caf20313f4af0c31370624f54c677.
+
+Change-Id: I47e05afc0696f1b17b744eb6da42b77d8b750842
+---
+
+diff --git a/hpu_ops/backend/batch_norm_gen.cpp b/hpu_ops/backend/batch_norm_gen.cpp
+index aba166a..0da36ff 100644
+--- a/hpu_ops/backend/batch_norm_gen.cpp
++++ b/hpu_ops/backend/batch_norm_gen.cpp
+@@ -658,13 +658,6 @@
+     moveLastOutputTensorAtFront(*this);
+   }
+ 
+-  // [SW-176505] Set allowPermutation=False as GC cannot handle
+-  // the case transpose -> reshape -> batchnorm
+-  // If not set, GC will add an extra transpose on batchnorm output
+-  if (input.pt_t.sizes().size() != 4) {
+-     bnOut[0].set_dont_allow_permute(true);
+-  }
+-
+   syn_out(0) = std::move(bnOut[0]);
+   syn_out(1) = std::move(bnOut[1]);
+   syn_out(2) = std::move(bnOut[2]);
+@@ -754,13 +747,6 @@
+           outShapes);
+ 
+   reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
+-
+-  // [SW-176505] Set allowPermutation=False as GC cannot handle
+-  // the case transpose -> reshape -> batchnorm
+-  // If not set, GC will add an extra transpose on batchnorm output
+-  if (input.pt_t.sizes().size() != 4) {
+-     bnOut[0].set_dont_allow_permute(true);
+-  }
+ 
+   syn_out(0) = std::move(bnOut[0]);
+   syn_out(1) = std::move(bnOut[1]);
+@@ -899,13 +885,6 @@
+       meta[INPUT_GRAD_IDX].shape,
+       bn_out[INPUT_GRAD_IDX],
+       meta[INPUT_GRAD_IDX].dtype);
+-
+-  // [SW-176505] Set allowPermutation=False as GC cannot handle
+-  // the case transpose -> reshape -> batchnorm
+-  // If not set, GC will add an extra transpose on batchnorm output
+-  if ((meta[INPUT_GRAD_IDX].shape).size() != 4) {
+-     bn_out[INPUT_GRAD_IDX].set_dont_allow_permute(true);
+-  }
+ 
+   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
+   syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);

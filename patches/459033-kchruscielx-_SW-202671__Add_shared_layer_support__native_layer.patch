@@ -1,0 +1,92 @@
+From fe2bfac4bb08276762d86264359589ad1d936753 Mon Sep 17 00:00:00 2001
+From: Krzysztof Chrusciel <kchruscielx@habana.ai>
+Date: Thu, 24 Oct 2024 13:21:52 +0300
+Subject: [PATCH] [SW-202671] Add shared layer support: native_layer_norm_backward
+
+Change-Id: Ie67da4d90f1cbd83e2b6024aaec80d279b7e4a4d
+Signed-off-by: Krzysztof Chrusciel <kchruscielx@habana.ai>
+---
+
+diff --git a/hpu_ops/backend/layer_norm_gen.cpp b/hpu_ops/backend/layer_norm_gen.cpp
+index c754d62..b99cc77 100644
+--- a/hpu_ops/backend/layer_norm_gen.cpp
++++ b/hpu_ops/backend/layer_norm_gen.cpp
+@@ -370,6 +370,66 @@
+   return metaVec;
+ }
+ 
++SharedMetaDataVector LayerNormBwdSharedMeta(
++    const at::Stack& stack,
++    habana_helpers::HabanaFrontendTypes executionMode) {
++  const auto& gradOut = stack.at(0).toTensor();
++  const auto& input = stack.at(1).toTensor();
++  const auto normalizedShapeDim = stack.at(2).toIntVector().size();
++  const auto& mean = stack.at(3).toTensor();
++  const auto& rstd = stack.at(4).toTensor();
++  const auto& weightOpt = stack.at(5).toOptional<at::Tensor>();
++  const auto gradOutDim = gradOut.dim();
++  const auto gradOutType = gradOut.scalar_type();
++  const auto inputDim = input.dim();
++  const auto inputType = input.scalar_type();
++
++  SharedMetaDataVector layerNormBwdSharedMeta;
++
++  if (executionMode == habana_helpers::HabanaFrontendTypes::EAGER) {
++    SharedMetaData normBwdPtSharedMeta{"layer_norm_bwd_pt"};
++    normBwdPtSharedMeta.inputs_data.emplace_back(gradOutDim, gradOutType);
++    normBwdPtSharedMeta.inputs_data.emplace_back(inputDim, inputType);
++    normBwdPtSharedMeta.inputs_data.emplace_back(
++        mean.dim(), mean.scalar_type());
++    normBwdPtSharedMeta.inputs_data.emplace_back(
++        rstd.dim(), rstd.scalar_type());
++    if (weightOpt && weightOpt.value().defined())
++      normBwdPtSharedMeta.inputs_data.emplace_back(
++          weightOpt.value().dim(), weightOpt.value().scalar_type());
++    normBwdPtSharedMeta.outputs_data.emplace_back(gradOutDim, gradOutType);
++    normBwdPtSharedMeta.outputs_data.emplace_back(
++        normalizedShapeDim, c10::kFloat);
++    normBwdPtSharedMeta.outputs_data.emplace_back(
++        normalizedShapeDim, c10::kFloat);
++    layerNormBwdSharedMeta.push_back(normBwdPtSharedMeta);
++  } else {
++    const int weightOptDimAfterReshape = 1;
++    const int inputsDimsAfterReshape = 4;
++
++    SharedMetaData normBwdSharedMeta{"layer_norm_bwd"};
++    normBwdSharedMeta.inputs_data.emplace_back(
++        inputsDimsAfterReshape, gradOutType);
++    normBwdSharedMeta.inputs_data.emplace_back(
++        inputsDimsAfterReshape, inputType);
++    normBwdSharedMeta.inputs_data.emplace_back(
++        inputsDimsAfterReshape, c10::kFloat);
++    normBwdSharedMeta.inputs_data.emplace_back(
++        inputsDimsAfterReshape, c10::kFloat);
++    normBwdSharedMeta.inputs_data.emplace_back(
++        weightOptDimAfterReshape, c10::kFloat);
++    normBwdSharedMeta.outputs_data.emplace_back(
++        inputsDimsAfterReshape, gradOutType);
++    normBwdSharedMeta.outputs_data.emplace_back(
++        weightOptDimAfterReshape, c10::kFloat);
++    normBwdSharedMeta.outputs_data.emplace_back(
++        weightOptDimAfterReshape, c10::kFloat);
++    layerNormBwdSharedMeta.push_back(normBwdSharedMeta);
++  }
++
++  return layerNormBwdSharedMeta;
++}
++
+ void LayerNormBwdHabanaOperator::AddNode(
+     sh::graph& graph,
+     const at::Stack& stack) {
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 1b4e12a..e2e17e0 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -4897,6 +4897,7 @@
+   op_backend: LayerNormBwdHabanaOperator
+   output_meta: LayerNormBwdMeta
+   out_ids: [0, 0, 0]
++  op_validator: LayerNormBwdSharedMeta
+ 
+ ne.Tensor_out:
+   op_backend: NE

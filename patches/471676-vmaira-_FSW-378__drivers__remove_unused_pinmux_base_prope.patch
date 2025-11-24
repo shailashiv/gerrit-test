@@ -1,0 +1,156 @@
+From 0841bf9d6e6fe2d72fa7361a660891f79eae263f Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Tue, 04 Feb 2025 07:51:29 +0200
+Subject: [PATCH] [FSW-378] drivers: remove unused pinmux_base property
+
+pinmux_base is unused in pvt driver. This patch removes unused property
+pinmux_base.
+
+Change-Id: Iefe5a07a8d5b36db701ffc648a6c5465b57881fe
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/drivers/sensor/hl_pvt/hl_pvt.c b/drivers/sensor/hl_pvt/hl_pvt.c
+index ee6f3ce..482ff4a 100644
+--- a/drivers/sensor/hl_pvt/hl_pvt.c
++++ b/drivers/sensor/hl_pvt/hl_pvt.c
+@@ -1877,7 +1877,6 @@
+ 	static const struct hl_pvt_cfg_info hl_pvt_##idx##_cfg_info =			\
+ 	{										\
+ 		.base = DT_INST_REG_ADDR(idx),						\
+-		.pinmux_base = DT_INST_PROP(idx, pinmux_base),				\
+ 		.id = idx,								\
+ 		.div_val = DT_INST_CLOCKS_CELL(idx, div_val),				\
+ 		.clk_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(idx)),			\
+diff --git a/drivers/sensor/hl_pvt/hl_pvt_common.h b/drivers/sensor/hl_pvt/hl_pvt_common.h
+index 20b7728..d5e975e 100644
+--- a/drivers/sensor/hl_pvt/hl_pvt_common.h
++++ b/drivers/sensor/hl_pvt/hl_pvt_common.h
+@@ -104,7 +104,6 @@
+ #define HL_PVT_MAX_LOTS	16
+ struct hl_pvt_cfg_info {
+ 	uint32_t base;
+-	uint32_t pinmux_base;
+ 	uint8_t id;
+ 	uint8_t div_val;
+ 	const struct device *clk_dev;
+diff --git a/dts/arc/hl_gaudi2_pid.dtsi b/dts/arc/hl_gaudi2_pid.dtsi
+index 015c8d8..72c3c81 100644
+--- a/dts/arc/hl_gaudi2_pid.dtsi
++++ b/dts/arc/hl_gaudi2_pid.dtsi
+@@ -864,7 +864,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_sif_dcore0 3>;
+ 			reg = <0xfcf45000 0x780>;
+-			pinmux_base = <0xfcc4b980>;
+ 			calib_efuse_offset = <9 13>;
+ 			alarm_a = <83 900>;
+ 			alarm_b = <93 1000>;
+@@ -890,7 +889,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_sif_dcore1 3>;
+ 			reg = <0xfcf55000 0x780>;
+-			pinmux_base = <0xfcc4b980>;
+ 			calib_efuse_offset = <10 14>;
+ 			alarm_a = <83 900>;
+ 			alarm_b = <93 1000>;
+@@ -914,7 +912,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_sif_dcore2 3>;
+ 			reg = <0xfcf65000 0x780>;
+-			pinmux_base = <0xfcc4b980>;
+ 			calib_efuse_offset = <7 11>;
+ 			alarm_a = <83 900>;
+ 			alarm_b = <93 1000>;
+@@ -938,7 +935,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_sif_dcore3 3>;
+ 			reg = <0xfcf75000 0x780>;
+-			pinmux_base = <0xfcc4b980>;
+ 			calib_efuse_offset = <8 12>;
+ 			alarm_a = <83 900>;
+ 			alarm_b = <93 1000>;
+diff --git a/dts/arc/hl_gaudi3.dtsi b/dts/arc/hl_gaudi3.dtsi
+index 2a4f795..a4d1500 100644
+--- a/dts/arc/hl_gaudi3.dtsi
++++ b/dts/arc/hl_gaudi3.dtsi
+@@ -1042,7 +1042,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xfe0f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <12 26>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1065,7 +1064,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xfe4f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <13 27>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1089,7 +1087,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xfe8f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <15 28>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1112,7 +1109,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xfecf0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <16 29>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1136,7 +1132,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xff0f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <12 26>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1159,7 +1154,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xff4f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <13 27>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1183,7 +1177,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xff8f0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <15 28>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+@@ -1206,7 +1199,6 @@
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+ 			reg = <0xffcf0000 0x980>;
+-			pinmux_base = <0xfc48b980>;
+ 			calib_efuse_offset = <16 29>;
+ 			alarm_a = <122 900>;
+ 			alarm_b = <125 1000>;
+diff --git a/dts/bindings/sensor/hl,pvt.yaml b/dts/bindings/sensor/hl,pvt.yaml
+index dd558e8..8b52f3b 100644
+--- a/dts/bindings/sensor/hl,pvt.yaml
++++ b/dts/bindings/sensor/hl,pvt.yaml
+@@ -25,11 +25,6 @@
+       required: true
+       description: alarm B threshold for temp and voltage sensors
+ 
+-    pinmux_base:
+-      type: int
+-      required: true
+-      description: pinmux base address
+-
+     coeff_a_g:
+       type: array
+       required: true

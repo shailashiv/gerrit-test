@@ -1,0 +1,29 @@
+From c5cb42c9f70a48c8751df91ed00cef943d8512b4 Mon Sep 17 00:00:00 2001
+From: Yaniv Levinsky <ylevinsky@habana.ai>
+Date: Mon, 26 May 2025 11:51:29 +0300
+Subject: [PATCH] [SW-224425] common: remove dead code
+
+The value of power_timestamp and thermal_throttle is overwritten on a
+throttling event. The value saved in pid.c is never being used. There
+isn't any power\thermal event during init stage, so no need to take a
+timestamp of a non-existing event. Following recent changes nearby, this
+line is misleading and should be removed.
+Signed-off-by: Yaniv Levinsky <ylevinsky@habana.ai>
+
+Change-Id: I045a11aaeb97040bf72dd4e136e50bc26634313a
+---
+
+diff --git a/app/io/pid.c b/app/io/pid.c
+index 05c2484..128cdf3 100644
+--- a/app/io/pid.c
++++ b/app/io/pid.c
+@@ -251,9 +251,6 @@
+ 	platdata.state = PID_RUN;
+ 	platdata.run_state_ts = k_uptime_get();
+ 
+-	/* Update throttle timestamp before starting PID loop */
+-	platdata.event.power_timestamp = platdata.event.thermal_timestamp = k_cycle_get_32();
+-
+ 	while (1) {
+ 		/* send heartbeat event */
+ 		if (platdata.event.send_event)

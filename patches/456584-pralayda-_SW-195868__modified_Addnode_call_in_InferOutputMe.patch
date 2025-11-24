@@ -1,0 +1,36 @@
+From 305f4080d67be1a94e7e28de7ac3e6cc166900c7 Mon Sep 17 00:00:00 2001
+From: pralay <pradas@habana.ai>
+Date: Tue, 15 Oct 2024 14:16:40 +0300
+Subject: [PATCH] [SW-195868] modified Addnode call in InferOutputMeta
+
+Change-Id: I8826b96cd6172e211f2b24a402cd202451315288
+---
+
+diff --git a/hpu_ops/backend/weight_norm_gen.cpp b/hpu_ops/backend/weight_norm_gen.cpp
+index 84b1641..f9a7800 100644
+--- a/hpu_ops/backend/weight_norm_gen.cpp
++++ b/hpu_ops/backend/weight_norm_gen.cpp
+@@ -59,6 +59,13 @@
+   return metaVec;
+ }
+ 
++void moveLastOutputTensorAtFront(OpBackend& op) {
++  auto& outputInfMeta = op.GetOutputInfMeta();
++  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
++  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
++  outputInfMeta.RemoveOutput(output_tensor_idx);
++  outputInfMeta.PushOutputTensorAtFront(output_tensor);
++}
+ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
+   const auto metas = WeightNormMeta(stack);
+   auto v_in = stack_tensor(stack, 0);
+@@ -114,6 +121,9 @@
+       {syn_in(0), divOp.at(0).get()},
+       {{v_shape, v_dtype, 0}});
+ 
++  if (isOutputInfMode()) {
++    moveLastOutputTensorAtFront(*this);
++  }
+   syn_out(0) = std::move(mulOp[0]);
+   syn_out(1) = std::move(normOp);
+ }

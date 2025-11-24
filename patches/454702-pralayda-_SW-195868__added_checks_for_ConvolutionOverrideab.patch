@@ -1,0 +1,257 @@
+From 21aadad3d67ca675fda9d749094320533d8bd91a Mon Sep 17 00:00:00 2001
+From: pralay <pradas@habana.ai>
+Date: Mon, 07 Oct 2024 14:30:01 +0300
+Subject: [PATCH] [SW-195868] added checks for ConvolutionOverrideable  meta
+
+Change-Id: I894931342d7b09f8b08abebcdbf4705889eba4c0
+---
+
+diff --git a/hpu_ops/backend/convolution_gen.cpp b/hpu_ops/backend/convolution_gen.cpp
+index 9f44cc7..1ec33ed 100644
+--- a/hpu_ops/backend/convolution_gen.cpp
++++ b/hpu_ops/backend/convolution_gen.cpp
+@@ -117,16 +117,243 @@
+   }
+ }
+ 
++template <typename T>
++bool is_output_padding_neg(const std::vector<T>& output_padding) {
++  bool is_non_neg = false;
++  for (const auto& p : output_padding) {
++    is_non_neg |= (p < 0);
++  }
++  return is_non_neg;
++}
++
++template <typename T>
++bool is_padding_neg(const std::vector<T>& padding) {
++  bool is_non_neg = false;
++  for (const auto& p : padding) {
++    is_non_neg |= (p < 0);
++  }
++  return is_non_neg;
++}
++
++template <typename T>
++bool is_dilation_neg(const std::vector<T>& dilation) {
++  bool is_non_neg = false;
++  for (const auto& p : dilation) {
++    is_non_neg |= (p < 0);
++  }
++  return is_non_neg;
++}
++
++template <typename T>
++bool is_stride_nonpos(const std::vector<T>& stride) {
++  bool is_nonpos = false;
++  for (auto s : stride) {
++    is_nonpos |= (s <= 0);
++  }
++  return is_nonpos;
++}
++
++template <typename T>
++static void check_shape_forward(
++    const at::Tensor& input,
++    const c10::ArrayRef<T>& weight_sizes,
++    const at::Tensor& bias,
++    const std::vector<T>& stride,
++    const std::vector<T>& padding,
++    const std::vector<T>& dilation,
++    const bool& transposed,
++    const std::vector<T>& outputPadding,
++    const int64_t& groups) {
++  int64_t k = input.ndimension();
++  int64_t weight_dim = weight_sizes.size();
++
++  TORCH_CHECK(!is_padding_neg(padding), "negative padding is not supported");
++  TORCH_CHECK(
++      !is_output_padding_neg(outputPadding),
++      "negative output_padding is not supported");
++  TORCH_CHECK(
++      !is_stride_nonpos(stride), "non-positive stride is not supported");
++  TORCH_CHECK(
++      !is_dilation_neg(dilation), "dilation should be greater than zero");
++  TORCH_CHECK(weight_dim > 2, "weight should have at least three dimensions");
++  TORCH_CHECK(groups > 0, "non-positive groups is not supported");
++
++  TORCH_CHECK(
++      weight_dim == k,
++      "Expected ",
++      weight_dim,
++      "-dimensional input for ",
++      weight_dim,
++      "-dimensional weight ",
++      weight_sizes,
++      ", but got ",
++      k,
++      "-dimensional input of size ",
++      at::symint::sizes<T>(input),
++      " instead");
++  TORCH_CHECK(
++      weight_sizes[0] >= groups,
++      "Given groups=",
++      groups,
++      ", expected weight to be at least ",
++      groups,
++      " at dimension 0, but got weight of size ",
++      weight_sizes,
++      " instead");
++  TORCH_CHECK(
++      weight_sizes[0] % groups == 0,
++      "Given groups=",
++      groups,
++      ", expected weight to be divisible by ",
++      groups,
++      " at dimension 0, but got weight of size [",
++      weight_sizes,
++      "] instead");
++
++  if (!transposed) {
++    std::vector<T> input_shape;
++    std::vector<T> kernel_shape;
++    bool kernel_size_correct = true;
++
++    TORCH_CHECK(
++        at::symint::size<T>(input, 1) == (weight_sizes[1] * groups),
++        "Given groups=",
++        groups,
++        ", weight of size ",
++        weight_sizes,
++        ", expected input",
++        at::symint::sizes<T>(input),
++        " to have ",
++        (weight_sizes[1] * groups),
++        " channels, but got ",
++        at::symint::size<T>(input, 1),
++        " channels instead");
++
++    TORCH_CHECK(
++        !bias.defined() ||
++            (bias.ndimension() == 1 &&
++             at::symint::size<T>(bias, 0) == weight_sizes[0]),
++        "Given weight of size ",
++        weight_sizes,
++        ", expected bias to be 1-dimensional with ",
++        weight_sizes[0],
++        " elements",
++        ", but got bias of size ",
++        at::symint::sizes<T>(bias),
++        " instead");
++
++    for (const auto i : c10::irange(2, k)) {
++      input_shape.push_back(at::symint::size<T>(input, i) + 2 * padding[i - 2]);
++      // log new kernel size considering dilation
++      kernel_shape.push_back(dilation[i - 2] * (weight_sizes[i] - 1) + 1);
++      if (input_shape.back() < kernel_shape.back()) {
++        kernel_size_correct = false;
++      }
++    }
++
++    TORCH_CHECK(
++        input_shape.size() == kernel_shape.size(),
++        "Inconsistent shape between Input and Kernel");
++
++    if (!kernel_size_correct) {
++      // If kernel size is incorrect
++      std::ostringstream input_ss;
++      std::ostringstream kernel_ss;
++      std::string separator = "";
++
++      for (int i = 0, len = input_shape.size(); i < len; ++i) {
++        input_ss << separator << input_shape[i];
++        kernel_ss << separator << kernel_shape[i];
++        separator = " x ";
++      }
++
++      AT_ERROR(
++          "Calculated padded input size per channel: (",
++          input_ss.str(),
++          "). "
++          "Kernel size: (",
++          kernel_ss.str(),
++          "). Kernel size can't be greater than actual input size");
++    }
++  } else { // transposed
++    TORCH_CHECK(
++        at::symint::size<T>(input, 1) == weight_sizes[0],
++        "Given transposed=",
++        transposed,
++        ", weight of size ",
++        weight_sizes,
++        ", expected input",
++        at::symint::sizes<T>(input),
++        " to have ",
++        weight_sizes[0],
++        " channels, but got ",
++        at::symint::size<T>(input, 1),
++        " channels instead");
++    TORCH_CHECK(
++        !bias.defined() ||
++            (bias.ndimension() == 1 &&
++             at::symint::size<T>(bias, 0) == weight_sizes[1] * groups),
++        "Given transposed=",
++        transposed,
++        ", weight of size ",
++        weight_sizes,
++        ", expected bias to be 1-dimensional with ",
++        weight_sizes[1] * groups,
++        " elements",
++        ", but got bias of size ",
++        at::symint::sizes<T>(bias),
++        " instead");
++  }
++}
++
++static void check_input_same_type_as_parameters(
++    const at::Tensor& input,
++    const at::Tensor& weight,
++    const at::Tensor& bias) {
++  TORCH_CHECK(
++      input.options().type_equal(weight.options()),
++      "Input type (",
++      input.toString(),
++      ") and weight type (",
++      weight.toString(),
++      ") should be the same");
++
++  TORCH_CHECK(
++      !bias.defined() || (input.options().type_equal(bias.options())),
++      "Input type (",
++      input.toString(),
++      ") and bias type (",
++      bias.toString(),
++      ") should be the same");
++}
++at::Tensor toNonOptTensor(c10::optional<at::Tensor>& t) {
++  return t.has_value() ? *t : at::Tensor();
++}
++
+ OutputMetaDataVector ConvolutionMeta(const at::Stack& stack) {
+   auto self = stack_tensor(stack, 0);
+   auto shapeIn = self.sizes();
+-  auto shapeWt = stack_tensor(stack, 1).sizes();
++  auto weight = stack_tensor(stack, 1);
++  auto shapeWt = weight.sizes();
+   const auto stride = stack.at(3).toIntList().vec();
+   const auto padding = stack.at(4).toIntList().vec();
+   const auto dilation = stack.at(5).toIntList().vec();
+   const bool transposed = stack.at(6).toBool();
+   const auto outputPadding = stack.at(7).toIntList().vec();
+   const int64_t groups = stack.at(8).toInt();
++  auto bias = stack.at(2).toOptional<at::Tensor>().value_or(at::Tensor());
++  check_shape_forward(
++      self,
++      shapeWt,
++      bias,
++      stride,
++      padding,
++      dilation,
++      transposed,
++      outputPadding,
++      groups);
++
++  check_input_same_type_as_parameters(self, weight, bias);
+ 
+   auto K = transposed ? shapeWt[1] * groups : shapeWt[0];
+   std::vector<int64_t> outputShape{shapeIn[0], K};

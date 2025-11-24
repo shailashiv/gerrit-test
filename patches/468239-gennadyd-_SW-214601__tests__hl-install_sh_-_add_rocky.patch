@@ -1,0 +1,54 @@
+From 3131eca921db963b72309d336a6c1f4fe228a5fc Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Sun, 05 Jan 2025 17:26:08 +0200
+Subject: [PATCH] [SW-214601] tests: hl-install.sh - add rocky
+
+Change-Id: Ia1a44bf20e1efbe82d0e39082558c064239d2eae
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/tests/asic/hl-install.sh b/tests/asic/hl-install.sh
+index 09ffaa4..6ee88d3 100755
+--- a/tests/asic/hl-install.sh
++++ b/tests/asic/hl-install.sh
+@@ -111,6 +111,14 @@
+             init_docker_runtime
+         fi
+     ;;
++    rocky)
++        sudo ${HL_PKG_CMD} makecache
++        if [ -z ${SKIP_FW_INSTALL} ]; then
++            sudo ${HL_PKG_CMD} install -y habanalabs-firmware${__internal}-${RELEASE_VERSION}-${RELEASE_BUILD_ID}${HL_DIST_TYPE}
++            sudo ${HL_PKG_CMD} install -y habanalabs-firmware-odm${__internal}-${RELEASE_VERSION}-${RELEASE_BUILD_ID}${HL_DIST_TYPE}
++        fi
++        sudo ${HL_PKG_CMD} install -y habanalabs-${RELEASE_VERSION}-${RELEASE_BUILD_ID}${HL_DIST_TYPE}
++    ;;
+     *)
+         echo "OS $HL_OS is not supported"
+         exit 1
+diff --git a/tests/common/hl-common.sh b/tests/common/hl-common.sh
+index 28dfd3f..66f76a2 100755
+--- a/tests/common/hl-common.sh
++++ b/tests/common/hl-common.sh
+@@ -36,6 +36,10 @@
+         __DEFAULT_HL_PYTHON_CMD="python3.11"
+         __DEFAULT_HL_PIP_CMD="pip3.11"
+     ;;
++    rocky)
++        __DEFAULT_HL_PYTHON_CMD="python3.9"
++        __DEFAULT_HL_PIP_CMD="pip3.9"
++    ;;
+     *)
+         echo -n "unsupported OS $HL_OS"
+         exit 1
+@@ -91,6 +95,10 @@
+         HL_OS="suse"
+         __DEFAULT_BUILD_OS="${HL_OS}${HL_OS_VER}"
+     ;;
++    rocky)
++        __DEFAULT_HL_DIST_TYPE=$(rpm --eval='%{dist}')
++        __DEFAULT_HL_PKG_CMD="dnf"
++    ;;
+     *)
+         echo -n "unsupported OS $HL_OS"
+         exit 1

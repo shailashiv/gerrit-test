@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 481680: [JSW-968] bootrom: use common persistent section</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 481680: [JSW-968] bootrom: use common persistent section</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-06-12 10:36:41.890000000</p>
+            <p><strong>Updated:</strong> 2025-06-19 10:52:49.454000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[JSW-968] bootrom: use common persistent section
+
+BootROM has persistent DCCM section which is
+split into 2 parts for different usage.
+rom_persistent section and manifest section
+can share common persistent dccm section.
+There should not be any pre-init values for
+persistent section, because it was cleared by
+bootrom main and rom to dccm copy was not taken
+care in main code. Hence, Need to assign them
+after dccm clear in boot rom main, in case any
+pre-init values required.
+
+Change-Id: I29bc14b2f70d55322d0f9d88bac5027d58dac8ab
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Subrahmanyeswara Swamy Murala: +0, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: +2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>app/boot_rom.c</code> (M) +2 -18</li><li><code>arch/fs1/arc/boot_rom.lds</code> (M) +2 -5</li><li><code>arch/fs1/arc/common.c</code> (M) +1 -1</li><li><code>arch/jgs/arc/boot_rom.lds</code> (M) +2 -5</li><li><code>arch/jgs/arc/common.c</code> (M) +9 -3</li><li><code>common/littlefs/lfs_wrapper.c</code> (M) +8 -8</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/app/boot_rom.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -12,25 +12,9 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> const int gpu_die_type = DIE_TYPE;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-struct boot_rom_global_s __attribute__((section (&quot;.rom_persistent_section&quot;)))boot_rom_global = {</span>
+<span class="diff-del">-	.config_fuse = 0,</span>
+<span class="diff-del">-	.config2_fuse = 0,</span>
+<span class="diff-del">-	.recovery_flag = 0,</span>
+<span class="diff-del">-	.force_recovery = 0,</span>
+<span class="diff-del">-	.validation_pass = 0,</span>
+<span class="diff-del">-	.fw_upd_switch_manifest = 0,</span>
+<span class="diff-del">-	.efuse_read = 0,</span>
+<span class="diff-del">-	.curr_img = 0,</span>
+<span class="diff-del">-	.fake_fuse_en = false,</span>
+<span class="diff-del">-	.boot_info_set_done = false,</span>
+<span class="diff-del">-	.tpm_exec_stage = 0,</span>
+<span class="diff-del">-	.tpm_extend_done = 0,</span>
+<span class="diff-del">-	.tpm_next_pcr_index = 0,</span>
+<span class="diff-del">-	.tpm_spi = NULL,</span>
+<span class="diff-del">-	.sec_data = {0},</span>
+<span class="diff-del">-};</span>
+<span class="diff-add">+struct boot_rom_global_s __attribute__((section (&quot;.persistent_dccm_section&quot;)))boot_rom_global;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-struct boot_rom_manifest_s __attribute__((section (&quot;.rom_manifest_section&quot;)))boot_rom_manifest;</span>
+<span class="diff-add">+struct boot_rom_manifest_s __attribute__((section (&quot;.persistent_dccm_section&quot;)))boot_rom_manifest;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int boot_rom_main(void)</span>
+<span class="diff-ctx"> {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0215d6a..55d5fcc 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/boot_rom.lds</h4><pre class="diff-content"><span class="diff-hunk">@@ -31,7 +31,6 @@</span>
+<span class="diff-ctx"> 	_dccm_begin = ORIGIN(DCCM);</span>
+<span class="diff-ctx"> 	_dccm_end = ORIGIN(DCCM) + LENGTH(DCCM);</span>
+<span class="diff-ctx"> 	_persistent_sec_size = 3k;</span>
+<span class="diff-del">-	_rom_global_data_size = 1024;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	.ivt : {</span>
+<span class="diff-ctx"> 		KEEP (*(.ivt));</span>
+<span class="diff-hunk">@@ -47,10 +46,8 @@</span>
+<span class="diff-ctx"> 		_data_after_persist_sec = _etext + _persistent_sec_size;</span>
+<span class="diff-ctx"> 		_data = .;</span>
+<span class="diff-ctx"> 		/* TODO: Finalize design on persistent and non-persistent section */</span>
+<span class="diff-del">-	    KEEP(*(.rom_persistent_section))</span>
+<span class="diff-del">-	    . = _data + _rom_global_data_size; /* Reserve 512 memory for persistent data section */</span>
+<span class="diff-del">-	    KEEP(*(.rom_manifest_section))</span>
+<span class="diff-del">-	    . = _data + _persistent_sec_size; /* Reserve 2560 (3K - 512) memory for persistent data section */</span>
+<span class="diff-add">+	    KEEP(*(.persistent_dccm_section))</span>
+<span class="diff-add">+	    . = _data + _persistent_sec_size; /* Reserve 3K memory for persistent data section */</span>
+<span class="diff-ctx"> 		_rom_non_persistent_dccm_start = .;</span>
+<span class="diff-ctx"> 		*(.data)</span>
+<span class="diff-ctx"> 	} &gt; REGION_DATA</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 8ffc607..b003955 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/common.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -82,7 +82,7 @@</span>
+<span class="diff-ctx"> static void boot_rom_global_pre_init_values(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	/*</span>
+<span class="diff-del">-	 * rom_persistent_section pre-init values.</span>
+<span class="diff-add">+	 * persistent_dccm_section pre-init values.</span>
+<span class="diff-ctx"> 	 * Only assign during cold reset.</span>
+<span class="diff-ctx"> 	 * Below values modified during run time and used in next non-cold reset cases.</span>
+<span class="diff-ctx"> 	*/</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index ea5a9ad..ccae71a 100644</span>
+<h4 class="diff-filename">b/arch/jgs/arc/boot_rom.lds</h4><pre class="diff-content"><span class="diff-hunk">@@ -31,7 +31,6 @@</span>
+<span class="diff-ctx"> 	_dccm_begin = ORIGIN(DCCM);</span>
+<span class="diff-ctx"> 	_dccm_end = ORIGIN(DCCM) + LENGTH(DCCM);</span>
+<span class="diff-ctx"> 	_persistent_sec_size = 3k;</span>
+<span class="diff-del">-	_rom_global_data_size = 1024;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	.ivt : {</span>
+<span class="diff-ctx"> 		KEEP (*(.ivt));</span>
+<span class="diff-hunk">@@ -47,10 +46,8 @@</span>
+<span class="diff-ctx"> 		_data_after_persist_sec = _etext + _persistent_sec_size;</span>
+<span class="diff-ctx"> 		_data = .;</span>
+<span class="diff-ctx"> 		/* TODO: Finalize design on persistent and non-persistent section */</span>
+<span class="diff-del">-	    KEEP(*(.rom_persistent_section))</span>
+<span class="diff-del">-	    . = _data + _rom_global_data_size; /* Reserve 512 memory for persistent data section */</span>
+<span class="diff-del">-	    KEEP(*(.rom_manifest_section))</span>
+<span class="diff-del">-	    . = _data + _persistent_sec_size; /* Reserve 2560 (3K - 512) memory for persistent data section */</span>
+<span class="diff-add">+	    KEEP(*(.persistent_dccm_section))</span>
+<span class="diff-add">+	    . = _data + _persistent_sec_size; /* Reserve 3K memory for persistent data section */</span>
+<span class="diff-ctx"> 		_rom_non_persistent_dccm_start = .;</span>
+<span class="diff-ctx"> 		*(.data)</span>
+<span class="diff-ctx"> 	} &gt; REGION_DATA</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 82e89ba..831cfe7 100644</span>
+<h4 class="diff-filename">b/arch/jgs/arc/common.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -82,7 +82,7 @@</span>
+<span class="diff-ctx"> static void boot_rom_global_pre_init_values(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	/*</span>
+<span class="diff-del">-	 * rom_persistent_section pre-init values.</span>
+<span class="diff-add">+	 * persistent_dccm_section pre-init values.</span>
+<span class="diff-ctx"> 	 * Only assign during cold reset.</span>
+<span class="diff-ctx"> 	 * Below values modified during run time and used in next non-cold reset cases.</span>
+<span class="diff-ctx"> 	*/</span>
+<span class="diff-hunk">@@ -111,17 +111,23 @@</span>
+<span class="diff-ctx"> 	cold_rst_data.arc1_persist_dccm_init_done = 1;</span>
+<span class="diff-ctx"> 	regmap_writel(cold_rst_data.data, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_COLD_RST_REG_2));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+	/* Cold boot: Pre-init values for All DIE&#x27;s */</span>
+<span class="diff-ctx"> 	boot_rom_global_pre_init_values();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+	/* Cold boot: Pre-init values for Master DIE */</span>
+<span class="diff-add">+	if (die_id == JGS_IO_DIE_0) {</span>
+<span class="diff-add">+		/* TODO: lfs_init_done should be init to false only in cold boot */</span>
+<span class="diff-add">+		lfs_globals_pre_init();</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> non_zero_init:</span>
+<span class="diff-del">-	/* Non zero initializers only required for master(die 0) */</span>
+<span class="diff-add">+	/* Cold boot/warm boot: Restore default values */</span>
+<span class="diff-ctx"> 	if (die_id == JGS_IO_DIE_0) {</span>
+<span class="diff-ctx"> 		/*</span>
+<span class="diff-ctx"> 		 * Assign pre-init constants which never modified during run time.</span>
+<span class="diff-ctx"> 		 * So, upon any reset safe to re-init them.</span>
+<span class="diff-ctx"> 		 * For example, manifest constants.</span>
+<span class="diff-ctx"> 		 */</span>
+<span class="diff-del">-		lfs_globals_pre_init();</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 203279c..ac786a4 100644</span>
+<h4 class="diff-filename">b/common/littlefs/lfs_wrapper.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -16,7 +16,7 @@</span>
+<span class="diff-ctx"> #define DST_SAFE	true</span>
+<span class="diff-ctx"> #define DST_UNSAFE	false</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-bool __attribute__((section (&quot;.rom_persistent_section&quot;)))lfs_init_done;</span>
+<span class="diff-add">+bool __attribute__((section (&quot;.persistent_dccm_section&quot;)))lfs_init_done;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void memcpy32_rev(void *dst, void *src, int size)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-hunk">@@ -118,16 +118,16 @@</span>
+<span class="diff-ctx"> static int ram_block_sync(const struct lfs_config *c);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> // variables used by the filesystem</span>
+<span class="diff-del">-lfs_t __attribute__((section (&quot;.rom_persistent_section&quot;)))lfs;</span>
+<span class="diff-del">-uint8_t __attribute__((section (&quot;.rom_persistent_section&quot;)))pcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-del">-uint8_t __attribute__((section (&quot;.rom_persistent_section&quot;)))rcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-del">-uint8_t __attribute__((section (&quot;.rom_persistent_section&quot;)))fcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-del">-uint8_t __attribute__((section (&quot;.rom_persistent_section&quot;)))lookahead[CACHE_BUFFER_SIZE];</span>
+<span class="diff-add">+lfs_t __attribute__((section (&quot;.persistent_dccm_section&quot;)))lfs;</span>
+<span class="diff-add">+uint8_t __attribute__((section (&quot;.persistent_dccm_section&quot;)))pcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-add">+uint8_t __attribute__((section (&quot;.persistent_dccm_section&quot;)))rcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-add">+uint8_t __attribute__((section (&quot;.persistent_dccm_section&quot;)))fcache[CACHE_BUFFER_SIZE];</span>
+<span class="diff-add">+uint8_t __attribute__((section (&quot;.persistent_dccm_section&quot;)))lookahead[CACHE_BUFFER_SIZE];</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> // configuration of the filesystem is provided by this struct</span>
+<span class="diff-del">-struct lfs_config __attribute__((section (&quot;.rom_persistent_section&quot;)))lfs_cfg;</span>
+<span class="diff-add">+struct lfs_config __attribute__((section (&quot;.persistent_dccm_section&quot;)))lfs_cfg;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-struct lfs_file_config __attribute__((section (&quot;.rom_persistent_section&quot;)))defaults;</span>
+<span class="diff-add">+struct lfs_file_config __attribute__((section (&quot;.persistent_dccm_section&quot;)))defaults;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void lfs_globals_pre_init()</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-12 10:36:41.890000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-12 10:36:47.319000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8758/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-12 10:36:49.926000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36909/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-12 10:39:15.000000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/188/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-12 10:40:49.090000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/87/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-12 11:15:53.506000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/188/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8758/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-12 12:08:40.330000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36909/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/87/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-19 04:02:01.795000000)</span><pre>Uploaded patch set 5: Commit message was updated.</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-19 09:25:29.245000000)</span><pre>Patch Set 5:
+
+recheck</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 09:25:37.536000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8928/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 09:25:37.682000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37108/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 09:28:02.349000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/189/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 09:29:31.274000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/94/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 10:05:04.979000000)</span><pre>Patch Set 5: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8928/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/189/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 10:52:49.454000000)</span><pre>Patch Set 5: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37108/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/94/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

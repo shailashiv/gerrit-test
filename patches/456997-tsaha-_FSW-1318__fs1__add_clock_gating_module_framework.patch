@@ -1,0 +1,529 @@
+From 412e392d4f829b6d59513b8b99b0765a4881a0e8 Mon Sep 17 00:00:00 2001
+From: Tamal <tasaha@habana.ai>
+Date: Thu, 02 Jan 2025 14:22:42 +0200
+Subject: [PATCH] [FSW-1318] fs1: add clock gating module framework
+
+This patch adds framework for fs1 clock gating.
+This module is responsible for handling clock
+gating initialization in various engines of the
+device. Enabling the clock gating can save power
+by cutting out the clock to unused engines of
+the device.
+
+This patch enables clock gating for vdec, nic, edma,
+pdma engines.
+
+FS1 embedded PRM document for "clock gating" is not
+available yet.
+
+Change-Id: I63ef83af54a8ae060770ccbe5e4742d1dceba981
+Signed-off-by: Tamal <tasaha@habana.ai>
+---
+
+diff --git a/drivers/misc/clk_gating/fs1/CMakeLists.txt b/drivers/misc/clk_gating/fs1/CMakeLists.txt
+new file mode 100644
+index 0000000..d526cb3
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/CMakeLists.txt
+@@ -0,0 +1,12 @@
++# SPDX-License-Identifier: Apache-2.0
++
++zephyr_library_sources(
++	drv.c
++	vdec.c
++	nic.c
++	pmmu.c
++	edma.c
++	pdma.c
++	xecore.c
++	dual_plane.c
++)
+diff --git a/drivers/misc/clk_gating/fs1/clk_gating.h b/drivers/misc/clk_gating/fs1/clk_gating.h
+new file mode 100644
+index 0000000..8ad534c
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/clk_gating.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#ifndef ZEPHYR_DRIVERS_MISC_FS_CLK_GATING_FS1_CLK_GATING_H
++#define ZEPHYR_DRIVERS_MISC_FS_CLK_GATING_FS1_CLK_GATING_H
++
++#include <hl_platform_defs.h>
++#include <fs1_fw_if.h>
++
++#define FS_CGM_DRV_DATA(dev)	((struct fs_cgm_drv_data *)(dev)->data)
++
++struct fs_cgm_drv_data {
++	bool initialized;
++	enum fs1_die_id die_id;
++	void *redun_ctx;
++};
++
++void fs_cgm_enable_vdec(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_nic(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_pmmu(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_edma(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_pdma(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_xecore(struct fs_cgm_drv_data *data, bool enable);
++void fs_cgm_enable_dual_plane(struct fs_cgm_drv_data *data, bool enable);
++
++#endif /* ZEPHYR_DRIVERS_MISC_FS_CLK_GATING_FS1_CLK_GATING_H */
+diff --git a/drivers/misc/clk_gating/fs1/drv.c b/drivers/misc/clk_gating/fs1/drv.c
+new file mode 100644
+index 0000000..caeaa1b
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/drv.c
+@@ -0,0 +1,137 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <arc_local_conf_masks.h>
++#include <arc_local_conf_regs.h>
++#include <zephyr/drivers/misc/clk_gating/clk_gating_api.h>
++#include <zephyr/drivers/misc/clk_gating/fs1/fs_clk_gating_defs.h>
++#include <zephyr/drivers/misc/common/fs1/hl_platform_defs.h>
++#include <zephyr/drivers/misc/common/fs1/fs1_binning_defs.h>
++#include "clk_gating.h"
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating);
++
++#define DT_DRV_COMPAT  intel_clock_gating
++
++static struct fs_cgm_drv_data cgm_drv_data;
++
++static void fs_cgm_enable_engine(const struct device *dev, uint32_t engine,
++				 bool enable)
++{
++	struct fs_cgm_drv_data *data = FS_CGM_DRV_DATA(dev);
++
++	if (!data->initialized) {
++		LOG_ERR("clock gating driver info is not initialized");
++		return;
++	}
++
++	if (data->die_id <= FS1_COMPUTE_DIE_3) {
++
++		switch (engine) {
++		case FS_CGM_COMPUTE_MODULE_EDMA:
++			fs_cgm_enable_edma(data, enable);
++			break;
++		case FS_CGM_COMPUTE_MODULE_PDMA:
++			fs_cgm_enable_pdma(data, enable);
++			break;
++		case FS_CGM_COMPUTE_MODULE_XECORE:
++			fs_cgm_enable_xecore(data, enable);
++			break;
++		case FS_CGM_MODULE_DUAL_PLANE:
++			fs_cgm_enable_dual_plane(data, enable);
++			break;
++		default:
++			LOG_ERR("unsupported cgm engine id %d", engine);
++		}
++	} else if ((data->die_id >= FS1_IO_DIE_0)  && (data->die_id <= FS1_IO_DIE_1_HALF_1)) {
++
++		switch (engine) {
++		case FS_CGM_IO_MODULE_DEC:
++			fs_cgm_enable_vdec(data, enable);
++			break;
++		case FS_CGM_IO_MODULE_NIC:
++			fs_cgm_enable_nic(data, enable);
++			break;
++		case FS_CGM_IO_MODULE_PMMU:
++			fs_cgm_enable_pmmu(data, enable);
++			break;
++		default:
++			LOG_ERR("unsupported cgm engine id %d", engine);
++		}
++	} else {
++		LOG_ERR("unsupported die id id %d", data->die_id);
++	}
++}
++
++
++static void fs_cgm_enable_all(const struct device *dev, bool enable)
++{
++	struct fs_cgm_drv_data *data = FS_CGM_DRV_DATA(dev);
++
++	if (!data->initialized) {
++		LOG_ERR("clock gating driver info is not initialized");
++		return;
++	}
++
++	if (data->die_id <= FS1_COMPUTE_DIE_3) {
++		fs_cgm_enable_edma(data, enable);
++		fs_cgm_enable_pdma(data, enable);
++		fs_cgm_enable_xecore(data, enable);
++		fs_cgm_enable_dual_plane(data, enable);
++	} else if (data->die_id <= FS1_IO_DIE_1_HALF_1) {
++		fs_cgm_enable_vdec(data, enable);
++		fs_cgm_enable_nic(data, enable);
++		fs_cgm_enable_pmmu(data, enable);
++	} else {
++		LOG_ERR("%s: invalid die id = %u", __func__, data->die_id);
++		return -1;
++	}
++
++}
++
++static void fs_cgm_inject_info(const struct device *dev,
++			       void *info)
++{
++	struct fs_cgm_drv_data *data = FS_CGM_DRV_DATA(dev);
++	struct fs_clock_gating_info *cgm_info = (struct fs_clock_gating_info *)info;
++
++	data->die_id = ((CFG_RREG32(mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_LOCAL_BASE +
++			mmARC_LOCAL_CONF_DIE_CPU_ID) & ARC_LOCAL_CONF_DIE_CPU_ID_DIE_ID_M) >>
++			ARC_LOCAL_CONF_DIE_CPU_ID_DIE_ID_S);
++
++	data->redun_ctx = cgm_info->redundancy_ctx;
++	data->initialized = true;
++}
++
++static const struct clk_gating_driver_api fs_cgm_drv_api = {
++	.clk_gating_enable_engine_drv = fs_cgm_enable_engine,
++	.clk_gating_enable_all_drv = fs_cgm_enable_all,
++	.clk_gating_inject_info_drv = fs_cgm_inject_info,
++};
++
++static int fs_cgm_init(const struct device *dev)
++{
++	struct fs_cgm_drv_data *data = FS_CGM_DRV_DATA(dev);
++
++	LOG_INF("FS_CLOCK_GATING enumeration init");
++
++	data->initialized = false;
++
++	LOG_INF("FS_CLOCK_GATING enumeration done");
++
++	return 0;
++}
++
++DEVICE_DT_INST_DEFINE(0, fs_cgm_init,
++			NULL,
++			&cgm_drv_data,
++			NULL,	/* no static configuration */
++			POST_KERNEL,
++			CONFIG_KERNEL_INIT_PRIORITY_DEVICE,
++			&fs_cgm_drv_api);
+diff --git a/drivers/misc/clk_gating/fs1/dual_plane.c b/drivers/misc/clk_gating/fs1/dual_plane.c
+new file mode 100644
+index 0000000..1b764c9
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/dual_plane.c
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_dual_plane);
++
++void fs_cgm_enable_dual_plane(struct fs_cgm_drv_data *data, bool enable)
++{
++	LOG_DBG("%s invoked", __func__);
++}
+diff --git a/drivers/misc/clk_gating/fs1/edma.c b/drivers/misc/clk_gating/fs1/edma.c
+new file mode 100644
+index 0000000..0f2a8b3
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/edma.c
+@@ -0,0 +1,41 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++#include <qman_cgm_regs.h>
++#include <qman_cgm_masks.h>
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_edma);
++
++#define CONSECUTIVE_EDMA_OFFSET		(mmCOMPUTE_0_CFG_EDMA_EDMA_1_QMAN_QM_CGM_BASE - \
++					mmCOMPUTE_0_CFG_EDMA_EDMA_0_QMAN_QM_CGM_BASE)
++
++void fs_cgm_enable_edma(struct fs_cgm_drv_data *data, bool enable)
++{
++	uint32_t edma_index, edma_offset, addr, regval;
++	uint32_t cgm_ena_mask = enable ? QMAN_CGM_CFG_EN_M : 0;
++
++	LOG_DBG("%s invoked for enable = %u", __func__, enable);
++
++	for (edma_index = 0; edma_index < (FS1_NUM_EDMA_PER_DIE - FS1_NUM_REDUN_EDMA_PER_DIE);
++			edma_index++) {
++
++		edma_offset = CONSECUTIVE_EDMA_OFFSET * edma_index;
++		addr = mmCOMPUTE_0_CFG_EDMA_EDMA_0_QMAN_QM_CGM_BASE + edma_offset + mmQMAN_CGM_CFG;
++
++		regval = CFG_RREG32(addr);
++		regval &= ~QMAN_CGM_CFG_EN_M;
++		regval |= cgm_ena_mask;
++		CFG_WREG32(addr, regval);
++
++		LOG_DBG("%s, edma: %u, addr: 0x%x, val = 0x%x", __func__, edma_index, addr, regval);
++	}
++}
+diff --git a/drivers/misc/clk_gating/fs1/nic.c b/drivers/misc/clk_gating/fs1/nic.c
+new file mode 100644
+index 0000000..d6edf3a
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/nic.c
+@@ -0,0 +1,88 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++
++#include <nic_rxb_regs.h>
++#include <nic_rxe_regs.h>
++#include <nic_txs_regs.h>
++#include <nic_txs_masks.h>
++#include <nic_qpc_regs.h>
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_nic);
++
++#define NIC_CGM_TIMER_INTERVAL		0x1000
++
++#define NIC_REG_OFF(x)			((x) - mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_BASE)
++
++#define NIC_RXB_REG_OFF		NIC_REG_OFF(mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_RXB_BASE)
++#define NIC_RXE_REG_OFF		NIC_REG_OFF(mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_RXE_BASE)
++#define NIC_TXS_REG_OFF		NIC_REG_OFF(mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_TXS_BASE)
++#define NIC_QPC_REG_OFF		NIC_REG_OFF(mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_QPC_BASE)
++#define CONSECUTIVE_NIC_OFFSET		NIC_REG_OFF(mmIO_0_CFG_HALF_0_NSS_NIC_1_NIC_BASE)
++
++void fs_cgm_enable_nic(struct fs_cgm_drv_data *data, bool enable)
++{
++	uint32_t half_die_id, nic_index, base, addr;
++	uint32_t cgm_disable = (uint32_t)(!enable);
++	uint32_t txs_clk_gate_val = NIC_CGM_TIMER_INTERVAL |
++				(cgm_disable << NIC_TXS_CLK_GATE_CFG_CGM_DIS_S) |
++				(cgm_disable << NIC_TXS_CLK_GATE_CFG_FORCE_OPEN_S);
++
++	LOG_DBG("%s: invoked for enable = %u", __func__, enable);
++
++	for (half_die_id = 0, base = mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_BASE;
++			half_die_id < FS1_NUM_HALF_DIES;
++			half_die_id++, base = mmIO_0_CFG_HALF_1_NSS_NIC_0_NIC_BASE) {
++
++		for (nic_index = 0; nic_index < (FS1_NUM_NIC_PER_DIE / FS1_NUM_HALF_DIES);
++				nic_index++) {
++
++			addr = base + CONSECUTIVE_NIC_OFFSET * nic_index;
++
++			LOG_DBG("----- nic(%u) -----", nic_index + half_die_id *
++					(FS1_NUM_NIC_PER_DIE / FS1_NUM_HALF_DIES));
++
++			/* RXB */
++			CFG_WREG32(addr + NIC_RXB_REG_OFF + mmNIC_RXB_CG, cgm_disable);
++			LOG_DBG("RXB_CG addr 0x%x", addr + NIC_RXB_REG_OFF + mmNIC_RXB_CG);
++			CFG_WREG32(addr + NIC_RXB_REG_OFF + mmNIC_RXB_CG_TIMER,
++				NIC_CGM_TIMER_INTERVAL);
++			LOG_DBG("RXB_CG_TIMER addr 0x%x",
++				addr + NIC_RXB_REG_OFF + mmNIC_RXB_CG_TIMER);
++
++			/* RXE */
++			CFG_WREG32(addr + NIC_RXE_REG_OFF + mmNIC_RXE_CG, cgm_disable);
++			LOG_DBG("RXE_CG addr 0x%x", addr + NIC_RXE_REG_OFF + mmNIC_RXE_CG);
++			CFG_WREG32(addr + NIC_RXE_REG_OFF + mmNIC_RXE_CG_TIMER,
++				NIC_CGM_TIMER_INTERVAL);
++			LOG_DBG("RXE_CG_TIMER addr 0x%x",
++				addr + NIC_RXE_REG_OFF + mmNIC_RXE_CG_TIMER);
++
++			/* TXS */
++			CFG_WREG32(addr + NIC_TXS_REG_OFF + mmNIC_TXS_CLK_GATE_CFG,
++				txs_clk_gate_val);
++			LOG_DBG("TXS addr 0x%x",
++				(addr + NIC_TXS_REG_OFF + mmNIC_TXS_CLK_GATE_CFG));
++			LOG_DBG("txs_clk_gate_val 0x%x", txs_clk_gate_val);
++
++			/* QPC */
++			CFG_WREG32(addr + NIC_QPC_REG_OFF + mmNIC_QPC_QPC_CLOCK_GATE,
++				NIC_CGM_TIMER_INTERVAL);
++			LOG_DBG("QPC CLOCK_GATE addr 0x%x",
++				addr + NIC_QPC_REG_OFF + mmNIC_QPC_QPC_CLOCK_GATE);
++			CFG_WREG32(addr + NIC_QPC_REG_OFF + mmNIC_QPC_QPC_CLOCK_GATE_DIS,
++				cgm_disable);
++			LOG_DBG("QPC CLOCK_GATE_DIS addr 0x%x",
++				addr + NIC_QPC_REG_OFF + mmNIC_QPC_QPC_CLOCK_GATE_DIS);
++		}
++	}
++}
+diff --git a/drivers/misc/clk_gating/fs1/pdma.c b/drivers/misc/clk_gating/fs1/pdma.c
+new file mode 100644
+index 0000000..ecc65f2
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/pdma.c
+@@ -0,0 +1,33 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++#include <pqm_cmn_b_regs.h>
++#include <pqm_cmn_b_masks.h>
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_pdma);
++
++void fs_cgm_enable_pdma(struct fs_cgm_drv_data *data, bool enable)
++{
++	uint32_t addr, regval;
++	uint32_t cgm_ena_mask = enable ? PQM_CMN_B_CGM_CFG_EN_M : 0;
++
++	LOG_DBG("%s invoked for enable = %u", __func__, enable);
++
++	addr = mmCOMPUTE_0_CFG_PDMA_PQM_CMN_B_BASE + mmPQM_CMN_B_CGM_CFG;
++
++	regval = CFG_RREG32(addr);
++	regval &= ~PQM_CMN_B_CGM_CFG_EN_M;
++	regval |= cgm_ena_mask;
++	CFG_WREG32(addr, regval);
++
++	LOG_DBG("%s, addr: 0x%x, val = 0x%x", __func__, addr, regval);
++}
+diff --git a/drivers/misc/clk_gating/fs1/pmmu.c b/drivers/misc/clk_gating/fs1/pmmu.c
+new file mode 100644
+index 0000000..f2860da
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/pmmu.c
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_pmmu);
++
++void fs_cgm_enable_pmmu(struct fs_cgm_drv_data *data, bool enable)
++{
++	LOG_DBG("%s invoked", __func__);
++}
+diff --git a/drivers/misc/clk_gating/fs1/vdec.c b/drivers/misc/clk_gating/fs1/vdec.c
+new file mode 100644
+index 0000000..2edc2f4
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/vdec.c
+@@ -0,0 +1,50 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++#include <vcore_brdg_regs.h>
++#include <vcore_brdg_masks.h>
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_vdec);
++
++#define CONSECUTIVE_VDEC_OFFSET		(mmIO_0_CFG_HALF_0_MEDIA_DEC_1_BASE - \
++					mmIO_0_CFG_HALF_0_MEDIA_DEC_0_BASE)
++
++void fs_cgm_enable_vdec(struct fs_cgm_drv_data *data, bool enable)
++{
++	uint32_t half_die_id, vdec_index, vdec_offset, base;
++	uint32_t addr, regval;
++	uint32_t cgm_ena_mask = enable ? VCORE_BRDG_CG_CTRL_CG_DIS_M : 0;
++
++	LOG_DBG("%s invoked for enable = %u", __func__, enable);
++
++	for (half_die_id = 0, base = mmIO_0_CFG_HALF_0_MEDIA_DEC_0_VDEC_BRDG_BASE;
++			half_die_id < FS1_NUM_HALF_DIES;
++			half_die_id++, base = mmIO_0_CFG_HALF_1_MEDIA_DEC_0_VDEC_BRDG_BASE) {
++
++		/* 9th Decoder is binned out, hence skipping clock gating */
++		for (vdec_index = 0; vdec_index < (FS1_NUM_VDEC_PER_HALF_DIE -
++				FS1_NUM_REDUN_VDEC_PER_HALF_DIE); vdec_index++) {
++
++			vdec_offset = CONSECUTIVE_VDEC_OFFSET * vdec_index;
++			addr = base + vdec_offset + mmVCORE_BRDG_CG_CTRL;
++
++			regval = CFG_RREG32(addr);
++			regval &= ~VCORE_BRDG_CG_CTRL_CG_DIS_M;
++			regval |= cgm_ena_mask;
++			CFG_WREG32(addr, regval);
++
++			LOG_DBG("vdec(%u) addr: 0x%x, value = 0x%x", vdec_index + half_die_id *
++				(FS1_NUM_VDEC_PER_HALF_DIE - FS1_NUM_REDUN_VDEC_PER_HALF_DIE),
++					addr, regval);
++		}
++	}
++}
+diff --git a/drivers/misc/clk_gating/fs1/xecore.c b/drivers/misc/clk_gating/fs1/xecore.c
+new file mode 100644
+index 0000000..572aa1b
+--- /dev/null
++++ b/drivers/misc/clk_gating/fs1/xecore.c
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <fs1_blocks_linux_driver.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++#include <hl_platform_defs.h>
++#include "clk_gating.h"
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(fs_clock_gating_xecore);
++
++void fs_cgm_enable_xecore(struct fs_cgm_drv_data *data, bool enable)
++{
++	LOG_DBG("%s invoked", __func__);
++}

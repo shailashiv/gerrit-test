@@ -1,0 +1,203 @@
+From fad9646598f3bac7a7e919e88aaf3dd93f54e764 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 07 Dec 2023 07:30:36 +0200
+Subject: [PATCH] [FSW-394] fs1: io die 0 bootrom bring-up on fpga
+
+with this patch, added basic script required to
+bringup management arc, and scripts required to
+load bootrom into iccm and sbrom to verify
+bootrom able to trigger ppboot.
+
+Change-Id: Iab1c34e45fa80c07c09e4a44dfde1703636777d0
+---
+
+diff --git a/scripts/t32/fs1/arc/onix/boot_rom.cmm b/scripts/t32/fs1/arc/onix/boot_rom.cmm
+new file mode 100644
+index 0000000..f7fb0ac
+--- /dev/null
++++ b/scripts/t32/fs1/arc/onix/boot_rom.cmm
+@@ -0,0 +1,81 @@
++DO io_d0_mgmt_arc_64bit.cmm
++SYStem.Mode.Up
++Core 0
++
++;Provide the binary path
++&BINPATH="~/trees/npu-stack/embedded/buildroot-external/output/fs1_arc/images/boot_rom.bin"
++&ELFPATH="~/trees/npu-stack/embedded/buildroot-external/output/fs1_arc/build/arcboot-custom/boot_rom"
++
++OPEN #1 "&BINPATH" /Read /Binary
++&bin_sz=OS.FILE.SIZE("&BINPATH")
++GLOBAL &VLD0 &VLD1 &INC &ITER &SCRUB &PROG &DATA
++
++&ITER=&bin_sz/4
++
++&SCRUB=1; Set to scrub boot rom
++&PROG=1; Set to program boot rom
++&LOAD_ELF=1; Set to load ELF
++
++IF &SCRUB==1
++(
++  GOSUB prepare
++  GOSUB scrub
++)
++
++IF &PROG==1
++(
++  GOSUB prepare
++  GOSUB prog
++  PRINT "BOOT ROM PROG DONE"
++)
++
++IF &LOAD_ELF==1
++(
++Data.Load.Elf &ELFPATH /NoCODE
++)
++
++
++END
++
++prepare:
++  &VLD0=0x40000000
++  &VLD1=0xC0000000
++  &INC=0
++RETURN
++
++scrub:
++RePeaT &ITER
++(
++  &DATA=0xAABBCCDD
++  GOSUB data_tx
++)
++RETURN
++
++prog:
++RePeaT &ITER
++(
++  PRIVATE &byte0 &byte1 &byte2 &byte3
++  READ #1 &byte0
++  READ #1 &byte1
++  READ #1 &byte2
++  READ #1 &byte3
++
++  &DATA=&byte0|&byte1<<8.|&byte2<<16.|&byte3<<24.
++  GOSUB data_tx
++)
++CLOSE #1
++RETURN
++
++data_tx:
++  &VLD0=&VLD0+&INC
++  PRINT "&VLD0"
++  &VLD1=&VLD1+&INC
++  PRINT "&VLD1"
++  D.S enaxi:0x300007FF9CD4E0C %LE %Long &DATA
++  D.S enaxi:0x300007FF9CD4E08 %LE %Long &VLD0
++  D.S enaxi:0x300007FF9CD4E08 %LE %Long &VLD1
++  D.S enaxi:0x300007FF9CD4E08 %LE %Long &VLD0
++  &INC=1
++RETURN
++
++
+diff --git a/scripts/t32/fs1/arc/onix/boot_rom_iccm.cmm b/scripts/t32/fs1/arc/onix/boot_rom_iccm.cmm
+new file mode 100644
+index 0000000..a43294d
+--- /dev/null
++++ b/scripts/t32/fs1/arc/onix/boot_rom_iccm.cmm
+@@ -0,0 +1,51 @@
++DO io_d0_mgmt_arc_64bit.cmm
++SYStem.Mode.Up
++Core 0
++
++&SPI_FLASH=0
++
++IF &SPI_FLASH==1
++(
++	&SPIFLASH_BINPATH="~/trees/npu-stack/embedded/buildroot-external/output/fs1_arc/images/fs1-spi-flash.bin"
++
++	&SPI_BYTE_SWAP=0xF9CB03A0	;H15_PROJECT ➔ IO_0_CFG ➔ HALF_0 ➔ PSOC ➔ PSOC_CFG ➔ GLOBAL_CONF ➔ SPI_DIRECT_WR_RD_CTRL
++	&SPI_WRITE_LIMIT=0xF9CB03F0	;H15_PROJECT ➔ IO_0_CFG ➔ HALF_0 ➔ PSOC ➔ PSOC_CFG ➔ GLOBAL_CONF ➔ SPI_WRITE_LIMIT
++	&SPI_BASE=0xF9CAF000		;H15_PROJECT ➔ IO_0_CFG ➔ HALF_0 ➔ PSOC ➔ PSOC_CFG ➔ QSPI
++	&RAM_BASE=0
++
++	; Enable Write till 16MB
++	Data.Set A:&SPI_WRITE_LIMIT %LE %Long 0x5		;	TODO: value same as in FW//1 << (16+5) = 2MB
++
++	; Init SPI controller
++	Data.Set A:&SPI_BASE+0x08 %LE %Long 0x0			; SSIENR: what is SSI? DW_apb_ssi
++	Data.Set A:&SPI_BASE+0x00 %LE %Long 0x700C0		; CTRLR0: controls the serial data transfer.
++	Data.Set A:&SPI_BASE+0x04 %LE %Long 0x0			; CTRLR1: This register exists only when the DW_apb_ssi is configured as a master device.
++	Data.Set A:&SPI_BASE+0x14 %LE %Long 0x2			; BAUDR: SSI Clock Divider. Fssi_clk/Div
++	Data.Set A:&SPI_BASE+0x10 %LE %Long 0x0			; SER
++	Data.Set A:&SPI_BASE+0xF0 %LE %Long 0x1			; RX_SAMPLE_DLY - Shift delay
++	Data.Set A:&SPI_BASE+0x08 %LE %Long 0x1
++
++	;---------------------- LOAD SPI FLASH ----------------
++	Break.RESet
++	FLASHFILE.RESet
++	FLASHFILE.CONFIG  &SPI_BASE           0
++	//FLASHFILE.TARGET <<code range>>       <<data range>>                  <<algorithm file>>
++	FLASHFILE.TARGET &RAM_BASE++0x2FFF    (&RAM_BASE+0x3000)++0x27FF     ./spi64_dwssi.hs.le.bin  /keep   /stacksize 0x400
++	FLASHFILE.GETID
++	FLASHFILE.unlock 0x0--0xFFFFFF
++	FLASHFILE.erase 0x0--0xFFFFFF
++	; FLASHFILE.lock 0x0--0xFFFF
++	Data.LOAD.Binary &SPIFLASH_BINPATH 0x94000000
++)
++
++; ------------------------------------ load boot rom elf --------------------------------------
++Data.LOAD.Elf ~/trees/npu-stack/embedded/buildroot-external/output/fs1_arc/build/arcboot-custom/boot_rom
++
++; ------------------------------------ set pc ------------------------------------
++Register.Set.PC 0x78840000
++
++;run
++
++
++
++
+diff --git a/scripts/t32/fs1/arc/onix/io_d0_mgmt_arc_64bit.cmm b/scripts/t32/fs1/arc/onix/io_d0_mgmt_arc_64bit.cmm
+new file mode 100644
+index 0000000..dbf9f63
+--- /dev/null
++++ b/scripts/t32/fs1/arc/onix/io_d0_mgmt_arc_64bit.cmm
+@@ -0,0 +1,40 @@
++; Configuration
++SYStem.RESet
++SYStem.CPU ARC-HS
++SYStem.JtagClock 15MHz
++
++; Access port numbers are
++SYStem.CONFIG APBACCESSPORT   1.
++SYStem.CONFIG DEBUGACCESSPORT 1.
++SYStem.CONFIG AXIACCESSPORT   0.
++SYStem.CONFIG.AXIAP1.HPROT 3
++
++; Setup core debug interface mapped to the APB bus
++SYStem.CONFIG.COREDEBUG.Base DAP:0x300007FE9D2B000
++
++; Optional settings:
++SYStem.Option IMASKASM ON   ; Disable interrupts while stepping over assembler instructions
++SYStem.Option IMASKHLL ON   ; Disable interrupts while stepping over high level langage  lines(C code)
++SYStem.Option EnReset OFF   ; Avoid that reset line is pulled low during Prepare mode
++
++IF !STATE.POWER()
++(
++  DIALOG.OK "Board is not powered."
++
++  PRINT "Waiting for SYStem.Power"
++  WAIT STATE.POWER() 10.s   ; Wait max 10 sec for VTREF to go to 1.8V
++  IF !STATE.POWER()
++  (
++    DIALOG.OK "Board power did not come up. Please check the power supply and if the debug connector is correctly plugged"
++    ENDDO
++  )
++)
++PRINT "System power detected, waiting for debug registers"
++
++
++SYStem.Mode Prepare   ; Go to prepare mode to access AXI bus (without accessing the core's debug interface
++D.S enaxi:0x300007FF9CE012C %LE %Long 0x110		; Proce Async reset. Rst-1,
++
++
++ENDDO
++

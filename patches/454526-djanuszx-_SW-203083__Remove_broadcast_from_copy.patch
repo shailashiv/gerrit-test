@@ -1,0 +1,231 @@
+From bf4f4ef4490e264a99d73d26f37b66450c682902 Mon Sep 17 00:00:00 2001
+From: Damian Janusz <djanuszx@habana.ai>
+Date: Sun, 06 Oct 2024 22:37:10 +0300
+Subject: [PATCH] [SW-203083] Remove broadcast from copy
+
+Remove broadcast from copy op in backend
+by using new copy cguid.
+Added third tensor in hpu::_copy_from as needed
+to pass to copy CGUID, to use its shapes
+for broadcast in dynamic.
+
+Change-Id: I067c4120219ba521302f516d86ef7993602838e3
+---
+
+diff --git a/habana_eager/ops/copy_from.cpp b/habana_eager/ops/copy_from.cpp
+index aa3abe7..2fcb262 100644
+--- a/habana_eager/ops/copy_from.cpp
++++ b/habana_eager/ops/copy_from.cpp
+@@ -106,8 +106,10 @@
+ }
+ 
+ at::Tensor _hpu_cast(const at::Tensor& dst, const at::Tensor& src) {
++  // Use dst two times as two syn tensors needed in backend
++  // as copy cguid requires second input to calculate dynamic shapes
+   habana::eager::EagerOp<at::Tensor&> hpu_op{
+-      "hpu::_copy_from", {src, dst}, {dst.sizes().vec()}, 1};
++      "hpu::_copy_from", {src, dst, dst}, {dst.sizes().vec()}, 1};
+   hpu_op.set_eager_op_info(
+       {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
+   return hpu_op.call(const_cast<at::Tensor&>(dst));
+@@ -446,8 +448,10 @@
+     // Since _copy_from is neither inplace nor an out variant but pytorch
+     // expects to copy to dst, we treat _copy_from as an out variant in the
+     // backend with "dst" as the out tensor
++    // Use dst two times as two syn tensors needed in backend
++    // as copy cguid requires second input to calculate dynamic shapes
+     habana::eager::EagerOp<at::Tensor&> hpu_op{
+-        "hpu::_copy_from", {self, dst}, {dst.sizes().vec()}, 1};
++        "hpu::_copy_from", {self, dst, dst}, {dst.sizes().vec()}, 1};
+     hpu_op.set_eager_op_info(
+         {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
+     result = hpu_op.call(const_cast<at::Tensor&>(dst));
+@@ -510,7 +514,7 @@
+ }
+ 
+ TORCH_LIBRARY_FRAGMENT(hpu, m) {
+-  m.def("_copy_from(Tensor self, Tensor dst) -> Tensor");
++  m.def("_copy_from(Tensor self, Tensor dst, Tensor dst2) -> Tensor");
+   m.def("identity(Tensor self) -> Tensor");
+   m.def(
+       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
+diff --git a/hpu_ops/backend/lazy_cast.cpp b/hpu_ops/backend/lazy_cast.cpp
+index 708c09c..457eabc 100644
+--- a/hpu_ops/backend/lazy_cast.cpp
++++ b/hpu_ops/backend/lazy_cast.cpp
+@@ -1,5 +1,5 @@
+ /*******************************************************************************
+- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
++ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
+  * All Rights Reserved.
+  *
+  * Unauthorized copying of this file or any element(s) within it, via any medium
+@@ -57,66 +57,61 @@
+ }
+ 
+ static void copy_impl(
+-    const at::Tensor& src,
+-    const at::IntArrayRef& dst_size,
+-    const c10::ScalarType& dst_type,
++    const c10::ScalarType& src_type,
++    bool output_bool,
+     OpBackend* op,
+     synapse_helpers::graph& graph,
+-    synTensor input,
++    const OutputMetaDataVector& meta,
++    std::vector<synTensor>&& inputs,
+     synapse_helpers::tensor& output) {
+-  auto src_type = src.scalar_type();
+-
+-  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+-  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
+-
+-  auto shape = src.sizes().vec();
+-  c10::optional<synapse_helpers::tensor> broadcast;
+-
+-  if (src.sizes() != dst_size) {
+-    shape = at::infer_size(src.sizes(), dst_size);
+-    HABANA_ASSERT(
+-        shape == dst_size or
+-            // broadcast with src [1] to dst [] should be valid
+-            (shape.size() == 1 and dst_size.size() == 0),
+-        "Cannot broadcast src ",
+-        src.sizes(),
+-        " to dst ",
+-        dst_size);
+-    broadcast = OpBackend::BuildBroadcast(op, graph, input, shape, src_type);
+-    input = broadcast.value().get();
+-  }
+-
+-  if ((src_type_cast_type == dst_type_cast_type) &&
+-      !(dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
+-    output = std::move(OpBackend::BuildNode(
+-        op, graph, {"identity", {input}, {{shape, src_type, 0}}})[0]);
+-  } else {
+-    output =
+-        OpBackend::BuildCast(op, graph, input, shape, src_type, dst_type, 0);
+-  }
+-}
+-
+-static void copy_impl(
+-    const at::Tensor& src,
+-    const at::Tensor& dst,
+-    OpBackend* op,
+-    synapse_helpers::graph& graph,
+-    synTensor input,
+-    synapse_helpers::tensor& output) {
+-  auto dst_size = dst.sizes();
+-  auto dst_type = dst.scalar_type();
+-
+-  copy_impl(src, dst_size, dst_type, op, graph, input, output);
++  ns_Copy::Params params;
++  params.isOutputBool = output_bool;
++  output = std::move(OpBackend::BuildNode(
++      op,
++      graph,
++      {get_guid_with_precision("copy_fwd", src_type),
++       inputs,
++       {{meta[0].shape, meta[0].dtype, 0}},
++       &params,
++       sizeof(params)})[0]);
+ }
+ 
+ CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
+-    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {}
++    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {
++  SetOutputMetaFn(CopyFrom::CopyFromMeta);
++}
++
++OutputMetaDataVector CopyFrom::CopyFromMeta(const at::Stack& stack) {
++  const auto& src = stack.at(0).toTensor();
++  OutputMetaData meta;
++  meta.shape = src.sizes().vec();
++  meta.dtype = src.scalar_type();
++
++  return {meta};
++}
+ 
+ void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+-  auto src = stack_tensor(stack, 0);
+-  auto dst = stack_tensor(stack, 1);
++  StackGetter stackGetter(this, stack, "CopyFrom::AddNode");
++  auto src = stackGetter.getNextInput<TensorsPair>();
++  auto dst = stackGetter.getNextInput<TensorsPair>();
++  const auto meta = CopyFromMeta(stack);
++  copy_impl(
++      src.pt_t.scalar_type(),
++      dst.pt_t.scalar_type() == at::ScalarType::Bool,
++      this,
++      graph,
++      meta,
++      {dst.syn_t, src.syn_t},
++      syn_out(0));
++}
+ 
+-  copy_impl(src, dst, this, graph, syn_in(0), syn_out(0));
++OutputMetaDataVector CopyMeta(const at::Stack& stack) {
++  const auto& src = stack.at(0).toTensor();
++  OutputMetaData meta;
++  meta.shape = src.sizes().vec();
++  meta.dtype = src.scalar_type();
++
++  return {meta};
+ }
+ 
+ template <bool is_inplace>
+@@ -124,10 +119,18 @@
+   Copy(int device_id, c10::ScalarType scalar_type);
+ 
+   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override {
+-    auto dst = stack_tensor(stack, 0);
+-    auto src = stack_tensor(stack, 1);
+-
+-    copy_impl(src, dst, this, graph, syn_in(1), syn_out(0));
++    const auto meta = CopyMeta(stack);
++    StackGetter stackGetter(this, stack, "Copy::AddNode");
++    auto dst = stackGetter.getNextInput<TensorsPair>();
++    auto src = stackGetter.getNextInput<TensorsPair>();
++    copy_impl(
++        src.pt_t.scalar_type(),
++        dst.pt_t.scalar_type() == at::ScalarType::Bool,
++        this,
++        graph,
++        meta,
++        {dst.syn_t, src.syn_t},
++        syn_out(0));
+   }
+ };
+ 
+@@ -209,9 +212,17 @@
+ }
+ 
+ void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+-  auto src = stack_tensor(stack, 0);
+-  auto meta = GetOutputMetaData(0);
+-  copy_impl(src, meta.shape, meta.dtype, this, graph, syn_in(0), syn_out(0));
++  StackGetter stackGetter(this, stack, "ToCopy::AddNode");
++  auto src = stackGetter.getNextInput<TensorsPair>();
++  const auto meta = GetOutputMetaData();
++  copy_impl(
++      src.pt_t.scalar_type(),
++      src.pt_t.scalar_type() == at::ScalarType::Bool,
++      this,
++      graph,
++      meta,
++      {src.syn_t, src.syn_t},
++      syn_out(0));
+ }
+ 
+ } // namespace habana
+diff --git a/hpu_ops/lazy_cast.h b/hpu_ops/lazy_cast.h
+index 9bd2c68..a390872 100644
+--- a/hpu_ops/lazy_cast.h
++++ b/hpu_ops/lazy_cast.h
+@@ -26,6 +26,7 @@
+ struct CopyFrom : OpBackend {
+   CopyFrom(int device_id, c10::ScalarType scalar_type);
+   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++  static OutputMetaDataVector CopyFromMeta(const at::Stack& stack);
+ };
+ 
+ } // namespace habana

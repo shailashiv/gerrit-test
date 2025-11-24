@@ -1,0 +1,36 @@
+From 9bbce88816f72a44b178560f168dec8978e8e11b Mon Sep 17 00:00:00 2001
+From: Michal Szymczak <mszymczak@habana.ai>
+Date: Fri, 08 Nov 2024 11:25:33 +0200
+Subject: [PATCH] [SW-207580][SW-207802] Enable all_reduce graph splitting for CAG by default
+
+Change-Id: I0b308f08c1ec93f2a77603feee88fb924f9bafe9
+---
+
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
+index 0464bb1..327c118 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
+@@ -58,7 +58,7 @@
+ enable_sfg = _get_bool_from_env("PT_HPU_ENABLE_SFG", "0")
+ # enables native implementation of the propose partitions pass
+ use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
+-enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "0")
++enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "1")
+ # when set to 1, the compiled recipe is always static
+ # even if the fx graph traced by torch dynamic has symbols
+ force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
+diff --git a/scripts/env_flags.yaml b/scripts/env_flags.yaml
+index c090093..8e960be 100644
+--- a/scripts/env_flags.yaml
++++ b/scripts/env_flags.yaml
+@@ -795,10 +795,6 @@
+   default: false
+   doc: "Option to enable GPU Migration Toolkit"
+ 
+-PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT:
+-  type: bool
+-  default: False
+-
+ PT_HPU_SDPA_SFMX_BWD_V2:
+   type: bool
+   default: false

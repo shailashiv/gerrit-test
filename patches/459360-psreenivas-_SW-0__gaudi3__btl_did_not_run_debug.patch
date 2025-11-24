@@ -1,0 +1,69 @@
+From dc97eb6783fd55384b46db1b9ebd1f431c30c2c7 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 29 Oct 2024 15:12:20 +0200
+Subject: [PATCH] [SW-0] gaudi3: btl did not run debug
+
+skip sram bist and add addtional reset
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I9ba416017e17a7af212ddd06a20bd56d34209cd4
+---
+
+diff --git a/arch/gaudi3/arc/asic.c b/arch/gaudi3/arc/asic.c
+index 9d3147d..fec6064 100644
+--- a/arch/gaudi3/arc/asic.c
++++ b/arch/gaudi3/arc/asic.c
+@@ -338,6 +338,9 @@
+ 	struct gaudi3_cold_rst_data cold_rst_data;
+ 	int err;
+ 
++	LOG_INF("skip bist for other SRAMs");
++	return;
++
+ 	err = hl_boot_info_copy(HL_BOOT_INFO_SRAM_BIST_RESULT, &sram_bist_data,
+ 				sizeof(struct hl_ras_sram_bist_data));
+ 	if (err) {
+diff --git a/arch/gaudi3/common/common.c b/arch/gaudi3/common/common.c
+index 44455c5..fbe14d9 100644
+--- a/arch/gaudi3/common/common.c
++++ b/arch/gaudi3/common/common.c
+@@ -370,8 +370,23 @@
+ static bool hl_post_bist_hard_reset_config(void)
+ {
+ 	struct gaudi3_cold_rst_data cold_rst_data;
++	bool flag = false;
++	
++	unsigned int rst_src = hl_rst_src_get();
++
++	if (rst_src == HL_FW_ALL_RST)
++		return false;
+ 
+ 	cold_rst_data.data = regmap_readl(mmCOLD_RST_DATA);
++
++	if (!cold_rst_data.issue_reset) {
++		LOG_INF("addtional reset");
++		flag = true;
++	}
++	cold_rst_data.issue_reset = ~cold_rst_data.issue_reset;
++	regmap_writel(cold_rst_data.data, mmCOLD_RST_DATA);
++	return flag;
++	
+ 	if (cold_rst_data.bist_skip_enable)
+ 		return true;
+ 
+@@ -405,13 +420,13 @@
+ void lkd_dev_specific_enable(void)
+ {
+ 	struct gaudi3_cold_rst_data cold_rst_data;
+-
+ 	cold_rst_data.data = regmap_readl(mmCOLD_RST_DATA);
++	unsigned int rst_src = hl_rst_src_get();
+ 
+ 	/* If hard reset to be triggered due to bist run in current boot
+ 	 * update host that device not ready.
+ 	 */
+-	if (cold_rst_data.bist_skip_enable) {
++	if (!cold_rst_data.issue_reset && rst_src != HL_FW_ALL_RST) {
+ 		cpu_boot_sts_set(CPU_BOOT_STATUS_IN_PREBOOT);
+ 	} else {
+ 		cpu_boot_dev_sts_set(CPU_BOOT_DEV_STS_FW_LD_COM_EN);

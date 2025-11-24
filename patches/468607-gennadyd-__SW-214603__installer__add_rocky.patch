@@ -1,0 +1,49 @@
+From c852eacc049d91fc7c570fab0c46177eb5b64029 Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Sun, 05 Jan 2025 18:13:46 +0200
+Subject: [PATCH]  [SW-214603] installer: add rocky
+
+Change-Id: Idd61f77e1a8ff88b5c7046fd6dcb602239880e4c
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/installer/src/initialize.sh b/installer/src/initialize.sh
+index 51b742e..7648f52 100644
+--- a/installer/src/initialize.sh
++++ b/installer/src/initialize.sh
+@@ -104,6 +104,20 @@
+         HABANALABS_K8S_DEPENDENCIES="kernel-${HEADER_VER} kernel-devel-${HEADER_VER} kernel-headers-${HEADER_VER}"
+         HABANALABS_PT_DEPENDENCIES="${BASIC_SCRIPT_DEPENDENCIES} unzip system-lsb-core openmpi-devel cairo-devel numactl-devel iproute git which libjpeg-turbo-devel zlib-devel lapack-devel sox numactl openblas-devel"
+     ;;
++    "rocky")
++        __pkg__="dnf"
++        __pkg_man__="rpm -qa"
++        __suffix__=$(rpm --eval='%{dist}' | sed "s/\.centos//")
++        case $OS_VERSION in
++            "9.3")
++                MIN_PYTHON_VER="3.9"
++                __install_epel__="${__pkg__} install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm"
++                HABANALABS_SRC_DEPENDENCIES="${HABANALABS_SRC_DEPENDENCIES} gcc-c++ lsb_release libffi-devel bzip2 bzip2-devel "
++                HABANALABS_K8S_DEPENDENCIES="${HABANALABS_BASE_DEPENDENCIES} kernel-devel-${HEADER_VER} kernel-core-${HEADER_VER} kernel-modules-core-${HEADER_VER} dkms"
++                HABANALABS_PT_DEPENDENCIES="${BASIC_SCRIPT_DEPENDENCIES} unzip lsb_release openmpi-devel cairo-devel numactl-devel iproute git which libjpeg-turbo-devel zlib-devel lapack lapack-devel gperftools.x86_64 numactl openblas-devel"
++            ;;
++        esac
++    ;;
+     "rhel")
+         __pkg__="dnf"
+         __pkg_man__="rpm -qa"
+diff --git a/installer/src/lib/_vars.sh b/installer/src/lib/_vars.sh
+index 5e7fb5f..13a3662 100644
+--- a/installer/src/lib/_vars.sh
++++ b/installer/src/lib/_vars.sh
+@@ -8,6 +8,10 @@
+ HABANALABS_DRIVER="habanalabs"
+ HABANALABS_REQUIRED="habanalabs-rdma-core habanalabs-thunk habanalabs-graph"
+ HABANALABS_OPTIONAL="habanalabs-firmware-tools habanalabs-firmware-odm habanalabs-qual"
++if [[ "$(. /etc/os-release ; echo -n $ID)" == "rocky" ]] ; then
++    HABANALABS_REQUIRED=""
++    HABANALABS_OPTIONAL="habanalabs-firmware-odm"
++fi
+ HABANALABS_REPO_PATH="artifactory/gaudi-installer/repos"
+ HABANALABS_REPO_FILE="habanalabs_synapseai.repo"
+ HABANALABS_SERVER_PT_DIR="artifactory/gaudi-pt-modules"

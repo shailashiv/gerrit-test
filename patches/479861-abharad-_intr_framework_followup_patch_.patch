@@ -1,0 +1,444 @@
+From f424dba6f799c9bc194c5694a71b1a67293d539e Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Fri, 16 May 2025 08:06:08 +0000
+Subject: [PATCH] [intr framework followup patch]
+
+Change-Id: I4feaff1bf2adedc69322cabac1ac59d83eb21929
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/arch/common/intr/intr.c b/arch/common/intr/intr.c
+index 42968c0..794c2e6 100644
+--- a/arch/common/intr/intr.c
++++ b/arch/common/intr/intr.c
+@@ -17,27 +17,8 @@
+ 
+ int process_interrupt(struct intr_config *config, enum intr_action action)
+ {
+-	switch (action) {
+-	case INTR_ACTION_ENABLE:
+-		/* Enable the interrupt */
+-		break;
+-	case INTR_ACTION_DISABLE:
+-		/* Disable the interrupt */
+-		break;
+-	case INTR_ACTION_MASK:
+-		/* Mask the interrupt */
+-		break;
+-	case INTR_ACTION_UNMASK:
+-		/* Unmask the interrupt */
+-		break;
+-	case INTR_ACTION_PROCESS:
+-		/* Process the interrupt */
+-		dispatch_intr_handler(config);
+-		break;
+-	default:
+-		LOG_ERR("Invalid action for interrupt processing\n");
+-		return -EINVAL;
+-	}
++
++	config->arch_process_intr();
+ 
+ 	return 0;
+ }
+diff --git a/arch/common/intr/intr_dispatch.c b/arch/common/intr/intr_dispatch.c
+index 89aeed1..5ff8b85 100644
+--- a/arch/common/intr/intr_dispatch.c
++++ b/arch/common/intr/intr_dispatch.c
+@@ -10,216 +10,59 @@
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_REGISTER(INTR_TYPE);
+ 
+-/* 2D array of function pointers for each group type and each component type */
+-static hl_agg_handler_t hl_agg_handlers[INT_GRP_TYPE_MAX][INT_COMP_TYPE_MAX] = {
+-	/* INT_GRP_TYPE_SERR */
+-	{
+-		ASSIGN_INTR_HANDLER(serr, arc_farm),
+-		ASSIGN_INTR_HANDLER(serr, cpu),
+-		ASSIGN_INTR_HANDLER(serr, cs),
+-		ASSIGN_INTR_HANDLER(serr, d2d_mac),
+-		ASSIGN_INTR_HANDLER(serr, d2d_phy),
+-		ASSIGN_INTR_HANDLER(serr, dch0),
+-		ASSIGN_INTR_HANDLER(serr, dch1),
+-		ASSIGN_INTR_HANDLER(serr, dec),
+-		ASSIGN_INTR_HANDLER(serr, drtr0),
+-		ASSIGN_INTR_HANDLER(serr, drtr1),
+-		ASSIGN_INTR_HANDLER(serr, econ),
+-		ASSIGN_INTR_HANDLER(serr, edma),
+-		ASSIGN_INTR_HANDLER(serr, edup),
+-		ASSIGN_INTR_HANDLER(serr, grtr1),
+-		ASSIGN_INTR_HANDLER(serr, grtr3),
+-		ASSIGN_INTR_HANDLER(serr, hft),
+-		ASSIGN_INTR_HANDLER(serr, hif),
+-		ASSIGN_INTR_HANDLER(serr, mc),
+-		ASSIGN_INTR_HANDLER(serr, mme),
+-		ASSIGN_INTR_HANDLER(serr, nch),
+-		ASSIGN_INTR_HANDLER(serr, nchl),
+-		ASSIGN_INTR_HANDLER(serr, nic),
+-		ASSIGN_INTR_HANDLER(serr, nrtr0),
+-		ASSIGN_INTR_HANDLER(serr, nrtr2),
+-		ASSIGN_INTR_HANDLER(serr, parc),
+-		ASSIGN_INTR_HANDLER(serr, pcie),
+-		ASSIGN_INTR_HANDLER(serr, pdma),
+-		ASSIGN_INTR_HANDLER(serr, pll),
+-		ASSIGN_INTR_HANDLER(serr, pmmu),
+-		ASSIGN_INTR_HANDLER(serr, psoc),
+-		ASSIGN_INTR_HANDLER(serr, rft),
+-		ASSIGN_INTR_HANDLER(serr, rot),
+-		ASSIGN_INTR_HANDLER(serr, rrtr),
+-		ASSIGN_INTR_HANDLER(serr, sob),
+-		ASSIGN_INTR_HANDLER(serr, stlb),
+-		ASSIGN_INTR_HANDLER(serr, tpc),
+-		ASSIGN_INTR_HANDLER(serr, ts),
+-		ASSIGN_INTR_HANDLER(serr, vm)
+-	},
+-	/* INT_GRP_TYPE_DERR */
+-	{
+-		ASSIGN_INTR_HANDLER(derr, arc_farm),
+-		ASSIGN_INTR_HANDLER(derr, cpu),
+-		ASSIGN_INTR_HANDLER(derr, cs),
+-		ASSIGN_INTR_HANDLER(derr, d2d_mac),
+-		ASSIGN_INTR_HANDLER(derr, d2d_phy),
+-		ASSIGN_INTR_HANDLER(derr, dch0),
+-		ASSIGN_INTR_HANDLER(derr, dch1),
+-		ASSIGN_INTR_HANDLER(derr, dec),
+-		ASSIGN_INTR_HANDLER(derr, drtr0),
+-		ASSIGN_INTR_HANDLER(derr, drtr1),
+-		ASSIGN_INTR_HANDLER(derr, econ),
+-		ASSIGN_INTR_HANDLER(derr, edma),
+-		ASSIGN_INTR_HANDLER(derr, edup),
+-		ASSIGN_INTR_HANDLER(derr, grtr1),
+-		ASSIGN_INTR_HANDLER(derr, grtr3),
+-		ASSIGN_INTR_HANDLER(derr, hft),
+-		ASSIGN_INTR_HANDLER(derr, hif),
+-		ASSIGN_INTR_HANDLER(derr, mc),
+-		ASSIGN_INTR_HANDLER(derr, mme),
+-		ASSIGN_INTR_HANDLER(derr, nch),
+-		ASSIGN_INTR_HANDLER(derr, nchl),
+-		ASSIGN_INTR_HANDLER(derr, nic),
+-		ASSIGN_INTR_HANDLER(derr, nrtr0),
+-		ASSIGN_INTR_HANDLER(derr, nrtr2),
+-		ASSIGN_INTR_HANDLER(derr, parc),
+-		ASSIGN_INTR_HANDLER(derr, pcie),
+-		ASSIGN_INTR_HANDLER(derr, pdma),
+-		ASSIGN_INTR_HANDLER(derr, pll),
+-		ASSIGN_INTR_HANDLER(derr, pmmu),
+-		ASSIGN_INTR_HANDLER(derr, psoc),
+-		ASSIGN_INTR_HANDLER(derr, rft),
+-		ASSIGN_INTR_HANDLER(derr, rot),
+-		ASSIGN_INTR_HANDLER(derr, rrtr),
+-		ASSIGN_INTR_HANDLER(derr, sob),
+-		ASSIGN_INTR_HANDLER(derr, stlb),
+-		ASSIGN_INTR_HANDLER(derr, tpc),
+-		ASSIGN_INTR_HANDLER(derr, ts),
+-		ASSIGN_INTR_HANDLER(derr, vm)
+-	},
+-	/* INT_GRP_TYPE_SEI */
+-	{
+-		ASSIGN_INTR_HANDLER(sei, arc_farm),
+-		ASSIGN_INTR_HANDLER(sei, cpu),
+-		ASSIGN_INTR_HANDLER(sei, cs),
+-		ASSIGN_INTR_HANDLER(sei, d2d_mac),
+-		ASSIGN_INTR_HANDLER(sei, d2d_phy),
+-		ASSIGN_INTR_HANDLER(sei, dch0),
+-		ASSIGN_INTR_HANDLER(sei, dch1),
+-		ASSIGN_INTR_HANDLER(sei, dec),
+-		ASSIGN_INTR_HANDLER(sei, drtr0),
+-		ASSIGN_INTR_HANDLER(sei, drtr1),
+-		ASSIGN_INTR_HANDLER(sei, econ),
+-		ASSIGN_INTR_HANDLER(sei, edma),
+-		ASSIGN_INTR_HANDLER(sei, edup),
+-		ASSIGN_INTR_HANDLER(sei, grtr1),
+-		ASSIGN_INTR_HANDLER(sei, grtr3),
+-		ASSIGN_INTR_HANDLER(sei, hft),
+-		ASSIGN_INTR_HANDLER(sei, hif),
+-		ASSIGN_INTR_HANDLER(sei, mc),
+-		ASSIGN_INTR_HANDLER(sei, mme),
+-		ASSIGN_INTR_HANDLER(sei, nch),
+-		ASSIGN_INTR_HANDLER(sei, nchl),
+-		ASSIGN_INTR_HANDLER(sei, nic),
+-		ASSIGN_INTR_HANDLER(sei, nrtr0),
+-		ASSIGN_INTR_HANDLER(sei, nrtr2),
+-		ASSIGN_INTR_HANDLER(sei, parc),
+-		ASSIGN_INTR_HANDLER(sei, pcie),
+-		ASSIGN_INTR_HANDLER(sei, pdma),
+-		ASSIGN_INTR_HANDLER(sei, pll),
+-		ASSIGN_INTR_HANDLER(sei, pmmu),
+-		ASSIGN_INTR_HANDLER(sei, psoc),
+-		ASSIGN_INTR_HANDLER(sei, rft),
+-		ASSIGN_INTR_HANDLER(sei, rot),
+-		ASSIGN_INTR_HANDLER(sei, rrtr),
+-		ASSIGN_INTR_HANDLER(sei, sob),
+-		ASSIGN_INTR_HANDLER(sei, stlb),
+-		ASSIGN_INTR_HANDLER(sei, tpc),
+-		ASSIGN_INTR_HANDLER(sei, ts),
+-		ASSIGN_INTR_HANDLER(sei, vm)
+-	},
+-	/* INT_GRP_TYPE_SPI */
+-	{
+-		ASSIGN_INTR_HANDLER(spi, arc_farm),
+-		ASSIGN_INTR_HANDLER(spi, cpu),
+-		ASSIGN_INTR_HANDLER(spi, cs),
+-		ASSIGN_INTR_HANDLER(spi, d2d_mac),
+-		ASSIGN_INTR_HANDLER(spi, d2d_phy),
+-		ASSIGN_INTR_HANDLER(spi, dch0),
+-		ASSIGN_INTR_HANDLER(spi, dch1),
+-		ASSIGN_INTR_HANDLER(spi, dec),
+-		ASSIGN_INTR_HANDLER(spi, drtr0),
+-		ASSIGN_INTR_HANDLER(spi, drtr1),
+-		ASSIGN_INTR_HANDLER(spi, econ),
+-		ASSIGN_INTR_HANDLER(spi, edma),
+-		ASSIGN_INTR_HANDLER(spi, edup),
+-		ASSIGN_INTR_HANDLER(spi, grtr1),
+-		ASSIGN_INTR_HANDLER(spi, grtr3),
+-		ASSIGN_INTR_HANDLER(spi, hft),
+-		ASSIGN_INTR_HANDLER(spi, hif),
+-		ASSIGN_INTR_HANDLER(spi, mc),
+-		ASSIGN_INTR_HANDLER(spi, mme),
+-		ASSIGN_INTR_HANDLER(spi, nch),
+-		ASSIGN_INTR_HANDLER(spi, nchl),
+-		ASSIGN_INTR_HANDLER(spi, nic),
+-		ASSIGN_INTR_HANDLER(spi, nrtr0),
+-		ASSIGN_INTR_HANDLER(spi, nrtr2),
+-		ASSIGN_INTR_HANDLER(spi, parc),
+-		ASSIGN_INTR_HANDLER(spi, pcie),
+-		ASSIGN_INTR_HANDLER(spi, pdma),
+-		ASSIGN_INTR_HANDLER(spi, pll),
+-		ASSIGN_INTR_HANDLER(spi, pmmu),
+-		ASSIGN_INTR_HANDLER(spi, psoc),
+-		ASSIGN_INTR_HANDLER(spi, rft),
+-		ASSIGN_INTR_HANDLER(spi, rot),
+-		ASSIGN_INTR_HANDLER(spi, rrtr),
+-		ASSIGN_INTR_HANDLER(spi, sob),
+-		ASSIGN_INTR_HANDLER(spi, stlb),
+-		ASSIGN_INTR_HANDLER(spi, tpc),
+-		ASSIGN_INTR_HANDLER(spi, ts),
+-		ASSIGN_INTR_HANDLER(spi, vm)
+-	},
+-	/* INT_GRP_TYPE_ECO */
+-	{
+-		ASSIGN_INTR_HANDLER(eco, arc_farm),
+-		ASSIGN_INTR_HANDLER(eco, cpu),
+-		ASSIGN_INTR_HANDLER(eco, cs),
+-		ASSIGN_INTR_HANDLER(eco, d2d_mac),
+-		ASSIGN_INTR_HANDLER(eco, d2d_phy),
+-		ASSIGN_INTR_HANDLER(eco, dch0),
+-		ASSIGN_INTR_HANDLER(eco, dch1),
+-		ASSIGN_INTR_HANDLER(eco, dec),
+-		ASSIGN_INTR_HANDLER(eco, drtr0),
+-		ASSIGN_INTR_HANDLER(eco, drtr1),
+-		ASSIGN_INTR_HANDLER(eco, econ),
+-		ASSIGN_INTR_HANDLER(eco, edma),
+-		ASSIGN_INTR_HANDLER(eco, edup),
+-		ASSIGN_INTR_HANDLER(eco, grtr1),
+-		ASSIGN_INTR_HANDLER(eco, grtr3),
+-		ASSIGN_INTR_HANDLER(eco, hft),
+-		ASSIGN_INTR_HANDLER(eco, hif),
+-		ASSIGN_INTR_HANDLER(eco, mc),
+-		ASSIGN_INTR_HANDLER(eco, mme),
+-		ASSIGN_INTR_HANDLER(eco, nch),
+-		ASSIGN_INTR_HANDLER(eco, nchl),
+-		ASSIGN_INTR_HANDLER(eco, nic),
+-		ASSIGN_INTR_HANDLER(eco, nrtr0),
+-		ASSIGN_INTR_HANDLER(eco, nrtr2),
+-		ASSIGN_INTR_HANDLER(eco, parc),
+-		ASSIGN_INTR_HANDLER(eco, pcie),
+-		ASSIGN_INTR_HANDLER(eco, pdma),
+-		ASSIGN_INTR_HANDLER(eco, pll),
+-		ASSIGN_INTR_HANDLER(eco, pmmu),
+-		ASSIGN_INTR_HANDLER(eco, psoc),
+-		ASSIGN_INTR_HANDLER(eco, rft),
+-		ASSIGN_INTR_HANDLER(eco, rot),
+-		ASSIGN_INTR_HANDLER(eco, rrtr),
+-		ASSIGN_INTR_HANDLER(eco, sob),
+-		ASSIGN_INTR_HANDLER(eco, stlb),
+-		ASSIGN_INTR_HANDLER(eco, tpc),
+-		ASSIGN_INTR_HANDLER(eco, ts),
+-		ASSIGN_INTR_HANDLER(eco, vm)
+-	}
++/* Macro to aggregate all group handlers for a given component type */
++#define ASSIGN_ALL_INTR_HANDLER_FOR(comp) { \
++	ASSIGN_INTR_HANDLER(serr, comp), \
++	ASSIGN_INTR_HANDLER(derr, comp), \
++	ASSIGN_INTR_HANDLER(sei, comp), \
++	ASSIGN_INTR_HANDLER(spi, comp), \
++	ASSIGN_INTR_HANDLER(eco, comp) \
++}
++
++/* 2D array of function pointers for each component type and each group type */
++static intr_comp_handlers_t intr_comp_handlers[INT_COMP_TYPE_MAX][INT_GRP_TYPE_MAX] = {
++	ASSIGN_ALL_INTR_HANDLER_FOR(arc_farm),
++	ASSIGN_ALL_INTR_HANDLER_FOR(cpu),
++	ASSIGN_ALL_INTR_HANDLER_FOR(cs),
++	ASSIGN_ALL_INTR_HANDLER_FOR(d2d_mac),
++	ASSIGN_ALL_INTR_HANDLER_FOR(d2d_phy),
++	ASSIGN_ALL_INTR_HANDLER_FOR(dch0),
++	ASSIGN_ALL_INTR_HANDLER_FOR(dch1),
++	ASSIGN_ALL_INTR_HANDLER_FOR(dec),
++	ASSIGN_ALL_INTR_HANDLER_FOR(drtr0),
++	ASSIGN_ALL_INTR_HANDLER_FOR(drtr1),
++	ASSIGN_ALL_INTR_HANDLER_FOR(econ),
++	ASSIGN_ALL_INTR_HANDLER_FOR(edma),
++	ASSIGN_ALL_INTR_HANDLER_FOR(edup),
++	ASSIGN_ALL_INTR_HANDLER_FOR(grtr1),
++	ASSIGN_ALL_INTR_HANDLER_FOR(grtr3),
++	ASSIGN_ALL_INTR_HANDLER_FOR(hft),
++	ASSIGN_ALL_INTR_HANDLER_FOR(hif),
++	ASSIGN_ALL_INTR_HANDLER_FOR(mc),
++	ASSIGN_ALL_INTR_HANDLER_FOR(mme),
++	ASSIGN_ALL_INTR_HANDLER_FOR(nch),
++	ASSIGN_ALL_INTR_HANDLER_FOR(nchl),
++	ASSIGN_ALL_INTR_HANDLER_FOR(nic),
++	ASSIGN_ALL_INTR_HANDLER_FOR(nrtr0),
++	ASSIGN_ALL_INTR_HANDLER_FOR(nrtr2),
++	ASSIGN_ALL_INTR_HANDLER_FOR(parc),
++	ASSIGN_ALL_INTR_HANDLER_FOR(pcie),
++	ASSIGN_ALL_INTR_HANDLER_FOR(pdma),
++	ASSIGN_ALL_INTR_HANDLER_FOR(pll),
++	ASSIGN_ALL_INTR_HANDLER_FOR(pmmu),
++	ASSIGN_ALL_INTR_HANDLER_FOR(psoc),
++	ASSIGN_ALL_INTR_HANDLER_FOR(rft),
++	ASSIGN_ALL_INTR_HANDLER_FOR(rot),
++	ASSIGN_ALL_INTR_HANDLER_FOR(rrtr),
++	ASSIGN_ALL_INTR_HANDLER_FOR(sob),
++	ASSIGN_ALL_INTR_HANDLER_FOR(stlb),
++	ASSIGN_ALL_INTR_HANDLER_FOR(tpc),
++	ASSIGN_ALL_INTR_HANDLER_FOR(ts),
++	ASSIGN_ALL_INTR_HANDLER_FOR(vm)
+ };
+ 
+-int dispatch_intr_handler(struct intr_config *config)
++
++int intr_dispatch_component_handler(struct intr_config *config)
+ {
+ 	enum intr_agg_grp_type grp;
+ 	enum intr_agg_component_type comp_type;
+@@ -239,8 +82,8 @@
+ 		return -1;
+ 	}
+ 
+-	if (hl_agg_handlers[grp][comp_type])
+-		return hl_agg_handlers[grp][comp_type](config);
++	if (intr_comp_handlers[comp_type][grp])
++		return intr_comp_handlers[comp_type][grp](config);
+ 
+ 	LOG_ERR("No handler found for group %d and component %d", grp, comp_type);
+ 	return -1;
+diff --git a/arch/jgs/intr/jsw_intr.c b/arch/jgs/intr/jsw_intr.c
+index 76858d0..b9538c6 100644
+--- a/arch/jgs/intr/jsw_intr.c
++++ b/arch/jgs/intr/jsw_intr.c
+@@ -8,13 +8,13 @@
+ #include <intr.h>
+ 
+ #include <zephyr/logging/log.h>
+-LOG_MODULE_REGISTER(JSW_INTR);
++LOG_MODULE_REGISTER(JGS_INTR);
+ 
+ static struct intr_config intr;
+ /*
+  * Function to get the interrupt handler for a specific group and component
+  */
+-static int jsw_get_intr_type(struct intr_config *config, enum intr_agg_component_type *grp,
++static int jgs_get_intr_type(struct intr_config *config, enum intr_agg_component_type *grp,
+ 	enum intr_agg_component_type *comp_type)
+ {
+ 	/* TODO: Read grp and comp_type from config and set them accordingly */
+@@ -25,10 +25,73 @@
+ 	return 0;
+ }
+ 
++static int jgs_process_sei_interrupt(struct intr_config *config)
++{
++	int ret = intr_dispatch_component_handler(config);
++	/* TODO: SEI-specific post-processing. */
++	return ret;
++}
++
++static int jgs_process_spi_interrupt(struct intr_config *config)
++{
++	int ret = intr_dispatch_component_handler(config);
++	/* TODO: SPI-specific post-processing. */
++	return ret;
++}
++
++static int jgs_process_serr_interrupt(struct intr_config *config)
++{
++	int ret = intr_dispatch_component_handler(config);
++	/*  TODO: SERR-specific post-processing. */
++	return ret;
++}
++
++static int jgs_process_derr_interrupt(struct intr_config *config)
++{
++	int ret = intr_dispatch_component_handler(config);
++	/* TODO: DERR-specific post-processing. */
++	return ret;
++}
++
++static int jgs_process_eco_interrupt(struct intr_config *config)
++{
++	int ret = intr_dispatch_component_handler(config);
++	/* TODO: ECO-specific post-processing. */
++	return ret;
++}
++
++static int jgs_process_interrupt(struct intr_config *config)
++{
++	enum intr_agg_grp_type grp;
++	enum intr_agg_component_type comp_type;
++
++	if (config->intr_type(config, &grp, &comp_type)) {
++		LOG_ERR("Failed to get interrupt group and component type");
++		return -1;
++	}
++
++	switch (grp) {
++	case INT_GRP_TYPE_SEI:
++		return jgs_process_sei_interrupt(config);
++	case INT_GRP_TYPE_SPI:
++		return jgs_process_spi_interrupt(config);
++	case INT_GRP_TYPE_SERR:
++		return jgs_process_serr_interrupt(config);
++	case INT_GRP_TYPE_DERR:
++		return jgs_process_derr_interrupt(config);
++	case INT_GRP_TYPE_ECO:
++		return jgs_process_eco_interrupt(config);
++	default:
++		LOG_ERR("Unknown group type: %d", grp);
++		return -1;
++	}
++}
++
+ int dev_intr_prepare(struct intr_config *config)
+ {
+ 	config = &intr;
+-	config->intr_type = jsw_get_intr_type;
++	config->intr_type = jgs_get_intr_type;
++	config->arch_process_interrupt = jgs_process_interrupt;
+ 
+ 	return 0;
+ }
+diff --git a/include/intr.h b/include/intr.h
+index 6e528cb..4b4de32 100644
+--- a/include/intr.h
++++ b/include/intr.h
+@@ -75,14 +75,16 @@
+ 	uint32_t intr_data;
+ 	int (*intr_type)(struct intr_config *config, enum intr_agg_grp_type *grp,
+ 		enum intr_agg_component_type *comp_type);
++	int (*arch_process_interrupt)(struct intr_config *config,
++		enum intr_action action);
+ };
+ 
+ int dev_intr_prepare(struct intr_config *config);
+ int process_interrupt(struct intr_config *config, enum intr_action action);
+-int dispatch_intr_handler(struct intr_config *intr_config);
++int intr_dispatch_component_handler(struct intr_config *intr_config);
+ 
+ /* Function pointer type for group/component handlers */
+-typedef int (*hl_agg_handler_t)(struct intr_config *intr_info);
++typedef int (*intr_comp_handlers_t)(struct intr_config *intr_info);
+ 
+ /* Handler function declarations for each group/component type combination */
+ #define DECLARE_INTR_HANDLER(GRP, COMP) \

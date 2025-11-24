@@ -1,0 +1,451 @@
+From d24b72f98f2da113f495ca739e7964ea74090127 Mon Sep 17 00:00:00 2001
+From: Amit Kumar Chawla <achawla@habana.ai>
+Date: Thu, 07 Nov 2024 04:55:10 +0000
+Subject: [PATCH] Revert "[SW-205522] Revert "[SW-198128] Use MetaDataandgraph in hpugraph""
+
+This reverts commit 92c5ab1b8e89c6fabf1d14cb7c65c8f0f3969e86.
+
+Change-Id: I39960dfb1fc4d7659e8f6e8f10ad2a6a1e92220b
+---
+
+diff --git a/backend/habana_device/HPUGraph.cpp b/backend/habana_device/HPUGraph.cpp
+index b219798..c751fc1 100644
+--- a/backend/habana_device/HPUGraph.cpp
++++ b/backend/habana_device/HPUGraph.cpp
+@@ -142,18 +142,17 @@
+       habana_lazy::get_device_lazy_execution_context();
+ 
+   context->JoinPendingLaunchThread();
+-  if (context->getGraph()) {
++  if (context->getGraphAndMeta() &&
++      context->getGraphAndMeta()->get_cached_graph()) {
+     auto captured_graph = std::make_shared<SingleHPUGraph>(
++        context->getGraphAndMeta(),
+         context->getRecipeArgSpec(),
+-        context->getGraph(),
+         context->getInputs(),
+         context->getOutputs(),
+         context->getHbLazyTensors(),
+         context->getUserInputIndices(),
+         context->getSeedTensorMap(),
+-        context->getHash(),
+-        context->getGraphKey(),
+-        context->getOpStrs());
++        context->getHash());
+     captured_graphs.push_back(captured_graph);
+     auto user_inp_match = context->getUserInputMatchIndices();
+     user_input_match_indices_.insert(
+@@ -282,7 +281,7 @@
+   // Go over all captured SingleHPUGraphs
+   for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
+     auto single_graph = captured_graphs[graphIdx];
+-    if (single_graph->graph_) {
++    if (single_graph->g_mt_ptr_->get_cached_graph()) {
+       // This set shows have the indices of user_output tensors in
+       // hblazy_tensors_out_
+       std::unordered_set<size_t> user_out_tensors_idx_set;
+@@ -455,7 +454,7 @@
+ }
+ 
+ SingleHPUGraph::~SingleHPUGraph() {
+-  graph_.reset();
++  g_mt_ptr_.reset();
+   input_vals_.clear();
+   output_vals_.clear();
+   hblazy_tensors_in_.clear();
+@@ -518,11 +517,9 @@
+     context->m_launch_thread_handle =
+         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
+             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
++            g_mt_ptr_,
+             cached_rarg_psh,
+-            graph_,
+             hash_,
+-            graphKey_,
+-            opStrs_,
+             hblazy_tensors_in_,
+             hblazy_tensors_out_,
+             prev_graph_interdep_out_t_list_,
+@@ -530,11 +527,9 @@
+             launch_jobid);
+   } else {
+     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
++        g_mt_ptr_,
+         cached_rarg_psh,
+-        graph_,
+         hash_,
+-        graphKey_,
+-        opStrs_,
+         hblazy_tensors_in_,
+         hblazy_tensors_out_,
+         prev_graph_interdep_out_t_list_,
+@@ -557,7 +552,7 @@
+ }
+ 
+ void SingleHPUGraph::replay(bool async) {
+-  if (graph_) {
++  if (g_mt_ptr_->get_cached_graph()) {
+     return replayGraph(input_vals_, async);
+   }
+ }
+@@ -565,8 +560,9 @@
+ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
+   PT_HPUGRAPH_DEBUG(
+       "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
+-  PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
+-  if (graph_) {
++  auto graph = g_mt_ptr_->get_cached_graph();
++  PT_DEVICE_DEBUG(graph ? (graph->dump(), "") : "null graph");
++  if (graph) {
+     auto num_inputs = input_vals_.size();
+     for (size_t i = 0; i < num_inputs; ++i) {
+       if (user_input_indices_.count(i) > 0) {
+@@ -594,10 +590,11 @@
+     std::vector<at::Tensor>& static_inputs,
+     std::vector<at::Tensor>& inputs,
+     bool async) {
++  auto graph = g_mt_ptr_->get_cached_graph();
+   PT_HPUGRAPH_DEBUG(
+       "In HPUGraph::replayV2 with ", inputs.size(), " input tensors");
+-  PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
+-  if (graph_) {
++  PT_DEVICE_DEBUG(graph ? (graph->dump(), "") : "null graph");
++  if (graph) {
+     habana_lazy::ir::ValueList input_val_list;
+     std::vector<habana_lazy::HbLazyTensor> static_input_lazy_tensors;
+     for (auto& t : static_inputs) {
+diff --git a/backend/habana_device/HPUGraph.h b/backend/habana_device/HPUGraph.h
+index ae4aeb3..b2d2872 100644
+--- a/backend/habana_device/HPUGraph.h
++++ b/backend/habana_device/HPUGraph.h
+@@ -12,6 +12,7 @@
+  */
+ #pragma once
+ #include "HPUStream.h"
++#include "backend/jit_graph_cache.h"
+ #include "habana_lazy/hpu_lazy_tensors.h"
+ #include "habana_lazy/ir.h"
+ #include "torch/csrc/jit/ir/ir.h"
+@@ -21,27 +22,23 @@
+ 
+ struct SingleHPUGraph {
+   SingleHPUGraph(
++      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr,
+       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+-      std::shared_ptr<torch::jit::Graph> graph,
+       habana_lazy::ir::ValueList input_vals,
+       habana_lazy::ir::ValueList output_vals,
+       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+       std::unordered_map<size_t, size_t> user_input_indices,
+       std::unordered_map<int64_t, c10::optional<at::Generator>>
+           seed_tensors_generator,
+-      size_t hash,
+-      size_t graphKey,
+-      std::string opStrs)
+-      : cached_rarg_psh_{cached_rarg_psh},
+-        graph_{graph},
++      size_t hash)
++      : g_mt_ptr_{g_mt_ptr},
++        cached_rarg_psh_{cached_rarg_psh},
+         input_vals_{input_vals},
+         output_vals_{output_vals},
+         hblazy_tensors_out_{hblazy_tensors},
+         user_input_indices_{user_input_indices},
+         seed_tensors_generator_{seed_tensors_generator},
+-        hash_{hash},
+-        graphKey_{graphKey},
+-        opStrs_{opStrs} {}
++        hash_{hash} {}
+ 
+   ~SingleHPUGraph();
+   void replay(bool async = false);
+@@ -52,8 +49,8 @@
+   void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
+   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
+ 
++  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr_;
+   std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh_{nullptr};
+-  std::shared_ptr<torch::jit::Graph> graph_;
+   habana_lazy::ir::ValueList input_vals_;
+   habana_lazy::ir::ValueList output_vals_;
+   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_;
+@@ -109,8 +106,6 @@
+   std::unordered_map<int64_t, c10::optional<at::Generator>>
+       seed_tensors_generator_;
+   size_t hash_{0};
+-  size_t graphKey_{0};
+-  std::string opStrs_ = "";
+ };
+ 
+ struct HPUGraph {
+diff --git a/habana_lazy/hlexec.cpp b/habana_lazy/hlexec.cpp
+index 0b785be..d7cbfe1 100644
+--- a/habana_lazy/hlexec.cpp
++++ b/habana_lazy/hlexec.cpp
+@@ -121,7 +121,6 @@
+ void HlExec::Launch(
+     torch::jit::Stack& stack,
+     const c10::hpu::HPUStream& stream,
+-    std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+     bool dry_run) {
+   PT_LAZY_TRACE;
+   auto context = get_device_lazy_execution_context();
+@@ -131,20 +130,6 @@
+   // not do env variable based check anymore
+   // We have short-circuited certain utilities in synapse helpers, we need to
+   // remove that code
+-
+-  if (context->getCapturing()) {
+-    // save the graph for perf mode
+-    context->saveGraph(mp_g_);
+-
+-    // save the hash for perf mode
+-    context->saveHash(m_g_hash_);
+-
+-    // save the graph key for perf mode
+-    context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
+-
+-    // save the graph key for perf mode
+-    context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
+-  }
+ 
+   std::string opName = getHabanaLazyGraphName();
+   if (lazyInfo) {
+@@ -159,55 +144,10 @@
+   mp_g_and_meta_data_->SetHPUStream(stream);
+   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+ 
+-  auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
+-  try {
+-    launcher->Run(stack, cached_rarg_psh, dry_run);
+-  } catch (const std::exception& e) {
+-    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
+-    get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);
+-    throw;
+-  }
+-}
+-
+-void HlExec::Launch(
+-    torch::jit::Stack& stack,
+-    const c10::hpu::HPUStream& stream,
+-    bool dry_run) {
+-  PT_LAZY_TRACE;
+-  auto context = get_device_lazy_execution_context();
+-  // TODO : remove this env variable use
+-  // This is temporarily done to deactivate code in synapse helpers for lazy
+-  // mode kernel registration We will move to using shape utilities instead and
+-  // not do env variable based check anymore
+-  // We have short-circuited certain utilities in synapse helpers, we need to
+-  // remove that code
+-
+   if (context->getCapturing()) {
+-    // save the graph for perf mode
+-    context->saveGraph(mp_g_);
+-
+-    // save the hash for perf mode
+     context->saveHash(m_g_hash_);
+-
+-    // save the graph key for perf mode
+-    context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
+-
+-    // save the graph key for perf mode
+-    context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
++    context->saveGraphAndMeta(mp_g_and_meta_data_);
+   }
+-
+-  std::string opName = getHabanaLazyGraphName();
+-  if (lazyInfo) {
+-    opName = lazyInfo->get_lazy_op_name();
+-  }
+-
+-  auto graphIndex =
+-      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+-  bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
+-  mp_g_and_meta_data_->SetGraphIndex(graphIndex);
+-  mp_g_and_meta_data_->SetOpName(opName);
+-  mp_g_and_meta_data_->SetHPUStream(stream);
+-  mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+ 
+   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
+   try {
+diff --git a/habana_lazy/hlexec.h b/habana_lazy/hlexec.h
+index 35c41e7..db70969 100644
+--- a/habana_lazy/hlexec.h
++++ b/habana_lazy/hlexec.h
+@@ -221,6 +221,11 @@
+  public:
+   HlExec();
+   HlExec(ScopePtr scope);
++  HlExec(OptimizedJITGraphAndMetaDataPtr ptr, size_t hash) {
++    mp_g_and_meta_data_ = ptr;
++    m_g_hash_ = hash;
++    mp_g_ = mp_g_and_meta_data_->get_cached_graph();
++  }
+ 
+   virtual ~HlExec() {}
+ 
+@@ -291,12 +296,6 @@
+ 
+   void Launch(
+       torch::jit::Stack& stack,
+-      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
+-      bool dry_run = false);
+-
+-  void Launch(
+-      torch::jit::Stack& stack,
+-      const c10::hpu::HPUStream& stream,
+       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
+       bool dry_run = false);
+ 
+diff --git a/habana_lazy/hpu_lazy_tensors.cpp b/habana_lazy/hpu_lazy_tensors.cpp
+index 130435a..5957bb2 100644
+--- a/habana_lazy/hpu_lazy_tensors.cpp
++++ b/habana_lazy/hpu_lazy_tensors.cpp
+@@ -1490,11 +1490,9 @@
+ }
+ 
+ void HbLazyTensor::ExecuteCachedGraph(
++    std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
+     std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+-    GraphPtr graph,
+     size_t hash,
+-    size_t graphKey,
+-    std::string opStrs,
+     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
+     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
+     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
+@@ -1509,7 +1507,7 @@
+       false); // disable acc thread during launch, but do not sync the acc
+               // thread
+ 
+-  exec::HlExec hlexec{};
++  exec::HlExec hlexec{graph, hash};
+ 
+   torch::jit::Stack stack;
+   // stack is used for both inputs to synapse lowering and outputs from
+@@ -1542,20 +1540,8 @@
+     context->copy_scalar_to_hpu_tensor_list.clear();
+   }
+ 
+-  // Fetch graph from device context
+-  hlexec.set_graph(graph);
+-
+-  // Set the graph hash
+-  hlexec.set_hash(hash);
+-
+-  // Set the graph key
+-  hlexec.set_graph_key(graphKey);
+-
+-  // Set the op strs
+-  hlexec.set_opstrs(opStrs);
+-
+   // Launch the execution
+-  hlexec.Launch(stack, cached_rarg_psh, c10::hpu::getCurrentHPUStream());
++  hlexec.Launch(stack, cached_rarg_psh);
+ 
+   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
+   for (const auto& in : hblazy_tensors_in) {
+diff --git a/habana_lazy/hpu_lazy_tensors.h b/habana_lazy/hpu_lazy_tensors.h
+index a0f04fa..fc51143 100644
+--- a/habana_lazy/hpu_lazy_tensors.h
++++ b/habana_lazy/hpu_lazy_tensors.h
+@@ -407,11 +407,9 @@
+   static void SetDynamicMode();
+ 
+   static void ExecuteCachedGraph(
++      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
+       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+-      std::shared_ptr<torch::jit::Graph> graph,
+       size_t hash,
+-      size_t graphKey,
+-      std::string opStrs,
+       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
+       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
+       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
+diff --git a/habana_lazy/lazy_executor.h b/habana_lazy/lazy_executor.h
+index 9519cdb..dc27426 100644
+--- a/habana_lazy/lazy_executor.h
++++ b/habana_lazy/lazy_executor.h
+@@ -15,6 +15,7 @@
+ 
+ #include "backend/habana_device/HPUGraph.h"
+ #include "backend/helpers/dynamic_shape_info.h"
++#include "backend/jit_graph_cache.h"
+ #include "backend/synapse_helpers/util.h"
+ #include "habana_helpers/thread_pool/thread_pool.h"
+ #include "habana_lazy/hpu_lazy_tensors.h"
+@@ -27,6 +28,8 @@
+ 
+ using Graph = torch::jit::Graph;
+ using GraphPtr = std::shared_ptr<Graph>;
++using OptimizedJITGraphAndMetaDataPtr =
++    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>;
+ 
+ namespace habana_lazy {
+ 
+@@ -192,14 +195,6 @@
+     }
+   }
+ 
+-  void saveGraph(GraphPtr p_g) {
+-    mp_g = p_g;
+-  }
+-
+-  GraphPtr getGraph() {
+-    return mp_g;
+-  }
+-
+   void saveHash(size_t p_h) {
+     mp_g_hash = p_h;
+   }
+@@ -208,20 +203,12 @@
+     return mp_g_hash;
+   }
+ 
+-  void saveGraphKey(size_t graphKey) {
+-    mp_g_key = graphKey;
++  void saveGraphAndMeta(OptimizedJITGraphAndMetaDataPtr g_ptr) {
++    g_mt_ptr = g_ptr;
+   }
+ 
+-  size_t getGraphKey() {
+-    return mp_g_key;
+-  }
+-
+-  void saveOpStrs(std::string opStrs) {
+-    mp_g_op_strs = opStrs;
+-  }
+-
+-  std::string getOpStrs() {
+-    return mp_g_op_strs;
++  OptimizedJITGraphAndMetaDataPtr getGraphAndMeta() {
++    return g_mt_ptr;
+   }
+ 
+   void saveRecipeArgSpec(
+@@ -348,10 +335,8 @@
+   }
+ 
+   void resetGraph() {
+-    saveGraph(nullptr);
++    saveGraphAndMeta(nullptr);
+     saveHash(0);
+-    saveGraphKey(0);
+-    saveOpStrs("");
+     m_input_vals.clear();
+     m_output_vals.clear();
+     m_hblazy_tensors.clear();
+@@ -416,12 +401,9 @@
+   std::uint64_t GetUniqueJobId();
+ 
+  private:
+-  GraphPtr mp_g;
+   size_t mp_g_hash{0};
+-  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr{nullptr};
++  OptimizedJITGraphAndMetaDataPtr g_mt_ptr;
+   std::shared_ptr<habana::RecipeArgumentSpec> m_graph_rarg_psh{nullptr};
+-  size_t mp_g_key{0};
+-  std::string mp_g_op_strs = "";
+   ir::ValueList m_input_vals;
+   ir::ValueList m_output_vals;
+   std::vector<at::Tensor> m_marked_user_inputs;

@@ -1,0 +1,53 @@
+From a133657311a7d67384232b837c4c22aff31c50af Mon Sep 17 00:00:00 2001
+From: Tamal <tasaha@habana.ai>
+Date: Thu, 17 Oct 2024 12:38:21 +0300
+Subject: [PATCH] [FSW-1318] fs1: enable clock gating in application
+
+This patch supports clock gating enablement for all
+io or compute engine in a die.
+
+Change-Id: I7bbb87d4355359ed36855b599ac1af4fd1b4974b
+Signed-off-by: Tamal <tasaha@habana.ai>
+---
+
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index 986e238..2b3172a 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -49,6 +49,8 @@
+ #include <fs1_binning_defs.h>
+ #include <fs1_binning_api.h>
+ #include <hl_devs.h>
++#include <zephyr/drivers/misc/clk_gating/clk_gating_api.h>
++#include <zephyr/drivers/misc/clk_gating/fs1/fs_clk_gating_defs.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+@@ -571,6 +573,27 @@
+ 	return 0;
+ }
+ 
++__weak void fs_plat_clock_gating_init(void)
++{
++	const struct device *cgm_dev = CLK_GATING_DEV_INST;
++	struct fs_clock_gating_info cgm_info = {
++		.redundancy_ctx = &masks,
++	};
++
++	if (cgm_dev == NULL) {
++		LOG_ERR("Clock gating driver not found, skipping init");
++		return;
++	}
++
++	clk_gating_inject_info(cgm_dev, (void *)&cgm_info);
++	clk_gating_enable_all(cgm_dev, true);
++}
++
++void hl_clock_gating_init(void)
++{
++	fs_plat_clock_gating_init();
++}
++
+ /*
+  * TODO: implement this function properly (halt, reset, release reset, scrub memories) using CPU
+  * parameters from fit file, as required in FSW-8421

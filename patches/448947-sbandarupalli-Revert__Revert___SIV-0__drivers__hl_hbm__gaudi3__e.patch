@@ -1,0 +1,44 @@
+From 9fb095ad9239e2664d45d72c95c2eb296ce810cc Mon Sep 17 00:00:00 2001
+From: Sailaja <sbandarupalli@habana.ai>
+Date: Thu, 12 Sep 2024 11:05:43 +0300
+Subject: [PATCH] Revert "Revert "[SIV-0] drivers: hl_hbm: gaudi3: enable data compression""
+
+This reverts commit 39154ee25c2c57924b5164396c8185321cc724fa.
+
+Change-Id: Id9237dfce4d2c7b12e4ecb6329e2de02d8396dec
+Signed-off-by: Sailaja <sbandarupalli@habana.ai>
+---
+
+diff --git a/drivers/misc/hl_hbm/gaudi3/hbm.c b/drivers/misc/hl_hbm/gaudi3/hbm.c
+index 3c40ffd..8247329 100644
+--- a/drivers/misc/hl_hbm/gaudi3/hbm.c
++++ b/drivers/misc/hl_hbm/gaudi3/hbm.c
+@@ -97,7 +97,7 @@
+ })
+ 
+ /* ENABLES */
+-#define MC_COMPRESSION_EN			0x0 /* compression disabled due to SW-154537 */
++#define MC_COMPRESSION_EN			0x1
+ #define PHY_LOOPBACK_EN				0x0
+ #define PHY_EXTEST_EN				0x1
+ #define DRIVER_SLR_EN				0x0
+@@ -1768,7 +1768,7 @@
+ 	for (pc_idx = 0; pc_idx < NUM_PC_PER_CH; pc_idx++) {
+ 		pc_offset = hbm_offset + pc_idx * PC_OFFSET;
+ 
+-		if (MC_COMPRESSION_EN) {
++		if (MC_COMPRESSION_EN && !pldm) {
+ 			CFG_WREG32(D0_HBM0_BCAST_MC_REG(mmMC_CH_SCRB_ARUSER_0) + pc_offset, 0x0);
+ 			CFG_WREG32(D0_HBM0_BCAST_MC_REG(mmMC_CH_SCRB_AWUSER_0) + pc_offset, 0x0);
+ 			CFG_WREG32(D0_HBM0_BCAST_MC_REG(mmMC_CH_SCRB_WUSER_0) + pc_offset, 0x0);
+@@ -2031,8 +2031,9 @@
+ 	 * which is causing partial access(decreases in some performance, but in total still
+ 	 * improves the results of workloads)
+ 	 */
+-	if (!MC_COMPRESSION_EN)
++	if (!MC_COMPRESSION_EN || pldm)
+ 		return;
++	LOG_INF("HBM Compression enabled");
+ 
+ 	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+ 

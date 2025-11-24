@@ -1,0 +1,76 @@
+From 21690f53d8de9ca3a452cf10202ac0ec297b73b0 Mon Sep 17 00:00:00 2001
+From: Mitali Vagadiya <vmnagajibhai@habana.ai>
+Date: Thu, 09 Jan 2025 14:07:14 +0200
+Subject: [PATCH] [SW-207417] gaudi3: create separate thread for intr process
+
+When there is flood of interrupt arcevent might not be
+able to send heartbeat event to arcmgmt and may remain
+in executing ISRs.
+
+To ensure that interrupt processing and heartbeat
+events get equal execution time, these processes have
+been separated into threads with the same priority.
+
+Change-Id: Id36794a92cfe251324b413f87cb6409bc9fc8db0
+---
+
+diff --git a/src/event.c b/src/event.c
+index 3a1571e..9691c74 100644
+--- a/src/event.c
++++ b/src/event.c
+@@ -14,6 +14,32 @@
+ 
+ static struct hl_event_config evt_config;
+ 
++#define INTR_STACK_SIZE			(4096 - CONFIG_HL_STACK_OVERFLOW_REDUCE_SIZE)
++#define INTR_THREAD_PRIORITY		0
++
++K_THREAD_STACK_DEFINE(intr_stack_area, INTR_STACK_SIZE);
++struct k_thread process_interrupt_thread_data;
++
++void process_interrupt_thread(void *p1, void *p2, void *p3)
++{
++	ARG_UNUSED(p1);
++	ARG_UNUSED(p2);
++	ARG_UNUSED(p3);
++
++	while (1) {
++
++		if (evt_config.state == HL_EVENT_STOP) {
++			k_msleep(EVENT_POLLING_DELAY);
++			continue;
++		}
++
++		hl_event_process_interrupt(&evt_config);
++
++		k_msleep(EVENT_POLLING_DELAY);
++	}
++}
++
++
+ void main(void)
+ {
+ 	int ret;
+@@ -32,6 +58,13 @@
+ 		goto err;
+ 	}
+ 
++	k_thread_create(&process_interrupt_thread_data, intr_stack_area,
++			K_THREAD_STACK_SIZEOF(intr_stack_area),
++			process_interrupt_thread, NULL, NULL, NULL,
++			INTR_THREAD_PRIORITY, 0, K_NO_WAIT);
++
++	k_thread_name_set(&process_interrupt_thread_data, "ProcessInterruptThread");
++
+ 	while (1) {
+ 
+ 		hl_event_send_heartbeat(&evt_config);
+@@ -40,8 +73,6 @@
+ 			k_msleep(EVENT_POLLING_DELAY);
+ 			continue;
+ 		}
+-
+-		hl_event_process_interrupt(&evt_config);
+ 
+ 		hl_event_check_fake_ecc_injection(&evt_config);
+ 

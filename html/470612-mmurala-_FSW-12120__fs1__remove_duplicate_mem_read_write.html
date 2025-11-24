@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 470612: [FSW-12120] fs1: remove duplicate mem read write</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 470612: [FSW-12120] fs1: remove duplicate mem read write</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> preboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-01-23 15:37:46.772000000</p>
+            <p><strong>Updated:</strong> 2025-02-17 08:15:32.993000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-12120] fs1: remove duplicate mem read write
+
+With this patch, removed the duplicate mem read
+write functions which are used from common
+embedded specs.
+
+Change-Id: Iefe856e525dde201be6d1ba8489279a336fc1d66
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Abhishek Patgaonkar: +0, Noam Camus: +0, Software Jenkins: +0, Ran Shalit: +0, Jenkins EMB Service Account: +0, Sanyog Kale: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>arch/fs1/arc/common.h</code> (M) +0 -1</li><li><code>include/baremetal.h</code> (M) +0 -40</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/arch/fs1/arc/common.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -18,7 +18,6 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> /* CFG is at Arc region F, specs CFG base address is 0x70000000. 7+8 = 0xF */</span>
+<span class="diff-ctx"> /* defined here in addition to specs because they are in use im common code */</span>
+<span class="diff-del">-#define HL_CFG_BASE			0x80000000</span>
+<span class="diff-ctx"> #define FW_MEM_REGION_BASE		0x78800000 /* IO Die0 Half0 FW memories */</span>
+<span class="diff-ctx"> #define FW_SRAM_BASE			(FW_MEM_REGION_BASE + 0x1A0000)</span>
+<span class="diff-ctx"> #define SP_SRAM_BASE			(FW_MEM_REGION_BASE + 0x200000)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index ae5e0bb..e1db588 100644</span>
+<h4 class="diff-filename">b/include/baremetal.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -115,46 +115,6 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> extern u8 hl_asic_sn[FUSE_DEVID_SIZE];</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#ifndef JIRA_FSW_12120</span>
+<span class="diff-del">-#define JIRA_FSW_12120</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline u8 regmap_readb(u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return (u8)(reg &amp; 0xFF);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline void regmap_writeb(u8 val, u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	*((volatile u32 *)(HL_CFG_BASE + offset)) = (u32)val;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline u32 regmap_readl(u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return reg;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline void regmap_writel(u32 val, u32 offset)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	*((volatile u32 *)(HL_CFG_BASE + offset)) = val;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static inline void regmap_rmwritel(u32 addr, u32 data, u32 mask)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	u32 val;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	val = regmap_readl(addr);</span>
+<span class="diff-del">-	val &amp;= ~mask;</span>
+<span class="diff-del">-	val |= (data &lt;&lt; (__builtin_ffsll(mask) - 1));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	regmap_writel(val, addr);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#endif /* JIRA_FSW_12120 */</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> #ifdef HL_SPI_GW_CFG_BASE</span>
+<span class="diff-ctx"> static inline void mirror_writel(u32 val, u32 offset)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-01-23 15:37:46.772000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 15:37:53.060000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30930/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 15:37:53.896000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3586/ (1/3)</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-01-23 15:38:42.692000000)</span><pre>Topic set to COMMON_DECL</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 15:40:24.215000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/145/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 15:40:24.235000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3492/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 15:44:48.406000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18763/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 15:44:48.416000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1685/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 16:00:08.593000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/145/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/122/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3492/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3586/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 16:27:29.069000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1685/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_preboot_build_master_next/1841/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18763/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30930/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-01-23 16:49:13.945000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 16:49:22.362000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30957/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 16:49:23.834000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3613/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 16:51:58.297000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/147/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 16:51:58.317000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3513/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-23 16:55:39.552000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/147/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/124/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3513/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3613/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 16:55:41.055000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18784/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 16:55:41.066000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1687/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-23 17:26:08.795000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1687/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_preboot_build_master_next/1842/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18784/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30957/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-01-24 06:17:47.186000000)</span><pre>Uploaded patch set 3: Patch Set 2 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 06:17:53.842000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30986/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 06:17:55.496000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3642/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 06:20:35.629000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/149/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 06:20:35.645000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3534/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 06:23:48.988000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1688/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 06:23:48.990000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18804/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 06:23:58.691000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/149/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/126/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3534/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3642/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 06:51:14.255000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1688/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_preboot_build_master_next/1844/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18804/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30986/ : SUCCESS</pre></div><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-02-17 08:06:07.176000000)</span><pre>Patch Set 3:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 08:06:14.277000000)</span><pre>Patch Set 3: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32028/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 08:06:17.181000000)</span><pre>Patch Set 3: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4566/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 08:08:54.200000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/4161/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 08:08:54.241000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/167/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 08:12:10.643000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19537/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 08:13:25.547000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/167/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/144/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4566/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/4161/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 08:15:32.993000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19537/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32028/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

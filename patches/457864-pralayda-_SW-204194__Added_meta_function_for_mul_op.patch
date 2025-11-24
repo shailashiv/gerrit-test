@@ -1,0 +1,112 @@
+From 23031d15f9c351b8c0c2025bc5d1b04332fd1a68 Mon Sep 17 00:00:00 2001
+From: pralay <pradas@habana.ai>
+Date: Tue, 22 Oct 2024 15:53:45 +0300
+Subject: [PATCH] [SW-204194] Added meta function for mul op
+
+Change-Id: Icd41ce9635445832eb8600be1ac36cabb4df342a
+---
+
+diff --git a/hpu_ops/backend/binary_gen.cpp b/hpu_ops/backend/binary_gen.cpp
+index 42572ec..45ab51c 100644
+--- a/hpu_ops/backend/binary_gen.cpp
++++ b/hpu_ops/backend/binary_gen.cpp
+@@ -15,6 +15,7 @@
+ #include "generated/backend/_foreach_add.h"
+ #include "generated/backend/_foreach_div.h"
+ #include "generated/backend/add.h"
++#include "generated/backend/mul.h"
+ #include "generated/backend/rsub.h"
+ #include "generated/backend/sub.h"
+ #include "hpu_ops/backend/foreach.h"
+@@ -531,6 +532,40 @@
+       : ForeachBinary(device_id, "add_fwd", scalar_type, {}, {0}, {}, false) {}
+ };
+ 
++OutputMetaDataVector BinaryMeta(
++    const at::Stack& stack,
++    std::string& guid,
++    bool castIntToFloat,
++    bool supportI8,
++    bool supportI16) {
++  const auto& self = stack_tensor(stack, 0);
++  const auto other = stack.at(1);
++  const bool out_is_available = (stack.size() > 2 && stack.at(2).isTensor());
++  at::ScalarType resultType;
++  OutputMetaData meta;
++  if (other.isTensor()) {
++    const auto& otherTensor = other.toTensor();
++    resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
++                                  : at::result_type(self, otherTensor);
++  } else {
++    const auto& otherScalar = stack.at(1).toScalar();
++    resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
++                                  : at::result_type(self, otherScalar);
++  }
++  update_result_type(resultType, guid, castIntToFloat, supportI8, supportI16);
++  meta.dtype = resultType;
++  meta.shape = BinaryOutputShape(stack)[0];
++  return {meta};
++}
++
++OutputMetaDataVector MulMeta(const at::Stack& stack) {
++  const bool castIntToFloat = false;
++  const bool supportI8 = true;
++  const bool supportI16 = true;
++  std::string guid = "mult_fwd";
++  return BinaryMeta(stack, guid, castIntToFloat, supportI8, supportI16);
++}
++
+ } // namespace habana
+ 
+ static const auto& ForeachKernelRegistry = habana::KernelRegistry().add(
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 7a669b2..ba9afda 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -4557,6 +4557,7 @@
+     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+   guid: mult_fwd
+   st_meta: BinarySTMeta
++  output_meta: MulMeta
+   out_ids: [0]
+   broadcast: true
+   promote_to_common_type: [self, other]
+@@ -4567,6 +4568,7 @@
+   out_ids: [0]
+   scalar_ids: [1]
+   st_meta: BinarySTMeta
++  output_meta: MulMeta
+   promote_to_common_type: [self, other]
+   op_validator: check-node-with-shared-layer
+ 
+@@ -4574,6 +4576,7 @@
+   broadcast: true
+   guid: mult_fwd
+   st_meta: BinarySTMeta
++  output_meta: MulMeta
+   promote_to_common_type: [self, other]
+   scalar_ids: [1]
+   op_validator: check-node-with-shared-layer
+@@ -4584,12 +4587,14 @@
+     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+   guid: mult_fwd
++  output_meta: MulMeta
+   inplace_ids: [0]
+   promote_to_common_type: [self, other]
+   op_frontend: BinaryScalarFE
+ 
+ mul_.Scalar:
+   guid: mult_fwd
++  output_meta: MulMeta
+   inplace_ids: [0]
+   scalar_ids: [1]
+   promote_to_common_type: [self, other]
+@@ -4602,6 +4607,7 @@
+     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+   guid: mult_fwd
++  output_meta: MulMeta
+   st_meta: BinarySTMeta
+   op_frontend: BinaryScalarFE
+   promote_to_common_type: [self, other]

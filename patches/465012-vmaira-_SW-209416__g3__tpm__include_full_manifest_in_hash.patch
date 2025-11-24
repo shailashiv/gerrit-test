@@ -1,0 +1,69 @@
+From 0716ea351298cc990f3a43c80ce99c9deecc8d93 Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Thu, 05 Dec 2024 10:09:18 +0200
+Subject: [PATCH] [SW-209416] g3: tpm: include full manifest in hash calc for tpm pcrs
+
+Earlier, manifest hash was calculated on manifest image after excluding
+manifest header(includes SVN, key index), public key, signature and
+CRC from it. This hash was extended to TPM PCR.
+
+The exclusion was a temporary fix to avoid regenerating the PCR after
+signing with a new key, as signing alters key index, key, and signature
+fields.
+
+Ideally, the PCR should be generated based on the hash of the full
+manifest. This patch updates the process to include the full manifest
+for manifest hash calculation in ppboot.
+
+Change-Id: Ia6e2910ca0d29d47ca13e342e246ac1687935782
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/arch/gaudi3/arc/common.c b/arch/gaudi3/arc/common.c
+index c30b5d8..07535da 100644
+--- a/arch/gaudi3/arc/common.c
++++ b/arch/gaudi3/arc/common.c
+@@ -1546,41 +1546,13 @@
+ 
+ void ppboot_compute_img_ptr_hash(u8 *hash)
+ {
+-	u32 img_ptrs_size, img_ptrs_img_size, img_ptrs_pub_key_size, img_ptrs_sig_size,
+-	img_ptrs_img_offset;
+-	u8 crc_bytes, num_crc, img_ptrs_version, img_ptrs_hdr_size;
++	u32 img_ptrs_size;
+ 
+ 	ppboot_ptrs_fixup();
+ 
+ 	memcpy(&img_ptrs_size, (void *)(uintptr_t)IMG_PTRS_SIZE_OFFSET, 4);
+-	memcpy(&img_ptrs_sig_size, (void *)(uintptr_t)IMG_PTRS_SIG_SIZE_OFFSET, 4);
+-	memcpy(&img_ptrs_pub_key_size, (void *)(uintptr_t)IMG_PTRS_PUB_KEY_SIZE_OFFSET, 4);
+-	memcpy(&img_ptrs_version, (void *)(uintptr_t)IMG_PTRS_VER_OFFSET, 1);
+ 
+-	/* boot_ptrs_sz field in supported in manifest header starting from manifest version 1 */
+-	if (img_ptrs_version == HL_FW_IMG_PTR_VERSION_0)
+-		img_ptrs_hdr_size = sizeof(struct hl_fw_boot_ptrs);
+-	else
+-		memcpy(&img_ptrs_hdr_size, (void *)(uintptr_t)IMG_PTRS_HDR_SIZE_OFFSET, 1);
+-
+-	/* skip the manifest header for manifest hash computation */
+-	img_ptrs_img_offset = IMG_PTRS_OFFSET + img_ptrs_hdr_size;
+-
+-	num_crc = ppboot_get_num_crc(img_ptrs_size);
+-	crc_bytes = num_crc * CRC32_SIZE;
+-	/*
+-	 * TODO: This is a temporary fix which removes manifest hdr, key index,
+-	 * key, and signature from the manifest before manifest hash calculation.
+-	 * Since the hash changes after key signing when the full manifest is
+-	 * included, the PCR generation has to be done post-signing. This temporary
+-	 * fix is implemented to avoid the step of PCR generation after signing
+-	 * with a new key. In future, the manifest hash calculation should include
+-	 * the entire manifest.
+-	 */
+-	img_ptrs_img_size = img_ptrs_size - img_ptrs_hdr_size - img_ptrs_pub_key_size
+-				- img_ptrs_sig_size - crc_bytes;
+-
+-	sha384_csum((void *)(uintptr_t)img_ptrs_img_offset, img_ptrs_img_size, hash, 0);
++	sha384_csum((void *)(uintptr_t)IMG_PTRS_OFFSET, img_ptrs_size, hash, 0);
+ }
+ 
+ bool get_img_ptr_hash(u8 *hash)

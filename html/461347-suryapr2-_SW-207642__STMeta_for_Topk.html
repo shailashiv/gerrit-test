@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 461347: [SW-207642] STMeta for Topk</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 461347: [SW-207642] STMeta for Topk</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> pytorch-integration</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Suryaprakash Shanmugam &lt;sshanmugam@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-11-07 04:20:32.067000000</p>
+            <p><strong>Updated:</strong> 2024-11-07 06:40:43.751000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-207642] STMeta for Topk
+
+Change-Id: I93c80cbe98f02c47134a8d9d0c15da522b6a13de
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Guneshwor Singh: +0, Albin Joy: +1</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>hpu_ops/backend/topk_gen.cpp</code> (M) +11 -0</li><li><code>scripts/hpu_op.yaml</code> (M) +2 -0</li><li><code>tests/pytest_working/compile/dynamic/test_hpu_ops.py</code> (M) +8 -7</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/hpu_ops/backend/topk_gen.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -47,6 +47,17 @@</span>
+<span class="diff-ctx">   return {meta_value, meta_index};</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+bool TopkSTMeta(</span>
+<span class="diff-add">+    habana_helpers::IShapeList&amp; inputs,</span>
+<span class="diff-add">+    habana_helpers::IShapeList&amp; outputs) {</span>
+<span class="diff-add">+  std::vector&lt;int64_t&gt; out_shape = outputs[0].getTensorShape();</span>
+<span class="diff-add">+  static_cast&lt;void&gt;(inputs);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;TopkSTMeta output shape &quot;, out_shape);</span>
+<span class="diff-add">+  habana_helpers::UpdateSTShapeInfo(out_shape);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  return true;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> void Topk::AddNode(synapse_helpers::graph&amp; graph, const at::Stack&amp; stack) {</span>
+<span class="diff-ctx">   auto self = stack.at(0).toTensor();</span>
+<span class="diff-ctx">   auto k = stack.at(1).isScalar() ? stack.at(1).toInt()</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 7a669b2..157de9c 100644</span>
+<h4 class="diff-filename">b/scripts/hpu_op.yaml</h4><pre class="diff-content"><span class="diff-hunk">@@ -6469,6 +6469,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> topk:</span>
+<span class="diff-ctx">   output_meta: TopkMeta</span>
+<span class="diff-add">+  st_meta: TopkSTMeta</span>
+<span class="diff-ctx">   op_backend: Topk</span>
+<span class="diff-ctx">   op_frontend: LazyTopk</span>
+<span class="diff-ctx">   out_ids: [0, 0]</span>
+<span class="diff-hunk">@@ -6477,6 +6478,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> topk.values:</span>
+<span class="diff-ctx">   output_meta: TopkMeta</span>
+<span class="diff-add">+  st_meta: TopkSTMeta</span>
+<span class="diff-ctx">   op_frontend: TopKFE</span>
+<span class="diff-ctx">   op_backend: Topk</span>
+<span class="diff-ctx">   schema_args: &quot;(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -&gt; (Tensor(a!) values, Tensor(b!) indices)&quot;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index d035cbb..036fddc 100644</span>
+<h4 class="diff-filename">b/tests/pytest_working/compile/dynamic/test_hpu_ops.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -17,6 +17,7 @@</span>
+<span class="diff-ctx"> import pytest</span>
+<span class="diff-ctx"> import torch</span>
+<span class="diff-ctx"> import torch.nn as nn</span>
+<span class="diff-add">+from compile.test_dynamo_utils import use_eager_fallback</span>
+<span class="diff-ctx"> from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags</span>
+<span class="diff-ctx"> from test_utils import (</span>
+<span class="diff-ctx">     check_ops_executed_in_jit_ir,</span>
+<span class="diff-hunk">@@ -348,7 +349,6 @@</span>
+<span class="diff-ctx">         assert torch.allclose(h_result.to(&quot;cpu&quot;), result, atol=0.001, rtol=0.001)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-@pytest.mark.skip(reason=&quot;https://github.com/pytorch/pytorch/issues/104025&quot;)</span>
+<span class="diff-ctx"> def test_op_topk():</span>
+<span class="diff-ctx">     sizes = [5, 10, 15, 18, 16]</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -360,12 +360,13 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     compiled_fn = torch.compile(raw_function, backend=&quot;hpu_backend&quot;, dynamic=True)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    for s in sizes:</span>
+<span class="diff-del">-        t = torch.randn(s)</span>
+<span class="diff-del">-        result = raw_function(t)</span>
+<span class="diff-del">-        t_h = t.to(&quot;hpu&quot;)</span>
+<span class="diff-del">-        h_result = compiled_fn(t_h)</span>
+<span class="diff-del">-        assert torch.allclose(h_result.to(&quot;cpu&quot;), result, atol=0.001, rtol=0.001)</span>
+<span class="diff-add">+    with use_eager_fallback():  # to allow floordiv (//) to fallback to eager</span>
+<span class="diff-add">+        for s in sizes:</span>
+<span class="diff-add">+            t = torch.randn(s)</span>
+<span class="diff-add">+            result = raw_function(t)</span>
+<span class="diff-add">+            t_h = t.to(&quot;hpu&quot;)</span>
+<span class="diff-add">+            h_result = compiled_fn(t_h)</span>
+<span class="diff-add">+            assert torch.allclose(h_result.to(&quot;cpu&quot;), result, atol=0.001, rtol=0.001)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> def test_op_topk_static_k():</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Suryaprakash Shanmugam</strong> <span class="date">(2024-11-07 04:20:32.067000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:20:40.937000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13918/ (1/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.716000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13133/ (2/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.726000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13101/ (3/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.750000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13241/ (4/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.765000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12919/ (5/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.791000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7581/ (7/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.803000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12984/ (6/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.814000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7289/ (8/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.816000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13014/ (10/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.824000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12942/ (9/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.858000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13279/ (12/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.864000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13007/ (11/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.919000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13001/ (13/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.920000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12944/ (14/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.957000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12928/ (15/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:26.974000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12998/ (16/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.005000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13001/ (17/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.059000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13009/ (18/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.110000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13227/ (19/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.123000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7331/ (21/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.126000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7439/ (20/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.156000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13265/ (22/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.190000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12894/ (23/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.219000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7176/ (24/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.231000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12939/ (25/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.270000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12938/ (26/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.290000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7296/ (27/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.352000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7395/ (28/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.353000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7281/ (29/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.374000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13255/ (30/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.413000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13170/ (33/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.427000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5860/ (32/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 04:30:27.429000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2836/ (31/33)</pre></div><div class="message"><strong>Albin Joy</strong> <span class="date">(2024-11-07 05:07:52.300000000)</span><pre>Patch Set 1: Code-Review+1</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 06:40:43.751000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7395/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7395/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7727/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7727/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7296/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13170/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12938/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12939/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5860/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7439/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13009/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13133/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13255/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2836/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13265/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12984/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12894/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12944/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7176/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13001/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12942/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13101/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12919/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7331/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13227/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7289/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13241/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7581/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13279/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12928/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13007/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12998/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13001/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13014/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7281/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13918/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

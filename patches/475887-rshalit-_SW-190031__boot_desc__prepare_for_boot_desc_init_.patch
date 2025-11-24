@@ -1,0 +1,227 @@
+From f4ab008996a51e801045e4d0294854dac62d3b90 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Tue, 25 Mar 2025 12:54:50 +0200
+Subject: [PATCH] [SW-190031] boot_desc: prepare for boot_desc_init unify
+
+As part of consolidation of boot_desc implementations,
+this patch prepares alloc and free funs which will be
+later used as a CB function from the generic boot_desc_init
+in common lib
+
+Change-Id: I43dd5dfb3cb40917a079913ef4da06eaf46138e0
+Signed-off-by: Ariel Aviad <aaviad@habana.ai>
+---
+
+diff --git a/arch/gaudi2/common/common.c b/arch/gaudi2/common/common.c
+index a264e22..dd78acb 100644
+--- a/arch/gaudi2/common/common.c
++++ b/arch/gaudi2/common/common.c
+@@ -1266,7 +1266,7 @@
+ 	void *fit;
+ 	const char *buf;
+ 
+-	num = _boot_desc_init(BOOT_PTRS_EROM);
++	num = _boot_desc_init(_BOOT_PTRS_EROM);
+ 	if (num < EROM_FIT_IMG_NUM) {
+ 		LOG_ERR("EROM data fit is missing");
+ 		return 1;
+diff --git a/arch/gaudi2/common/validate_fw.c b/arch/gaudi2/common/validate_fw.c
+index 4d1b653..7d5640d 100644
+--- a/arch/gaudi2/common/validate_fw.c
++++ b/arch/gaudi2/common/validate_fw.c
+@@ -204,7 +204,7 @@
+ 	struct boot_desc desc;
+ 	int idx, err = 0;
+ 
+-	_boot_desc_init(BOOT_PTRS_EROM);
++	_boot_desc_init(_BOOT_PTRS_EROM);
+ 	idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_index, IMG_IDX_AUTO, &desc);
+ 	if (idx < 0) {
+ 		LOG_ERR("EROM img desc %s not present", info->img_name);
+diff --git a/arch/gaudi3/common/common.c b/arch/gaudi3/common/common.c
+index 7dad0f6..156b432 100644
+--- a/arch/gaudi3/common/common.c
++++ b/arch/gaudi3/common/common.c
+@@ -524,7 +524,7 @@
+ {
+ 	int idx, err = 1;
+ 
+-	idx = _boot_desc_init(BOOT_PTRS_EROM);
++	idx = _boot_desc_init(_BOOT_PTRS_EROM);
+ 	if (!idx) {
+ 		LOG_ERR("Boot desc init for eROM is failed");
+ 		return err;
+diff --git a/arch/gaudi3/common/validate_fw.c b/arch/gaudi3/common/validate_fw.c
+index 52676ec..cae4b8d 100644
+--- a/arch/gaudi3/common/validate_fw.c
++++ b/arch/gaudi3/common/validate_fw.c
+@@ -127,7 +127,7 @@
+ 	int err;
+ 	uint32_t idx;
+ 
+-	_boot_desc_init(BOOT_PTRS_EROM);
++	_boot_desc_init(_BOOT_PTRS_EROM);
+ 	for (i = 0; i < sizeof(erom_img_data) / sizeof(struct fw_img_info); i++) {
+ 		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_img_data[i].type,
+ 						erom_img_data[i].idx_sel_mode, &desc);
+@@ -191,7 +191,7 @@
+ 	int err = 0;
+ 	uint32_t idx;
+ 
+-	_boot_desc_init(BOOT_PTRS_FW);
++	_boot_desc_init(_BOOT_PTRS_FW);
+ 	for (i = 0; i < sizeof(fw_img_data) / sizeof(struct fw_img_info); i++) {
+ 		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, fw_img_data[i].type,
+ 						fw_img_data[i].idx_sel_mode, &desc);
+diff --git a/include/boot_desc.h b/include/boot_desc.h
+index 9cc0753..af81bfb 100644
+--- a/include/boot_desc.h
++++ b/include/boot_desc.h
+@@ -17,10 +17,10 @@
+ #define MULTI_CSUM_BOOT_VER	3
+ #define DESC_VER_BOOT_VER	5
+ 
+-enum boot_ptrs_type {
+-	BOOT_PTRS_FW,
+-	BOOT_PTRS_EROM,
+-	BOOT_PTRS_MAX_NUM
++enum _boot_ptrs_type {
++	_BOOT_PTRS_FW,
++	_BOOT_PTRS_EROM,
++	_BOOT_PTRS_MAX_NUM
+ };
+ 
+ struct boot_desc {
+@@ -46,7 +46,7 @@
+  *
+  * Returns: the amount of images available, or 0 - no images available - legacy
+  */
+-int _boot_desc_init(enum boot_ptrs_type ptrs_type);
++int _boot_desc_init(enum _boot_ptrs_type ptrs_type);
+ 
+ /*
+  * _boot_desc_get_img_desc() - get the struct boot_desc of the requested image
+diff --git a/lib/boot_desc.c b/lib/boot_desc.c
+index 51193bc..81ebcb5 100644
+--- a/lib/boot_desc.c
++++ b/lib/boot_desc.c
+@@ -29,21 +29,53 @@
+ static struct hl_fw_boot_ptrs boot_ptrs;
+ static uint8_t *img_descs;
+ 
+-static enum boot_ptrs_type last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++static enum _boot_ptrs_type last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
++
++uint32_t *_alloc_desc_offset(uint32_t count)
++{
++	uint8_t *desc_offs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, count * sizeof(u32));
++
++	if (!desc_offs)
++		LOG_ERR("%s: Failed in alloc\n", __func__);
++
++	return (uint32_t *)desc_offs;
++}
++
++uint8_t *_alloc_image_desc(uint32_t size, uint32_t *desc_offs)
++{
++	uint8_t *img_descs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, size);
++
++	if (!img_descs) {
++		LOG_ERR("%s: Failed in alloc\n", __func__);
++		sys_heap_free(&mem_heap_main, desc_offs);
++	}
++
++	return img_descs;
++}
++
++void _free_desc_offs(uint32_t *desc_offs)
++{
++	sys_heap_free(&mem_heap_main,  (void *)desc_offs);
++}
++
++void _free_image_desc(uint8_t *img_descs)
++{
++	sys_heap_free(&mem_heap_main,  (void *)img_descs);
++}
+ 
+ void _boot_desc_release(void)
+ {
+ 	if (!img_descs)
+ 		return;
+ 
+-	sys_heap_free(&mem_heap_main, img_descs);
+-	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++	_free_image_desc(img_descs);
++	last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
+ 	img_descs = NULL;
+ }
+ 
+ #define LEGACY_IMAGE_DESCRIPTOR_SIZE	220
+ 
+-int _boot_desc_init(enum boot_ptrs_type ptrs_type)
++int _boot_desc_init(enum _boot_ptrs_type ptrs_type)
+ {
+ 	unsigned int count, i;
+ 	u32 ptr_base, spi_off;
+@@ -53,7 +85,7 @@
+ 	if (ptrs_type == last_ptrs_initialized)
+ 		return boot_ptrs.count;
+ 
+-	ptr_base = (ptrs_type == BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;
++	ptr_base = (ptrs_type == _BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;
+ 
+ 	/* Read the main boot pointers structure */
+ 	spi_flash_copy(&boot_ptrs, ptr_base, BOOT_PTRS_SZ, "BOOT PTRS");
+@@ -68,11 +100,9 @@
+ 
+ 	count = boot_ptrs.count;
+ 
+-	desc_offs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, count * sizeof(u32));
+-	if (!desc_offs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
++	desc_offs = _alloc_desc_offset(count);
++	if (!desc_offs)
+ 		goto err_exit;
+-	}
+ 
+ 	if (is_legacy_boot_descs(&boot_ptrs)) {
+ 		/*
+@@ -88,12 +118,9 @@
+ 
+ 	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * count, "DESC OFFS");
+ 
+-	img_descs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, count * boot_ptrs.img_desc_sz);
+-	if (!img_descs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
+-		sys_heap_free(&mem_heap_main, desc_offs);
++	img_descs = _alloc_image_desc(count, desc_offs);
++	if (!img_descs)
+ 		goto err_exit;
+-	}
+ 
+ 	/* Read all descriptors */
+ 	for (i = 0; i < count; i++) {
+@@ -102,11 +129,12 @@
+ 		spi_flash_copy(descs_ptr, spi_off, boot_ptrs.img_desc_sz, "IMG DESC");
+ 		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)descs_ptr)) {
+ 			LOG_ERR("Bad boot descriptor: %d", i);
+-			sys_heap_free(&mem_heap_main, desc_offs);
++			_free_desc_offs(desc_offs);
+ 			goto err_exit;
+ 		}
+ 	}
+-	sys_heap_free(&mem_heap_main,  (void *)desc_offs);
++
++	_free_desc_offs(desc_offs);
+ 	last_ptrs_initialized = ptrs_type;
+ 
+ 	return count;
+@@ -114,7 +142,7 @@
+ err_exit:
+ 	_boot_desc_release();
+ 	memset(&boot_ptrs, 0, sizeof(boot_ptrs));
+-	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++	last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
+ 
+ 	return 0;
+ }

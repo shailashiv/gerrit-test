@@ -1,0 +1,325 @@
+From 848dabff0fe323920789952e2c5942d9d678cc02 Mon Sep 17 00:00:00 2001
+From: Siju Samuel <ssamuel@habana.ai>
+Date: Fri, 06 Sep 2024 09:55:34 +0300
+Subject: [PATCH] [temp]trace changes
+
+Change-Id: I3ad6ac4b2a9f314e9fa4e0c92825c4871b2ccba6
+---
+
+diff --git a/backend/habana_device/HPUGraph.cpp b/backend/habana_device/HPUGraph.cpp
+index b6240e1..0518777 100644
+--- a/backend/habana_device/HPUGraph.cpp
++++ b/backend/habana_device/HPUGraph.cpp
+@@ -464,6 +464,7 @@
+ void SingleHPUGraph::replayGraph(
+     habana_lazy::ir::ValueList& input_vals,
+     bool async) {
++  PT_LAZY_TRACE;
+   bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
+   if (dynamic_env_) {
+     habana_helpers::DisableRefineDynamicShape();
+diff --git a/backend/helpers/create_tensor.cpp b/backend/helpers/create_tensor.cpp
+index 762c654..660888f 100644
+--- a/backend/helpers/create_tensor.cpp
++++ b/backend/helpers/create_tensor.cpp
+@@ -1036,7 +1036,7 @@
+ 
+ std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
+ get_tensor_memory_permutation(const at::Tensor& tensor) {
+-  PT_BRIDGE_TRACE;
++  // PT_BRIDGE_TRACE;
+   if (!tensor.has_storage()) {
+     PT_BRIDGE_DEBUG(
+         "Getting permutations from storage-less tensor. Returning defaults..");
+diff --git a/backend/kernel/hpu_habana_cache.cpp b/backend/kernel/hpu_habana_cache.cpp
+index c03f1c3..1b98795 100644
+--- a/backend/kernel/hpu_habana_cache.cpp
++++ b/backend/kernel/hpu_habana_cache.cpp
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "backend/kernel/hpu_habana_cache.h"
++#include <boost/stacktrace.hpp>
+ #include <algorithm>
+ #include <iomanip>
+ #include "backend/backend_meta.h"
+@@ -71,6 +72,7 @@
+     const std::string& op_strs,
+     const uint64_t token)
+     : cas(false, input_refs), opstrs(op_strs) {
++  PT_LAZY_TRACE;
+   graph_hash_code = graphKey;
+   hash_code = at::hash_combine(hash_code, graph_hash_code);
+ 
+@@ -95,6 +97,7 @@
+     const size_t& graphKey,
+     const std::string& op_strs)
+     : cas(with_grad, input_refs), opstrs(op_strs), hash_code(cas.hashCode()) {
++  PT_LAZY_TRACE;
+   cargspec_hash_code = cas.hashCode();
+   graph_hash_code = graphKey;
+   hash_code = at::hash_combine(hash_code, graph_hash_code);
+@@ -1505,19 +1508,26 @@
+   size_t active_graph_key_ = 0;
+ 
+   if (device.IsStreamASyncEnabled()) {
++    // PT_LAZY_TRACE_WITH_NAME("IsStreamASyncEnabled");
+     // Get the reference to the tensor it is operating on to prevent
+     // it from being deallocated while the operation is still in flight.
+     std::vector<synapse_helpers::device_ptr> inDevPtr;
+     inDevPtr.reserve(num_inputs_);
+-    for (auto& input : input_refs) {
+-      if (input.isTensor()) {
+-        at::Tensor tensor = input.toTensor();
+-        ptRefs.push_back(std::move(tensor));
+-        inDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
+-            input.toTensor().storage().data_ptr().get()));
++    {
++      PT_LAZY_TRACE_WITH_NAME("inputTensorLoop");
++      {
++        for (auto& input : input_refs) {
++          if (input.isTensor()) {
++            at::Tensor tensor = input.toTensor();
++            ptRefs.push_back(std::move(tensor));
++            inDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
++                input.toTensor().storage().data_ptr().get()));
++          }
++        }
+       }
+     }
+     if (dma_inputs.size() > 0) {
++      PT_LAZY_TRACE_WITH_NAME("dma_inputs");
+       for (auto& dma_input : dma_inputs) {
+         TORCH_CHECK(
+             dma_input->isTensor(), "Only tensor is supported as dma_input");
+@@ -1527,60 +1537,77 @@
+             reinterpret_cast<uint64_t>((dma_input->toTensor()).data_ptr()));
+       }
+     }
+-    // wait for input DMA to complete before launching the compute.
+-    device.add_wait_events_on_stream(inDevPtr, stream_handle);
+-
++    {
++      PT_LAZY_TRACE_WITH_NAME("add_wait_events_on_stream");
++      {
++        // wait for input DMA to complete before launching the compute.
++        device.add_wait_events_on_stream(inDevPtr, stream_handle);
++      }
++    }
+     // Hold on to the pytorch tensors for the intermediates untill the recipe
+     // execution completes
+     if (intermediate_tensors_ptr != nullptr &&
+         intermediate_tensors_ptr->size() > 0) {
++      PT_LAZY_TRACE_WITH_NAME("intermediate_tensor");
+       for (auto& intermediate_tensor : *intermediate_tensors_ptr) {
+         at::Tensor tensor = intermediate_tensor->toTensor();
+         ptRefs.push_back(std::move(tensor));
+       }
+     }
+ 
+-    outDevPtr.reserve(
+-        num_inputs_ + num_outputs_ + num_input_to_outduplicates_ +
+-        num_intermediate_to_outduplicates_);
+-    for (auto& output : aten_outputs) {
+-      if (output && output->isTensor()) {
+-        at::Tensor tensor = output->toTensor();
+-        outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
+-            tensor.storage().data_ptr().get()));
+-        outPtRefs.push_back(std::move(tensor));
++    {
++      PT_LAZY_TRACE_WITH_NAME("outDevPtr");
++      {
++        outDevPtr.reserve(
++            num_inputs_ + num_outputs_ + num_input_to_outduplicates_ +
++            num_intermediate_to_outduplicates_);
++
++        for (auto& output : aten_outputs) {
++          if (output && output->isTensor()) {
++            at::Tensor tensor = output->toTensor();
++            outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
++                tensor.storage().data_ptr().get()));
++            outPtRefs.push_back(std::move(tensor));
++          }
++        }
++
++        // Write after read dependancy, add event for the inputs. So all the
++        // tensors being written to will appear in the read side.
++        outDevPtr.insert(outDevPtr.end(), inDevPtr.begin(), inDevPtr.end());
+       }
+     }
+-
+-    // Write after read dependancy, add event for the inputs. So all the
+-    // tensors being written to will appear in the read side.
+-    outDevPtr.insert(outDevPtr.end(), inDevPtr.begin(), inDevPtr.end());
+-
+     std::vector<synapse_helpers::shared_event> ext_events;
+-    for (auto external_idx : external_tensor_info_indexes) {
+-      synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
+-      PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
+-      ext_events.emplace_back(device.map_event_to_tensor(
+-          stream_handle, recipe_->syn_recipe_handle_, &ti, []() {}));
++    {
++      PT_LAZY_TRACE_WITH_NAME("external_tensor_info_indexes");
++      {
++        for (auto external_idx : external_tensor_info_indexes) {
++          synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
++          PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
++          ext_events.emplace_back(device.map_event_to_tensor(
++              stream_handle, recipe_->syn_recipe_handle_, &ti, []() {}));
+ 
+-      // Remove collective kenrel inputs from outDevPtr since they will be
+-      // signaled from the graph (if they are external)
+-      PT_BRIDGE_DEBUG(
+-          "Remove tensor ",
+-          ti.tensorName,
+-          " address ",
+-          // NOLINTNEXTLINE(performance-no-int-to-ptr)
+-          reinterpret_cast<void*>(ti.pTensorAddress),
+-          " from outDevPtr since it is an external tensor");
+-      outDevPtr.erase(
+-          std::remove(outDevPtr.begin(), outDevPtr.end(), ti.pTensorAddress),
+-          outDevPtr.end());
++          // Remove collective kenrel inputs from outDevPtr since they will be
++          // signaled from the graph (if they are external)
++          PT_BRIDGE_DEBUG(
++              "Remove tensor ",
++              ti.tensorName,
++              " address ",
++              // NOLINTNEXTLINE(performance-no-int-to-ptr)
++              reinterpret_cast<void*>(ti.pTensorAddress),
++              " from outDevPtr since it is an external tensor");
++          outDevPtr.erase(
++              std::remove(
++                  outDevPtr.begin(), outDevPtr.end(), ti.pTensorAddress),
++              outDevPtr.end());
++        }
++      }
+     }
+ 
+     auto& recipe_counter = device.get_active_recipe_counter();
+ 
+     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+     {
++      PT_LAZY_TRACE_WITH_NAME("graph::launch");
+       synapse_helpers::TimeScope ts(std::move(time_slot_));
+       if (recipe_) {
+         if (synapse_helpers::memory_reporter_enable()) {
+@@ -1618,12 +1645,18 @@
+     recipe_counter.increase();
+ 
+     // register events for external tensors on compute
+-    for (size_t i = 0; i < ext_events.size(); ++i) {
+-      device.register_producer_on_stream(stream_handle, ext_events.at(i));
++    {
++      PT_LAZY_TRACE_WITH_NAME("register_producer_on_stream");
++      {
++        for (size_t i = 0; i < ext_events.size(); ++i) {
++          device.register_producer_on_stream(stream_handle, ext_events.at(i));
++        }
++      }
+     }
+-
+     if (!(common::IsRecordStreamEnabled() &&
+           GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
++      PT_LAZY_TRACE_WITH_NAME("collective_kernels_info_->Launch1");
++
+       // Use wrapper for resources that must survive async part of the compute.
+       struct ResourceHolder {
+         std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+@@ -1676,6 +1709,8 @@
+       // Launch collective ops
+       collective_kernels_info_->Launch(true, cleanup_callback);
+     } else {
++      PT_LAZY_TRACE_WITH_NAME("collective_kernels_info_->Launch2");
++
+       // Use wrapper for resources that must survive async part of the compute.
+       struct ResourceHolder {
+         std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+@@ -1738,6 +1773,8 @@
+     }
+ 
+   } else {
++    PT_LAZY_TRACE_WITH_NAME("synapse_helpers::graph::launch");
++
+     std::vector<synapse_helpers::shared_event> ext_events;
+     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+     synapse_helpers::TimeScope ts(std::move(time_slot_));
+diff --git a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+index a3647b8..736b77a 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+@@ -1418,6 +1418,7 @@
+ }
+ 
+ void habana::HabanaLaunchOpPT::UpdateRecipeOutputs() {
++  PT_LAZY_TRACE;
+   // Restore the metadata of the inputs
+   RestoreInputTensorMetadata();
+ 
+@@ -1429,6 +1430,7 @@
+ }
+ 
+ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
++  PT_LAZY_TRACE;
+   num_inputs = jit_ir_graph_->inputs().size();
+   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
+   TORCH_CHECK(
+diff --git a/backend/profiling/trace_sources/bridge_logs_source.cpp b/backend/profiling/trace_sources/bridge_logs_source.cpp
+index f956ee7..3e78dda 100644
+--- a/backend/profiling/trace_sources/bridge_logs_source.cpp
++++ b/backend/profiling/trace_sources/bridge_logs_source.cpp
+@@ -38,7 +38,7 @@
+   BridgeLogsSourceImpl() = default;
+   ~BridgeLogsSourceImpl() override = default;
+   void log(std::string_view id, bool is_begin) {
+-    if (enabled(id)) {
++    if (1 || enabled(id)) {
+       int64_t dtime = NowMicros();
+       pid_t tid = syscall(__NR_gettid);
+       std::string event_id{id};
+diff --git a/backend/synapse_helpers/graph.cpp b/backend/synapse_helpers/graph.cpp
+index 3ec8ffc..9d40b01 100644
+--- a/backend/synapse_helpers/graph.cpp
++++ b/backend/synapse_helpers/graph.cpp
+@@ -789,6 +789,8 @@
+       device.get_workspace_size());
+ 
+   {
++    PT_LAZY_TRACE_WITH_NAME("launch_process");
++
+     address_lock = absl::make_unique<device_ptr_lock>(
+         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
+     auto iter = inputs_and_outputs_info.begin();
+diff --git a/backend/synapse_helpers/stream_event_manager.cpp b/backend/synapse_helpers/stream_event_manager.cpp
+index 3f04e57..1ecc383 100644
+--- a/backend/synapse_helpers/stream_event_manager.cpp
++++ b/backend/synapse_helpers/stream_event_manager.cpp
+@@ -51,7 +51,7 @@
+ }
+ 
+ void stream_event_manager::wait_for_future(device_ptr device_address) {
+-  PT_SYNHELPER_TRACE;
++  // PT_SYNHELPER_TRACE;
+   std::shared_future<bool> fut;
+   {
+     std::lock_guard<std::mutex> lock(future_mut_);
+diff --git a/habana_kernels/hccl_kernels.cpp b/habana_kernels/hccl_kernels.cpp
+index a3cb1c0..852072e 100644
+--- a/habana_kernels/hccl_kernels.cpp
++++ b/habana_kernels/hccl_kernels.cpp
+@@ -218,6 +218,7 @@
+                  output_storage_ptr = output_storage_ptr,
+                  done_cb = done_cb,
+                  pr = pr]() mutable {
++      PT_LAZY_TRACE_WITH_NAME("Collective");
+       PT_LAZY_DEBUG(
+           "Collective call. input = ",
+           *input,
+@@ -489,6 +490,7 @@
+     const std::vector<PtTensorInfoShared>& inputs,
+     bool async,
+     synapse_helpers::event_done_callback done_cb) const {
++  PT_LAZY_TRACE;
+   HABANA_ASSERT(
+       is_valid_reduction_dtype(getHCCLDataType(scalar_type_)),
+       "HCCL supports only float or bfloat16 reduction");

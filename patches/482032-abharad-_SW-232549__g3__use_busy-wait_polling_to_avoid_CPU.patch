@@ -1,0 +1,45 @@
+From 14579ab8ee6391e0121f054e7aa2ce97dc04af75 Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Wed, 18 Jun 2025 13:09:07 +0300
+Subject: [PATCH] [SW-232549] g3: use busy-wait polling to avoid CPU yield in k_poll
+
+This patch prevents k_poll from yielding the CPU, which could
+allow another thread to disable interrupts and prevent the ISR from
+delivering the awaited data. Ensures the polling thread remains active
+and responsive to ISR updates.
+
+Change-Id: Id7d52946a420e59f1f6b66ae2a5b25baf41c711c
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/arch/common/gaudi/hl_ipm_mbx.c b/arch/common/gaudi/hl_ipm_mbx.c
+index b2caf4b..c0009b2 100644
+--- a/arch/common/gaudi/hl_ipm_mbx.c
++++ b/arch/common/gaudi/hl_ipm_mbx.c
+@@ -20,6 +20,9 @@
+ 			  &poll->poll_signal);
+ }
+ 
++#define HL_IPM_POLL_ATTEMPTS		20
++#define HL_IPM_POLL_BUSY_WAIT_US	5000
++
+ int hl_ipm_poll_for_response(struct hl_ipm_mbx_config *mbx, uint32_t msg_id)
+ {
+ 	struct hl_ipm_mbx_poll *poll = &mbx->cb_poll;
+@@ -30,7 +33,15 @@
+ 
+ 	poll->poll_event.signal->signaled = 0;
+ 	poll->poll_event.state = K_POLL_STATE_NOT_READY;
+-	ret = k_poll(&poll->poll_event, 1, K_MSEC(HL_IPM_MBX_REQ_RESP_DELAY_MSEC));
++
++	for (int i = 0; i < HL_IPM_POLL_ATTEMPTS; i++) {
++		ret = k_poll(&poll->poll_event, 1, K_NO_WAIT);
++		if (!ret)
++			return 0;
++
++		k_busy_wait(HL_IPM_POLL_BUSY_WAIT_US);
++	}
++
+ 	if (ret) {
+ 		LOG_ERR("No response for request with msg_id %d err: %d", msg_id, ret);
+ 		return ret;

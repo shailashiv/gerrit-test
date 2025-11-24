@@ -1,0 +1,218 @@
+From 683c5616a1b527ccb713195736cf6a638732b1b3 Mon Sep 17 00:00:00 2001
+From: Igal Zeltser <izeltser@habana.ai>
+Date: Tue, 24 Dec 2024 10:51:35 +0200
+Subject: [PATCH] [DO NOT MERGE] add fit suggestion, for demo purposes only
+
+2 options are presented,
+modular approach where CPUs are separated from image.
+and hierarchical approach where images are under CPUs.
+
+Change-Id: I0b0f28be11a8b33b99a2ef07b9739cf1c8e96629
+Signed-off-by: Igal Zeltser <izeltser@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-zephyr-dyn.its b/board/habanalabs/fs1_arc/fs1-zephyr-dyn.its
+new file mode 100644
+index 0000000..bf16238
+--- /dev/null
++++ b/board/habanalabs/fs1_arc/fs1-zephyr-dyn.its
+@@ -0,0 +1,92 @@
++/dts-v1/;
++
++/ {
++	hl-version = "@HL_VERSION@";
++	hl-device = "@DEV_PREFIX@";
++	description = "FIT image with Zephyr loadables";
++	#address-cells = <2>;
++
++	cpus {
++		mgmt_io {
++			num_cpus = <1>;
++			cpu_base = <@MGMT_IO_BASEADDR_HI@ @MGMT_IO_BASEADDR_LO@>;
++			cpu_type = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			startaddr = <@MGMT_IO_STARTADDR_HI@ @MGMT_IO_STARTADDR_LO@>; /* optional, should be available if cpu start is required */
++			arch = "arc";
++
++			images {
++				zephyr-iccm {
++					description = "Zephyr mgmt_io ICCM";
++					data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_io-iccm.bin.le");
++					type = "standalone";
++					compression = "none";
++					initaddr = <@MGMT_IO_ICCM_HI@ @MGMT_IO_ICCM_LO@>; /* optional, should be available if mem init is required */
++					initsize = <@MGMT_IO_ICCM_SIZE@>;		  /* optional, should be available if mem init is required */
++					loadaddr = <@MGMT_IO_ICCM_HI@ @MGMT_IO_ICCM_LO@>;
++					hash {
++						algo = "@SHA_VERSION@";
++					};
++				};
++
++				zephyr-dccm {
++					description = "Zephyr mgmt_io DCCM";
++					data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_io-dccm.bin.le");
++					type = "standalone";
++					compression = "none";
++					initaddr = <@MGMT_IO_DCCM_HI@ @MGMT_IO_DCCM_LO@>;
++					initsize = <@MGMT_IO_DCCM_SIZE@>;
++					loadaddr = <@MGMT_IO_DCCM_HI@ @MGMT_IO_DCCM_LO@>;
++					hash {
++						algo = "@SHA_VERSION@";
++					};
++				};
++			};
++		};
++
++		mgmt_compute {
++			num_cpus = <2>;
++			cpu_base = <@MGMT_COMP_BASE_0_HI@ @MGMT_COMP_BASE_0_LO@ @MGMT_COMP_BASE_1_HI@ @MGMT_COMP_BASE_1_LO@>;
++			cpu_type = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			startaddr = <@MGMT_COMP_START_0_HI@ @MGMT_COMP_START_0_LO@ @MGMT_COMP_START_1_HI@ @MGMT_COMP_START_1_LO@>; /* optional, should be available if cpu start is required */
++			arch = "arc";
++
++			images {
++				zephyr-iccm {
++					description = "Zephyr mgmt_io ICCM";
++					data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_comp-iccm.bin.le");
++					type = "standalone";
++					compression = "none";
++					initaddr = <@MGMT_COMP_ICCM_0_HI@ @MGMT_COMP_ICCM_0_LO@ @MGMT_COMP_ICCM_1_HI@ @MGMT_COMP_ICCM_1_LO@>; /* optional, should be available if mem init is required */
++					initsize = <@MGMT_COMP_ICCM_SIZE@>;		  /* optional, should be available if mem init is required */
++					loadaddr = <@MGMT_COMP_ICCM_0_HI@ @MGMT_COMP_ICCM_0_LO@ @MGMT_COMP_ICCM_1_HI@ @MGMT_COMP_ICCM_1_LO@>;
++					hash {
++						algo = "@SHA_VERSION@";
++					};
++				};
++
++				zephyr-dccm {
++					description = "Zephyr mgmt_comp DCCM";
++					data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_comp-dccm.bin.le");
++					type = "standalone";
++					compression = "none";
++					initaddr = <@MGMT_COMP_DCCM_0_HI@ @MGMT_COMP_DCCM_0_LO@ @MGMT_COMP_DCCM_1_HI@ @MGMT_COMP_DCCM_1_LO@>; /* optional, should be available if mem init is required */
++					initsize = <@MGMT_COMP_DCCM_SIZE@>;		  /* optional, should be available if mem init is required */
++					loadaddr = <@MGMT_COMP_DCCM_0_HI@ @MGMT_COMP_DCCM_0_LO@ @MGMT_COMP_DCCM_1_HI@ @MGMT_COMP_DCCM_1_LO@>;
++					hash {
++						algo = "@SHA_VERSION@";
++					};
++				};
++			};
++		};
++	};
++
++	configurations {
++		default = "preboot-conf";
++
++		preboot-conf {
++			load-type = <@FIT_LOAD_TYPE_RUN_N_EXTEND@>;
++			description = "Habanalabs device preboot";
++			loadables = ?;
++		};
++	};
++};
+diff --git a/board/habanalabs/fs1_arc/fs1-zephyr-mod.its b/board/habanalabs/fs1_arc/fs1-zephyr-mod.its
+new file mode 100644
+index 0000000..eca3f3c
+--- /dev/null
++++ b/board/habanalabs/fs1_arc/fs1-zephyr-mod.its
+@@ -0,0 +1,101 @@
++/dts-v1/;
++
++/ {
++	hl-version = "@HL_VERSION@";
++	hl-device = "@DEV_PREFIX@";
++	description = "FIT image with Zephyr loadables";
++	#address-cells = <2>;
++
++	images {
++		mgmt-io-iccm {
++			description = "Zephyr mgmt io ICCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt-io-iccm.bin.le");
++			type = "standalone";
++			compression = "none";
++			instances = <1>;
++			loadaddr = <@ARC_MGMT_IO_ICCM_HI@ @ARC_MGMT_IO_ICCM_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
++
++		mgmt-io-dccm {
++			description = "Zephyr mgmt io DCCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt-io-dccm.bin.le");
++			type = "standalone";
++			compression = "none";
++			instances = <1>;
++			loadaddr = <@ARC_MGMT_IO_DCCM_HI@ @ARC_MGMT_IO_DCCM_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
++
++		mgmt-comp-iccm {
++			description = "Zephyr mgmt comp ICCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt-comp-iccm.bin.le");
++			type = "standalone";
++			compression = "none";
++			instances = <2>;
++			loadaddr = <@ARC_MGMT_COMP_0_ICCM_HI@ @ARC_MGMT_COMP_0_ICCM_LO@ @ARC_MGMT_COMP_1_ICCM_HI@ @ARC_MGMT_COMP_1_ICCM_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
++
++		mgmt-comp-dccm {
++			description = "Zephyr mgmt comp DCCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt-comp-dccm.bin.le");
++			type = "standalone";
++			compression = "none";
++			instances = <2>;
++			loadaddr = <@ARC_MGMT_COMP_0_DCCM_HI@ @ARC_MGMT_COMP_0_DCCM_LO@ @ARC_MGMT_COMP_1_DCCM_HI@ @ARC_MGMT_COMP_1_DCCM_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
++	};
++
++	cpus {
++		arc-io-mgmt {
++			arch = "arc";
++			cpubase = <@MGMT_IO_BASEADDR_HI@ @MGMT_IO_BASEADDR_LO@>;
++			cputype = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			memnum = <2>;
++			membase = <@MGMT_IO_ICCM_HI@ @MGMT_IO_ICCM_LO@ @MGMT_IO_DCCM_HI@ @MGMT_IO_DCCM_LO@>; /* optional, should be available if mem init is required */
++			memsize = <@MGMT_IO_ICCM_SIZE@ @MGMT_IO_DCCM_SIZE@>; /* optional, should be available if mem init is required */
++			startaddr = <@MGMT_IO_STARTADDR_HI@ @MGMT_IO_STARTADDR_LO@>; /* optional, should be available if cpu start is required */
++		};
++
++		arc-comp-mgmt-0 {
++			arch = "arc";
++			cpubase = <@MGMT_COMP_0_BASEADDR_HI@ @MGMT_COMP_0_BASEADDR_LO@>;
++			cputype = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			memnum = <2>;
++			membase = <@MGMT_COMP_0_ICCM_HI@ @MGMT_COMP_0_ICCM_LO@ @MGMT_COMP_0_DCCM_HI@ @MGMT_COMP_0_DCCM_LO@>; /* optional, should be available if mem init is required */
++			memsize = <@MGMT_COMP_0_ICCM_SIZE@ @MGMT_COMP_0_DCCM_SIZE@>; /* optional, should be available if mem init is required */
++			startaddr = <@MGMT_COMP_0_STARTADDR_HI@ @MGMT_COMP_0_STARTADDR_LO@>; /* optional, should be available if cpu start is required */
++		};
++
++		arc-comp-mgmt-1 {
++			arch = "arc";
++			cpubase = <@MGMT_COMP_1_BASEADDR_HI@ @MGMT_COMP_1_BASEADDR_LO@>;
++			cputype = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			memnum = <2>;
++			membase = <@MGMT_COMP_1_ICCM_HI@ @MGMT_COMP_1_ICCM_LO@ @MGMT_COMP_1_DCCM_HI@ @MGMT_COMP_1_DCCM_LO@>; /* optional, should be available if mem init is required */
++			memsize = <@MGMT_COMP_1_ICCM_SIZE@ @MGMT_COMP_1_DCCM_SIZE@>; /* optional, should be available if mem init is required */
++			startaddr = <@MGMT_COMP_1_STARTADDR_HI@ @MGMT_COMP_1_STARTADDR_LO@>; /* optional, should be available if cpu start is required */
++		};
++	};
++
++	configurations {
++		default = "preboot-conf";
++
++		preboot-conf {
++			load-type = <0>; /* FIT_LOAD_TYPE_RUN */
++			description = "Habanalabs device preboot";
++			loadables = "mgmt-io-iccm", "mgmt-io-dccm", "mgmt-comp-iccm", "mgmt-comp-dccm";
++			processors = "arc-io-mgmt", "arc-comp-mgmt-0", "arc-comp-mgmt-1";
++		};
++	};
++};

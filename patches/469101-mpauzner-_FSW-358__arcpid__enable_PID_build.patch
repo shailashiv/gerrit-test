@@ -1,0 +1,139 @@
+From aff8b944e2571ba2c0de0a4b073b3a95cfa0921e Mon Sep 17 00:00:00 2001
+From: Michael Pauzner <mpauzner@habana.ai>
+Date: Sun, 01 Sep 2024 11:51:13 +0300
+Subject: [PATCH] [FSW-358] arcpid: enable PID build
+
+ARCPID was removed from FS1 build. Enable it.
+
+Change-Id: I48573d10d7e55b550637a44c77f1948fb12d4aba
+Signed-off-by: Michael Pauzner <mpauzner@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-zephyr.its b/board/habanalabs/fs1_arc/fs1-zephyr.its
+index 5ae3513..ebe7a7c 100644
+--- a/board/habanalabs/fs1_arc/fs1-zephyr.its
++++ b/board/habanalabs/fs1_arc/fs1-zephyr.its
+@@ -7,10 +7,6 @@
+ 	#address-cells = <2>;
+ 
+ 	images {
+-
+-		/* TEMPORARY:
+-		 * arcpid implementation isn't ready yet, so comment out
+-		 * zephyr-pid-iccm & zephyr-pid-dccm.
+ 		pid-io-iccm {
+ 			description = "Zephyr pid ICCM";
+ 			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-pid-iccm.bin.le");
+@@ -32,7 +28,6 @@
+ 				algo = "@SHA_VERSION@";
+ 			};
+ 		};
+-		*/
+ 
+ 		mgmt-io-iccm {
+ 			description = "Zephyr mgmt io ICCM";
+diff --git a/board/habanalabs/fs1_arc/post-image-fit.sh b/board/habanalabs/fs1_arc/post-image-fit.sh
+index 1698358..b4b3944 100755
+--- a/board/habanalabs/fs1_arc/post-image-fit.sh
++++ b/board/habanalabs/fs1_arc/post-image-fit.sh
+@@ -22,9 +22,8 @@
+ 	local FILEPATH=$1
+ 
+ 	# copy binaries from other HL targets required for boot fit creation
+-	# TEMPORARY: arcpid isn't ready yet, so comment-out the following lines. Otherwise, the script fails.
+-	#cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-pid-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-pid-iccm.bin.le
+-	#cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-pid-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-pid-dccm.bin.le
++	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-pid-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-pid-iccm.bin.le
++	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-pid-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-pid-dccm.bin.le
+ 	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt-iccm.bin.le
+ 	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt-dccm.bin.le
+ 	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-agent_fw_loader-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-agent_fw_loader-iccm.bin.le
+@@ -39,14 +38,12 @@
+ popd
+ 
+ MGMT_STAT=${STATS_DIR}/zephyr_mgmt.stat
+-# TEMPORARY: arcpid isn't ready yet, so comment-out the following line. Otherwise, the script fails.
+-#PID_STAT=${STATS_DIR}/zephyr_pid.stat
++PID_STAT=${STATS_DIR}/zephyr_pid.stat
+ 
+ # Extract the start address from stat file
+ ENTRY_ADDRESS=$(cat $MGMT_STAT | grep "Entry point address" | head -1)
+ MGMT_STARTADDR=$(echo $ENTRY_ADDRESS | awk -F: '{ print $2 }' | xargs)
+-# TEMPORARY: arcpid isn't ready yet, so comment-out the following line. Otherwise, the script fails.
+-#ENTRY_ADDRESS=$(cat $PID_STAT | grep "Entry point address" | head -1)
++ENTRY_ADDRESS=$(cat $PID_STAT | grep "Entry point address" | head -1)
+ PID_STARTADDR=$(echo $ENTRY_ADDRESS | awk -F: '{ print $2 }' | xargs)
+ 
+ # Start address is only 2 bytes. Perform OR operation with
+diff --git a/configs/fs1_arc_asic_defconfig b/configs/fs1_arc_asic_defconfig
+index 9473596..7715289 100644
+--- a/configs/fs1_arc_asic_defconfig
++++ b/configs/fs1_arc_asic_defconfig
+@@ -17,6 +17,7 @@
+ BR2_PACKAGE_PREBOOT=y
+ BR2_PACKAGE_MGMT=y
+ BR2_PACKAGE_MGMT_COMPUTE=y
++BR2_PACKAGE_PID=y
+ BR2_PACKAGE_RESET=y
+ BR2_POST_IMAGE_FW_LOADER_ITS_TEMPLATE="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/fs1/agent-fw_loader.its"
+ BR2_PIC_PIE=n
+diff --git a/configs/fs1_arc_defconfig b/configs/fs1_arc_defconfig
+index 9473596..7715289 100644
+--- a/configs/fs1_arc_defconfig
++++ b/configs/fs1_arc_defconfig
+@@ -17,6 +17,7 @@
+ BR2_PACKAGE_PREBOOT=y
+ BR2_PACKAGE_MGMT=y
+ BR2_PACKAGE_MGMT_COMPUTE=y
++BR2_PACKAGE_PID=y
+ BR2_PACKAGE_RESET=y
+ BR2_POST_IMAGE_FW_LOADER_ITS_TEMPLATE="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/fs1/agent-fw_loader.its"
+ BR2_PIC_PIE=n
+diff --git a/configs/fs1_arc_onix_defconfig b/configs/fs1_arc_onix_defconfig
+index 9473596..7715289 100644
+--- a/configs/fs1_arc_onix_defconfig
++++ b/configs/fs1_arc_onix_defconfig
+@@ -17,6 +17,7 @@
+ BR2_PACKAGE_PREBOOT=y
+ BR2_PACKAGE_MGMT=y
+ BR2_PACKAGE_MGMT_COMPUTE=y
++BR2_PACKAGE_PID=y
+ BR2_PACKAGE_RESET=y
+ BR2_POST_IMAGE_FW_LOADER_ITS_TEMPLATE="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/fs1/agent-fw_loader.its"
+ BR2_PIC_PIE=n
+diff --git a/configs/fs1_arc_pldm_defconfig b/configs/fs1_arc_pldm_defconfig
+index 9473596..7715289 100644
+--- a/configs/fs1_arc_pldm_defconfig
++++ b/configs/fs1_arc_pldm_defconfig
+@@ -17,6 +17,7 @@
+ BR2_PACKAGE_PREBOOT=y
+ BR2_PACKAGE_MGMT=y
+ BR2_PACKAGE_MGMT_COMPUTE=y
++BR2_PACKAGE_PID=y
+ BR2_PACKAGE_RESET=y
+ BR2_POST_IMAGE_FW_LOADER_ITS_TEMPLATE="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/fs1/agent-fw_loader.its"
+ BR2_PIC_PIE=n
+diff --git a/package/zephyr/fs1.mk b/package/zephyr/fs1.mk
+index 733bff8..3aab506 100644
+--- a/package/zephyr/fs1.mk
++++ b/package/zephyr/fs1.mk
+@@ -12,7 +12,4 @@
+ export ZEPHYR_CONF_DEV_EXTRA_CFLAGS += -I$(SPECS_EMB_PROJ_DIR)/common
+ export ZEPHYR_CONF_DEV_EXTRA_CFLAGS += -I$(SPECS_EMB_PROJ_DIR)/$(DEV_PREFIX)
+ export ZEPHYR_BOARD_PREFIX = $(DEVICE_NAME)
+-
+-/* TODO: remove this once pid application is ported */
+-export ZEPHYR_PID_APP_DIR = $(EMBEDDED_DIR)/zephyr-apps/preboot/app/preboot_d1
+ endif
+diff --git a/package/zephyr/zephyr.mk b/package/zephyr/zephyr.mk
+index 98d37e7..31a8989 100644
+--- a/package/zephyr/zephyr.mk
++++ b/package/zephyr/zephyr.mk
+@@ -32,7 +32,6 @@
+ 
+ ZEPHYR_CONF_OPTS += -DDTS_EXTRA_CPPFLAGS="-I$(SPECS_EMB_PROJ_DIR)"
+ ZEPHYR_BOARD_PREFIX ?= hl_$(DEVICE_NAME)
+-ZEPHYR_PID_APP_DIR ?= $(EMBEDDED_DIR)/zephyr-apps/arcpid
+ 
+ ZEPHYR_CONF_DEV_EXTRA_CFLAGS += -DCONFIG_HL_STACK_OVERFLOW_REDUCE_SIZE=$(STACK_REDUCTION_SIZE)
+ 

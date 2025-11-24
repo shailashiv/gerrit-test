@@ -1,0 +1,33 @@
+From 1ba6044b91a8443429a60a5dbafc5cc5b06956b8 Mon Sep 17 00:00:00 2001
+From: jagaur <jagaur@habana.ai>
+Date: Tue, 03 Jun 2025 07:05:54 +0300
+Subject: [PATCH] [SW-0] gaudi3: debug prints added
+
+test patch to verify CI
+
+Change-Id: Ic9791ce8360f4c65d6520e815601eb2c7b3d6111
+---
+
+diff --git a/board/habanalabs/common/post-image-spi-arc_global.sh b/board/habanalabs/common/post-image-spi-arc_global.sh
+index d5726b9..9f21ba6 100755
+--- a/board/habanalabs/common/post-image-spi-arc_global.sh
++++ b/board/habanalabs/common/post-image-spi-arc_global.sh
+@@ -130,6 +130,8 @@
+ 	FILE=$1
+ 	OUT_FILE=$2
+ 	WORD_SIZE=${3}
++
++	printf "\n\nPrinting file, file size, word size :"
+ 	local filesize=$(wc -c < $FILE)
+ 	echo $FILE $filesize $WORD_SIZE
+ 	${OBJCOPY}  -Ibinary --reverse-bytes=${WORD_SIZE} ${FILE} ${OUT_FILE}
+@@ -418,7 +420,8 @@
+ 		CUST=cust${i}
+ 		hl_gen_cert ${CUST} "Habana Embedded Team"
+ 	done
+-
++	
++	printf "\n\nTest print for CI check\n\n"
+ 	## create otp spi image
+ 	dd status=none conv=sync count=12 bs=16 if=/dev/zero | tr '\000' $'\xFF' > ${BINS_DIR}/${DEV_PREFIX}-spi-otp-flash.bin
+ 

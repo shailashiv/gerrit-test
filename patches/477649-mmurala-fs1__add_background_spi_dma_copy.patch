@@ -1,0 +1,763 @@
+From 4129af007e4f194c2b91c4f352d02e9626d08b9d Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Mon, 21 Apr 2025 11:10:57 +0300
+Subject: [PATCH] fs1: add background spi dma copy
+
+Change-Id: I54cdab5466f945dfc6b10faf2a0a22cd299aec4e
+---
+
+diff --git a/app/boot_rom.c b/app/boot_rom.c
+index 13ebfe0..4e7bc93 100644
+--- a/app/boot_rom.c
++++ b/app/boot_rom.c
+@@ -9,6 +9,7 @@
+ #include <boot_flow.h>
+ #include <recovery.h>
+ #include <common.h>
++#include <dev_uart.h>
+ 
+ const int fs1_die_type = DIE_TYPE;
+ 
+@@ -34,14 +35,19 @@
+ 
+ int boot_rom_main(void)
+ {
++	bool silent_dma = true;
++
+ 	boot_rom_init();
+ 
+ 	boot_rom_fuse();
+ 
+ 	boot_rom_tpm_spi_setup();
+ 
+-	if (boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT) != BOOT_ROM_SUCCESS)
++	boot_rom_putc('1');
++	if (boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT, silent_dma) != BOOT_ROM_SUCCESS) {
++		boot_rom_putc('a');
+ 		execute_recovery();
++	}
+ 
+ 	boot_rom_fake_fuse();
+ 
+@@ -63,7 +69,14 @@
+ 	boot_rom_boot_flow_validate_manifests();
+ 
+ 	/* Wait for ppboot spi dma to complete */
+-	boot_rom_boot_flow_wait_for_dma_finish();
++	// boot_rom_boot_flow_wait_for_dma_finish();
++	if (silent_dma) {
++		boot_rom_putc('2');
++		if (boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT, silent_dma) != BOOT_ROM_SUCCESS) {
++			boot_rom_putc('n');
++		}
++		boot_rom_putc('b');
++	}
+ 
+ 	/* If both manifests are invalid or force recovery is set then enter
+ 	 * into recovery
+@@ -75,18 +88,31 @@
+ 	}
+ 
+ 	/* If any ppboot secondary prefetch is not done, start prefetch */
+-	if (boot_rom_boot_flow_is_secondary_manifest_valid())
+-		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT);
++	if (boot_rom_boot_flow_is_manifest_valid(BOOT_ROM_SECONDARY)) {
++		boot_rom_putc('3');
++		if (boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT, silent_dma) != BOOT_ROM_SUCCESS) {
++			boot_rom_putc('o');
++		}
++		boot_rom_putc('c');
++	}
+ 
+ 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_PRIMARY)) {
++		boot_rom_putc('4');
+ 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_PRIMARY);
++		boot_rom_putc('d');
+ 		boot_rom_halt();
+ 	}
+ 
+-	boot_rom_boot_flow_wait_for_dma_finish();
++	// boot_rom_boot_flow_wait_for_dma_finish();
++	if (silent_dma) {
++		boot_rom_putc('5');
++		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT, silent_dma);
++		boot_rom_putc('e');
++	}
+ 
+ 	/* If the control reaches here start prefetch of recovery image */
+-	boot_rom_boot_flow_prefetch_img(HL_FW_IMG_RECOVERY);
++	boot_rom_boot_flow_prefetch_img(HL_FW_IMG_RECOVERY, silent_dma);
++	boot_rom_putc('f');
+ 
+ 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_SECONDARY)) {
+ 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_SECONDARY);
+diff --git a/arch/fs1/arc/dev_uart.c b/arch/fs1/arc/dev_uart.c
+index e6406ef..2e451aa 100644
+--- a/arch/fs1/arc/dev_uart.c
++++ b/arch/fs1/arc/dev_uart.c
+@@ -50,3 +50,11 @@
+ 			break;
+ 	}
+ }
++
++void boot_rom_str(char *str)
++{
++	for(int i = 0; str[i] != '\n'; i++){
++		boot_rom_putc(str[i]);
++	}
++	boot_rom_putc('\n');
++}
+diff --git a/arch/fs1/arc/dev_uart.h b/arch/fs1/arc/dev_uart.h
+index 4f9448c..330ff90 100644
+--- a/arch/fs1/arc/dev_uart.h
++++ b/arch/fs1/arc/dev_uart.h
+@@ -6,7 +6,7 @@
+ #ifndef _DEV_UART_
+ #define _DEV_UART_
+ 
+-#define UART_TX_FULL_TIMEOUT_US	5
++#define UART_TX_FULL_TIMEOUT_US	10000
+ 
+ /* UART state bits */
+ #define UART_SR_TXFULL			(1 << 0) /* TX Buffer Full */
+@@ -45,5 +45,6 @@
+  * p - BOOT ROM handover to PPBOOT
+  */
+ void boot_rom_putc(const char ch);
++void boot_rom_str(char *str);
+ 
+ #endif /* _DEV_UART_ */
+\ No newline at end of file
+diff --git a/arch/fs1/arc/progress_bits.h b/arch/fs1/arc/progress_bits.h
+index bc31c86..138de03 100644
+--- a/arch/fs1/arc/progress_bits.h
++++ b/arch/fs1/arc/progress_bits.h
+@@ -7,155 +7,154 @@
+ #define _PROGRESS_BITS_H_
+ 
+ enum boot_rom_progress {
+-	PROGRESS_INIT = 0,
+-	PROGRESS_INIT_ARC1_ICCM_INIT_FAILED = 1,
+-	PROGRESS_INIT_SPI_MANIFEST_0_EXCEEDS_MAX_SIZE = 2,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_START = 3,
+-	PROGRESS_INIT_SPI_MANIFEST_0_CRC_FAIL = 4,
+-	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_DEST = 5,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_SIZE = 6,
+-	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_IMG_SIZE = 7,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_FLASH_OFFSET = 8,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_COPY_TIMEOUT = 9,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR = 10,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH = 11,
+-	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL = 12,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET = 13,
+-	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL = 14,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL = 15,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL = 16,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL = 17,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL = 18,
+-	PROGRESS_INIT_SPI_MANIFEST_0_FAIL = 19,
+-	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE = 20,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START = 21,
+-	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL = 22,
+-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST = 23,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE = 24,
+-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE = 25,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET = 26,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_COPY_TIMEOUT = 27,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR = 28,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH = 29,
+-	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL = 30,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET = 31,
+-	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL = 32,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL = 33,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL = 34,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL = 35,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL = 36,
+-	PROGRESS_INIT_SPI_MANIFEST_1_FAIL = 37,
+-	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL = 38,
+-	PROGRESS_INIT_EFUSE_INIT_FAIL = 39,
+-	PROGRESS_INIT_EFUSE_SPI = 40,
+-	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL = 41,
+-	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE = 42,
+-	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL = 43,
+-	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL = 44,
+-	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL = 45,
+-	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL = 46,
+-	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT = 47,
+-	PROGRESS_REVOKE_LOC_ASIC_EFUSE = 48,
+-	PROGRESS_REVOKE_LOC_FAKE_FUSE = 49,
+-	PROGRESS_KEY_LOC_ROM = 50,
+-	PROGRESS_VER_LOC = 51, /* TODO: Remove & rearrange */
+-	PROGRESS_VER_LOC_ASIC_EFUSE = 52,
+-	PROGRESS_VER_LOC_FAKE_FUSE = 53,
+-	PROGRESS_SLV_DIE_WAITING_ON_RECOVERY_IND = 54,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_START = 55,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_VERSION_FAIL = 56,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_KEY_REVOKED = 57,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_KEY_HASH_FAIL = 58,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_AUTH_FAIL = 59,
+-	PROGRESS_SPI_MANIFEST_0_VERIFY_SUCCESS = 60,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_START = 61,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_VERSION_FAIL = 62,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_KEY_REVOKED = 63,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_KEY_HASH_FAIL = 64,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_AUTH_FAIL = 65,
+-	PROGRESS_SPI_MANIFEST_1_VERIFY_SUCCESS = 66,
+-	PROGRESS_BRINGUP_PCI_PRI = 67,
+-	PROGRESS_BRINGUP_PCI_PRI_NO_TMG_DESC = 68,
+-	PROGRESS_BRINGUP_PCI_PRI_LOADADDR_INVALID = 69,
+-	PROGRESS_BRINGUP_PCI_PRI_STARTADDR_INVALID = 70,
+-	PROGRESS_BRINGUP_PCI_PRI_TOO_BIG = 71,
+-	PROGRESS_BRINGUP_PCI_PRI_CRC_FAIL = 72,
+-	PROGRESS_BRINGUP_PCI_PRI_UNALIGNED_DEST_ADDR = 73,
+-	PROGRESS_BRINGUP_PCI_PRI_INVALID_IMG_SIZE = 74,
+-	PROGRESS_BRINGUP_PCI_PRI_UNALIGNED_IMG_SIZE = 75,
+-	PROGRESS_BRINGUP_PCI_PRI_DMA_ERROR = 76,
+-	PROGRESS_BRINGUP_PCI_PRI_DMA = 77,
+-	PROGRESS_BRINGUP_PCI_PRI_KEY_AUTH_FAIL = 78,
+-	PROGRESS_BRINGUP_PCI_PRI_VERIFY_SUCCESS = 79,
+-	PROGRESS_BRINGUP_PCI_SEC = 80,
+-	PROGRESS_BRINGUP_PCI_SEC_NO_IMG_DESC = 81,
+-	PROGRESS_BRINGUP_PCI_SEC_LOADADDR_INVALID = 82,
+-	PROGRESS_BRINGUP_PCI_SEC_STARTADDR_INVALID = 83,
+-	PROGRESS_BRINGUP_PCI_SEC_TOO_BIG = 84,
+-	PROGRESS_BRINGUP_PCI_SEC_CRC_FAIL = 85,
+-	PROGRESS_BRINGUP_PCI_SEC_UNALIGNED_DEST_ADDR = 86,
+-	PROGRESS_BRINGUP_PCI_SEC_INVALID_IMG_SIZE = 87,
+-	PROGRESS_BRINGUP_PCI_SEC_UNALIGNED_IMG_SIZE = 88,
+-	PROGRESS_BRINGUP_PCI_SEC_DMA_ERROR = 89,
+-	PROGRESS_BRINGUP_PCI_SEC_DMA = 90,
+-	PROGRESS_BRINGUP_PCI_SEC_KEY_AUTH_FAIL = 91,
+-	PROGRESS_BRINGUP_PCI_SEC_VERIFY_SUCCESS = 92,
+-	PROGRESS_BOOT_ROM_TPM = 93,
+-	PROGRESS_BOOT_ROM_TPM_INIT_FAIL = 94,
+-	PROGRESS_BOOT_ROM_TPM_STARTUP_FAIL = 95,
+-	PROGRESS_BOOT_ROM_SVN_TPM_PCR_EXTEND_FAIL = 96,
+-	PROGRESS_BOOT_ROM_MANIFEST_TPM_PCR_EXTEND_FAIL = 97,
+- 	PROGRESS_BOOT_ROM_TPM_FSM_OUT_OF_SYNC = 98,
+-	PROGRESS_BOOT_ROM_TPM_FINISH = 99,
+-	PROGRESS_PPBOOT_START = 100,
+-	PROGRESS_PPBOOT_FINISH = 101,
+-	PROGRESS_BOOT_ROM_IN_RECOVERY = 102,
+-	PROGRESS_BOOT_ROM_IN_ROM_RECOVERY = 103,
+-	PROGRESS_BOOT_ROM_PCIE_LINK_START = 104,
+-	PROGRESS_BOOT_ROM_PCIE_LINK_INIT = 105,
+-	PROGRESS_BOOT_ROM_PCIE_PHY_SRAM_INIT_TIMEDOUT = 106,
+-	PROGRESS_BOOT_ROM_PCIE_PHY_PARA_STS_CLR_TIMEDOUT = 107,
+-	PROGRESS_BOOT_ROM_PCIE_LINK_LIMIT_GEN1 = 108,
+-	PROGRESS_BOOT_ROM_PCIE_LINK_IATU_CONFIG = 109,
+-	PROGRESS_BOOT_ROM_PCIE_LINK_FINISH = 110,
+-	PROGRESS_BOOT_ROM_D2D_LINK_START = 111,
+-	PROGRESS_BOOT_ROM_D2D_LINK_STS_BUSY = 112,
+-	PROGRESS_BOOT_ROM_D2D_LINK_INTER_DIE_SYNC = 113,
+-	PROGRESS_BOOT_ROM_D2D_LINK_INIT_TIMEDOUT = 114,
+-	PROGRESS_BOOT_ROM_D2D_LINK_INIT_SUCCESS = 115,
+-	PROGRESS_BOOT_ROM_RECOVERY_END = 116,
+-	PROGRESS_BOOT_ROM_IN_RECOVERY_IMG = 117,
+-	PROGRESS_RECOVERY_IMG_IMG0 = 118,
+-	PROGRESS_RECOVERY_IMG_IMG0_NO_IMG_DESC = 119,
+-	PROGRESS_RECOVERY_IMG_IMG0_LOADADDR_INVALID = 120,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_STARTADDR_INVALID = 121,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_START = 122,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_CRC_FAILED = 123,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_UNALIGNED_DEST = 124,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_INVALID_IMG_SIZE = 125,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_UNALIGNED_IMG_SIZE = 126,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_INVALID_FLASH_OFFSET = 127,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_ERROR = 128,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_FINISH = 129,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_VERIFICATION_FAIL = 130,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_START = 131,
+-	PROGRESS_BOOT_RECOVERY_IMG_IMG0_FINISH = 132,
+-	PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_START = 133,
+-	PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FINISH = 134,
+-	PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_START = 135,
+-	PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FINISH = 136,
+-	PROGRESS_BOOT_INFO_LFS_DISK_MOUNT_FAIL = 137,
+-	PROGRESS_BOOT_INFO_LFS_FILE_OPEN_CFG_FAIL = 138,
+-	PROGRESS_BOOT_INFO_LFS_FILE_COPY_PART_FAIL = 139,
+-	PROGRESS_BOOT_INFO_LFS_FILE_SET_FAIL = 140,
+-	PROGRESS_BOOT_INFO_LFS_FILE_NAME_FAIL = 141,
+-	PROGRESS_BOOT_INFO_LFS_FINISHED = 142,
+-	PROGRESS_BOOT_INFO_MANIFEST_CONTEXT_SET_FAIL = 143,
+-	PROGRESS_BOOT_INFO_MANIFEST_HEADER_SET_FAIL = 144,
+-	PROGRESS_BOOT_INFO_MANIFEST_CONTEXT_GET_FAIL = 145,
+-	PROGRESS_BOOT_INFO_MANIFEST_HEADER_GET_FAIL = 146,
+-	PROGRESS_BOOT_INFO_SVN_SET_FAIL = 147,
+-	PROGRESS_BOOT_INFO_SVN_GET_FAIL = 148,
++	PROGRESS_INIT,
++	PROGRESS_INIT_ARC1_ICCM_INIT_FAILED,
++	PROGRESS_INIT_SPI_MANIFEST_0_EXCEEDS_MAX_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_START,
++	PROGRESS_INIT_SPI_MANIFEST_0_CRC_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_DEST,
++	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_IMG_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_FLASH_OFFSET,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_COPY_TIMEOUT,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH,
++	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET,
++	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_0_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START,
++	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_COPY_TIMEOUT,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH,
++	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET,
++	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL,
++	PROGRESS_INIT_SPI_MANIFEST_1_FAIL,
++	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL,
++	PROGRESS_INIT_EFUSE_INIT_FAIL,
++	PROGRESS_INIT_EFUSE_SPI,
++	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL,
++	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE,
++	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL,
++	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL,
++	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL,
++	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL,
++	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT,
++	PROGRESS_REVOKE_LOC_ASIC_EFUSE,
++	PROGRESS_REVOKE_LOC_FAKE_FUSE,
++	PROGRESS_KEY_LOC_ROM,
++	PROGRESS_VER_LOC_ASIC_EFUSE,
++	PROGRESS_VER_LOC_FAKE_FUSE,
++	PROGRESS_SLV_DIE_WAITING_ON_RECOVERY_IND,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_START,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_VERSION_FAIL,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_KEY_REVOKED,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_KEY_HASH_FAIL,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_AUTH_FAIL,
++	PROGRESS_SPI_MANIFEST_0_VERIFY_SUCCESS,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_START,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_VERSION_FAIL,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_KEY_REVOKED,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_KEY_HASH_FAIL,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_AUTH_FAIL,
++	PROGRESS_SPI_MANIFEST_1_VERIFY_SUCCESS,
++	PROGRESS_BRINGUP_PCI_PRI,
++	PROGRESS_BRINGUP_PCI_PRI_NO_IMG_DESC,
++	PROGRESS_BRINGUP_PCI_PRI_LOADADDR_INVALID,
++	PROGRESS_BRINGUP_PCI_PRI_STARTADDR_INVALID,
++	PROGRESS_BRINGUP_PCI_PRI_TOO_BIG,
++	PROGRESS_BRINGUP_PCI_PRI_CRC_FAIL,
++	PROGRESS_BRINGUP_PCI_PRI_UNALIGNED_DEST_ADDR,
++	PROGRESS_BRINGUP_PCI_PRI_INVALID_IMG_SIZE,
++	PROGRESS_BRINGUP_PCI_PRI_UNALIGNED_IMG_SIZE,
++	PROGRESS_BRINGUP_PCI_PRI_DMA_ERROR,
++	PROGRESS_BRINGUP_PCI_PRI_DMA,
++	PROGRESS_BRINGUP_PCI_PRI_KEY_AUTH_FAIL,
++	PROGRESS_BRINGUP_PCI_PRI_VERIFY_SUCCESS,
++	PROGRESS_BRINGUP_PCI_SEC,
++	PROGRESS_BRINGUP_PCI_SEC_NO_IMG_DESC,
++	PROGRESS_BRINGUP_PCI_SEC_LOADADDR_INVALID,
++	PROGRESS_BRINGUP_PCI_SEC_STARTADDR_INVALID,
++	PROGRESS_BRINGUP_PCI_SEC_TOO_BIG,
++	PROGRESS_BRINGUP_PCI_SEC_CRC_FAIL,
++	PROGRESS_BRINGUP_PCI_SEC_UNALIGNED_DEST_ADDR,
++	PROGRESS_BRINGUP_PCI_SEC_INVALID_IMG_SIZE,
++	PROGRESS_BRINGUP_PCI_SEC_UNALIGNED_IMG_SIZE,
++	PROGRESS_BRINGUP_PCI_SEC_DMA_ERROR,
++	PROGRESS_BRINGUP_PCI_SEC_DMA,
++	PROGRESS_BRINGUP_PCI_SEC_KEY_AUTH_FAIL,
++	PROGRESS_BRINGUP_PCI_SEC_VERIFY_SUCCESS,
++	PROGRESS_BOOT_ROM_TPM,
++	PROGRESS_BOOT_ROM_TPM_INIT_FAIL,
++	PROGRESS_BOOT_ROM_TPM_STARTUP_FAIL,
++	PROGRESS_BOOT_ROM_SVN_TPM_PCR_EXTEND_FAIL,
++	PROGRESS_BOOT_ROM_MANIFEST_TPM_PCR_EXTEND_FAIL,
++ 	PROGRESS_BOOT_ROM_TPM_FSM_OUT_OF_SYNC,
++	PROGRESS_BOOT_ROM_TPM_FINISH,
++	PROGRESS_PPBOOT_START,
++	PROGRESS_PPBOOT_FINISH,
++	PROGRESS_BOOT_ROM_IN_RECOVERY,
++	PROGRESS_BOOT_ROM_IN_ROM_RECOVERY,
++	PROGRESS_BOOT_ROM_PCIE_LINK_START,
++	PROGRESS_BOOT_ROM_PCIE_LINK_INIT,
++	PROGRESS_BOOT_ROM_PCIE_PHY_SRAM_INIT_TIMEDOUT,
++	PROGRESS_BOOT_ROM_PCIE_PHY_PARA_STS_CLR_TIMEDOUT,
++	PROGRESS_BOOT_ROM_PCIE_LINK_LIMIT_GEN1,
++	PROGRESS_BOOT_ROM_PCIE_LINK_IATU_CONFIG,
++	PROGRESS_BOOT_ROM_PCIE_LINK_FINISH,
++	PROGRESS_BOOT_ROM_D2D_LINK_START,
++	PROGRESS_BOOT_ROM_D2D_LINK_STS_BUSY,
++	PROGRESS_BOOT_ROM_D2D_LINK_INTER_DIE_SYNC,
++	PROGRESS_BOOT_ROM_D2D_LINK_INIT_TIMEDOUT,
++	PROGRESS_BOOT_ROM_D2D_LINK_INIT_SUCCESS,
++	PROGRESS_BOOT_ROM_RECOVERY_END,
++	PROGRESS_BOOT_ROM_IN_RECOVERY_IMG,
++	PROGRESS_RECOVERY_IMG_IMG0,
++	PROGRESS_RECOVERY_IMG_IMG0_NO_IMG_DESC,
++	PROGRESS_RECOVERY_IMG_IMG0_LOADADDR_INVALID,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_STARTADDR_INVALID,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_START,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_CRC_FAILED,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_UNALIGNED_DEST,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_INVALID_IMG_SIZE,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_UNALIGNED_IMG_SIZE,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_INVALID_FLASH_OFFSET,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_ERROR,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_DMA_FINISH,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_VERIFICATION_FAIL,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_START,
++	PROGRESS_BOOT_RECOVERY_IMG_IMG0_FINISH,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_START,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FINISH,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_START,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FINISH,
++	PROGRESS_BOOT_INFO_LFS_DISK_MOUNT_FAIL,
++	PROGRESS_BOOT_INFO_LFS_FILE_OPEN_CFG_FAIL,
++	PROGRESS_BOOT_INFO_LFS_FILE_COPY_PART_FAIL,
++	PROGRESS_BOOT_INFO_LFS_FILE_SET_FAIL,
++	PROGRESS_BOOT_INFO_LFS_FILE_NAME_FAIL,
++	PROGRESS_BOOT_INFO_LFS_FINISHED,
++	PROGRESS_BOOT_INFO_MANIFEST_CONTEXT_SET_FAIL,
++	PROGRESS_BOOT_INFO_MANIFEST_HEADER_SET_FAIL,
++	PROGRESS_BOOT_INFO_MANIFEST_CONTEXT_GET_FAIL,
++	PROGRESS_BOOT_INFO_MANIFEST_HEADER_GET_FAIL,
++	PROGRESS_BOOT_INFO_SVN_SET_FAIL,
++	PROGRESS_BOOT_INFO_SVN_GET_FAIL,
+ };
+ 
+ #endif /* _PROGRESS_BITS_H_ */
+diff --git a/common/boot_desc.c b/common/boot_desc.c
+index 8833528..4230d9f 100644
+--- a/common/boot_desc.c
++++ b/common/boot_desc.c
+@@ -91,7 +91,7 @@
+ 	boot_desc_update_ptrs(manifest_type);
+ 
+ 	/* Initialize boot descriptor once */
+-	if (p_manifest_ctx->boot_desc_flag)
++	if (p_manifest_ctx->boot_desc_flag == 1)
+ 		return BOOT_ROM_SUCCESS;
+ 
+ 	if (boot_rom_global.validation_pass &&
+diff --git a/common/boot_flow.c b/common/boot_flow.c
+index badee10..575733a 100644
+--- a/common/boot_flow.c
++++ b/common/boot_flow.c
+@@ -21,14 +21,19 @@
+ static enum hl_fw_manifest_type primary_manifest_idx = HL_FW_SPI_MANIFEST_0;
+ bool primary_manifest_valid;
+ bool secondary_manifest_valid;
+-bool primary_ppboot_prefetch_started;
+-bool primary_ppboot_prefetch_failed;
+-bool secondary_ppboot_prefetch_started;
+-bool secondary_ppboot_prefetch_failed;
++
++enum pre_fetch_status {
++	pf_init,
++	pf_started,
++	pf_failed,
++	pf_done,
++};
++
++static enum pre_fetch_status pf_status[HL_FW_SPI_MANIFEST_MAX_NUM] = {pf_init};
+ 
+ static uint32_t boot_flow_prefetch_img_sub(enum hl_fw_manifest_type manifest_idx,
+ 					enum hl_fw_img_type img_type, struct boot_desc *desc,
+-					enum boot_rom_progress img_sts_base)
++					enum boot_rom_progress img_sts_base, bool dma_wait)
+ {
+ 	int err;
+ 
+@@ -48,8 +53,9 @@
+ 	    != BOOT_ROM_SUCCESS)
+ 		return BOOT_ROM_FAIL;
+ 
++	/* Start DMA copy and exit */
+ 	err = boot_rom_spi_dma(desc->img_size, desc->spi_offset[manifest_idx], desc->loadaddr,
+-		true);
++		dma_wait);
+ 
+ 	if (boot_rom_process_dma_err(err, img_sts_base)) {
+ 		boot_rom_report_image_status(manifest_idx, CRC_FAIL);
+@@ -59,13 +65,15 @@
+ 	return BOOT_ROM_SUCCESS;
+ }
+ 
+-uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type)
++uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type, bool silent)
+ {
+ 	struct boot_desc desc = {0};
+ 	/* TODO: Image status base is complicated. Handle based on img_type */
+ 	enum boot_rom_progress img_sts_base = PROGRESS_BRINGUP_PCI_PRI;
+ 	enum hl_fw_manifest_type curr_manifest_idx;
+ 	uint32_t ret = BOOT_ROM_FAIL;
++	// int man_type;
++	bool dma_wait_mode;
+ 
+ 	/* If validation pass bit is set or its slave die then prefetch is not required */
+ 	if (!boot_rom_in_master_die() ||
+@@ -86,26 +94,44 @@
+ 
+ 	curr_manifest_idx = primary_manifest_idx;
+ 
+-	if (!primary_ppboot_prefetch_started && !primary_ppboot_prefetch_failed) {
+-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
+-		if (!ret) {
+-			primary_ppboot_prefetch_started = true;
+-			return BOOT_ROM_SUCCESS;
+-		}
+-		primary_ppboot_prefetch_failed = true;
+-	}
++	boot_rom_putc('g');
++	while (curr_manifest_idx < HL_FW_SPI_MANIFEST_MAX_NUM) {
++		switch(pf_status[curr_manifest_idx]) {
++			case pf_started:
++			case pf_init:
++				boot_rom_putc('j');
++				if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
++					dma_wait_mode = silent ? ((pf_status[curr_manifest_idx] == pf_init) ? false : true) : true;
++					ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base, dma_wait_mode);
++					if (ret == BOOT_ROM_SUCCESS) {
++						if (silent) {
++							/* In DMA silent mode, we can't go for 2nd image copy */
++							pf_status[curr_manifest_idx] = pf_started;
++							boot_rom_putc('v');
++						} else {
++							/* Dont go for next image copy, use this API to prefetch one image for one call only */
++							pf_status[curr_manifest_idx] = pf_done;
++							boot_rom_putc('x');
++						}
++						return BOOT_ROM_SUCCESS;
++					}
++				}
++				pf_status[curr_manifest_idx] = pf_failed;
++				boot_rom_putc('q');
++				break;
++			case pf_failed:
++			case pf_done:
++				boot_rom_putc('k');
++				curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+ 
+-	if (!boot_rom_second_image_enabled())
+-		return BOOT_ROM_FAIL;
+-
+-	if (!secondary_ppboot_prefetch_started && !secondary_ppboot_prefetch_failed) {
+-		curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
+-		if (!ret) {
+-			secondary_ppboot_prefetch_started = true;
+-			return BOOT_ROM_SUCCESS;
++				if ((pf_status[curr_manifest_idx] != pf_done) && (pf_status[curr_manifest_idx] != pf_failed))
++					break;
++				else
++					return BOOT_ROM_SUCCESS;
++			default:
++				boot_rom_putc('m');
++				return BOOT_ROM_FAIL;
+ 		}
+-		secondary_ppboot_prefetch_failed = true;
+ 	}
+ 
+ 	return BOOT_ROM_FAIL;
+@@ -188,8 +214,8 @@
+ 			primary_manifest_valid = true;
+ 	}
+ 
+-	if (!boot_rom_second_image_enabled())
+-		return;
++	// if (!boot_rom_second_image_enabled())
++	// 	return;
+ 
+ 	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+ 	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
+@@ -206,30 +232,21 @@
+ 		return primary_manifest_valid;
+ }
+ 
+-bool boot_rom_boot_flow_is_secondary_manifest_valid(void)
+-{
+-	return secondary_manifest_valid;
+-}
+-
+-void boot_rom_boot_flow_wait_for_dma_finish(void)
+-{
+-	/*
+-	 * TODO: Check for existing dma call to finish
+-	 * If current dma image manifest validation is pass then
+-	 * Start dma for remaining chunks
+-	 * Wait for entire dma to finish
+-	 * otherwise start prefetch of next image from different manifest
+-	 */
+-
+-}
+-
+ bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests rom_manifest_type)
+ {
+ 	enum boot_rom_progress status_base = PROGRESS_BRINGUP_PCI_PRI;
+ 	enum hl_fw_manifest_type man_idx = primary_manifest_idx;
+ 
+-	if (!boot_rom_boot_flow_is_manifest_valid(rom_manifest_type))
++	if (!boot_rom_boot_flow_is_manifest_valid(rom_manifest_type)) {
++		boot_rom_putc('t');
+ 		return false;
++	}
++
++	/* TODO: make sure ppboot copy completed */
++	// if (pf_status[rom_manifest_type] != pf_done) {
++	// 	boot_rom_putc('u');
++	// 	return false;
++	// }
+ 
+ 	if (!security_efuse_image_validation_en())
+ 		return true;
+diff --git a/common/boot_flow.h b/common/boot_flow.h
+index da1114b..076aa6d 100644
+--- a/common/boot_flow.h
++++ b/common/boot_flow.h
+@@ -8,7 +8,7 @@
+ 
+ #include <progress_bits.h>
+ 
+-uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type);
++uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type, bool dma_silent);
+ void boot_rom_boot_flow_boot_ppboot(enum hl_fw_manifest_type man_idx);
+ void boot_rom_boot_flow_boot_ppboot_sub(enum boot_rom_manifests man_type);
+ void boot_rom_boot_flow_validate_manifests(void);
+diff --git a/common/dma.c b/common/dma.c
+index 4027c89..1413ad6 100644
+--- a/common/dma.c
++++ b/common/dma.c
+@@ -10,6 +10,28 @@
+ #include <parc_global_conf_masks.h>
+ #include <status.h>
+ #include "dma.h"
++#include <dev_uart.h>
++
++enum dma_run_status {
++	DMA_IDLE,
++	DMA_BUSY,
++	DMA_FREE,
++	DMA_ERR
++};
++
++struct spi_dma_pending {
++	uint32_t flash_off;
++	uint32_t dest_addr;
++	uint32_t dma_size;
++	uint32_t rem_size;
++
++	uint8_t tot_chunks;
++	uint8_t next_chunk;
++	uint8_t spi_dma_busy;
++	uint8_t mask_crc_err;
++};
++
++static struct spi_dma_pending __attribute__((section (".rom_persistent_section")))spi_dma_resume;
+ 
+ int boot_rom_process_dma_err(int err, enum boot_rom_progress dma_sts_base)
+ {
+@@ -44,6 +66,29 @@
+ 	uint8_t i, restart_crc = 0, mask_crc_err = 0;
+ 	uint32_t max_dma_size = MAX_DMA_SIZE;
+ 	uint32_t image_size_no_crc = 0, ret = 0;
++	uint8_t chunk_idx = 0;
++
++	/* background spi dma copy */
++	if (spi_dma_resume.spi_dma_busy == DMA_BUSY) {
++		boot_rom_str("dma_resume\n");
++		ret = dma_wait_finish(spi_dma_resume.dma_size);
++		if (ret != DMA_SUCCESS) {
++			if (ret == DMA_INVALID_CRC_ERROR) {
++				if (spi_dma_resume.mask_crc_err == 0) {
++					return DMA_INVALID_CRC_ERROR;
++				}
++			} else
++				return ret;
++		}
++		if (spi_dma_resume.mask_crc_err == 0) {
++			spi_dma_resume.spi_dma_busy = DMA_FREE;
++			boot_rom_str("dma_resume_ret\n");
++			return DMA_SUCCESS;
++		}
++		chunk_idx = spi_dma_resume.next_chunk;
++	} else {
++		boot_rom_str("dma_start\n");
++	}
+ 
+ 	dest_type = boot_rom_get_dma_dest_type(dest_addr);
+ 
+@@ -69,7 +114,7 @@
+ 
+ 	copy_size = image_size_no_crc;
+ 
+-	for (i = 0; i < dma_chunks; i++) {
++	for (i = chunk_idx; i < dma_chunks; i++) {
+ 		/* Restart crc calculation freshly from 1st dma chunk */
+ 		restart_crc = (i == 0) ? 1 : 0;
+ 
+@@ -98,8 +143,16 @@
+ 			}
+ 		} else {
+ 			/* background spi dma copy */
++			spi_dma_resume.spi_dma_busy = DMA_BUSY;
++			spi_dma_resume.dma_size = dma_size; /* Size of SPI DMA under copy */
++			spi_dma_resume.mask_crc_err = mask_crc_err;
++			spi_dma_resume.next_chunk = i + 1;
++
++			return DMA_SUCCESS;
+ 		}
+ 	}
+ 
++	spi_dma_resume.spi_dma_busy = DMA_FREE;
++
+ 	return DMA_SUCCESS;
+ }
+diff --git a/common/dma.h b/common/dma.h
+index 2c835ca..e9d4cbf 100644
+--- a/common/dma.h
++++ b/common/dma.h
+@@ -28,6 +28,8 @@
+ 	DMA_INVALID_IMG_SIZE,
+ 	DMA_INVALID_FLASH_OFFSET, /* When flash offset + image size is beyond flash limit */
+ 	DMA_COPY_TIMEOUT,
++	DMA_ENGINE_BUSY,
++	DMA_INVALID_CHUNK_IDX,
+ 	DMA_ERROR_MAX
+ };
+ 
+@@ -37,6 +39,12 @@
+ 	DMA_DEST_MAX
+ };
+ 
++enum pre_fetch_dma {
++	dma_wait,
++	dma_no_wait_start,
++	dma_no_wait_cont
++};
++
+ enum dma_dest_type boot_rom_get_dma_dest_type(uint64_t addr);
+ int boot_rom_process_dma_err(int err, enum boot_rom_progress dma_sts_base);
+ 
+diff --git a/common/recovery.c b/common/recovery.c
+index f2f0525..45fb433 100644
+--- a/common/recovery.c
++++ b/common/recovery.c
+@@ -47,7 +47,7 @@
+ 	}
+ 
+ 	/* Wait for previous fetch to complete */
+-	boot_rom_boot_flow_wait_for_dma_finish();
++	// boot_rom_boot_flow_wait_for_dma_finish();
+ 
+ 	return boot_rom_boot_flow_load_recovery_images(recovery_manifest, rec_img_count,
+ 							img_sts_base);

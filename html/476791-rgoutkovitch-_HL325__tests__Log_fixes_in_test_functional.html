@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 476791: [HL325][tests] Log fixes in test_functional</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 476791: [HL325][tests] Log fixes in test_functional</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> hl-sa</p>
+            <p><strong>Branch:</strong> gated_check_in</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Ruth Goutkovitch &lt;rgoutkovitch@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-04-06 12:14:20.320000000</p>
+            <p><strong>Updated:</strong> 2025-04-09 07:27:25.348000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[HL325][tests] Log fixes in test_functional
+
+Change-Id: Iee047114be72cbd067a003c159fb2d0d6509a286
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: System Jenkins: +0, Oded Rot: +0, Avi Marom: +0, Yuval Zecharia: +0</li><li><strong>Verified</strong>: -2 by System Jenkins</li><li><strong>Finished</strong>: +2 by System Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>tests/HL325/test_functional.py</code> (M) +218 -216</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/tests/HL325/test_functional.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -1602,6 +1602,8 @@</span>
+<span class="diff-ctx">         if self.stress_mode:</span>
+<span class="diff-ctx">             self.num_of_loops = self.test_parameters.num_of_loops</span>
+<span class="diff-ctx">             self.ignore_assert = True</span>
+<span class="diff-add">+            self.device_prepare = None</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx">         self.running_mode = self.test_parameters.mode</span>
+<span class="diff-ctx">         self.save_hl_qual_output_file = False</span>
+<span class="diff-ctx">         self.execute_non_operational_devices = True</span>
+<span class="diff-hunk">@@ -1635,7 +1637,7 @@</span>
+<span class="diff-ctx">             for key, value in row.items():</span>
+<span class="diff-ctx">                 hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, driver_number=hl_device_number, dev_address=device,</span>
+<span class="diff-ctx">                             mezzanine=mezz,</span>
+<span class="diff-del">-                            test_code=self.test_code, operation=key, read_value=value)</span>
+<span class="diff-add">+                            test_code=self.test_code, operation=key, read_value=value, units=&#x27;String&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">         log_manager.log_browser()</span>
+<span class="diff-ctx">         for pcie_addr, pcie_data in csv_report.items():</span>
+<span class="diff-hunk">@@ -1645,6 +1647,8 @@</span>
+<span class="diff-ctx">             hl_device_number = self.devices[short_pcie_address][&quot;hl_num&quot;]</span>
+<span class="diff-ctx">             mezz = self.smi_control.get_module_id(pcie_addr)</span>
+<span class="diff-ctx">             log_manager.log_browser(self.pci_to_mezz_log_format[short_pcie_address])</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+            serdes_bw_log ={}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">             for key_, value in pcie_data.items():</span>
+<span class="diff-ctx">                 for key, loop in value.items():</span>
+<span class="diff-hunk">@@ -1665,10 +1669,43 @@</span>
+<span class="diff-ctx">                             sub_test_res = &#x27;FAIL&#x27;</span>
+<span class="diff-ctx">                         level = &#x27;error&#x27; if sub_test_status.lower() == &#x27;failed&#x27; else &#x27;info&#x27;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-                        hlsa_logger(level=level, ident=&#x27;Value&#x27;, driver_number=hl_device_number,</span>
+<span class="diff-del">-                                    dev_address=short_pcie_address, mezzanine=mezz, loop=key_,</span>
+<span class="diff-del">-                                    test_code=self.test_code, operation=sub_test, read_value=sub_test_result,</span>
+<span class="diff-del">-                                    expected_value=sub_test_expected_value, result=f&#x27;{sub_test_res}&#x27;)</span>
+<span class="diff-add">+                        if self.test_code == &#x27;HL-QUAL SERDES BW&#x27;:</span>
+<span class="diff-add">+                            if sub_test == &#x27;PORT&#x27;:</span>
+<span class="diff-add">+                                serdes_bw_log[(key_,1)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,</span>
+<span class="diff-add">+                                                                   sub_test_res, level)</span>
+<span class="diff-add">+                            else:</span>
+<span class="diff-add">+                                serdes_bw_log[(key_, 0)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,</span>
+<span class="diff-add">+                                sub_test_res, level)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+                        if &quot;BW&quot; in self.test_code or &quot;HBM&quot; in self.test_code:</span>
+<span class="diff-add">+                            unit = &quot;Gbps&quot;</span>
+<span class="diff-add">+                        elif self.test_code == &quot;HL-QUAL SYNAPSE PCI BW&quot; and sub_test in [&quot;upload PCI&quot;, &quot;download PCI&quot;,</span>
+<span class="diff-add">+                                                                                         &quot;Bidirectional PCI&quot;]:</span>
+<span class="diff-add">+                            unit = &quot;Gbps&quot;</span>
+<span class="diff-add">+                        elif self.test_code in [&quot;HL-QUAL FUNCTIONAL&quot;,</span>
+<span class="diff-add">+                                                &quot;HL-QUAL RESBET50 TRAINING&quot;] and &quot;FPS&quot; in sub_test:</span>
+<span class="diff-add">+                            unit = &quot;FPS&quot;</span>
+<span class="diff-add">+                        else:</span>
+<span class="diff-add">+                            unit = &quot;String&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+                        if self.test_code != &#x27;HL-QUAL SERDES BW&#x27;:</span>
+<span class="diff-add">+                            hlsa_logger(level=level, ident=&#x27;Value&#x27;, driver_number=hl_device_number,</span>
+<span class="diff-add">+                                        dev_address=short_pcie_address, mezzanine=mezz, loop=key_,</span>
+<span class="diff-add">+                                        test_code=self.test_code, operation=sub_test, read_value=sub_test_result,</span>
+<span class="diff-add">+                                        expected_value=sub_test_expected_value, result=f&#x27;{sub_test_res}&#x27;, units=unit)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+            if self.test_code == &#x27;HL-QUAL SERDES BW&#x27;:</span>
+<span class="diff-add">+                prev_num = -1</span>
+<span class="diff-add">+                for res_num, _ in serdes_bw_log.keys():</span>
+<span class="diff-add">+                    if res_num != prev_num:</span>
+<span class="diff-add">+                        prev_num = res_num</span>
+<span class="diff-add">+                        hlsa_logger(level=serdes_bw_log[(res_num, 0)][5], ident=&#x27;Value&#x27;, driver_number=hl_device_number,</span>
+<span class="diff-add">+                                    dev_address=short_pcie_address, mezzanine=mezz, loop=res_num,</span>
+<span class="diff-add">+                                    test_code=self.test_code,</span>
+<span class="diff-add">+                                    operation=f&quot;{serdes_bw_log[(res_num, 0)][0]} - Port {serdes_bw_log[(res_num, 1)][1]}&quot;,</span>
+<span class="diff-add">+                                    read_value=serdes_bw_log[(res_num, 0)][1],</span>
+<span class="diff-add">+                                    expected_value=serdes_bw_log[(res_num, 0)][2], result=f&#x27;{serdes_bw_log[(res_num, 0)][4]}&#x27;,</span>
+<span class="diff-add">+                                    units=&#x27;Gbps&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">         log_manager.log_browser()</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -2029,7 +2066,7 @@</span>
+<span class="diff-ctx">                     for device in self.operational_devices_address:</span>
+<span class="diff-ctx">                         hl_device_number = self.devices[device][&quot;hl_num&quot;]</span>
+<span class="diff-ctx">                         mezz = self.devices[device][&#x27;mezz&#x27;]</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=str(iteration), driver_number=hl_device_number,</span>
+<span class="diff-add">+                        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, loop=str(iteration), driver_number=hl_device_number,</span>
+<span class="diff-ctx">                                     dev_address=device, mezzanine=mezz,  test_code=self.test_code,</span>
+<span class="diff-ctx">                                     operation=f&#x27;Connected PCIE Device&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-ctx">                         if device not in self.actual_operational_devices_address:</span>
+<span class="diff-hunk">@@ -3579,41 +3616,6 @@</span>
+<span class="diff-ctx">                     result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-ctx">         return version[0]</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    # todo : check if it triggered</span>
+<span class="diff-del">-    def ft_jig_set_fans(self):</span>
+<span class="diff-del">-        scale = self.test_options[&#x27;jig_fan_rpm_scale_percentage&#x27;]</span>
+<span class="diff-del">-        # Get Init Fans Speed</span>
+<span class="diff-del">-        self.jig_fan_init_value = self.ft_jig_control.get_fan_speed()</span>
+<span class="diff-del">-        if not self.jig_fan_init_value:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Get FT JIG Fans&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-            pytest.xfail(&#x27;Functional - Setup FAIL [FT JIG Controller]&#x27;)</span>
+<span class="diff-del">-        else:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                        operation=&#x27;Get FT JIG Fans Init Value&#x27;, read_value=f&#x27;{str(self.jig_fan_init_value)}&#x27;,</span>
+<span class="diff-del">-                        result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-        # Set Fans Speed</span>
+<span class="diff-del">-        for idx, scale_per_idx in enumerate(scale):</span>
+<span class="diff-del">-            fan_set_to_value = self.ft_jig_control.set_fan_speed(fan_speed=int(scale_per_idx), fan_index=idx + 1)</span>
+<span class="diff-del">-            if not fan_set_to_value:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;Setup Set FT JIG Fans&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                pytest.xfail(&#x27;Functional - Setup FAIL [FT JIG Controller]&#x27;)</span>
+<span class="diff-del">-            else:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;Setup Set FT JIG Fans&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-        time.sleep(15)</span>
+<span class="diff-del">-        # Get Init Fans Speed</span>
+<span class="diff-del">-        self.jig_fan_test_value = self.ft_jig_control.get_fan_speed()</span>
+<span class="diff-del">-        if not self.jig_fan_test_value:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Get FT JIG Fans&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-            pytest.xfail(&#x27;Functional - Setup FAIL [FT JIG Controller]&#x27;)</span>
+<span class="diff-del">-        else:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                        operation=&#x27;Get FT JIG Fans Init Value&#x27;, read_value=f&#x27;{str(self.jig_fan_test_value)}&#x27;,</span>
+<span class="diff-del">-                        result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx">     def _print_serr_derr(self, result, message, hl_num, mezz, con_dev, operation):</span>
+<span class="diff-ctx">         if hl_num in list(map(int, result[&quot;hl_num&quot;])):</span>
+<span class="diff-ctx">             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-hunk">@@ -4255,120 +4257,120 @@</span>
+<span class="diff-ctx">                 self.check_port_speed_nrz(device)</span>
+<span class="diff-ctx">         return test_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def print_fec_status_per_pci(self, pci, log_level=&#x27;error&#x27;, final_check=False):</span>
+<span class="diff-del">-        hl_device_number = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-        device_status = True</span>
+<span class="diff-del">-        status_post = False</span>
+<span class="diff-del">-        status_pre = False</span>
+<span class="diff-del">-        final_check_prefix = &#x27;Final &#x27; if final_check else &#x27;&#x27;</span>
+<span class="diff-del">-        stdout = self.driver_cli.device_print_fec_status(hl_num=hl_device_number)</span>
+<span class="diff-del">-        for line in stdout:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;nic_print_fec_stats: {line}&#x27;)</span>
+<span class="diff-del">-        parser = RegexParser.RegexParser()</span>
+<span class="diff-del">-        try:</span>
+<span class="diff-del">-            res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.Functional_test.fec_status)</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=&#x27;parser results&#x27;, read_value=res)</span>
+<span class="diff-del">-            for value in res[&#x27;fec&#x27;].values():</span>
+<span class="diff-del">-                if self.ports_status[pci][&#x27;previous_status&#x27;][int(value[&quot;Port&quot;][0])]:</span>
+<span class="diff-del">-                    continue</span>
+<span class="diff-del">-                # pci = self.device_cli.get_pcie_address(hl_num)</span>
+<span class="diff-del">-                hl_num = self.device_cli.get_hl_number(pci)</span>
+<span class="diff-del">-                mezz = self.smi_control.get_module_id(f&#x27;0000:{pci}&#x27;)</span>
+<span class="diff-del">-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-del">-                max_limit_pre = float(self.functional_threshold[</span>
+<span class="diff-del">-                                          self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-del">-                                          &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-del">-                min_limit_pre = float(self.functional_threshold[</span>
+<span class="diff-del">-                                          self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-del">-                                          &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-del">-                max_limit_post = float(self.functional_threshold[</span>
+<span class="diff-del">-                                           self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-del">-                                           &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-del">-                min_limit_post = float(self.functional_threshold[</span>
+<span class="diff-del">-                                           self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-del">-                                           &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-del">-                if value[&quot;down&quot;][0] != &quot;&quot;:</span>
+<span class="diff-del">-                    status = False</span>
+<span class="diff-del">-                    device_status = False</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    pre_fec_value = float(value[&quot;pre_fec_SER&quot;][0])</span>
+<span class="diff-del">-                    status_pre = pre_fec_value &lt;= max_limit_pre</span>
+<span class="diff-del">-                    post_fec_value = float(value[&quot;post_fec_SER&quot;][0])</span>
+<span class="diff-del">-                    status_post = post_fec_value &lt;= max_limit_post</span>
+<span class="diff-del">-                    passed_status_prefix = &#x27;Final &#x27; if status_post and status_pre else &#x27;&#x27;</span>
+<span class="diff-del">-                    if final_check_prefix:</span>
+<span class="diff-del">-                        passed_status_prefix = &#x27;&#x27;</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status_pre, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} {passed_status_prefix}{final_check_prefix}pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=value[&quot;pre_fec_SER&quot;][0],</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status_post, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} {passed_status_prefix}{final_check_prefix}post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=value[&quot;post_fec_SER&quot;][0],</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                    status = status_pre and status_post</span>
+<span class="diff-del">-                    device_status = status and device_status</span>
+<span class="diff-del">-                # if update_ports_status:</span>
+<span class="diff-del">-                if status and not self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])]:</span>
+<span class="diff-del">-                    # passed fec but failed on changes_counter</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(), dev_address=pci,</span>
+<span class="diff-del">-                                operation=f&#x27;Port {int(value[&quot;Port&quot;][0])} &#x27;</span>
+<span class="diff-del">-                                          f&#x27;failed on previous changes_counter and passed fec check&#x27;)</span>
+<span class="diff-del">-                    hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                                expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;)</span>
+<span class="diff-del">-                if not status:</span>
+<span class="diff-del">-                    self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])] = False</span>
+<span class="diff-del">-                    if not status_post:</span>
+<span class="diff-del">-                        hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                    operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                    read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                                    expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                    elif not status_pre:</span>
+<span class="diff-del">-                        hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                    operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                    read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                                    expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                    operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                    read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                                    expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                        hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                    operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                    read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                                    expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                log_manager.log_browser()</span>
+<span class="diff-del">-        except Exception as exception:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Exception during parsing fec_stats: {str(exception)}&#x27;)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            device_status = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        return device_status</span>
+<span class="diff-add">+    # def print_fec_status_per_pci(self, pci, log_level=&#x27;error&#x27;, final_check=False):</span>
+<span class="diff-add">+    #     hl_device_number = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-add">+    #     device_status = True</span>
+<span class="diff-add">+    #     status_post = False</span>
+<span class="diff-add">+    #     status_pre = False</span>
+<span class="diff-add">+    #     final_check_prefix = &#x27;Final &#x27; if final_check else &#x27;&#x27;</span>
+<span class="diff-add">+    #     stdout = self.driver_cli.device_print_fec_status(hl_num=hl_device_number)</span>
+<span class="diff-add">+    #     for line in stdout:</span>
+<span class="diff-add">+    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;nic_print_fec_stats: {line}&#x27;)</span>
+<span class="diff-add">+    #     parser = RegexParser.RegexParser()</span>
+<span class="diff-add">+    #     try:</span>
+<span class="diff-add">+    #         res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.Functional_test.fec_status)</span>
+<span class="diff-add">+    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                     operation=&#x27;parser results&#x27;, read_value=res)</span>
+<span class="diff-add">+    #         for value in res[&#x27;fec&#x27;].values():</span>
+<span class="diff-add">+    #             if self.ports_status[pci][&#x27;previous_status&#x27;][int(value[&quot;Port&quot;][0])]:</span>
+<span class="diff-add">+    #                 continue</span>
+<span class="diff-add">+    #             # pci = self.device_cli.get_pcie_address(hl_num)</span>
+<span class="diff-add">+    #             hl_num = self.device_cli.get_hl_number(pci)</span>
+<span class="diff-add">+    #             mezz = self.smi_control.get_module_id(f&#x27;0000:{pci}&#x27;)</span>
+<span class="diff-add">+    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-add">+    #             max_limit_pre = float(self.functional_threshold[</span>
+<span class="diff-add">+    #                                       self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-add">+    #                                       &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-add">+    #             min_limit_pre = float(self.functional_threshold[</span>
+<span class="diff-add">+    #                                       self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-add">+    #                                       &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-add">+    #             max_limit_post = float(self.functional_threshold[</span>
+<span class="diff-add">+    #                                        self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-add">+    #                                        &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-add">+    #             min_limit_post = float(self.functional_threshold[</span>
+<span class="diff-add">+    #                                        self.functional_tests[self.test_name][&quot;functional_threshold_criteria&quot;]][</span>
+<span class="diff-add">+    #                                        &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-add">+    #             if value[&quot;down&quot;][0] != &quot;&quot;:</span>
+<span class="diff-add">+    #                 status = False</span>
+<span class="diff-add">+    #                 device_status = False</span>
+<span class="diff-add">+    #                 hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                                   operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} pre_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                                   read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-add">+    #                                                   expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-add">+    #                                                   ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #                 hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                                   operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} post_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                                   read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-add">+    #                                                   expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-add">+    #                                                   ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #             else:</span>
+<span class="diff-add">+    #                 pre_fec_value = float(value[&quot;pre_fec_SER&quot;][0])</span>
+<span class="diff-add">+    #                 status_pre = pre_fec_value &lt;= max_limit_pre</span>
+<span class="diff-add">+    #                 post_fec_value = float(value[&quot;post_fec_SER&quot;][0])</span>
+<span class="diff-add">+    #                 status_post = post_fec_value &lt;= max_limit_post</span>
+<span class="diff-add">+    #                 passed_status_prefix = &#x27;Final &#x27; if status_post and status_pre else &#x27;&#x27;</span>
+<span class="diff-add">+    #                 if final_check_prefix:</span>
+<span class="diff-add">+    #                     passed_status_prefix = &#x27;&#x27;</span>
+<span class="diff-add">+    #                 hlsa_checker.check_status_is_true(status_pre, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                                   operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} {passed_status_prefix}{final_check_prefix}pre_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                                   read_value=value[&quot;pre_fec_SER&quot;][0],</span>
+<span class="diff-add">+    #                                                   expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-add">+    #                                                   ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #                 hlsa_checker.check_status_is_true(status_post, ident=&#x27;Value&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                                   operation=f&#x27;Check Port {value[&quot;Port&quot;][0]} {passed_status_prefix}{final_check_prefix}post_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                                   read_value=value[&quot;post_fec_SER&quot;][0],</span>
+<span class="diff-add">+    #                                                   expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-add">+    #                                                   ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #                 status = status_pre and status_post</span>
+<span class="diff-add">+    #                 device_status = status and device_status</span>
+<span class="diff-add">+    #             # if update_ports_status:</span>
+<span class="diff-add">+    #             if status and not self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])]:</span>
+<span class="diff-add">+    #                 # passed fec but failed on changes_counter</span>
+<span class="diff-add">+    #                 hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(), dev_address=pci,</span>
+<span class="diff-add">+    #                             operation=f&#x27;Port {int(value[&quot;Port&quot;][0])} &#x27;</span>
+<span class="diff-add">+    #                                       f&#x27;failed on previous changes_counter and passed fec check&#x27;)</span>
+<span class="diff-add">+    #                 hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                             read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-add">+    #                             expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;)</span>
+<span class="diff-add">+    #             if not status:</span>
+<span class="diff-add">+    #                 self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])] = False</span>
+<span class="diff-add">+    #                 if not status_post:</span>
+<span class="diff-add">+    #                     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                 read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-add">+    #                                 expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-add">+    #                 elif not status_pre:</span>
+<span class="diff-add">+    #                     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                 read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-add">+    #                                 expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-add">+    #                 else:</span>
+<span class="diff-add">+    #                     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                 read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-add">+    #                                 expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-add">+    #                     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-add">+    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-add">+    #                                 read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-add">+    #                                 expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-add">+    #             log_manager.log_browser()</span>
+<span class="diff-add">+    #     except Exception as exception:</span>
+<span class="diff-add">+    #         hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-add">+    #                     operation=f&#x27;Exception during parsing fec_stats: {str(exception)}&#x27;)</span>
+<span class="diff-add">+    #         log_manager.log_browser()</span>
+<span class="diff-add">+    #         device_status = False</span>
+<span class="diff-add">+    #</span>
+<span class="diff-add">+    #     return device_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def update_operational_devices_info(self):</span>
+<span class="diff-ctx">         self.operational_devices_address = self.driver_cli.get_operational_devices()</span>
+<span class="diff-hunk">@@ -4420,67 +4422,67 @@</span>
+<span class="diff-ctx">                 time.sleep(20)</span>
+<span class="diff-ctx">         return toggle_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def calculate_ports_changes_counter(self, retries=3, log_level=&#x27;error&#x27;):</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        all_devices_status = True</span>
+<span class="diff-del">-        for run_idx in range(retries):</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-del">-            # self.changes_counter_calc = {}</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                            operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-del">-                # self.changes_counter_calc[pci] = {}</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;start&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            time.sleep(self.functional_tests[self.test_name][&quot;port_changes_counter_duration&quot;])</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;end&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                            operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;calc&#x27;] = {}</span>
+<span class="diff-del">-                # self.changes_counter_calc[pci][&#x27;status&#x27;] = {}</span>
+<span class="diff-del">-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-del">-                device_status = True</span>
+<span class="diff-del">-                for port in self.changes_counter_calc[pci][&#x27;start&#x27;].keys():</span>
+<span class="diff-del">-                    if self.ports_status[pci][&#x27;previous_status&#x27;][port]:</span>
+<span class="diff-del">-                        continue</span>
+<span class="diff-del">-                    self.changes_counter_calc[pci][&#x27;calc&#x27;][port] = int(</span>
+<span class="diff-del">-                        self.changes_counter_calc[pci][&#x27;end&#x27;][port]) - int(</span>
+<span class="diff-del">-                        self.changes_counter_calc[pci][&#x27;start&#x27;][port])</span>
+<span class="diff-del">-                    limit_check = int(self.changes_counter_calc[pci][&#x27;calc&#x27;][port]) &lt;= \</span>
+<span class="diff-del">-                                  self.functional_tests[self.test_name][</span>
+<span class="diff-del">-                                      &quot;port_changes_counter_max&quot;]</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(limit_check, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                      test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port} Changes Counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-del">-                                                      read_value=f&#x27;{self.changes_counter_calc[pci][&quot;calc&quot;][port]}&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {0} | Max: {self.functional_tests[self.test_name][&quot;port_changes_counter_max&quot;]}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                    if not limit_check:</span>
+<span class="diff-del">-                        self.ports_status[pci][&#x27;current_status&#x27;][port] = False</span>
+<span class="diff-del">-                        device_status = False</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        self.ports_status[pci][&#x27;current_status&#x27;][port] = True</span>
+<span class="diff-del">-                hlsa_checker.check_status_is_true(device_status, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                  operation=f&#x27;Check device port up/down changes counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-del">-                                                  ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                all_devices_status = device_status and all_devices_status</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            time.sleep(30)</span>
+<span class="diff-del">-        return all_devices_status</span>
+<span class="diff-add">+    # def calculate_ports_changes_counter(self, retries=3, log_level=&#x27;error&#x27;):</span>
+<span class="diff-add">+    #     log_manager.log_browser()</span>
+<span class="diff-add">+    #     all_devices_status = True</span>
+<span class="diff-add">+    #     for run_idx in range(retries):</span>
+<span class="diff-add">+    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                     operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-add">+    #         # self.changes_counter_calc = {}</span>
+<span class="diff-add">+    #         for pci in self.operational_devices_address:</span>
+<span class="diff-add">+    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-add">+    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                         operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-add">+    #             # self.changes_counter_calc[pci] = {}</span>
+<span class="diff-add">+    #             self.changes_counter_calc[pci][&#x27;start&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-add">+    #         log_manager.log_browser()</span>
+<span class="diff-add">+    #         time.sleep(self.functional_tests[self.test_name][&quot;port_changes_counter_duration&quot;])</span>
+<span class="diff-add">+    #         for pci in self.operational_devices_address:</span>
+<span class="diff-add">+    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-add">+    #             self.changes_counter_calc[pci][&#x27;end&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-add">+    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                         operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-add">+    #         log_manager.log_browser()</span>
+<span class="diff-add">+    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                     operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-add">+    #         for pci in self.operational_devices_address:</span>
+<span class="diff-add">+    #             self.changes_counter_calc[pci][&#x27;calc&#x27;] = {}</span>
+<span class="diff-add">+    #             # self.changes_counter_calc[pci][&#x27;status&#x27;] = {}</span>
+<span class="diff-add">+    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])</span>
+<span class="diff-add">+    #             device_status = True</span>
+<span class="diff-add">+    #             for port in self.changes_counter_calc[pci][&#x27;start&#x27;].keys():</span>
+<span class="diff-add">+    #                 if self.ports_status[pci][&#x27;previous_status&#x27;][port]:</span>
+<span class="diff-add">+    #                     continue</span>
+<span class="diff-add">+    #                 self.changes_counter_calc[pci][&#x27;calc&#x27;][port] = int(</span>
+<span class="diff-add">+    #                     self.changes_counter_calc[pci][&#x27;end&#x27;][port]) - int(</span>
+<span class="diff-add">+    #                     self.changes_counter_calc[pci][&#x27;start&#x27;][port])</span>
+<span class="diff-add">+    #                 limit_check = int(self.changes_counter_calc[pci][&#x27;calc&#x27;][port]) &lt;= \</span>
+<span class="diff-add">+    #                               self.functional_tests[self.test_name][</span>
+<span class="diff-add">+    #                                   &quot;port_changes_counter_max&quot;]</span>
+<span class="diff-add">+    #                 hlsa_checker.check_status_is_true(limit_check, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-add">+    #                                                   test_code=self.test_code.upper(),</span>
+<span class="diff-add">+    #                                                   operation=f&#x27;Check Port {port} Changes Counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-add">+    #                                                   read_value=f&#x27;{self.changes_counter_calc[pci][&quot;calc&quot;][port]}&#x27;,</span>
+<span class="diff-add">+    #                                                   expected_value=f&#x27;Min: {0} | Max: {self.functional_tests[self.test_name][&quot;port_changes_counter_max&quot;]}&#x27;,</span>
+<span class="diff-add">+    #                                                   ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #                 if not limit_check:</span>
+<span class="diff-add">+    #                     self.ports_status[pci][&#x27;current_status&#x27;][port] = False</span>
+<span class="diff-add">+    #                     device_status = False</span>
+<span class="diff-add">+    #                 else:</span>
+<span class="diff-add">+    #                     self.ports_status[pci][&#x27;current_status&#x27;][port] = True</span>
+<span class="diff-add">+    #             hlsa_checker.check_status_is_true(device_status, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-add">+    #                                               operation=f&#x27;Check device port up/down changes counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-add">+    #                                               ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-add">+    #             all_devices_status = device_status and all_devices_status</span>
+<span class="diff-add">+    #         log_manager.log_browser()</span>
+<span class="diff-add">+    #         time.sleep(30)</span>
+<span class="diff-add">+    #     return all_devices_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):</span>
+<span class="diff-del">-        ports_status_list = [0] * num_of_ports_per_device</span>
+<span class="diff-del">-        for failed_port_idx in failed_ports_idx:</span>
+<span class="diff-del">-            ports_status_list[int(failed_port_idx)] = 1</span>
+<span class="diff-del">-        return ports_status_list</span>
+<span class="diff-add">+    # def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):</span>
+<span class="diff-add">+    #     ports_status_list = [0] * num_of_ports_per_device</span>
+<span class="diff-add">+    #     for failed_port_idx in failed_ports_idx:</span>
+<span class="diff-add">+    #         ports_status_list[int(failed_port_idx)] = 1</span>
+<span class="diff-add">+    #     return ports_status_list</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def print_uart_for_failed_devices(self):</span>
+<span class="diff-ctx">         try:</span>
+<span class="diff-hunk">@@ -4787,7 +4789,7 @@</span>
+<span class="diff-ctx">     @classmethod</span>
+<span class="diff-ctx">     def prepare_host(cls):</span>
+<span class="diff-ctx">         res, output = cls.device_cli.change_folder_permission_on_host(&#x27;/var/log/habana_logs/&#x27;)</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(res == 0, ident=&#x27;check&#x27;,</span>
+<span class="diff-add">+        hlsa_checker.check_status_is_true(res == 0, ident=&#x27;Description&#x27;,</span>
+<span class="diff-ctx">                                           operation=&#x27;Change folder permission /var/log/habana_logs/&#x27;,</span>
+<span class="diff-ctx">                                           ignore_assert=True, fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Ruth Goutkovitch</strong> <span class="date">(2025-04-06 12:14:20.320000000)</span><pre>Patch Set 1: Cherry Picked from branch Development.</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-06 12:14:25.762000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/HLSA_Gated_Check_In/133/</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-06 12:24:27.652000000)</span><pre>Patch Set 1: Code-Review-1
+
+(30 comments)
+
+Opened Jira Ticket- https://jira.habana-labs.com/browse/SYS-5133
+Unit Tests:
+  - test_hlsa_logger_usage:
+    • Warning: Gated check-in had detected the usage of standard logger instead of &#x27;hlsa_logger&#x27;.
+    • Please check in files tests/HL325/test_functional.py.</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-06 12:25:10.592000000)</span><pre>Patch Set 1: Finished+1 Verified-1 -Code-Review
+
+Build Failed 
+
+https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/HLSA_Gated_Check_In/133/ : FAILURE
+
+This error occurs when a specific Jenkins pipeline stage fails. The FAILED_STAGE variable indicates which stage failed, and the FAILURE_MESSAGE provides details about the failure.
+ ( https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/Generic_Gated_Check_In/462/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/Internal/job/Unit_Testing/88/ )</pre></div><div class="message"><strong>Oded Rot</strong> <span class="date">(2025-04-09 07:18:01.535000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-09 07:18:07.760000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/HLSA_Gated_Check_In/138/</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-09 07:26:43.734000000)</span><pre>Patch Set 2: Code-Review-1
+
+(5 comments)
+
+Opened Jira Ticket- https://jira.habana-labs.com/browse/SYS-5133
+Unit Tests:
+  - test_hlsa_logger_usage:
+    • Warning: Gated check-in had detected the usage of standard logger instead of &#x27;hlsa_logger&#x27;.
+    • Please check in files tests/HL325/test_functional.py.</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2025-04-09 07:27:25.348000000)</span><pre>Patch Set 2: Finished+1 Verified-1 -Code-Review
+
+Build Failed 
+
+https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/HLSA_Gated_Check_In/138/ : FAILURE
+
+This error occurs when a specific Jenkins pipeline stage fails. The FAILED_STAGE variable indicates which stage failed, and the FAILURE_MESSAGE provides details about the failure.
+ ( https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/Generic_Gated_Check_In/470/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://system-jenkins-ctrl01.habana-labs.com/job/HLSA/job/Gated_Check_In/job/Internal/job/Unit_Testing/90/ )</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>tests/HL325/test_functional.py</h4><ul><li><strong>System Jenkins</strong> (Line 79): Warning! The complexity of method setup_class is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 527): Warning! The complexity of method setup_method is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 1120): Warning! The complexity of method teardown_method is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 1754): Instance of &#x27;TestFunctional&#x27; has no &#x27;device_prepare&#x27; member</li><li><strong>System Jenkins</strong> (Line 1812): Instance of &#x27;TestFunctional&#x27; has no &#x27;device_prepare&#x27; member</li><li><strong>System Jenkins</strong> (Line 1817): Instance of &#x27;TestFunctional&#x27; has no &#x27;hard_reset&#x27; member; maybe &#x27;_hard_reset&#x27;?</li><li><strong>System Jenkins</strong> (Line 3623): Instance of &#x27;TestFunctional&#x27; has no &#x27;ft_jig_control&#x27; member</li><li><strong>System Jenkins</strong> (Line 3634): Instance of &#x27;TestFunctional&#x27; has no &#x27;ft_jig_control&#x27; member</li><li><strong>System Jenkins</strong> (Line 3644): Instance of &#x27;TestFunctional&#x27; has no &#x27;ft_jig_control&#x27; member</li><li><strong>System Jenkins</strong> (Line 3834): Warning! The complexity of method print_sensor_csv_by_device is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 4310): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 4366): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 4372): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4377): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 4380): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4386): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4392): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4397): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4472): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4477): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4484): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4488): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4489): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 4491): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4492): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4493): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4494): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4500): Instance of &#x27;TestFunctional&#x27; has no &#x27;changes_counter_calc&#x27; member</li><li><strong>System Jenkins</strong> (Line 4504): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 4507): Instance of &#x27;TestFunctional&#x27; has no &#x27;ports_status&#x27; member</li><li><strong>System Jenkins</strong> (Line 79): Warning! The complexity of method setup_class is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 527): Warning! The complexity of method setup_method is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 1120): Warning! The complexity of method teardown_method is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li><li><strong>System Jenkins</strong> (Line 1817): Instance of &#x27;TestFunctional&#x27; has no &#x27;hard_reset&#x27; member; maybe &#x27;_hard_reset&#x27;?</li><li><strong>System Jenkins</strong> (Line 3799): Warning! The complexity of method print_sensor_csv_by_device is high.
+ Please review its implementation carefully to ensure optimal performance and readability</li></ul></div></div>
+    </div>
+</body>
+</html>

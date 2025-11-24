@@ -1,0 +1,170 @@
+From d650165ce84cf03f1d5f7e51b2b0efb7a692ef44 Mon Sep 17 00:00:00 2001
+From: Michael Pauzner <mpauzner@habana.ai>
+Date: Sun, 03 Nov 2024 10:57:55 +0200
+Subject: [PATCH] [FSW-358] fs1: propagate restructuring
+
+Propagate folders and name restructuring for FS1.
+
+Change-Id: If9c543cecc76280c57a164f118f52894b909aa3a
+Signed-off-by: Michael Pauzner <mpauzner@habana.ai>
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 65990c1..a4e998f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -27,7 +27,7 @@
+   set(DEV_GEN "gaudi")
+ else()
+   set(HL_NPU_DT_PREF "intel_fs1")
+-  set(DEV_GEN "fs1")
++  set(DEV_GEN "gpu")
+ endif()
+ 
+ target_include_directories(app PRIVATE include/ include/app/io/ include/lib/
+diff --git a/include/arch/common/fs1/common.h b/include/arch/common/fs1/common.h
+deleted file mode 100644
+index 48749a3..0000000
+--- a/include/arch/common/fs1/common.h
++++ /dev/null
+@@ -1,67 +0,0 @@
+-/* SPDX-License-Identifier: Apache-2.0
+- *
+- * Copyright 2022 HabanaLabs, Ltd.
+- * All Rights Reserved.
+- *
+- */
+-
+-/* IMPORTANT:
+- * This file is needed for basic arcpid implementation.
+- * The filename and its contents was copied from the
+- * corresponding file under gaudi3 directory.
+- * Throughout the process of the arcpid implementation,
+- * it will be validated (i.e. discarded or modified).
+- *
+- */
+-
+-#include <pid.h>
+-#include "utils.h"
+-
+-/* Macros are corresponding to gaudi3, implementation needs to be revised for fs1 */
+-
+-#define PID_USE_THREADS						false
+-#define PID_DEVICE_POWER_INT_TIMEOUT		10U
+-#define PID_DEVICE_POWER_INT_PRIORITY		2
+-#define PID_DEVICE_POWER_INT_RUNNER			thread_runner_quick
+-
+-#define POWER_MODE_LEVELS	{	\
+-	150000,		/* 00 */	\
+-	400000,		/* 01 */	\
+-	600000,		/* 10 */	\
+-	/* 11: Normal mode */		\
+-}
+-
+-#define mmPID_CMD_TELEMETRY_REG_0		0
+-#define mmPID_CMD_TELEMETRY_REG_1		0
+-
+-#define EEPROM_DEFAULT_MAX_POWER_MW		200000
+-
+-struct pid_pvt_sensor {
+-	int (*update_limit)(struct pid_pvt_sensor *sensor);
+-	int (*temp_read)(uint16_t sensor_attr, struct pid_pvt_sensor *sensor);
+-	uint64_t (*get_die_temp)(struct pid_pvt_sensor *sensor);
+-	int (*voltage_read)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
+-	int (*voltage_read_highest)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
+-	int (*voltage_read_lowest)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
+-	int (*pvt_stop)(struct pid_pvt_sensor *sensor);
+-	const struct device *dev;
+-	uint8_t num_chan;
+-	uint16_t sensor_idx[6];
+-	struct pid_temp_data temp[6];
+-	uint64_t limit_temp;
+-	struct pid_voltage_data die_volt;
+-	bool is_stop;
+-};
+-
+-/* TODO :  Rename all HL prefixed Macros for fs1 */
+-#define HL_PID_NUM_PVT_INSTS		8
+-#define HL_NUM_RL_INSTS				4
+-#define HL_NUM_PLL_INSTS			14
+-
+-#define HL_PLL_FREQ_LOW				200000000
+-
+-#define NUM_OF_EDPS					4
+-
+-#define HL_ADC_CALIBRATION_MAX_VAL		0x7FF
+-
+-#define HL_PID_MAX_DRAM_TS_INSTS		8
+diff --git a/include/arch/common/gpu/common.h b/include/arch/common/gpu/common.h
+new file mode 100644
+index 0000000..48749a3
+--- /dev/null
++++ b/include/arch/common/gpu/common.h
+@@ -0,0 +1,67 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2022 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++/* IMPORTANT:
++ * This file is needed for basic arcpid implementation.
++ * The filename and its contents was copied from the
++ * corresponding file under gaudi3 directory.
++ * Throughout the process of the arcpid implementation,
++ * it will be validated (i.e. discarded or modified).
++ *
++ */
++
++#include <pid.h>
++#include "utils.h"
++
++/* Macros are corresponding to gaudi3, implementation needs to be revised for fs1 */
++
++#define PID_USE_THREADS						false
++#define PID_DEVICE_POWER_INT_TIMEOUT		10U
++#define PID_DEVICE_POWER_INT_PRIORITY		2
++#define PID_DEVICE_POWER_INT_RUNNER			thread_runner_quick
++
++#define POWER_MODE_LEVELS	{	\
++	150000,		/* 00 */	\
++	400000,		/* 01 */	\
++	600000,		/* 10 */	\
++	/* 11: Normal mode */		\
++}
++
++#define mmPID_CMD_TELEMETRY_REG_0		0
++#define mmPID_CMD_TELEMETRY_REG_1		0
++
++#define EEPROM_DEFAULT_MAX_POWER_MW		200000
++
++struct pid_pvt_sensor {
++	int (*update_limit)(struct pid_pvt_sensor *sensor);
++	int (*temp_read)(uint16_t sensor_attr, struct pid_pvt_sensor *sensor);
++	uint64_t (*get_die_temp)(struct pid_pvt_sensor *sensor);
++	int (*voltage_read)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
++	int (*voltage_read_highest)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
++	int (*voltage_read_lowest)(struct pid_pvt_sensor *sensor, uint8_t ch_idx);
++	int (*pvt_stop)(struct pid_pvt_sensor *sensor);
++	const struct device *dev;
++	uint8_t num_chan;
++	uint16_t sensor_idx[6];
++	struct pid_temp_data temp[6];
++	uint64_t limit_temp;
++	struct pid_voltage_data die_volt;
++	bool is_stop;
++};
++
++/* TODO :  Rename all HL prefixed Macros for fs1 */
++#define HL_PID_NUM_PVT_INSTS		8
++#define HL_NUM_RL_INSTS				4
++#define HL_NUM_PLL_INSTS			14
++
++#define HL_PLL_FREQ_LOW				200000000
++
++#define NUM_OF_EDPS					4
++
++#define HL_ADC_CALIBRATION_MAX_VAL		0x7FF
++
++#define HL_PID_MAX_DRAM_TS_INSTS		8

@@ -1,0 +1,78 @@
+From e747743a11c5260620c2a71a8b26429df739bb29 Mon Sep 17 00:00:00 2001
+From: Priyajit Ghosh <prghosh@habana.ai>
+Date: Sat, 09 Nov 2024 10:26:26 +0200
+Subject: [PATCH] [FSW-11064] add support to convert 64bit to 32bit address
+
+This patch adds support to convert 64bit memory
+address to 32bit memory address.
+
+Change-Id: Ib6d1b1d2e8c573a29fc0a5cf69275975a7c9a974
+Signed-off-by: Priyajit Ghosh <prghosh@habana.ai>
+---
+
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index faa4c52..571be4e 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -442,8 +442,34 @@
+ 
+ uint32_t boot_rom_fw_mem_arc_addr(uint64_t addr)
+ {
+-	if (addr >= MNG_ARC_ICCM_FULL_BASE && addr <= MNG_ARC_ICCM_FULL_BASE + MNG_ARC_MEM_SIZE)
++	/*For IO dies*/
++	if (addr >= MNG_ARC_ICCM_FULL_BASE && addr <= MNG_ARC_ICCM_FULL_BASE + MNG_ARC_MEM_SIZE) {
+ 		return CONV_64B_TO_ARC_FW_MEM(addr) - (HL_FW_MEM_BASE + MNG_ARC_ICCM_OFFSET);
++	} else if (addr >= PID_ARC_ICCM_FULL_BASE &&
++		addr <= PID_ARC_ICCM_FULL_BASE + PID_ARC_MEM_SIZE) {
++		return CONV_64B_TO_ARC_FW_MEM(addr) - (HL_FW_MEM_BASE + PID_ARC_ICCM_OFFSET);
++	} else if (addr >= MISC_ARC_ICCM_FULL_BASE &&
++		addr <= MISC_ARC_ICCM_FULL_BASE + MISC_ARC_MEM_SIZE) {
++		return CONV_64B_TO_ARC_FW_MEM(addr) - (HL_FW_MEM_BASE + MISC_ARC_ICCM_OFFSET);
++	} else if (addr >= CXL_ARC_ICCM_FULL_BASE &&
++		addr <= CXL_ARC_ICCM_FULL_BASE + CXL_ARC_MEM_SIZE) {
++		return CONV_64B_TO_ARC_FW_MEM(addr) - (HL_FW_MEM_BASE + CXL_ARC_ICCM_OFFSET);
++	} else if (addr >= RST_ARC_ICCM_FULL_BASE &&
++		addr <= RST_ARC_ICCM_FULL_BASE + RST_ARC_MEM_SIZE) {
++		return CONV_64B_TO_ARC_FW_MEM(addr) - (HL_FW_MEM_BASE + RST_ARC_ICCM_OFFSET);
++	/*For compute dies*/
++	} else if (addr >= COMPUTE0_MNG_ARC_ICCM_FULL_BASE &&
++		addr <= COMPUTE0_MNG_ARC_ICCM_FULL_BASE + COMPUTE_MNG_ARC_MEM_SIZE) {
++		return (CONV_64B_TO_ARC_FW_COMPUTE_MEM(addr) - (FW_MEM_BASE + MNG_ARC_ICCM_OFFSET));
++	} else if (addr >= COMPUTE1_MNG_ARC_ICCM_FULL_BASE &&
++		addr <= COMPUTE1_MNG_ARC_ICCM_FULL_BASE + COMPUTE_MNG_ARC_MEM_SIZE) {
++		return (CONV_64B_TO_ARC_FW_COMPUTE_MEM(addr) - (FW_MEM_BASE + MNG_ARC_ICCM_OFFSET));
++	} else if (addr >= COMPUTE0_RST_ARC_ICCM_FULL_BASE &&
++		addr <= COMPUTE0_RST_ARC_ICCM_FULL_BASE + COMPUTE_MNG_ARC_MEM_SIZE) {
++		return (CONV_64B_TO_ARC_FW_COMPUTE_MEM(addr) - (FW_MEM_BASE + RST_ARC_ICCM_OFFSET));
++	} else if (addr >= COMPUTE1_RST_ARC_ICCM_FULL_BASE &&
++		addr <= COMPUTE1_RST_ARC_ICCM_FULL_BASE + COMPUTE_MNG_ARC_MEM_SIZE)
++		return (CONV_64B_TO_ARC_FW_COMPUTE_MEM(addr) - (FW_MEM_BASE + RST_ARC_ICCM_OFFSET));
+ 	else
+ 		return CONV_64B_TO_ARC_FW_MEM(addr);
+ }
+diff --git a/arch/fs1/arc/soc.h b/arch/fs1/arc/soc.h
+index 15195c2..6c19839 100644
+--- a/arch/fs1/arc/soc.h
++++ b/arch/fs1/arc/soc.h
+@@ -136,4 +136,21 @@
+ /* 32Bit arc viewpoint address of manifest 2 stored in ICCM */
+ #define SPI_MANIFEST_IMG_2_DMA_DEST_ARC		(HL_FW_MEM_BASE + SPI_MANIFEST_IMG_2_OFFSET)
+ 
++#define COMPUTE_MNG_ARC_ICCM_SIZE       SZ_128K
++#define COMPUTE_MNG_ARC_DCCM_SIZE       SZ_64K
++#define FW_MEM_OFFSET			0x800000
++#define FW_MEM_BASE			(HL_FW_MEM_REGION_BASE + FW_MEM_OFFSET)
++
++#define HL_FW_MEM_COMPUTE_BASE(addr)            (FW_MEM_BASE + (addr & HL_ARC_ADDR_DIE_ID_MASK))
++
++#define CONV_64B_TO_ARC_FW_COMPUTE_MEM(addr)   ((addr & 0x3FFFFF) + HL_FW_MEM_COMPUTE_BASE(addr))
++
++#define COMPUTE_MNG_ARC_MEM_SIZE        (COMPUTE_MNG_ARC_ICCM_SIZE + COMPUTE_MNG_ARC_DCCM_SIZE)
++
++#define COMPUTE0_MNG_ARC_ICCM_FULL_BASE     (mmCOMPUTE_0_CFG_FW_MEM_BASE + MNG_ARC_ICCM_OFFSET)
++#define COMPUTE0_RST_ARC_ICCM_FULL_BASE     (mmCOMPUTE_0_CFG_FW_MEM_BASE + RST_ARC_ICCM_OFFSET)
++
++#define COMPUTE1_MNG_ARC_ICCM_FULL_BASE     (mmCOMPUTE_1_CFG_FW_MEM_BASE + MNG_ARC_ICCM_OFFSET)
++#define COMPUTE1_RST_ARC_ICCM_FULL_BASE     (mmCOMPUTE_1_CFG_FW_MEM_BASE + RST_ARC_ICCM_OFFSET)
++
+ #endif /* _SOC_H_ */

@@ -1,0 +1,62 @@
+From be66c69fb7ac7161225a9f1c173b4056373f039c Mon Sep 17 00:00:00 2001
+From: Josh Fazekas <Josh.Fazekas@Intel.com>
+Date: Tue, 10 Jun 2025 22:57:50 +0300
+Subject: [PATCH] [SW-207335] fu: validate SVN in UpdateComponent
+
+Add SVN checking to firmware update UpdateComponent checks which will
+not allow the update to proceed if components do not meet security
+requirements.
+
+Change-Id: I56cef93897935ac7b0f71aadec627d93aefc0e1f
+Signed-off-by: Josh Fazekas <Josh.Fazekas@Intel.com>
+---
+
+diff --git a/src/pldm_fu.c b/src/pldm_fu.c
+index 74c55c8..217dfe1 100644
+--- a/src/pldm_fu.c
++++ b/src/pldm_fu.c
+@@ -1450,7 +1450,7 @@
+ 		return false;
+ 	}
+ 
+-	LOG_INF("%s: upgrading from %u to %u", __func__, current_svn, new_svn);
++	LOG_INF("%s: check passed: update=%u > current=%u", __func__, new_svn, current_svn);
+ 	return true;
+ }
+ 
+@@ -1695,25 +1695,6 @@
+ 	return 0;
+ }
+ 
+-static bool pldm_fu_can_update_generic_component(
+-	struct pldm_fu_state *state,
+-	struct pldm_fu_update_component_req *req,
+-	uint8_t *response_code)
+-{
+-	/* From OOB Req doc:
+-	 *   If no force:
+-	 *     - FD accept if (new version > current version) AND (new version > SVN)
+-	 *   If force:
+-	 *     - FD accept if (new version > SVN)
+-	 *
+-	 * Basic 'new vs current' check already completed; must still check SVN.
+-	 */
+-
+-	 /* FIXME: SW-207335: validate SVN */
+-
+-	return true;
+-}
+-
+ static bool pldm_fu_can_update_cpld(
+ 	struct pldm_fu_state *state,
+ 	struct pldm_fu_update_component_req *req,
+@@ -1871,7 +1852,8 @@
+ 	switch ((pldm_fu_component_id_t) req->identifier) {
+ 	case PLDM_FU_COMP_ID_SPI:
+ 	case PLDM_FU_COMP_ID_EROM:
+-		if (!pldm_fu_can_update_generic_component(state, req, &response_code))
++		/* Check the minimum SVN */
++		if (!pldm_fu_verify_svn_version(req->comparison_stamp, &response_code))
+ 			return response_code;
+ 		break;
+ 

@@ -1,0 +1,123 @@
+From bb230ebf7b4d3647535237f5938c5c32214fbc82 Mon Sep 17 00:00:00 2001
+From: Abhishek <apatgaonkar@habana.ai>
+Date: Thu, 24 Oct 2024 06:56:54 +0300
+Subject: [PATCH] [FSW-10580] fs1: io: d2d pll and mac init
+
+D2D FSM init in PSOC has been removed in FS1. Now fw
+has responsibility to bringup D2D low speed link. This
+patch adds D2D init functions for io die which does
+dphy and mac init in io die.
+
+Change-Id: I219b3ef242eec8011172fd7b2c28cf7d11f767e4
+---
+
+diff --git a/arch/fs1/arc/dev_recovery.c b/arch/fs1/arc/dev_recovery.c
+index d607a10..addf002 100644
+--- a/arch/fs1/arc/dev_recovery.c
++++ b/arch/fs1/arc/dev_recovery.c
+@@ -16,6 +16,8 @@
+ #include <gpio_regs.h>
+ #include <fs1_efuse.h>
+ #include <mem_io.h>
++#include <comp_dphy_ctrl_regs.h>
++#include <d2d_mac_regs.h>
+ 
+ /* TODO: we need to verify flow and params on test chip to finalize D2D link init */
+ 
+@@ -73,6 +75,77 @@
+ 	regmap_writel(def_ovrd_en, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN));
+ }
+ 
++#define D2D_INIT_TIMEOUT	200 /* us */
++static int boot_rom_d2d_pll_init(void)
++{
++	uint64_t start;
++	uint32_t dphy0_sts, dphy1_sts, dphy2_sts, dphy3_sts;
++
++	/* Init PLL on all DPHYS */
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_PHY_0_CTL0_BASE(mmCOMP_DPHY_CTRL_PLL_SEQ_CTRL));
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_PHY_1_CTL0_BASE(mmCOMP_DPHY_CTRL_PLL_SEQ_CTRL));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_PHY_0_CTL0_BASE(mmCOMP_DPHY_CTRL_PLL_SEQ_CTRL));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_PHY_1_CTL0_BASE(mmCOMP_DPHY_CTRL_PLL_SEQ_CTRL));
++
++	start = boot_rom_get_ts_us();
++	while (1) {
++		dphy0_sts = regmap_readl(IO0_H0_SOC_0_ID2D_PHY_0_CTL0_BASE
++				(mmCOMP_DPHY_CTRL_PLL_SEQ_DONE));
++		dphy1_sts = regmap_readl(IO0_H0_SOC_0_ID2D_PHY_1_CTL0_BASE
++				(mmCOMP_DPHY_CTRL_PLL_SEQ_DONE));
++		dphy2_sts = regmap_readl(IO0_H1_SOC_1_ID2D_PHY_0_CTL0_BASE
++				(mmCOMP_DPHY_CTRL_PLL_SEQ_DONE));
++		dphy3_sts = regmap_readl(IO0_H1_SOC_1_ID2D_PHY_1_CTL0_BASE
++				(mmCOMP_DPHY_CTRL_PLL_SEQ_DONE));
++
++		if (!!dphy0_sts && !!dphy1_sts && !!dphy2_sts && !!dphy3_sts)
++			break;
++
++		if (boot_rom_timeout_expired(start, D2D_INIT_TIMEOUT))
++			return BOOT_ROM_FAIL;
++	}
++
++	return BOOT_ROM_SUCCESS;
++}
++
++static int boot_rom_d2d_phy_mac_init(void)
++{
++	uint64_t start;
++	uint32_t mac0_sts, mac1_sts, mac2_sts, mac3_sts;
++
++	/* Init Link Training */
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN));
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN));
++
++	start = boot_rom_get_ts_us();
++	while (1) {
++		mac0_sts =
++		regmap_readl(IO0_H0_SOC_0_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN_DONE));
++		mac1_sts =
++		regmap_readl(IO0_H0_SOC_0_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN_DONE));
++		mac2_sts =
++		regmap_readl(IO0_H1_SOC_1_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN_DONE));
++		mac3_sts =
++		regmap_readl(IO0_H1_SOC_1_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_LINK_TRAIN_DONE));
++
++		if (!!mac0_sts && !!mac1_sts && !!mac2_sts && !!mac3_sts)
++			break;
++
++		if (boot_rom_timeout_expired(start, D2D_INIT_TIMEOUT))
++			return BOOT_ROM_FAIL;
++	}
++
++	/* Init MAC IP */
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_MAC_CTRL0));
++	regmap_writel(0x1, IO0_H0_SOC_0_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_MAC_CTRL0));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_MAC_0_D2D_MAC0_BASE(mmD2D_MAC_MAC_CTRL0));
++	regmap_writel(0x1, IO0_H1_SOC_1_ID2D_MAC_1_D2D_MAC0_BASE(mmD2D_MAC_MAC_CTRL0));
++
++	return BOOT_ROM_SUCCESS;
++}
++
+ void boot_rom_d2d_link_init(void)
+ {
+ 	if (boot_rom_global.sku == FS1_IO_DIE_SA)
+@@ -96,9 +169,16 @@
+ 	/* Inter die indication for d2d link init handshaking */
+ 	boot_rom_status_update(PROGRESS_BOOT_ROM_D2D_LINK_INTER_DIE_SYNC);
+ 
+-	/* TODO: IO HALF0 FSM_CTL and HALF1 FSM_CTL are in sync, and set start bit of D2D init */
+ 
+-	/* TODO: wait for DPYH FSM busy status */
++	if (boot_rom_d2d_pll_init() != BOOT_ROM_SUCCESS) {
++		boot_rom_status_update(PROGRESS_BOOT_ROM_D2D_LINK_INIT_TIMEDOUT);
++		return;
++	}
++
++	if (boot_rom_d2d_phy_mac_init() != BOOT_ROM_SUCCESS) {
++		boot_rom_status_update(PROGRESS_BOOT_ROM_D2D_LINK_INIT_TIMEDOUT);
++		return;
++	}
+ 
+ 	boot_rom_status_update(PROGRESS_BOOT_ROM_D2D_LINK_INIT_SUCCESS);
+ 

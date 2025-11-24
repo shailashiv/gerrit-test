@@ -1,0 +1,360 @@
+From efb766e806f4a18600588a7c01ca67d41de54db4 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Sun, 31 Aug 2025 16:35:30 +0300
+Subject: [PATCH] Revert "[SW-232611] CD: add Sign packages scripts"
+
+This reverts commit edd8f81982ebbe8befe4548c48720ac55232e5f0.
+
+Change-Id: I0264ea74069b53cb7f862312197fb9e04c6fac53
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+---
+
+diff --git a/packages-specs/dkms/base-package.yaml b/packages-specs/dkms/base-package.yaml
+index 41e8a65..2398301 100644
+--- a/packages-specs/dkms/base-package.yaml
++++ b/packages-specs/dkms/base-package.yaml
+@@ -75,7 +75,14 @@
+     activate_noawait:
+       - ldconfig
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
+ rpm:
+   scripts:
+     verify: ./scripts/rpm/verify.sh
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/firmware-odm/package.yaml b/packages-specs/firmware-odm/package.yaml
+index 854464d..4abb9a0 100644
+--- a/packages-specs/firmware-odm/package.yaml
++++ b/packages-specs/firmware-odm/package.yaml
+@@ -62,3 +62,12 @@
+ 
+ deb:
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/firmware-tools/package.yaml b/packages-specs/firmware-tools/package.yaml
+index 7fb3492..ed30bcf 100644
+--- a/packages-specs/firmware-tools/package.yaml
++++ b/packages-specs/firmware-tools/package.yaml
+@@ -60,3 +60,12 @@
+ 
+ deb:
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/firmware/package.yaml b/packages-specs/firmware/package.yaml
+index 8caaa74..b128f08 100644
+--- a/packages-specs/firmware/package.yaml
++++ b/packages-specs/firmware/package.yaml
+@@ -44,4 +44,12 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/graph/base-package.yaml b/packages-specs/graph/base-package.yaml
+index f303402..66e1af1 100644
+--- a/packages-specs/graph/base-package.yaml
++++ b/packages-specs/graph/base-package.yaml
+@@ -261,6 +261,11 @@
+     activate_noawait:
+       - ldconfig
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
+ rpm:
+   scripts:
+     verify: ./scripts/rpm/verify.sh
+@@ -270,4 +275,6 @@
+     # posttrans: ./scripts/posttrans.sh
+     # The verify script runs when verifying packages using `rpm -V`.
+     # verify: ./scripts/verify.sh
+-
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+diff --git a/packages-specs/hlthunk/base-package.yaml b/packages-specs/hlthunk/base-package.yaml
+index b66b022..f20095b 100644
+--- a/packages-specs/hlthunk/base-package.yaml
++++ b/packages-specs/hlthunk/base-package.yaml
+@@ -76,7 +76,14 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
+ rpm:
+   scripts:
+     verify: ./scripts/rpm/verify.sh
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/hypervisor-utils/package.yaml b/packages-specs/hypervisor-utils/package.yaml
+index 7657301..cce1009 100644
+--- a/packages-specs/hypervisor-utils/package.yaml
++++ b/packages-specs/hypervisor-utils/package.yaml
+@@ -40,4 +40,12 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+diff --git a/packages-specs/hypervisor/package.yaml b/packages-specs/hypervisor/package.yaml
+index f284248..7964c77 100644
+--- a/packages-specs/hypervisor/package.yaml
++++ b/packages-specs/hypervisor/package.yaml
+@@ -44,6 +44,15 @@
+ 
+ deb:
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+ 
+ overrides:
+   deb:
+diff --git a/packages-specs/perf-test/package.yaml b/packages-specs/perf-test/package.yaml
+index ab49882..f75a6a3 100644
+--- a/packages-specs/perf-test/package.yaml
++++ b/packages-specs/perf-test/package.yaml
+@@ -49,7 +49,15 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+ 
+ overrides:
+   deb:
+diff --git a/packages-specs/qual-py312/base-package.yaml b/packages-specs/qual-py312/base-package.yaml
+index 1d2309c..5e4f35d 100644
+--- a/packages-specs/qual-py312/base-package.yaml
++++ b/packages-specs/qual-py312/base-package.yaml
+@@ -67,8 +67,14 @@
+     activate_noawait:
+       - ldconfig
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
+ rpm:
+   scripts:
+     verify: ./scripts/rpm/verify.sh
+-
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+diff --git a/packages-specs/qual-workloads/package.yaml b/packages-specs/qual-workloads/package.yaml
+index a4688e2..f371394 100644
+--- a/packages-specs/qual-workloads/package.yaml
++++ b/packages-specs/qual-workloads/package.yaml
+@@ -41,3 +41,12 @@
+ 
+ deb:
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/qual/base-package.yaml b/packages-specs/qual/base-package.yaml
+index 4791404..d3d88bf 100644
+--- a/packages-specs/qual/base-package.yaml
++++ b/packages-specs/qual/base-package.yaml
+@@ -77,4 +77,12 @@
+     activate_noawait:
+       - ldconfig
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+diff --git a/packages-specs/rdma-core/base-package.yaml b/packages-specs/rdma-core/base-package.yaml
+index c51d68f..44725ba 100644
+--- a/packages-specs/rdma-core/base-package.yaml
++++ b/packages-specs/rdma-core/base-package.yaml
+@@ -76,3 +76,12 @@
+ 
+ deb:
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/sw_tools/package.yaml b/packages-specs/sw_tools/package.yaml
+index bb5aaa5..cb137f0 100644
+--- a/packages-specs/sw_tools/package.yaml
++++ b/packages-specs/sw_tools/package.yaml
+@@ -41,4 +41,12 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages-specs/tests/package.yaml b/packages-specs/tests/package.yaml
+index d8a7aa2..719acd8 100644
+--- a/packages-specs/tests/package.yaml
++++ b/packages-specs/tests/package.yaml
+@@ -64,6 +64,18 @@
+     activate_noawait:
+       - ldconfig
+   compression: xz
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++
++
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
++
+ 
+ overrides:
+   deb:
+diff --git a/packages-specs/tools/package.yaml b/packages-specs/tools/package.yaml
+index 30b8746..7741187 100644
+--- a/packages-specs/tools/package.yaml
++++ b/packages-specs/tools/package.yaml
+@@ -100,4 +100,12 @@
+ 
+ deb:
+   compression: xz
+-
++  signature:
++    method: dpkg-sig
++    key_file: /etc/signkey.gpg
++    type: origin
++    key_id: 85EB2859
++rpm:
++  signature:
++    key_file: /etc/signkey.gpg
++    key_id: 323DCF8585EB2859
+\ No newline at end of file
+diff --git a/packages/container-runtime/rpm/build.sh b/packages/container-runtime/rpm/build.sh
+index 78d382b..2c9572c 100755
+--- a/packages/container-runtime/rpm/build.sh
++++ b/packages/container-runtime/rpm/build.sh
+@@ -138,17 +138,17 @@
+     sed -i "s/DTYPE/$DIST_TYPE/g" container-runtime.spec
+     rpmbuild -bb ./container-runtime.spec
+ 
+-#     echo "###############"
+-#     echo "# Signing RPM #"
+-#     echo "###############"
+-#     # add gpg public key
+-#     echo "%_gpg_name 85EB2859" >>~/.rpmmacros
+-#     /usr/bin/expect <<EOF
+-# spawn rpm --addsign -v $HOME/rpmbuild/RPMS/$OS_ARCH/$HL_CRT_NAME-$HL_CRT_VER-$HL_CRT_RELEASE$DIST_TYPE.$OS_ARCH.rpm
+-# expect -exact "Enter pass phrase: "
+-# send -- "7T*4R9j#!fzK24\r"
+-# expect eof
+-# EOF
++    echo "###############"
++    echo "# Signing RPM #"
++    echo "###############"
++    # add gpg public key
++    echo "%_gpg_name 85EB2859" >>~/.rpmmacros
++    /usr/bin/expect <<EOF
++spawn rpm --addsign -v $HOME/rpmbuild/RPMS/$OS_ARCH/$HL_CRT_NAME-$HL_CRT_VER-$HL_CRT_RELEASE$DIST_TYPE.$OS_ARCH.rpm
++expect -exact "Enter pass phrase: "
++send -- "7T*4R9j#!fzK24\r"
++expect eof
++EOF
+ 
+     cp $HOME/rpmbuild/RPMS/$OS_ARCH/$HL_CRT_NAME-$HL_CRT_VER-$HL_CRT_RELEASE$DIST_TYPE.$OS_ARCH.rpm ${PACKAGE_BUILD_ROOT}/habanalabs_package/
+ }

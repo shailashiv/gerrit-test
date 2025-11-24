@@ -1,0 +1,839 @@
+From d0afa278e607ba400614a4b6cd5cca03825030e6 Mon Sep 17 00:00:00 2001
+From: Adrian Shvay <ashvay@habana.ai>
+Date: Mon, 28 Oct 2024 14:29:10 +0200
+Subject: [PATCH] [SW-160978] [WIP] EveitEvent must not call  python object on EmitEvit, it should just collect data, which be processed in the end of execution
+
+Change-Id: If689fc72b1bbb6cd1a74a425b9832c3f8243c4d5
+---
+
+diff --git a/backend/helpers/event_dispatcher.cpp b/backend/helpers/event_dispatcher.cpp
+index 18605cc..8e1d10e 100644
+--- a/backend/helpers/event_dispatcher.cpp
++++ b/backend/helpers/event_dispatcher.cpp
+@@ -19,87 +19,129 @@
+ 
+ namespace habana_helpers {
+ 
++std::pair<uint64_t, uint64_t> Subscribers::UpdateIndexes(
++    int64_t sub_id,
++    uint64_t event_size) {
++  auto it = std::find_if(
++      subscribers_.begin(), subscribers_.end(), [sub_id](auto& el) {
++        return sub_id == el.index_;
++      });
++  HABANA_ASSERT(it != subscribers_.end(), "Subscriber not found");
++
++  auto start_index = it->pos_;
++
++  if (start_index == event_size)
++    return {start_index, 0};
++
++  it->pos_ = event_size;
++
++  auto min_result = std::min_element(
++      subscribers_.begin(), subscribers_.end(), [](auto& a, auto& b) {
++        return a.pos_ < b.pos_;
++      });
++  auto min_index = min_result->pos_;
++
++  for (auto& el : subscribers_)
++    el.pos_ -= min_index;
++
++  return {start_index, min_index};
++}
++
++void Subscribers::Insert(int64_t sub_id, uint64_t pos) {
++  subscribers_.emplace_back(sub_id, pos);
++}
++
++void Subscribers::Delete(int64_t sub_id) {
++  auto it = std::remove_if(
++      subscribers_.begin(), subscribers_.end(), [sub_id](auto& el) {
++        return el.index_ == sub_id;
++      });
++  HABANA_ASSERT(it != subscribers_.end());
++  subscribers_.erase(it, subscribers_.end());
++}
++
++void TopicQueue::Process(int64_t sub_id, const EventCallback& precess_func) {
++  std::cout << " Process START\n";
++  auto [index, free_el] = subscribers_.UpdateIndexes(sub_id, events_.size());
++  HABANA_ASSERT(index <= events_.size());
++  std::cout << " we have " << events_.size() << " events\n";
++  for (size_t i = index; i < events_.size(); i++) {
++    precess_func(events_[i]);
++  }
++  if (free_el > 0)
++    events_.erase(events_.begin(), events_.begin() + free_el);
++  std::cout << " Process END\n";
++}
++
++void TopicQueue::Reset(int64_t sub_id) {
++  auto [index, free_el] = subscribers_.UpdateIndexes(sub_id, events_.size());
++  HABANA_ASSERT(index <= events_.size());
++  if (free_el > 0)
++    events_.erase(events_.begin(), events_.begin() + free_el);
++}
++
++void TopicQueue::AddSubscriber(int64_t sub_id) {
++  subscribers_.Insert(sub_id, events_.size());
++}
++void TopicQueue::RemoveSubscriber(int64_t sub_id) {
++  subscribers_.Delete(sub_id);
++}
++void TopicQueue::PushEvent(const EventParams& params) {
++  events_.push_back(params);
++}
++
+ EventDispatcher::EventDispatcher() : next_subscribe_id_(0) {}
+ 
+-std::shared_ptr<EventDispatcherHandle> EventDispatcher::subscribe(
+-    EventDispatcher::Topic topic,
+-    const EventDispatcher::EventCallback& callback) {
++void EventDispatcher::process(
++    const std::shared_ptr<EventDispatcherHandle>& handle,
++    const EventCallback& callback) {
+   std::lock_guard<std::mutex> ld(mutex_);
+-  subscribers_[topic].push_back(
+-      {next_subscribe_id_++,
+-       std::make_shared<EventDispatcher::EventCallback>(callback)});
++  auto it = topic_queues_.find(handle->topic);
++  HABANA_ASSERT(it != topic_queues_.end(), "Topic not found");
++  it->second.Process(handle->sub_id, callback);
++}
+ 
+-  return EventDispatcherHandle::create(topic, subscribers_[topic].back().first);
++void EventDispatcher::reset(
++    const std::shared_ptr<EventDispatcherHandle>& handle) {
++  std::lock_guard<std::mutex> ld(mutex_);
++  auto it = topic_queues_.find(handle->topic);
++  HABANA_ASSERT(it != topic_queues_.end(), "Topic not found");
++  it->second.Reset(handle->sub_id);
++}
++
++std::shared_ptr<EventDispatcherHandle> EventDispatcher::subscribe(
++    EventDispatcher::Topic topic) {
++  std::lock_guard<std::mutex> ld(mutex_);
++  auto subscribe_id_ = next_subscribe_id_++;
++  topic_queues_[topic].AddSubscriber(subscribe_id_);
++  return EventDispatcherHandle::create(topic, subscribe_id_);
+ }
+ 
+ void EventDispatcher::publish(
+     EventDispatcher::Topic topic,
+-    const EventDispatcher::EventParams& params,
+-    EventTsType timestamp) {
++    const EventParams& params) {
+   log_publish_request(topic, params);
+ 
+-  std::vector<EventCallbackWithSubId> copy_of_subs;
+-
+-  {
+-    std::lock_guard<std::mutex> ld(mutex_);
+-    if (subscribers_.count(topic) == 0) {
+-      return;
+-    } else {
+-      // Copy subscribers list to limit the scope of mutex being locked,
+-      // especially to avoid calling callback (usually Python code) with locked
+-      // mutex (mutex_). Calling Python callback with mutex_ taken may result in
+-      // deadlock with GIL, example:
+-      // 1. Publish is called by C++ thread, for example graph compilation
+-      //   - lock is taken by pure C++ thread
+-      //   - C++ thread is preempted
+-      // 2. Python main thread calls Python API that publishes event
+-      //   - GIL is taken by Python main thread
+-      //   - publish is called
+-      //   - Python main thread hangs on mutex_, because it is already taken by
+-      //     C++ thread
+-      // 3. C++ thread is resumed and tries to call Python callback
+-      //   - since C++ calls Python, then code tries to acquire GIL
+-      //   - GIL is already taken by Python main thread
+-      //   - nothing more can be done: C++ thread waits for GIL and Python
+-      //   thread
+-      //     is not able to return it, because it waits for mutex_ that is
+-      //     already taken by C++ thread
+-      copy_of_subs = subscribers_[topic];
+-    }
++  auto it = topic_queues_.find(topic);
++  if (it == topic_queues_.end()) {
++    return;
+   }
+-
+-  for (const auto& callback_with_sub_id : copy_of_subs) {
+-    (*callback_with_sub_id.second)(timestamp, params);
+-  }
++  std::lock_guard<std::mutex> ld(mutex_);
++  it->second.PushEvent(params);
+ }
+ 
+ void EventDispatcher::unsubscribe_all() {
+   std::lock_guard<std::mutex> ld(mutex_);
+-  subscribers_.clear();
++  topic_queues_.clear();
+ }
+ 
+ void EventDispatcher::unsubscribe(Topic topic, int64_t sub_id) {
+   std::lock_guard<std::mutex> ld(mutex_);
+-
+-  if (subscribers_.count(topic) == 0) {
++  auto it = topic_queues_.find(topic);
++  if (it == topic_queues_.end())
+     return;
+-  }
+ 
+-  auto new_end = std::remove_if(
+-      subscribers_[topic].begin(),
+-      subscribers_[topic].end(),
+-      [sub_id](auto& callback_with_id) {
+-        return callback_with_id.first == sub_id ? true : false;
+-      });
+-
+-  // shrink callback list by one element when element was found
+-  if (new_end != subscribers_[topic].end()) {
+-    subscribers_[topic].pop_back();
+-  }
+-
+-  TORCH_CHECK(
+-      new_end == subscribers_[topic].end(),
+-      "Inconsistent size of event dispatcher callback list");
++  it->second.RemoveSubscriber(sub_id);
+ }
+ 
+ void EventDispatcher::unsubscribe(
+@@ -109,7 +151,7 @@
+ 
+ void EventDispatcher::log_publish_request(
+     EventDispatcher::Topic topic,
+-    const EventDispatcher::EventParams& params) {
++    const EventParams& params) {
+   PT_HABHELPER_DEBUG(
+       "Published topic: ", topic, " with ", params.size(), " parameters:");
+   for (auto& entry : params) {
+diff --git a/backend/helpers/event_dispatcher.h b/backend/helpers/event_dispatcher.h
+index 928af18..62c09d2 100644
+--- a/backend/helpers/event_dispatcher.h
++++ b/backend/helpers/event_dispatcher.h
+@@ -14,6 +14,7 @@
+ #pragma once
+ 
+ #include <chrono>
++#include <deque>
+ #include <functional>
+ #include <memory>
+ #include <mutex>
+@@ -27,6 +28,41 @@
+ namespace habana_helpers {
+ 
+ class EventDispatcherHandle;
++
++class Subscribers {
++ public:
++  std::pair<uint64_t, uint64_t> UpdateIndexes(int64_t sub_id, uint64_t index);
++  void Insert(int64_t sub_id, uint64_t pos);
++  void Delete(int64_t sub_id);
++
++ private:
++  struct Subscriber {
++    Subscriber(int64_t index, uint64_t pos) : index_(index), pos_(pos) {}
++    int64_t index_;
++    uint64_t pos_;
++  };
++  std::vector<Subscriber> subscribers_;
++};
++
++using EventParam = std::pair<std::string, std::string>;
++using EventParams = std::vector<EventParam>;
++using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
++using EventCallbackFuncType = void(const EventParams&);
++using EventCallback = std::function<EventCallbackFuncType>;
++
++class TopicQueue {
++ public:
++  void Process(int64_t sub_id, const EventCallback& precess_func);
++  void AddSubscriber(int64_t sub_id);
++  void RemoveSubscriber(int64_t sub_id);
++  void PushEvent(const EventParams& params);
++  void Reset(int64_t sub_id);
++
++ private:
++  std::deque<EventParams> events_;
++  Subscribers subscribers_;
++};
++
+ class EventDispatcher {
+  public:
+   enum class Topic {
+@@ -46,29 +82,20 @@
+     static EventDispatcher instance;
+     return instance;
+   }
+-
+-  using EventParam = std::pair<std::string, std::string>;
+-  using EventParams = std::vector<EventParam>;
+-  using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
+-  using EventCallbackFuncType = void(EventTsType timestamp, const EventParams&);
+-  using EventCallback = std::function<EventCallbackFuncType>;
+-  using EventCallbackWithSubId =
+-      std::pair<int64_t, std::shared_ptr<EventCallback>>;
+-
+-  std::shared_ptr<EventDispatcherHandle> subscribe(
+-      Topic topic,
++  void process(
++      const std::shared_ptr<EventDispatcherHandle>& handle,
+       const EventCallback& callback);
++  void reset(const std::shared_ptr<EventDispatcherHandle>& handle);
++
++  std::shared_ptr<EventDispatcherHandle> subscribe(Topic topic);
+   void unsubscribe(Topic topic, int64_t subscribe_id);
+   void unsubscribe(const std::shared_ptr<EventDispatcherHandle>& handle);
+-  void publish(
+-      Topic topic,
+-      const EventParams& params,
+-      EventTsType timestamp = std::chrono::system_clock::now());
++  void publish(Topic topic, const EventParams& params);
+   void unsubscribe_all();
+ 
+  private:
+   EventDispatcher();
+-  std::unordered_map<Topic, std::vector<EventCallbackWithSubId>> subscribers_;
++  std::unordered_map<Topic, TopicQueue> topic_queues_;
+   std::mutex mutex_;
+   int64_t next_subscribe_id_;
+ 
+@@ -80,9 +107,6 @@
+  public:
+   const EventDispatcher::Topic topic;
+   const int64_t sub_id;
+-  std::shared_ptr<EventDispatcherHandle> getptr() {
+-    return shared_from_this();
+-  }
+ 
+   [[nodiscard]] static std::shared_ptr<EventDispatcherHandle> create(
+       EventDispatcher::Topic topic,
+@@ -98,10 +122,8 @@
+ 
+ inline void EmitEvent(
+     EventDispatcher::Topic event_id,
+-    const EventDispatcher::EventParams& params =
+-        habana_helpers::EventDispatcher::EventParams(),
+-    EventDispatcher::EventTsType timestamp = std::chrono::system_clock::now()) {
+-  EventDispatcher::Instance().publish(event_id, params, timestamp);
++    const EventParams& params = habana_helpers::EventParams()) {
++  EventDispatcher::Instance().publish(event_id, params);
+ }
+ 
+ inline std::ostream& operator<<(
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 10a7ed8..3923ce3 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -147,9 +147,7 @@
+     std::string cache_name) {
+   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_CACHE_METRICS, true)) {
+     habana_helpers::EmitEvent(
+-        topic,
+-        habana_helpers::EventDispatcher::EventParams(
+-            {{"recipe_id", cache_name}}));
++        topic, habana_helpers::EventParams({{"recipe_id", cache_name}}));
+   }
+ }
+ 
+diff --git a/backend/synapse_helpers/device_memory.cpp b/backend/synapse_helpers/device_memory.cpp
+index edbf47b..c86b92a 100644
+--- a/backend/synapse_helpers/device_memory.cpp
++++ b/backend/synapse_helpers/device_memory.cpp
+@@ -765,8 +765,7 @@
+         "Defragmentation cannot be started. There is not enough free memory.");
+     habana_helpers::EmitEvent(
+         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+-        habana_helpers::EventDispatcher::EventParams(
+-            {{"success", std::to_string(0)}}));
++        habana_helpers::EventParams({{"success", std::to_string(0)}}));
+     return false;
+   }
+ 
+@@ -863,7 +862,7 @@
+     lock.unlock();
+     habana_helpers::EmitEvent(
+         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+-        habana_helpers::EventDispatcher::EventParams(
++        habana_helpers::EventParams(
+             {{"success", std::to_string(1)},
+              {"milliseconds", std::to_string(milliseconds_metric)}}));
+   }
+diff --git a/backend/synapse_helpers/graph.cpp b/backend/synapse_helpers/graph.cpp
+index 8c01722..598b3c1 100644
+--- a/backend/synapse_helpers/graph.cpp
++++ b/backend/synapse_helpers/graph.cpp
+@@ -613,7 +613,7 @@
+   if (!eager_mode_) {
+     habana_helpers::EmitEvent(
+         habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE,
+-        habana_helpers::EventDispatcher::EventParams(
++        habana_helpers::EventParams(
+             {{"duration", std::to_string(syn_compile_duration_us)},
+              {"recipe", recipe_handle->recipe_name_}}));
+   }
+diff --git a/hpu_ops/cpu_fallback.cpp b/hpu_ops/cpu_fallback.cpp
+index 3af63ef..eadd6b8 100644
+--- a/hpu_ops/cpu_fallback.cpp
++++ b/hpu_ops/cpu_fallback.cpp
+@@ -92,8 +92,7 @@
+   HpuFallbackHelper::get()->increment_count(op_name);
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
+-      habana_helpers::EventDispatcher::EventParams({{"op_name", op_name}}));
+-
++      habana_helpers::EventParams({{"op_name", op_name}}));
+ 
+   habana_lazy::HbExecutionContext* context =
+       habana_lazy::get_device_lazy_execution_context();
+diff --git a/python_packages/habana_frameworks/torch/hpu/metrics/metrics.py b/python_packages/habana_frameworks/torch/hpu/metrics/metrics.py
+index 8bc95be..b5a7f83 100644
+--- a/python_packages/habana_frameworks/torch/hpu/metrics/metrics.py
++++ b/python_packages/habana_frameworks/torch/hpu/metrics/metrics.py
+@@ -38,24 +38,13 @@
+ 
+         atexit.register(self._at_exit_callback)
+ 
+-        def mark_step_event_callback_fn(timestamp, event_params):
+-            self._metric_saver.process_trigger(MetricDumpTrigger.mark_step, self._global_metrics)
+-
+-        def dev_acquired_event_callback_fn(timestamp, event_params):
+-            self._metric_saver.enable()
+-
+         ed = EventDispatcher.instance()
+-        self._mark_step_event_handle = ed.subscribe(EventId.MARK_STEP, mark_step_event_callback_fn)
+-
+-        self._dev_acquired_event_handle = ed.subscribe(EventId.DEVICE_ACQUIRED, dev_acquired_event_callback_fn)
++        self._dev_acquired_event_handle = ed.subscribe(EventId.DEVICE_ACQUIRED)
+ 
+     def __del__(self):
+         atexit.unregister(self._at_exit_callback)
+ 
+         ed = EventDispatcher.instance()
+-        ed.unsubscribe(self._mark_step_event_handle)
+-        self._mark_step_event_handle = None
+-
+         ed.unsubscribe(self._dev_acquired_event_handle)
+         self._dev_acquired_event_handle = None
+ 
+@@ -92,6 +81,12 @@
+             raise MetricNotFound(f"Metric with given name ({name}) doesn't exist.")
+ 
+     def _at_exit_callback(self):
++        def dev_acquired_event_callback_fn(event_params):
++            self._metric_saver.enable()
++
++        ed = EventDispatcher.instance()
++        ed.process(self._dev_acquired_event_handle, dev_acquired_event_callback_fn)
++
+         self._metric_saver.process_trigger(MetricDumpTrigger.process_exit, self._global_metrics)
+         self._metric_saver.close()
+ 
+@@ -133,13 +128,14 @@
+         """Stops collecting statistics."""
+         raise NotImplementedError
+ 
++    @abc.abstractmethod
++    def process(self) -> None:
++        """Process collecting statistics."""
++        raise NotImplementedError
++
+     def on_metric_change(self, callback) -> None:
+         """Registers callback called on every metric change."""
+         self._metric_change_callback = callback
+-
+-    def notify(self, timestamp, event_params):
+-        if self._metric_change_callback:
+-            self._metric_change_callback(timestamp, self.name(), self.stats())
+ 
+ 
+ class MemoryDefragmentationMetric(Metric):
+@@ -159,13 +155,12 @@
+         self.start()
+ 
+     def _get_event_callback_fn(self):
+-        def callback(timestamp, event_params):
++        def callback(event_params):
+             event_params = dict(event_params)
+             self._total_defragmentation_count += 1
+             if bool_helper(event_params[self._DEFRAGMENTATION_SUCCESS_EVENT_NAME]):
+                 self._total_successful_defragmentation_count += 1
+                 self._defragmentation_time.append(int(event_params[self._DEFRAGMENTATION_MILLISECONDS_EVENT_NAME]))
+-            self.notify(timestamp, event_params)
+ 
+         return callback
+ 
+@@ -174,14 +169,16 @@
+ 
+     def start(self):
+         if not self._handle:
+-            self._handle = self._ed.subscribe(EventId.MEMORY_DEFRAGMENTATION, self._get_event_callback_fn())
++            self._handle = self._ed.subscribe(EventId.MEMORY_DEFRAGMENTATION)
+ 
+     def stop(self):
++        self.process()
+         if self._handle:
+             self._ed.unsubscribe(self._handle)
+             self._handle = None
+ 
+     def stats(self):
++        self.process()
+         return [
+             (self._TOTAL_DEFRAGMENTATION_TAG, self._total_defragmentation_count),
+             (self._TOTAL_DEFRAGMENTATION_SUCCESSFUL_TAG, self._total_successful_defragmentation_count),
+@@ -195,7 +192,13 @@
+             ),
+         ]
+ 
++    def process(self):
++        if self._handle:
++            self._ed.process(self._handle, self._get_event_callback_fn())
++
++
+     def reset(self):
++        self.process()
+         self._total_defragmentation_count = 0
+         self._total_successful_defragmentation_count = 0
+         self._defragmentation_time.clear()
+@@ -222,22 +225,20 @@
+         self.start()
+ 
+     def _get_hit_event_callback_fn(self):
+-        def callback(timestamp, event_params):
++        def callback(event_params):
+             event_params = dict(event_params)
+             self.total_cache_hit += 1
+             recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
+             self.total_recipe_cache_hit[recipe_id] = self.total_recipe_cache_hit.get(recipe_id, 0) + 1
+-            self.notify(timestamp, event_params)
+ 
+         return callback
+ 
+     def _get_miss_event_callback_fn(self):
+-        def callback(timestamp, event_params):
++        def callback(event_params):
+             event_params = dict(event_params)
+             self.total_cache_miss += 1
+             recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
+             self.total_recipe_cache_miss[recipe_id] = self.total_recipe_cache_miss.get(recipe_id, 0) + 1
+-            self.notify(timestamp, event_params)
+ 
+         return callback
+ 
+@@ -246,11 +247,12 @@
+ 
+     def start(self):
+         if not self._handle_hit:
+-            self._handle_hit = self._ed.subscribe(EventId.CACHE_HIT, self._get_hit_event_callback_fn())
++            self._handle_hit = self._ed.subscribe(EventId.CACHE_HIT)
+         if not self._handle_miss:
+-            self._handle_miss = self._ed.subscribe(EventId.CACHE_MISS, self._get_miss_event_callback_fn())
++            self._handle_miss = self._ed.subscribe(EventId.CACHE_MISS)
+ 
+     def stop(self):
++        self.process()
+         if self._handle_hit:
+             self._ed.unsubscribe(self._handle_hit)
+             self._handle_hit = None
+@@ -259,6 +261,7 @@
+             self._handle_miss = None
+ 
+     def stats(self):
++        self.process()
+         return [
+             (self._TOTAL_CACHE_HIT_TAG, self.total_cache_hit),
+             (self._RECIPE_CACHE_HIT_TAG, self.total_recipe_cache_hit),
+@@ -266,7 +269,14 @@
+             (self._RECIPE_CACHE_MISS_TAG, self.total_recipe_cache_miss),
+         ]
+ 
++    def process(self):
++        if self._handle_hit:
++            self._ed.process(self._handle_hit, self._get_hit_event_callback_fn())
++        if self._handle_miss:
++            self._ed.process(self._handle_miss, self._get_miss_event_callback_fn())
++
+     def reset(self):
++        self.process()
+         self.total_cache_hit = 0
+         self.total_recipe_cache_hit = {}
+         self.total_cache_miss = 0
+@@ -289,12 +299,11 @@
+         self.start()
+ 
+     def _get_event_callback_fn(self):
+-        def callback(timestamp, event_params):
++        def callback(event_params):
+             event_params = dict(event_params)
+             self._total_fallback_count += 1
+             op_name = event_params[self._OP_NAME_EVENT_NAME]
+             self._total_op_fallback_count[op_name] = self._total_op_fallback_count.get(op_name, 0) + 1
+-            self.notify(timestamp, event_params)
+ 
+         return callback
+ 
+@@ -303,20 +312,27 @@
+ 
+     def start(self):
+         if not self._handle:
+-            self._handle = self._ed.subscribe(EventId.CPU_FALLBACK, self._get_event_callback_fn())
++            self._handle = self._ed.subscribe(EventId.CPU_FALLBACK)
+ 
+     def stop(self):
++        self.process()
+         if self._handle:
+             self._ed.unsubscribe(self._handle)
+             self._handle = None
+ 
+     def stats(self):
++        self.process()
+         return [
+             (self._TOTAL_FALLBACKS_TAG, self._total_fallback_count),
+             (self._FALLBACK_OPS_TAG, self._total_op_fallback_count),
+         ]
+ 
++    def process(self):
++        if self._handle:
++            self._ed.process(self._handle, self._get_event_callback_fn())
++
+     def reset(self):
++        self.process()
+         self._total_fallback_count = 0
+         self._total_op_fallback_count = dict()
+ 
+@@ -342,13 +358,12 @@
+         self.start()
+ 
+     def _get_event_callback_fn(self):
+-        def callback_fn(timestamp, event_params):
++        def callback_fn(event_params):
+             event_params = dict(event_params)
+             self._total_num_of_compilation += 1
+             self._total_time_of_compilation += int(event_params[self._DURATION_EVENT_PARAM_NAME])
+             self._recipe_names.append(event_params[self._RECIPE_PARAM_NAME])
+             self._recipe_durations.append(int(event_params[self._DURATION_EVENT_PARAM_NAME]))
+-            self.notify(timestamp, event_params)
+ 
+         return callback_fn
+ 
+@@ -357,14 +372,16 @@
+ 
+     def start(self):
+         if not self._handle:
+-            self._handle = self._ed.subscribe(EventId.GRAPH_COMPILATION, self._get_event_callback_fn())
++            self._handle = self._ed.subscribe(EventId.GRAPH_COMPILATION)
+ 
+     def stop(self):
++        self.process()
+         if self._handle:
+             self._ed.unsubscribe(self._handle)
+             self._handle = None
+ 
+     def stats(self):
++        self.process()
+         result = {
+             self._TOTAL_NUMBER_TAG: self._total_num_of_compilation,
+             self._TOTAL_TIME_TAG: self._total_time_of_compilation,
+@@ -380,7 +397,12 @@
+             )
+         return [(tag, value) for tag, value in result.items()]
+ 
++    def process(self):
++        if self._handle:
++            self._ed.process(self._handle, self._get_event_callback_fn())
++
+     def reset(self):
++        self.process()
+         self._total_num_of_compilation = 0
+         self._total_time_of_compilation = 0
+         # self._recipe_names = []
+diff --git a/python_packages/habana_frameworks/torch/hpu/metrics/saver.py b/python_packages/habana_frameworks/torch/hpu/metrics/saver.py
+index 1763021..d38937c 100644
+--- a/python_packages/habana_frameworks/torch/hpu/metrics/saver.py
++++ b/python_packages/habana_frameworks/torch/hpu/metrics/saver.py
+@@ -157,8 +157,6 @@
+ 
+ class MetricDumpTrigger(str, Enum):
+     process_exit = "process_exit"
+-    mark_step = "mark_step"
+-    metric_change = "metric_change"
+     user = "user"
+ 
+ 
+diff --git a/python_packages/habana_frameworks/torch/utils/event_dispatcher/csrc/bindings.cpp b/python_packages/habana_frameworks/torch/utils/event_dispatcher/csrc/bindings.cpp
+index 50e8983..8c0a1eb 100644
+--- a/python_packages/habana_frameworks/torch/utils/event_dispatcher/csrc/bindings.cpp
++++ b/python_packages/habana_frameworks/torch/utils/event_dispatcher/csrc/bindings.cpp
+@@ -36,7 +36,9 @@
+           [](habana_helpers::EventDispatcher& instance,
+              const std::shared_ptr<habana_helpers::EventDispatcherHandle>&
+                  handle) { instance.unsubscribe(handle); })
+-      .def("publish", &habana_helpers::EventDispatcher::publish);
++      .def("publish", &habana_helpers::EventDispatcher::publish)
++      .def("process", &habana_helpers::EventDispatcher::process)
++      .def("reset", &habana_helpers::EventDispatcher::reset);
+ 
+   py::class_<
+       habana_helpers::EventDispatcherHandle,
+diff --git a/tests/cpp/synapse_helpers_memory_test.cpp b/tests/cpp/synapse_helpers_memory_test.cpp
+index 462ad3e..36231af 100644
+--- a/tests/cpp/synapse_helpers_memory_test.cpp
++++ b/tests/cpp/synapse_helpers_memory_test.cpp
+@@ -68,7 +68,7 @@
+   habana_helpers::EventDispatcher::EventCallback
+       defragmentationTriggeredCallback =
+           [=](habana_helpers::EventDispatcher::EventTsType timestamp,
+-              const habana_helpers::EventDispatcher::EventParams& params) {
++              const habana_helpers::EventParams& params) {
+             for (const habana_helpers::EventDispatcher::EventParam& param :
+                  params) {
+               if (param.first == "success" && param.second == "1") {
+diff --git a/tests/metrics/metrics_test_kernel.cpp b/tests/metrics/metrics_test_kernel.cpp
+index 85a9f97..74a23ed 100644
+--- a/tests/metrics/metrics_test_kernel.cpp
++++ b/tests/metrics/metrics_test_kernel.cpp
+@@ -17,18 +17,17 @@
+   auto timestamp_init = std::chrono::high_resolution_clock::now();
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"op_name", "metrics_trigger_fallback_op"}}));
+ 
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"op_name", "metrics_trigger_fallback_op_2"}}));
+ 
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+-      habana_helpers::EventDispatcher::EventParams(
+-          {{"success", std::to_string(false)}}));
++      habana_helpers::EventParams({{"success", std::to_string(false)}}));
+   std::this_thread::sleep_for(std::chrono::milliseconds(100));
+   auto milliseconds_metric =
+       std::chrono::duration_cast<std::chrono::milliseconds>(
+@@ -36,7 +35,7 @@
+           .count();
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"success", std::to_string(true)},
+            {"milliseconds", std::to_string(milliseconds_metric)}}));
+ 
+@@ -44,18 +43,18 @@
+   size_t recipe_id_2 = 456;
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CACHE_MISS,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"recipe_id", std::to_string(recipe_id_1)}}));
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"recipe_id", std::to_string(recipe_id_1)}}));
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"recipe_id", std::to_string(recipe_id_2)}}));
+   habana_helpers::EmitEvent(
+       habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+-      habana_helpers::EventDispatcher::EventParams(
++      habana_helpers::EventParams(
+           {{"recipe_id", std::to_string(recipe_id_2)}}));
+ }
+diff --git a/tests/pytest_working/any_mode/test_metrics.py b/tests/pytest_working/any_mode/test_metrics.py
+index a14166f..022fac8 100644
+--- a/tests/pytest_working/any_mode/test_metrics.py
++++ b/tests/pytest_working/any_mode/test_metrics.py
+@@ -158,8 +158,8 @@
+ 
+         ed = EventDispatcher.instance()
+ 
+-        h1 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}"))
+-        h2 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}"))
++        h1 = ed.subscribe(EventId.GRAPH_COMPILATION)
++        h2 = ed.subscribe(EventId.GRAPH_COMPILATION)
+ 
+         compute_single_step(shape, device)
+ 
+@@ -424,7 +424,7 @@
+         metric_file = f"{tmp_path}/metric.{format}"
+         env_vars = {
+             "PT_HPU_METRICS_FILE": metric_file,
+-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
++            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+             "PT_HPU_METRICS_FILE_FORMAT": format,
+         }
+ 
+@@ -433,31 +433,12 @@
+             payload = f.read()
+         parsed = TestMetricsDump._parse_dump(payload, format)
+ 
+-        print(parsed)
+-        assert len(parsed) == 10  # 9 metrics chanages + process exit
+-        prev_total_time = 0
+-        prev_generated_on = None
++        assert len(parsed) == 4
+         gc_only = [p for p in parsed if p["metric_name"] == "graph_compilation"]
+-        for idx, metric_on_metric_change in enumerate(gc_only[:3]):
+-            assert metric_on_metric_change["metric_name"] == "graph_compilation"
+-            assert metric_on_metric_change["triggered_by"] == "metric_change"
+-            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
+-            assert int(metric_on_metric_change["statistics"]["TotalTime"]) > prev_total_time
+-            prev_total_time = int(metric_on_metric_change["statistics"]["TotalTime"])
+-
+-            curr_generated_on = datetime.datetime.fromisoformat(metric_on_metric_change["generated_on"])
+-            if prev_generated_on is not None:
+-                assert curr_generated_on > prev_generated_on
+-            prev_generated_on = curr_generated_on
+-
+         metric_on_process_exit = gc_only[-1]
+-        last_metric_on_metric_change = gc_only[-2]
+         assert metric_on_process_exit["metric_name"] == "graph_compilation"
+         assert metric_on_process_exit["triggered_by"] == "process_exit"
+         assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
+-        assert int(metric_on_process_exit["statistics"]["TotalTime"]) == int(
+-            last_metric_on_metric_change["statistics"]["TotalTime"]
+-        )
+ 
+     @pytest.mark.skipif(is_mode_compile(), reason="Test is not adjusted to compile mode")
+     @pytest.mark.skipif(is_mode_eager(), reason="Test is not adjusted to eager mode")
+@@ -579,3 +560,31 @@
+         assert metric["triggered_by"] == "user"
+         assert int(metric["statistics"]["TotalNumber"]) == 2
+         assert int(metric["statistics"]["TotalTime"]) > 0
++
++
++from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
++def test_event_process():
++    count = 0
++    def increment(event_params):
++        nonlocal count
++        count += 1
++
++    ed = EventDispatcher.instance()
++    event_handle1 = ed.subscribe(EventId.CUSTOM_EVENT)
++    event_handle2 = ed.subscribe(EventId.CUSTOM_EVENT)
++    ed.publish(EventId.CUSTOM_EVENT, [])
++    ed.publish(EventId.CUSTOM_EVENT, [])
++    ed.process(event_handle1, increment)
++    assert count == 2
++    ed.publish(EventId.CUSTOM_EVENT, [])
++    ed.publish(EventId.CUSTOM_EVENT, [])
++    ed.publish(EventId.CUSTOM_EVENT, [])
++    ed.process(event_handle1, increment)
++    assert count == 5
++    ed.process(event_handle2, increment)
++    assert count == 10
++    ed.process(event_handle1, increment)
++    assert count == 10
++
++    ed.unsubscribe(event_handle1)
++    ed.unsubscribe(event_handle2)

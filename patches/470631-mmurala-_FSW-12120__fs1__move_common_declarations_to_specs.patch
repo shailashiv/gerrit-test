@@ -1,0 +1,59 @@
+From 9c9d9d046edede4234f18ee61cad9f9263d5e0a0 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Fri, 24 Jan 2025 06:03:56 +0200
+Subject: [PATCH] [FSW-12120] fs1: move common declarations to specs
+
+With this patch moving few common declarations to
+embedded specs to avoid duplicate declarations
+and to make common accross modules.
+
+Change-Id: I1ead038291125b8c3fce9df8d81a9850c7bda2b4
+---
+
+diff --git a/arch/fs1/arc/soc.h b/arch/fs1/arc/soc.h
+index 570c622..46f9920 100644
+--- a/arch/fs1/arc/soc.h
++++ b/arch/fs1/arc/soc.h
+@@ -6,24 +6,7 @@
+ #ifndef _SOC_H_
+ #define _SOC_H_
+ 
+-enum region_idx {
+-	REGION_ICCM_IDX = 0,
+-	REGION_HBW_0_IDX = 1,
+-	REGION_HBW_1_IDX = 2,
+-	REGION_HBW_2_IDX = 3,
+-	REGION_HBW_3_IDX = 4,
+-	REGION_HBW_4_IDX = 5,
+-	REGION_HBW_5_IDX = 6,
+-	REGION_FW_MEM_IDX = 7,
+-	REGION_DCCM_IDX = 8,
+-	REGION_GEN_MEM_IDX = 9,
+-	REGION_GT_TILE_0_IDX = 10,
+-	REGION_GT_TILE_1_IDX = 11,
+-	REGION_GT_TILE_2_IDX = 12,
+-	REGION_GT_TILE_3_IDX = 13,
+-	REGION_LBW_DBG_IDX = 14,
+-	REGION_LBW_CFG_IDX = 15,
+-};
++#include <address_space.h>
+ 
+ enum gpio_func {
+ 	GPIO_FUNC_0,
+@@ -32,7 +15,6 @@
+ 	GPIO_FUNC_3,
+ };
+ 
+-#define REGION_BASE_ADDR(REG_IDX)	(REG_IDX << 28)
+ #define SZ_16				0x00000010
+ #define SZ_32K				0x00008000
+ #define SZ_64K				0x00010000
+@@ -45,8 +27,6 @@
+ 
+ #define FLASH_VALID_MASK		0x1FFFFF
+ 
+-#define ARC_REG_BASE_MASK	REGION_BASE_ADDR(0xF)
+-#define HL_CFG_BASE			REGION_BASE_ADDR(REGION_LBW_CFG_IDX)
+ #define HL_CFG_SIZE			SZ_256MB   /* 256MB */
+ 
+ #define HL_ICCM_BASE			REGION_BASE_ADDR(REGION_ICCM_IDX)

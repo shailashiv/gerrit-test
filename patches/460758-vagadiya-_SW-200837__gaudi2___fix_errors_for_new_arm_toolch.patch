@@ -1,0 +1,63 @@
+From c5623afc99114ec65c3314f69394d78aeaa7398a Mon Sep 17 00:00:00 2001
+From: Mitali Vagadiya <vmnagajibhai@habana.ai>
+Date: Tue, 05 Nov 2024 08:49:01 +0200
+Subject: [PATCH] [SW-200837] gaudi2 : fix errors for new arm toolchain
+
+As part of BR update 02.2024, it updates arm toolchain
+which is throwing some compilation errors related to
+dangling pointer. This patch fixes it by allocating memory
+dynamically.
+
+Change-Id: Icfecfe296e2fbf9e5747308b06541d7ec3f7f404
+---
+
+diff --git a/margin-tools/serdes/src/gaudi2/gaudi2_serdes.c b/margin-tools/serdes/src/gaudi2/gaudi2_serdes.c
+index 2714e1f..0b4a8d4 100644
+--- a/margin-tools/serdes/src/gaudi2/gaudi2_serdes.c
++++ b/margin-tools/serdes/src/gaudi2/gaudi2_serdes.c
+@@ -232,15 +232,16 @@
+ 	int mac, port, port_idx, rv = 0;
+ 	struct hl_serdeses_input *diag_input =
+ 					(struct hl_serdeses_input *)input;
+-	struct hl_nic_port nic_port = {
+-		.hdev = &sni_phy_dev,
+-		.port = 0,
+-		.data_rate = diag_input->data_rate,
+-		.phy_func_mode_en = 0,
+-		.auto_neg_enable = 0,
+-	};
+ 
+-	sni_phy_dev.nic_port = &nic_port;
++	struct hl_nic_port *nic_port = (struct hl_nic_port *)malloc(sizeof(struct hl_nic_port));
++
++	nic_port->hdev = &sni_phy_dev;
++	nic_port->port = 0;
++	nic_port->data_rate = diag_input->data_rate;
++	nic_port->phy_func_mode_en = 0;
++	nic_port->auto_neg_enable = 0;
++
++	sni_phy_dev.nic_port = nic_port;
+ 
+ 	for (mac = 0; mac < NIC_NUM_OF_MACS; mac++) {
+ 		port = mac * 2;
+@@ -254,16 +255,18 @@
+ 
+ 		for (port_idx = 0; port_idx < NIC_NUM_PORTS_PER_MACRO; port_idx++) {
+ 			port = mac * 2 + port_idx;
+-			nic_port.port = port;
++			nic_port->port = port;
+ 
+-			rv = gaudi2_nic_phy_port_power_up(&nic_port);
++			rv = gaudi2_nic_phy_port_power_up(nic_port);
+ 			if (rv) {
+ 				serdes_err("Failed phy port power up for port %d\n", port);
++				free(nic_port);
+ 				return rv;
+ 			}
+ 		}
+ 	}
+ 
++	free(nic_port);
+ 	return 0;
+ }
+ 

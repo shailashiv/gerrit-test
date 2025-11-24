@@ -1,0 +1,67 @@
+From 99bcc6031f24b11ab6cc6e42e74a4a9b4b5c4215 Mon Sep 17 00:00:00 2001
+From: Kamil Felskowski <kfelskowskix@habana.ai>
+Date: Thu, 31 Oct 2024 12:57:16 +0200
+Subject: [PATCH] Align test content in cpp_suite_future
+
+Change-Id: Ic4a2e57a5b05d28721e51d461e00a6d67854c2df
+---
+
+diff --git a/.ci/pipelines/tests/cpp_suite_future.yml b/.ci/pipelines/tests/cpp_suite_future.yml
+index 742e9b6..156d5af 100644
+--- a/.ci/pipelines/tests/cpp_suite_future.yml
++++ b/.ci/pipelines/tests/cpp_suite_future.yml
+@@ -8,19 +8,20 @@
+     - repository: nic_kmd
+       isHybrid: true
+       githubOrg: gerrit
+-    - repository: complex_guid_lib
+   dependencies:
+     - COMPLEX_GUID
+     - CORAL_SIM
+     - HCL
+     - HL_THUNK
++    - PT_NEXT
++    - RDMA_CORE
+     - SWTOOLS_SDK
+     - SYNAPSE
+     - SYNAPSE_UTILS
+     - TPC_FUSER
+     - TPC_KERNELS
+     - TPCSIM
+-    - RDMA_CORE
++    - HABANA_TRANSFORMER_ENGINE
+   config:
+     testCommand: run_pytorch_modules_tests
+     loadLKD: true
+@@ -28,7 +29,7 @@
+     releaseFlag: false
+     saveToFileBeatMount: true
+   envVars:
+-    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);'):${RDMA_CORE_ROOT}/build/lib"
++    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${RDMA_CORE_ROOT}/build/lib:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+     CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+     LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+     JOB_SCENARIO: pt_ci_cpp
+@@ -37,22 +38,18 @@
+       command: 'set_up_pytorch_artifacts_for_testing next'
+ testsMap:
+   Test_pytorch_modules_gaudi_sim_cpp_suite_future:
+-    dependencies:
+-      - PT_NEXT
+     stages:
+       Run CPP tests gaudi sim:
+         filter: -t cpp_tests
+   Test_pytorch_modules_gaudi2_sim_cpp_suite_future:
+     dependencies:
+       - TPC_LLVM
+-      - PT_NEXT
+     stages:
+       Run CPP tests gaudi2 sim:
+         filter: -t cpp_tests --dut gaudi2
+   Test_pytorch_modules_gaudi3_sim_cpp_suite_future:
+     dependencies:
+       - TPC_LLVM
+-      - PT_NEXT
+     stages:
+       Run CPP tests gaudi3 sim:
+         filter: -t cpp_tests --dut gaudi3

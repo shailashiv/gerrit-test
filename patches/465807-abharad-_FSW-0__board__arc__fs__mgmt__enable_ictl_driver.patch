@@ -1,0 +1,132 @@
+From 4a2590ca4cdfa1c987531518c1bcf095ad9f2c0f Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Wed, 11 Dec 2024 04:42:04 +0000
+Subject: [PATCH] [FSW-0] board: arc: fs: mgmt: enable ictl driver
+
+Enable ICTL driver for falcon shores
+
+Change-Id: Ie26bdaa2583d85c2ec30cb025b71c12937bac881
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/boards/arc/intel_fs1/fs1_mgmt_pldm.dts b/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
+index f5ca2be..8aaced7 100644
+--- a/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
++++ b/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
+@@ -26,26 +26,27 @@
+ 	status = "disabled";
+ };
+ 
++
+ &m2w_io_d0 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl82 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl83 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl84 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl85 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl86 {
+-	status = "disabled";
++	status = "ok";
+ };
+diff --git a/boards/arc/intel_fs1/fs1_mgmt_pldm_defconfig b/boards/arc/intel_fs1/fs1_mgmt_pldm_defconfig
+index fd2673f..6dd4e25 100644
+--- a/boards/arc/intel_fs1/fs1_mgmt_pldm_defconfig
++++ b/boards/arc/intel_fs1/fs1_mgmt_pldm_defconfig
+@@ -21,6 +21,6 @@
+ CONFIG_XIP=n
+ CONFIG_HEAP_MEM_POOL_SIZE=4096
+ 
+-CONFIG_INTEL_FS_ICTL=n
++CONFIG_INTEL_FS_ICTL=y
+ CONFIG_HL_EFUSE=y
+ CONFIG_INTEL_GPU_INTR=y
+\ No newline at end of file
+diff --git a/dts/arc/fs1_emb.dtsi b/dts/arc/fs1_emb.dtsi
+index ff77e20..44dc5e1 100644
+--- a/dts/arc/fs1_emb.dtsi
++++ b/dts/arc/fs1_emb.dtsi
+@@ -525,6 +525,7 @@
+ 			reg = <0xf9cd2600 0x30>;
+ 			#address-cells = <1>;
+ 			w2m_int_cfg = <0xf9cd1000>;
++			status = "disabled";
+ 
+ 			/*
+ 			 * msg_addr is the destination address where msg needs to be
+@@ -563,7 +564,7 @@
+ 				int_cfg_reg_start_idx = <0>;
+ 				int_cfg_reg_end_idx = <1>;
+ 				bit_map = <0xffffffff 0xffffffff>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			ictl83: intel_fs-ictl83@f9cd12d0 {
+@@ -582,7 +583,7 @@
+ 				int_cfg_reg_start_idx = <2>;
+ 				int_cfg_reg_end_idx = <3>;
+ 				bit_map = <0xffffffff 0xffffffff>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			ictl84: intel_fs-ictl84@f9cd12e0 {
+@@ -601,7 +602,7 @@
+ 				int_cfg_reg_start_idx = <4>;
+ 				int_cfg_reg_end_idx = <6>;
+ 				bit_map = <0xffffffff 0x7fffffff 0xfffffffe>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			ictl85: intel_fs-ictl85@f9cd12f0 {
+@@ -622,7 +623,7 @@
+ 				bit_map = <0xffffffff 0xffffffff 0xffffffff
+ 					   0xffffffff 0xffffffff 0xffffffff
+ 					   0xffffffff 0xffffffff 0xffffffff>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			ictl86: intel_fs-ictl86@f9cd1300 {
+@@ -641,7 +642,7 @@
+ 				int_cfg_reg_start_idx = <16>;
+ 				int_cfg_reg_end_idx = <17>;
+ 				bit_map = <0xffffffff 0xffffffff>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			ictl87: intel_fs-ictl87@f9cd1310 {
+diff --git a/soc/arc/intel_gpu/fs1/emb/Kconfig.defconfig_mgmt b/soc/arc/intel_gpu/fs1/emb/Kconfig.defconfig_mgmt
+index 9ab881e..d0727ad 100644
+--- a/soc/arc/intel_gpu/fs1/emb/Kconfig.defconfig_mgmt
++++ b/soc/arc/intel_gpu/fs1/emb/Kconfig.defconfig_mgmt
+@@ -37,7 +37,7 @@
+ 	default n
+ 
+ config INTEL_FS_ICTL
+-	default y
++	default n
+ 
+ config 2ND_LEVEL_INTERRUPTS
+ 	default y

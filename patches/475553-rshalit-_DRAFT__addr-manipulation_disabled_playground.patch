@@ -1,0 +1,92 @@
+From 950cf99ff42e39852e1bc86b45458142bcb9626a Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Tue, 11 Mar 2025 14:35:24 +0200
+Subject: [PATCH] [DRAFT] addr-manipulation disabled playground
+
+tested and working
+
+Change-Id: I757871e281b16e6efa45380c9a39b008c93719c5
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/app/io/preboot.c b/app/io/preboot.c
+index d7654f1..9f39e38 100644
+--- a/app/io/preboot.c
++++ b/app/io/preboot.c
+@@ -662,7 +662,7 @@
+ 			LOG_ERR("Failed to read efuse word %d", i);
+ 	}
+ }
+-
++void mytest(void);
+ void main(void)
+ {
+ 	int key;
+@@ -675,6 +675,7 @@
+ 
+ 	start_lfs_logger();
+ 	/* Initialize internal if variables */
++mytest();
+ 	cpu_boot_if_init();
+ 	preboot_cpu_boot_sts_init();
+ 	preboot_heap_init();
+diff --git a/arch/fs1/arc/palad.c b/arch/fs1/arc/palad.c
+index 467d113..04f3ec4 100644
+--- a/arch/fs1/arc/palad.c
++++ b/arch/fs1/arc/palad.c
+@@ -41,6 +41,55 @@
+ #define PALAD_UART_BAUDRATE	300
+ 
+ 
++#define mmGLOBAL_CONF_SCRATCHPAD_0 0x100
++#define mmARC_LOCAL_CONF_CFG_ADDR_MNPL_CTRL 0x164
++
++void mytest(void)
++{
++	uint32_t val, reg, reg_comp;
++	regmap_writel(0x12341234, mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0);
++	regmap_writel(0x56785678, mmCOMPUTE_0_CFG_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0);
++
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0);
++	printk("val io: 0x%x\n", val);
++	val = regmap_readl(mmCOMPUTE_0_CFG_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0);
++	printk("val comp: 0x%x\n", val);
++
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_LOCAL_BASE + mmARC_LOCAL_CONF_CFG_ADDR_MNPL_CTRL);
++	printk("manip was: 0x%x\n", val);
++
++	regmap_writel(0, mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_LOCAL_BASE + mmARC_LOCAL_CONF_CFG_ADDR_MNPL_CTRL);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_LOCAL_BASE + mmARC_LOCAL_CONF_CFG_ADDR_MNPL_CTRL);
++	printk("manip now: 0x%x\n", val);
++
++	reg = mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0;
++	reg = (reg & 0xF1FFFFFF) | (4 << 25) ;
++	regmap_writel(0x12341234, reg);
++	val = regmap_readl(reg);
++	printk("val io: 0x%x\n", val);
++
++	reg_comp = mmCOMPUTE_0_CFG_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_SCRATCHPAD_0;
++	reg_comp = (reg_comp & 0xF1FFFFFF) | (0 << 25) ;
++
++	regmap_writel(0x56785678, reg_comp);
++
++	val = regmap_readl(reg_comp);
++	printk("xx val comp: 0x%x\n", val);
++
++	#define mmGLOBAL_CONF_BOOT_GPIO_SET_DURATION 0x10
++
++	reg_comp = mmCOMPUTE_0_CFG_PSOC_PSOC_CFG_GLOBAL_CONF_BASE + mmGLOBAL_CONF_BOOT_GPIO_SET_DURATION;
++	//val = regmap_readl(reg_comp);
++	//printk("val comp: 0x%x\n", val);
++
++	reg_comp = (reg_comp & 0xF1FFFFFF) | (0 << 25) ;
++	val = regmap_readl(reg_comp);
++	printk("xx val comp: 0x%x\n", val);
++
++
++}
++
++
+ u64 hl_pll_timestamp_freq_get(void)
+ {
+ 	return TS_CLOCK_FREQUENCY;

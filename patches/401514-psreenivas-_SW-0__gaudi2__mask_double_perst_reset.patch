@@ -1,0 +1,63 @@
+From 65ddb0a6bdbeac4607c686f75ac03cc86ffb61bd Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Thu, 07 Mar 2024 12:02:15 +0200
+Subject: [PATCH] [SW-0] gaudi2: mask double perst reset
+
+It is observed that the firmware is getting
+stuck in case of double perst reset. This
+patch adds support to mask perst reset
+and unmask it post link up in preboot
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I2c488d0f7759be9689ffc3043bf26cb671a6eb17
+---
+
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index f2864fa..437eea7 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -314,6 +314,7 @@
+ __weak void hl_pcie_enable_elbi_access(void) {}
+ __weak void ppboot_tpm_extend(void) {}
+ __weak void ppboot_boot_info_init(void) {}
++__weak void ppboot_mask_prstn(void) {}
+ 
+ void ppboot_main(void)
+ {
+@@ -336,6 +337,7 @@
+ 	/* Initialize internal if variables */
+ 	cpu_boot_if_init();
+ 	hl_plat_early_init();
++	ppboot_mask_prstn();
+ 	hl_init_pcie_phy_fw();
+ 	hl_jtag_init();
+ 
+diff --git a/arch/gaudi2/arc/common.c b/arch/gaudi2/arc/common.c
+index 49cde90..600577f 100644
+--- a/arch/gaudi2/arc/common.c
++++ b/arch/gaudi2/arc/common.c
+@@ -130,9 +130,6 @@
+ 	regmap_writel(0x1, mmPSOC_RESET_CONF_PSOC_PRSTN_RST_CFG);
+ 	regmap_writel(0x3, mmPSOC_RESET_CONF_ARC_PRSTN_RST_CFG);
+ 
+-	/* Clear masking of PRSTN from SW reset */
+-	regmap_writel(0x0, mmPSOC_GLOBAL_CONF_PRSTN_MASK);
+-
+ 	/*
+ 	 * Hold PCIe controller at reset during PRSTn
+ 	 * Configure Boot Sequencer to wait for PRSTn
+@@ -1061,3 +1058,14 @@
+ 	if (rst_src != HL_COLD_RST)
+ 		boot_info_copy_from_perst_mem();
+ }
++
++void ppboot_mask_prstn(void)
++{
++	u32 rst_src = hl_rst_src_get();
++
++	if (rst_src == HL_PRSTN_RST)
++		regmap_writel(0x1, mmPSOC_GLOBAL_CONF_PRSTN_MASK);
++	else
++		regmap_writel(0x0, mmPSOC_GLOBAL_CONF_PRSTN_MASK);
++
++}

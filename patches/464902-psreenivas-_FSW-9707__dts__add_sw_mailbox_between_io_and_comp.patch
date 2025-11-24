@@ -1,0 +1,397 @@
+From 38c17ebd41ff9f15d7367748df899a2cd1b5a059 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 13 May 2025 10:02:33 +0300
+Subject: [PATCH] [FSW-9707] dts: add sw mailbox between io and compute
+
+This patch adds io mgmt and compute mgmt tx and rx dtsi sw mailbox
+ipm entries to device tree.
+COMPUTE0_SW_MAILBOX0_0 - TX(IO MGMT) --> RX (CMPT MGMT)
+IO0_HALF0_SW_MAILBOX0_0 - TX(CMPT MGMT) --> RX (IO MGMT)
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I93fa29cce6db459281a7adbfd71d0a65ec2c57a4
+---
+
+diff --git a/boards/intel/fs/fs1_mgmt_compute_asic_defconfig b/boards/intel/fs/fs1_mgmt_compute_asic_defconfig
+index 8ad24ba..a4d9126 100644
+--- a/boards/intel/fs/fs1_mgmt_compute_asic_defconfig
++++ b/boards/intel/fs/fs1_mgmt_compute_asic_defconfig
+@@ -21,3 +21,5 @@
+ CONFIG_IPM=y
+ CONFIG_IPM_INTEL_FS=y
+ CONFIG_IPM_INTEL_GPU_BRIDGE=y
++CONFIG_IPM_INTEL_FS_TX_MBX=y
++CONFIG_IPM_INTEL_FS_RX_MBX=y
+diff --git a/drivers/ipm/ipm_fs.c b/drivers/ipm/ipm_fs.c
+index 9351c34..4cce1c0 100644
+--- a/drivers/ipm/ipm_fs.c
++++ b/drivers/ipm/ipm_fs.c
+@@ -8,12 +8,15 @@
+ #include <soc/intel/gpu/fs1/soc.h>
+ #include <zephyr/drivers/ipm.h>
+ #include <zephyr/shared_irq.h>
++#include <gpu_utils.h>
+ 
+ #include <zephyr/logging/log.h>
+ #include "ipm_fs.h"
+ 
+ #define LOG_MODULE_NAME			ipm_fs
+ LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_IPM_LOG_LEVEL);
++#define fs_ipm_write32(v, c) (config->inter_die) ? CFG_ADDR_MNPL_WREG32(c, v) : sys_write32(v, c)
++#define fs_ipm_read32(c) (config->inter_die) ? CFG_ADDR_MNPL_RREG32(c) : sys_read32(c)
+ 
+ /*
+  * Below apis are copied from queue driver. Since the block registers
+@@ -35,8 +38,8 @@
+ 
+ 	*size = 0;
+ 
+-	data->mbx.pi = sys_read32((mem_addr_t) &reg_base->pi[config->mbx_idx]);
+-	data->mbx.ci = sys_read32((mem_addr_t) &reg_base->ci[config->mbx_idx]);
++	data->mbx.pi = fs_ipm_read32((mem_addr_t) &reg_base->pi[config->mbx_idx]);
++	data->mbx.ci = fs_ipm_read32((mem_addr_t) &reg_base->ci[config->mbx_idx]);
+ 
+ 	if (data->mbx.pi_to_cb >= data->mbx.ci) {
+ 		avail_len = (data->mbx.len - (data->mbx.pi_to_cb - data->mbx.ci));
+@@ -94,7 +97,7 @@
+ 		return -EINVAL;
+ 
+ 	data->mbx.pi = (data->mbx.pi + size) % data->mbx.len;
+-	sys_write32(data->mbx.pi, (mem_addr_t) &reg_base->pi[config->mbx_idx]);
++	fs_ipm_write32(data->mbx.pi, (mem_addr_t) &reg_base->pi[config->mbx_idx]);
+ 	return 0;
+ }
+ 
+@@ -119,7 +122,7 @@
+ 		return -EINVAL;
+ 
+ 	data->mbx.ci = (data->mbx.ci + size) % data->mbx.len;
+-	sys_write32(data->mbx.ci, (mem_addr_t) &reg_base->ci[config->mbx_idx]);
++	fs_ipm_write32(data->mbx.ci, (mem_addr_t) &reg_base->ci[config->mbx_idx]);
+ 	return 0;
+ }
+ 
+@@ -137,11 +140,12 @@
+ 	__ASSERT(data->callback != NULL,
+ 		 "No callback registered to ipm_fs interrupt driver %p", dev);
+ 
+-	data->mbx.pi = sys_read32((mem_addr_t) &reg_base->pi[config->mbx_idx]);
++	data->mbx.pi = fs_ipm_read32((mem_addr_t) &reg_base->pi[config->mbx_idx]);
+ 	if (data->mbx.pi == data->mbx.ci) {
+ 		LOG_ERR("no data received, spurious interrupt");
+ 		return;
+ 	}
++	CFG_HBW_ADDR_MNPL(0);
+ 
+ 	addr = data->mbx.base_addr + data->mbx.pi_to_cb;
+ 	mbx_data.buffer_info[0].addr_lo = (uint32_t) (addr);
+@@ -186,6 +190,9 @@
+ 		 */
+ 		m_size = 0;
+ 		memset(&cb_data, 0x0, sizeof(struct ipm_fs_mbx_buffer_data));
++		LOG_HEXDUMP_DBG_LOCAL((void *)mbx_data.buffer_info[0].addr_lo,
++					mbx_data.buffer_info[0].size, "receive");
++
+ 		if (mbx_data.buffer_info[0].size >= hdr_sz) {
+ 			memcpy(&msg_hdr, (void *)mbx_data.buffer_info[0].addr_lo, hdr_sz);
+ 			/* update size and addr */
+@@ -200,6 +207,7 @@
+ 			if (msg_hdr.size > t_size) {
+ 				LOG_ERR_LOCAL("Incorrect msg size: %d send by transmitter dev:%p",
+ 						msg_hdr.size, dev);
++				CFG_HBW_ADDR_MNPL(1);
+ 				return;
+ 			}
+ 
+@@ -271,6 +279,7 @@
+ 					m_size, dev);
+ 		t_size -= m_size;
+ 	}
++	CFG_HBW_ADDR_MNPL(1);
+ }
+ 
+ static void ipm_fs_init_mbx_data(const struct device *dev)
+@@ -279,9 +288,10 @@
+ 	const struct ipm_fs_config *config = DEV_CFG(dev);
+ 	struct ipm_fs_mbx_regs *reg_base = (struct ipm_fs_mbx_regs *)(config->cfg_base);
+ 
++
+ 	data->mbx.base_addr =
+-		(uint32_t)sys_read32((mem_addr_t) &reg_base->base_addr_lsb[config->mbx_idx]);
+-	data->mbx.len = sys_read32((mem_addr_t) &reg_base->q_size[config->mbx_idx]);
++		(uint32_t)fs_ipm_read32((mem_addr_t) &reg_base->base_addr_lsb[config->mbx_idx]);
++	data->mbx.len = fs_ipm_read32((mem_addr_t) &reg_base->q_size[config->mbx_idx]);
+ 	data->mbx.ci = 0;
+ 	data->mbx.pi = 0;
+ 	data->mbx.pi_to_cb = 0;
+@@ -296,25 +306,23 @@
+ 	 * 1. mbx enable
+ 	 * 2. pi write
+ 	 */
+-	uint32_t en_sts = (sys_read32((mem_addr_t)&reg_base->en_sts) & BIT(config->mbx_idx));
+-	uint32_t pi_sts = (sys_read32((mem_addr_t)&reg_base->pi_sts) & BIT(config->mbx_idx));
++	uint32_t en_sts = (fs_ipm_read32((mem_addr_t)&reg_base->en_sts) & BIT(config->mbx_idx));
++	uint32_t pi_sts = (fs_ipm_read32((mem_addr_t)&reg_base->pi_sts) & BIT(config->mbx_idx));
+ 
+ 	if (!en_sts && !pi_sts) {
+ 		LOG_DBG("Interrupt does not belong to dev %p", dev);
+-		return;
+ 	}
+-
+ 	/* mbx enable routine */
+ 	if (en_sts) {
+ 		ipm_fs_init_mbx_data(dev);
+-		sys_write32(BIT(config->mbx_idx), (mem_addr_t)&(reg_base->en_sts));
++		fs_ipm_write32(BIT(config->mbx_idx), (mem_addr_t)&(reg_base->en_sts));
+ 		return;
+ 	}
+ 
+ 	/* PI write routine */
+ 	if (pi_sts) {
+ 		ipm_fs_mbx_process_data(dev);
+-		sys_write32(BIT(config->mbx_idx), (mem_addr_t)&reg_base->pi_sts);
++		fs_ipm_write32(BIT(config->mbx_idx), (mem_addr_t)&reg_base->pi_sts);
+ 	}
+ }
+ 
+@@ -323,8 +331,8 @@
+ 	const struct ipm_fs_config *config = DEV_CFG(dev);
+ 	struct ipm_fs_mbx_regs *reg_base = (struct ipm_fs_mbx_regs *)(config->cfg_base);
+ 
+-	if ((sys_read32((mem_addr_t)&reg_base->en_sts) & BIT(config->mbx_idx)) ||
+-		!sys_read32((mem_addr_t)&reg_base->en[config->mbx_idx])) {
++	if ((fs_ipm_read32((mem_addr_t)&reg_base->en_sts) & BIT(config->mbx_idx)) ||
++		!(fs_ipm_read32((mem_addr_t)&reg_base->en[config->mbx_idx]))) {
+ 		return false;
+ 	}
+ 	return true;
+@@ -349,11 +357,12 @@
+ 		return -EINVAL;
+ 	}
+ 
++	CFG_HBW_ADDR_MNPL(0);
+ 	ret = ipm_fs_mbx_claim_buffer(dev, req_sz, &mbx_data);
+ 	if (ret) {
+ 		LOG_ERR_LOCAL("mailbox buffer allocation failed ret:%d req_sz: %d",
+ 				ret, req_sz);
+-		return ret;
++		goto addr_mnpl;
+ 	}
+ 
+ 	msg_hdr.id = id;
+@@ -385,12 +394,15 @@
+ 		memcpy((void *)mbx_data.buffer_info[0].addr_lo, &msg_hdr, hdr_sz);
+ 		if (data)
+ 			memcpy((void *) (mbx_data.buffer_info[0].addr_lo + hdr_sz), data, size);
++		LOG_HEXDUMP_DBG_LOCAL((void *)mbx_data.buffer_info[0].addr_lo,
++					hdr_sz + size, "send");
+ 	}
+ 
+ 	ret = ipm_fs_mbx_manage_pi(dev, req_sz);
+ 	if (ret)
+ 		LOG_ERR_LOCAL("unable to send message ret:%d for msg_id: %d", ret, id);
+-
++addr_mnpl:
++	CFG_HBW_ADDR_MNPL(1);
+ 	return ret;
+ }
+ 
+@@ -443,7 +455,7 @@
+ 	const struct ipm_fs_config *config = DEV_CFG(dev);
+ 	struct ipm_fs_mbx_regs *reg_base = (struct ipm_fs_mbx_regs *)(config->cfg_base);
+ 
+-	sys_write32((enable) ? 0x1 : 0x0, (mem_addr_t) &reg_base->en[config->mbx_idx]);
++	fs_ipm_write32((enable) ? 0x1 : 0x0, (mem_addr_t) &reg_base->en[config->mbx_idx]);
+ 	return 0;
+ }
+ 
+@@ -461,14 +473,16 @@
+ 	 * TX will fill all the buffer content lo/hi addr and size
+ 	 * and then set enable interrupt in ipm_fs_set_enabled function.
+ 	 */
+-	sys_write32(config->data_base, (mem_addr_t) &reg_base->base_addr_lsb[config->mbx_idx]);
+-	sys_write32(0x0, (mem_addr_t) &reg_base->base_addr_msb[config->mbx_idx]);
+-	sys_write32(config->data_size, (mem_addr_t) &reg_base->q_size[config->mbx_idx]);
+-	sys_write32(0x0, (mem_addr_t) &reg_base->pi[config->mbx_idx]);
+-	sys_write32(0x0, (mem_addr_t) &reg_base->ci[config->mbx_idx]);
++	fs_ipm_write32(config->data_base, (mem_addr_t) &reg_base->base_addr_lsb[config->mbx_idx]);
++	fs_ipm_write32(0x0, (mem_addr_t) &reg_base->base_addr_msb[config->mbx_idx]);
++	fs_ipm_write32(config->data_size, (mem_addr_t) &reg_base->q_size[config->mbx_idx]);
++	fs_ipm_write32(0x0, (mem_addr_t) &reg_base->pi[config->mbx_idx]);
++	fs_ipm_write32(0x0, (mem_addr_t) &reg_base->ci[config->mbx_idx]);
+ 
++	CFG_HBW_ADDR_MNPL(0);
+ 	/* Clear mailbox buffer */
+ 	memset((void *)config->data_base, 0x0, config->data_size);
++	CFG_HBW_ADDR_MNPL(1);
+ 
+ 	/* init mbx buffer data */
+ 	ipm_fs_init_mbx_data(dev);
+diff --git a/drivers/ipm/ipm_fs.h b/drivers/ipm/ipm_fs.h
+index 8f30fce..e9d8463 100644
+--- a/drivers/ipm/ipm_fs.h
++++ b/drivers/ipm/ipm_fs.h
+@@ -10,6 +10,7 @@
+ #include <zephyr/device.h>
+ #include <soc/intel/gpu/fs1/soc.h>
+ #include <zephyr/drivers/ipm.h>
++#include <hl_platform_defs.h>
+ 
+ #include <zephyr/logging/log.h>
+ 
+@@ -73,6 +74,7 @@
+ 	uint32_t intr_mask;
+ 	uint8_t mbx_idx;
+ 	uint8_t mask_idx;
++	uint8_t inter_die;
+ 
+ 	LOG_INSTANCE_PTR_DECLARE(log);
+ };
+diff --git a/drivers/ipm/ipm_fs_rx.c b/drivers/ipm/ipm_fs_rx.c
+index 8c0ec30..0c11350 100644
+--- a/drivers/ipm/ipm_fs_rx.c
++++ b/drivers/ipm/ipm_fs_rx.c
+@@ -35,6 +35,7 @@
+ 		.mbx_type = DT_INST_PROP(inst, mbx_type),					\
+ 		.intr_mask = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_mask),		\
+ 		.mask_idx = (uint8_t) DT_INST_PROP(inst, mask_idx),				\
++		.inter_die = (uint8_t) DT_INST_PROP(inst, inter_die),				\
+ 		LOG_INSTANCE_PTR_INIT(log, LOG_MODULE_NAME, inst)				\
+ 	};											\
+ 	static struct ipm_fs_data ipm_fs_##inst##_data;						\
+diff --git a/drivers/ipm/ipm_fs_tx.c b/drivers/ipm/ipm_fs_tx.c
+index d87b7c3..5b3d3df 100644
+--- a/drivers/ipm/ipm_fs_tx.c
++++ b/drivers/ipm/ipm_fs_tx.c
+@@ -35,6 +35,7 @@
+ 		.mbx_idx = ((DT_REG_ADDR_BY_NAME(DT_INST(inst, intel_fs_mbx_tx), cfg) & 0xFF) / 4),\
+ 		.data_base = DT_REG_ADDR_BY_NAME(DT_INST(inst, intel_fs_mbx_tx), data),		\
+ 		.data_size = DT_REG_SIZE_BY_NAME(DT_INST(inst, intel_fs_mbx_tx), data),		\
++		.inter_die = (uint8_t) DT_INST_PROP(inst, inter_die),				\
+ 		LOG_INSTANCE_PTR_INIT(log, LOG_MODULE_NAME, inst)				\
+ 	};											\
+ 	static struct ipm_fs_data ipm_fs_##inst##_data;						\
+diff --git a/dts/arc/fs1_io_mgmt.dtsi b/dts/arc/fs1_io_mgmt.dtsi
+index 50b62bc..d68872a 100644
+--- a/dts/arc/fs1_io_mgmt.dtsi
++++ b/dts/arc/fs1_io_mgmt.dtsi
+@@ -158,6 +158,27 @@
+ 				mbx_type = <2>;
+ 				node_label = "FS_MBX_IOD0RST_IOD0MGMT";
+ 			};
++
++			mbx_iod0mgmt_cmptd0mgmt: fs-mbx@COMPUTE0_SW_MAILBOX0_0 {
++				compatible = "intel,fs_mbx_tx";
++				reg = <PREFIX_0X(COMPUTE0_SW_MAILBOX0_0) 0x590>,
++				      <SPSRAM_IO_MGMT_TX_CMPT0_MGMT_RX_MBX SPSRAM_IPM_BUFF_SIZE>;
++				reg-names = "cfg", "data";
++				mbx_type = <1>;
++				inter_die;
++				node_label = "FS_MBX_IOD0MGMT_IOD0PID";
++			};
++
++			mbx_cmptd0mgmt_iod0mgmt: fs-mbx@IO0_HALF0_SW_MAILBOX0_0 {
++				compatible = "intel,fs_mbx_rx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX0_0) 0x590>,
++				      <0xf9c80b80 0xf>; /* Psoc glbl mask */
++				reg-names = "cfg", "intr_mask";
++				mask_idx = <31>;
++				mbx_type = <2>;
++				inter_die;
++				node_label = "FS_MBX_IOD0PID_IOD0MGMT";
++			};
+ 		};
+ 	};
+ };
+diff --git a/dts/arc/fs1_io_pid.dtsi b/dts/arc/fs1_io_pid.dtsi
+index 218b82a..97cdf6d 100644
+--- a/dts/arc/fs1_io_pid.dtsi
++++ b/dts/arc/fs1_io_pid.dtsi
+@@ -36,7 +36,7 @@
+ 			compatible = "shared-irq";
+ 			interrupt-controller;
+ 			#interrupt-cells = <2>;
+-			interrupts = <161 2>;
++			interrupts = <176 2>;
+ 			interrupt-names = "shared_irq";
+ 			node_label = "FS_SW_MAILBOX_SHARED_IRQ";
+ 
+diff --git a/dts/arc/fs1_mgmt_compute.dtsi b/dts/arc/fs1_mgmt_compute.dtsi
+index 579e289..24255fe 100644
+--- a/dts/arc/fs1_mgmt_compute.dtsi
++++ b/dts/arc/fs1_mgmt_compute.dtsi
+@@ -79,5 +79,38 @@
+ 			node_label = "I2A_BRIDGE_0";
+ 			status = "disabled";
+ 		};
++
++		sw_malibox_irq: fs_sw_mailbox_irq@5 {
++			reg = <0x5 0x4>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			compatible = "shared-irq";
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupts = <176 2>;
++			interrupt-names = "shared_irq";
++			node_label = "FS_SW_MAILBOX_SHARED_IRQ";
++
++			mbx_cmptd0mgmt_iod0mgmt: fs-mbx@IO0_HALF0_SW_MAILBOX0_0 {
++				compatible = "intel,fs_mbx_tx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX0_0) 0x590>,
++				      <SPSRAM_CMPT0_MGMT_TX_IO_MGMT_RX_MBX SPSRAM_IPM_BUFF_SIZE>;
++				reg-names = "cfg", "data";
++				mbx_type = <1>;
++				inter_die;
++				node_label = "FS_MBX_CMPTD0MGMT_IOD0MGMT";
++			};
++
++			mbx_iod0mgmt_cmptd0mgmt: fs-mbx@COMPUTE0_SW_MAILBOX0_0 {
++				compatible = "intel,fs_mbx_rx";
++				reg = <PREFIX_0X(COMPUTE0_SW_MAILBOX0_0) 0x590>,
++				      <0xf9c80b80 0xf>;
++				reg-names = "cfg", "intr_mask";
++				mask_idx = <31>;
++				mbx_type = <2>;
++				inter_die;
++				node_label = "FS_MBX_IOD0MGMT_CMPTD0MGMT";
++			};
++		};
+ 	};
+ };
+diff --git a/dts/bindings/ipm/intel,fs_mbx_rx.yaml b/dts/bindings/ipm/intel,fs_mbx_rx.yaml
+index 21330bb..b60df0b 100644
+--- a/dts/bindings/ipm/intel,fs_mbx_rx.yaml
++++ b/dts/bindings/ipm/intel,fs_mbx_rx.yaml
+@@ -27,3 +27,7 @@
+       type: int
+       description: ARC mask index (0 to 32)
+       default: 0
++
++    inter_die:
++      type: boolean
++      description: flag to indicate either mailbox or address is interdie
+diff --git a/dts/bindings/ipm/intel,fs_mbx_tx.yaml b/dts/bindings/ipm/intel,fs_mbx_tx.yaml
+index cfe6794..a80af03 100644
+--- a/dts/bindings/ipm/intel,fs_mbx_tx.yaml
++++ b/dts/bindings/ipm/intel,fs_mbx_tx.yaml
+@@ -27,3 +27,7 @@
+       type: int
+       description: ARC mask index (0 to 32)
+       default: 0
++
++    inter_die:
++      type: boolean
++      description: flag to indicate either mailbox or address is interdie
+diff --git a/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt_compute b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt_compute
+index 84f4278..f4e94b2 100644
+--- a/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt_compute
++++ b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt_compute
+@@ -39,4 +39,7 @@
+ config HL_ISR_GEN
+ 	default y
+ 
++config SHARED_IRQ
++	default y
++
+ endif # SOC_FS1_MGMT_COMPUTE

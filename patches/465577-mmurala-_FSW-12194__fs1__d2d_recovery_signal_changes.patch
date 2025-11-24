@@ -1,0 +1,111 @@
+From 833028eb0e93a7601798ad6386532e59514dfd32 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Tue, 10 Dec 2024 09:21:18 +0200
+Subject: [PATCH] [FSW-12194] fs1: d2d recovery signal changes
+
+With new specs p1p33, d2d async signals are
+classified as async_d2d_up and async_d2d_down
+and recovery is only part of up signals.
+which is completely different from previous
+implementation of gpio_out to gpio_in.
+This patch has take care of those changes.
+
+Change-Id: I5444e62c3e4f6de270c41dbeb3b63b66af504b60
+---
+
+diff --git a/arch/fs1/arc/dev_recovery.c b/arch/fs1/arc/dev_recovery.c
+index a9a3d43..7d3dec1 100644
+--- a/arch/fs1/arc/dev_recovery.c
++++ b/arch/fs1/arc/dev_recovery.c
+@@ -53,25 +53,25 @@
+ {
+ 	uint32_t def_ovrd_en, def_ovrd_val, val;
+ 
+-	/* Set Override en for recovery mode */
+-	def_ovrd_en = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN));
+-	val = def_ovrd_en | PSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN_RECOVERY_MODE_M;
+-	regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN));
++	/* Set D2D Async IF recovery signal Ovrd val to 1 */
++	def_ovrd_val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_VAL));
++	val = def_ovrd_val | PSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_VAL_RECOVERY_MODE_M;
++	regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_VAL));
+ 
+-	/* Set recovery mode value */
+-	def_ovrd_val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_VAL));
+-	val = def_ovrd_val | PSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_VAL_RECOVERY_MODE_M;
+-	regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_VAL));
++	/* Set D2D Async IF recovery signal Overd En to 1 */
++	def_ovrd_en = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_EN));
++	val = def_ovrd_en | PSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_EN_RECOVERY_MODE_M;
++	regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_EN));
+ 
+ 	udelay(RECOVERY_PULSE_DURATION);
+ 
+-	/* Clear recovery mode value */
+-	def_ovrd_val &= ~(PSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_VAL_RECOVERY_MODE_M);
+-	regmap_writel(def_ovrd_val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_VAL));
++	/* Set D2D Async IF recovery signal Overd En to 0 */
++	def_ovrd_en &= ~(PSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_EN_RECOVERY_MODE_M);
++	regmap_writel(def_ovrd_en, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_EN));
+ 
+-	/* Clear Override en for recovery mode */
+-	def_ovrd_en &= ~(PSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN_RECOVERY_MODE_M);
+-	regmap_writel(def_ovrd_en, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_OUT_OVRD_EN));
++	/* Set D2D Async IF recovery signal Ovrd val to 0 */
++	def_ovrd_val &= ~(PSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_VAL_RECOVERY_MODE_M);
++	regmap_writel(def_ovrd_val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_OVRD_VAL));
+ }
+ 
+ void boot_rom_d2d_link_init(void)
+diff --git a/arch/fs1/arc/slave.c b/arch/fs1/arc/slave.c
+index f819c35..2be1a10 100644
+--- a/arch/fs1/arc/slave.c
++++ b/arch/fs1/arc/slave.c
+@@ -28,30 +28,32 @@
+ 	boot_rom_putc('r');
+ 
+ 	/*
+-	 * TODO: IO Die0 RECOVERY_MODE is connected to it's 2 nighbour Compute Die's?
+-	 * or, IO Die0 to all slave Die's?
++	 * Unmask the MASK_0 RECOVERY_MODE bit, if masked
++	 * Required for Compute Die 0
+ 	 */
+-
+-	/* Unmask the MASK_0 RECOVERY_MODE bit, if masked */
+-	val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_IN_MASK_0));
+-	if ((val & PSOC_BOOT_CONF_D2D_GPIO_IN_MASK_0_RECOVERY_MODE_M) != 0) {
+-		val &= ~(PSOC_BOOT_CONF_D2D_GPIO_IN_MASK_0_RECOVERY_MODE_M);
+-		regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_IN_MASK_0));
++	val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_MASK_0));
++	if ((val & PSOC_BOOT_CONF_D2D_GPIO_UP_MASK_0_RECOVERY_MODE_M) != 0) {
++		val &= ~(PSOC_BOOT_CONF_D2D_GPIO_UP_MASK_0_RECOVERY_MODE_M);
++		regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_MASK_0));
+ 	}
+ 
+-	/* Unmask the MASK_1 RECOVERY_MODE bit, if masked */
+-	val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_IN_MASK_1));
+-	if ((val & PSOC_BOOT_CONF_D2D_GPIO_IN_MASK_1_RECOVERY_MODE_M) != 0) {
+-		val &= ~(PSOC_BOOT_CONF_D2D_GPIO_IN_MASK_1_RECOVERY_MODE_M);
+-		regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_IN_MASK_1));
++	/*
++	 * Unmask the MASK_1 RECOVERY_MODE bit, if masked
++	 * Required for Compute Die 1
++	 */
++	val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_MASK_1));
++	if ((val & PSOC_BOOT_CONF_D2D_GPIO_UP_MASK_1_RECOVERY_MODE_M) != 0) {
++		val &= ~(PSOC_BOOT_CONF_D2D_GPIO_UP_MASK_1_RECOVERY_MODE_M);
++		regmap_writel(val, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP_MASK_1));
+ 	}
+ 
+ 	while(1) {
+-		val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_IN));
+-		if ((val & PSOC_BOOT_CONF_D2D_GPIO_IN_MASK_0_RECOVERY_MODE_M) != 0) {
++		val = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_D2D_GPIO_UP));
++		if ((val & PSOC_BOOT_CONF_D2D_GPIO_UP_RECOVERY_MODE_M) != 0) {
+ 			udelay(RECOVERY_PULSE_DURATION);
+ 			break;
+ 		}
++		/* Cleared after master clears D2D_GPIO_UP.REC */
+ 	}
+ }
+ 

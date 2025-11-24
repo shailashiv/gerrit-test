@@ -1,0 +1,126 @@
+From 1400a32441f2610847c2d6a72797c653625c8364 Mon Sep 17 00:00:00 2001
+From: Rajesh Sanga <rsanga@habana.ai>
+Date: Tue, 19 Aug 2025 11:07:50 +0300
+Subject: [PATCH] [SW-237230] Upgrade the urllib3 package
+
+Change-Id: I9e6a45ae3e4f88a6ecfd413d8821f54feee592f7
+Signed-off-by: Rajesh Sanga <rsanga@habana.ai>
+---
+
+diff --git a/dockerfiles/base/Dockerfile.navix9.4 b/dockerfiles/base/Dockerfile.navix9.4
+index b7d16cb..47a9d19 100644
+--- a/dockerfiles/base/Dockerfile.navix9.4
++++ b/dockerfiles/base/Dockerfile.navix9.4
+@@ -73,7 +73,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2
++    python3 -m pip install --upgrade Jinja2 urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.opencloudos9.2 b/dockerfiles/base/Dockerfile.opencloudos9.2
+index 4fa1cc5..3e1b2e0 100644
+--- a/dockerfiles/base/Dockerfile.opencloudos9.2
++++ b/dockerfiles/base/Dockerfile.opencloudos9.2
+@@ -71,7 +71,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2
++    python3 -m pip install --upgrade Jinja2 urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh 1.41.0 && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.rhel8.6 b/dockerfiles/base/Dockerfile.rhel8.6
+index 291ea3a..7078773 100644
+--- a/dockerfiles/base/Dockerfile.rhel8.6
++++ b/dockerfiles/base/Dockerfile.rhel8.6
+@@ -111,7 +111,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2 protobuf
++    python3 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ RUN dnf install -y \
+         habanalabs-rdma-core-"$VERSION"-"$REVISION".el8 \
+diff --git a/dockerfiles/base/Dockerfile.rhel9.2 b/dockerfiles/base/Dockerfile.rhel9.2
+index 85329ad..56f00d6 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.2
++++ b/dockerfiles/base/Dockerfile.rhel9.2
+@@ -81,7 +81,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2 protobuf
++    python3 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.rhel9.4 b/dockerfiles/base/Dockerfile.rhel9.4
+index 7d6fded..71f59de 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.4
++++ b/dockerfiles/base/Dockerfile.rhel9.4
+@@ -94,7 +94,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2 protobuf
++    python3 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.rhel9.4-py312 b/dockerfiles/base/Dockerfile.rhel9.4-py312
+index a73b5fb..ba39e53 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.4-py312
++++ b/dockerfiles/base/Dockerfile.rhel9.4-py312
+@@ -92,7 +92,7 @@
+     python3.12 get-pip.py && \
+     rm -f get-pip.py && \
+     python3.12 -m pip install setuptools==79.0.1 wheel && \
+-    python3.12 -m pip install --upgrade Jinja2 protobuf
++    python3.12 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.rhel9.6 b/dockerfiles/base/Dockerfile.rhel9.6
+index eff6e86..eaf1ac6 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.6
++++ b/dockerfiles/base/Dockerfile.rhel9.6
+@@ -79,7 +79,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2 protobuf
++    python3 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.suse15.5 b/dockerfiles/base/Dockerfile.suse15.5
+index 70d7f6a..673881c 100644
+--- a/dockerfiles/base/Dockerfile.suse15.5
++++ b/dockerfiles/base/Dockerfile.suse15.5
+@@ -80,7 +80,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade Jinja2 protobuf
++    python3 -m pip install --upgrade Jinja2 protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.ubuntu22.04-py311 b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+index c5ba375..915f6eb 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu22.04-py311
++++ b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+@@ -72,7 +72,7 @@
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+     python3 -m pip install setuptools==79.0.1 wheel && \
+-    python3 -m pip install --upgrade cryptography Jinja2 meson oauthlib pycairo PyJWT zipp protobuf
++    python3 -m pip install --upgrade cryptography Jinja2 meson oauthlib pycairo PyJWT zipp protobuf urllib3
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh

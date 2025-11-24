@@ -1,0 +1,26 @@
+From 383ef1c771b6b9b015a1923c770d0b486535418f Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Thu, 26 Sep 2024 11:01:29 +0300
+Subject: [PATCH] [SW-202780] gaudi3: report the number of keys present
+
+While reading the security status, number of keys present in
+the device is not reported.
+
+This patch fixes the issue and report number of keys available.
+
+Change-Id: I27b71843caa14752aec723fa1820e2e322606fb1
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/fw-loader/src/gaudi3/gaudi3.c b/fw-loader/src/gaudi3/gaudi3.c
+index 721e5d1..0abe7fd 100644
+--- a/fw-loader/src/gaudi3/gaudi3.c
++++ b/fw-loader/src/gaudi3/gaudi3.c
+@@ -555,6 +555,7 @@
+ 		return -1;
+ 	}
+ 
++	status->num_of_keys = MAX_NUM_OF_KEYS;
+ 	status->revoked_keys = sec_word & KEYS_BITS;
+ 
+ 	status->minimal_svn = security_get_minimal_svn();

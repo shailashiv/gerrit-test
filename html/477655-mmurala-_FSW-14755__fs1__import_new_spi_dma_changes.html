@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 477655: [FSW-14755] fs1: import new spi dma changes</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 477655: [FSW-14755] fs1: import new spi dma changes</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> preboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-04-21 10:18:25.443000000</p>
+            <p><strong>Updated:</strong> 2025-05-12 05:35:03.875000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-14755] fs1: import new spi dma changes
+
+with this patch, preboot start using new spi
+dma api from bootrom.
+
+Change-Id: Ie1bea8166e703c3913f25b67b33fde4eac0ced4e
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>arch/fs1/arc/common.c</code> (M) +2 -116</li><li><code>arch/fs1/arc/exports.elf</code> (M) +0 -0</li><li><code>arch/fs1/arc/hl.h</code> (M) +0 -34</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/arch/fs1/arc/common.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -52,6 +52,7 @@</span>
+<span class="diff-ctx"> #include &quot;common.h&quot;</span>
+<span class="diff-ctx"> #include &quot;hl.h&quot;</span>
+<span class="diff-ctx"> #include &lt;lib_common.h&gt;</span>
+<span class="diff-add">+#include &lt;boot_rom_export_dev.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static struct hl_pll_cfg pll_cfg[] = {</span>
+<span class="diff-ctx"> 	{</span>
+<span class="diff-hunk">@@ -311,130 +312,15 @@</span>
+<span class="diff-ctx"> 	image_entry();</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static enum dma_dest_type preboot_get_dma_dest_type(uint64_t addr)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	if (addr &gt;= IO0_FW_SRAM_FULL_BASE &amp;&amp;</span>
+<span class="diff-del">-	    addr &lt; IO0_FW_SRAM_FULL_BASE + IO_FW_SRAM_SIZE)</span>
+<span class="diff-del">-		return DMA_DEST_SRAM;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return DMA_DEST_HBW;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#ifndef USE_BOOTROM_SPI_DMA</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static int dma_copy_image_internal(uint16_t image_size, uint32_t flash_offset,</span>
+<span class="diff-del">-				    uint64_t dest_offset, uint8_t fw_sram_dst)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	uint32_t spi_dma_ctrl =  0, restart_crc = 1;</span>
+<span class="diff-del">-	uint32_t spi_dma_status;</span>
+<span class="diff-del">-	uint32_t spi_dma_dst_addr_l = DMA_ADDRESS_LOW(dest_offset);</span>
+<span class="diff-del">-	uint32_t spi_dma_dst_addr_h = DMA_ADDRESS_HIGH(dest_offset);</span>
+<span class="diff-del">-	uint16_t flash_offset_1k = flash_offset / DMA_SRC_BLOCK_SIZE;</span>
+<span class="diff-del">-	uint16_t image_size_4b = (image_size / DMA_DST_BLOCK_SIZE);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	regmap_writel(spi_dma_dst_addr_l, mmIO_0_CFG_HALF_0_PSOC_PARC_CFG_MISC_BASE +</span>
+<span class="diff-del">-					  mmPARC_GLOBAL_CONF_SPI_DMA_DST_ADDR_L);</span>
+<span class="diff-del">-	regmap_writel(spi_dma_dst_addr_h, mmIO_0_CFG_HALF_0_PSOC_PARC_CFG_MISC_BASE +</span>
+<span class="diff-del">-					  mmPARC_GLOBAL_CONF_SPI_DMA_DST_ADDR_H);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* enable DMA transfer */</span>
+<span class="diff-del">-	spi_dma_ctrl = PARC_GLOBAL_CONF_SPI_DMA_CTRL_EN_M;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* sram=1 hbw=0 as destination */</span>
+<span class="diff-del">-	spi_dma_ctrl |= fw_sram_dst &lt;&lt; PARC_GLOBAL_CONF_SPI_DMA_CTRL_DST_SRAM_S;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* TODO: This patch is temporary until FSW-9792 is implemented */</span>
+<span class="diff-del">-	/* 0: continue crc calc 1: restart crc */</span>
+<span class="diff-del">-	spi_dma_ctrl |= restart_crc &lt;&lt; PARC_GLOBAL_CONF_SPI_DMA_CTRL_CRC_RESTART_S;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* # of 4bytes to DMA copy */</span>
+<span class="diff-del">-	spi_dma_ctrl |= (uint32_t)image_size_4b &lt;&lt; PARC_GLOBAL_CONF_SPI_DMA_CTRL_MEM_SIZE_S;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* spi offset in 1k chunks */</span>
+<span class="diff-del">-	spi_dma_ctrl |= (uint32_t)flash_offset_1k &lt;&lt; PARC_GLOBAL_CONF_SPI_DMA_CTRL_ADDR_SHIFT_S;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	regmap_writel(spi_dma_ctrl, mmIO_0_CFG_HALF_0_PSOC_PARC_CFG_MISC_BASE +</span>
+<span class="diff-del">-				    mmPARC_GLOBAL_CONF_SPI_DMA_CTRL);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/*</span>
+<span class="diff-del">-	 * wait for DMA finish</span>
+<span class="diff-del">-	 * TODO: Naive temporary implementation, add transaction timeout monitoring</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	do {</span>
+<span class="diff-del">-		spi_dma_status = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PARC_CFG_MISC_BASE +</span>
+<span class="diff-del">-					      mmPARC_GLOBAL_CONF_SPI_DMA_STATUS);</span>
+<span class="diff-del">-	} while (!(spi_dma_status &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_DONE_M));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return (spi_dma_status &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M) &gt;&gt;</span>
+<span class="diff-del">-		PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_S;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-/*</span>
+<span class="diff-del">- * DMA example:</span>
+<span class="diff-del">- * image_size = 200kb + 16 bytes CRC = 0x32010</span>
+<span class="diff-del">- * dma_chunks: 4</span>
+<span class="diff-del">- * 1st DMA: SRC: 0x0 DST: 0x0 (dma_size: 0xFFF4 left_size: 0x2201C)</span>
+<span class="diff-del">- * 2nd DMA: SRC: 0x10000 DST: 0xFFF0 (dma_size: 0xFFF4 left_size: 0x12028)</span>
+<span class="diff-del">- * 3nd DMA: SRC: 0x20000 DST: 0x1FFE0 (dma_size: 0xFFF4 left_size: 0x2034)</span>
+<span class="diff-del">- * 4th DMA: SRC: 0x30000 DST: 0x2FFD0 (dma_size: 0x2034 left_size: 0x0)</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-static enum dma_error dma_copy_image_v2(uint32_t image_size, uint32_t flash_offset,</span>
+<span class="diff-del">-					uint64_t dest_addr, enum dma_dest_type dest_type,</span>
+<span class="diff-del">-					bool skip_crc_check)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	uint32_t copy_size, dma_size;</span>
+<span class="diff-del">-	uint32_t dma_chunks;</span>
+<span class="diff-del">-	uint8_t i;</span>
+<span class="diff-del">-	int crc_err;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (dest_type &gt;= DMA_DEST_MAX)</span>
+<span class="diff-del">-		return DMA_INVALID_DEST_TYPE;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (dest_addr % ADDR_SIZE_ALIGNMENT)</span>
+<span class="diff-del">-		return DMA_UNALIGNED_DEST_ADDR;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	dma_chunks = image_size / MAX_DMA_SIZE_CRC;</span>
+<span class="diff-del">-	if (image_size % MAX_DMA_SIZE_CRC)</span>
+<span class="diff-del">-		dma_chunks++;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (image_size &lt; MIN_DMA_SIZE_CRC)</span>
+<span class="diff-del">-		return DMA_INVALID_IMG_SIZE;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if ((image_size - (CRC32_SIZE * dma_chunks)) % ADDR_SIZE_ALIGNMENT)</span>
+<span class="diff-del">-		return DMA_UNALIGNED_IMG_SIZE;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	copy_size = image_size;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	for (i = 0; i &lt; dma_chunks; i++) {</span>
+<span class="diff-del">-		dma_size = copy_size &gt; MAX_DMA_SIZE_CRC ? MAX_DMA_SIZE_CRC : copy_size;</span>
+<span class="diff-del">-		crc_err = dma_copy_image_internal(dma_size, (flash_offset + (OFFSET_64KB * i)),</span>
+<span class="diff-del">-						  (dest_addr + (MAX_DMA_SIZE * i)), dest_type);</span>
+<span class="diff-del">-		if ((!skip_crc_check) &amp;&amp; crc_err)</span>
+<span class="diff-del">-			return DMA_INVALID_CRC_ERROR;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		copy_size -= dma_size;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return DMA_SUCCESS;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#else</span>
+<span class="diff-del">-/* TODO: use bootrom code when it is mature enough FSW-2070 */</span>
+<span class="diff-del">-#endif /* USE_BOOTROM_SPI_DMA */</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> bool ppboot_cp_image(u64 loadaddr, u32 offset, u32 size, char *name)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	enum dma_error dma_err;</span>
+<span class="diff-del">-	enum dma_dest_type dma_type;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (name)</span>
+<span class="diff-ctx"> 		preboot_puts_raw(name);</span>
+<span class="diff-ctx"> 	preboot_puts_hex64(&quot; loadaddr: &quot;, loadaddr, false);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	dma_type = preboot_get_dma_dest_type(loadaddr);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	dma_err = dma_copy_image_v2(size, offset, loadaddr, dma_type, false);</span>
+<span class="diff-add">+	dma_err = boot_rom_spi_dma(size, offset, loadaddr, true);</span>
+<span class="diff-ctx"> 	if (dma_err != DMA_SUCCESS) {</span>
+<span class="diff-ctx"> 		preboot_puts_hex(&quot;DMA failed to copy preboot, err=&quot;, dma_err, false);</span>
+<span class="diff-ctx"> 		return false;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 41455c2..b1ff132 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/exports.elf</h4><pre class="diff-content"><span class="diff-ctx">Binary files differ</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 3988e13..655f9f0 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/hl.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -38,40 +38,6 @@</span>
+<span class="diff-ctx"> 	err;											\</span>
+<span class="diff-ctx"> })</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#ifndef USE_BOOTROM_SPI_DMA</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define MAX_DMA_SIZE		0xFFF0</span>
+<span class="diff-del">-#define OFFSET_64KB		0x10000</span>
+<span class="diff-del">-#define ADDR_SIZE_ALIGNMENT	16	/* 16 bytes */</span>
+<span class="diff-del">-#define MIN_DMA_SIZE		16	/* 16 bytes */</span>
+<span class="diff-del">-#define CRC32_SIZE		4</span>
+<span class="diff-del">-#define MAX_DMA_SIZE_CRC	(MAX_DMA_SIZE + CRC32_SIZE)</span>
+<span class="diff-del">-#define MIN_DMA_SIZE_CRC	(MIN_DMA_SIZE + CRC32_SIZE)</span>
+<span class="diff-del">-#define DMA_ADDRESS_LOW(x)	((x) &amp; 0xFFFFFFFF)</span>
+<span class="diff-del">-#define DMA_ADDRESS_HIGH(x)	(((x) &gt;&gt; 32) &amp; 0xFFFFFFFF)</span>
+<span class="diff-del">-#define DMA_SRC_BLOCK_SIZE	1024</span>
+<span class="diff-del">-#define DMA_DST_BLOCK_SIZE	4</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-enum dma_dest_type {</span>
+<span class="diff-del">-	DMA_DEST_HBW = 0,</span>
+<span class="diff-del">-	DMA_DEST_SRAM,</span>
+<span class="diff-del">-	DMA_DEST_MAX</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-enum dma_error {</span>
+<span class="diff-del">-	DMA_SUCCESS = 0,</span>
+<span class="diff-del">-	DMA_INVALID_CRC_ERROR,</span>
+<span class="diff-del">-	DMA_INVALID_DEST_TYPE,</span>
+<span class="diff-del">-	DMA_UNALIGNED_IMG_SIZE,</span>
+<span class="diff-del">-	DMA_UNALIGNED_DEST_ADDR,</span>
+<span class="diff-del">-	DMA_INVALID_IMG_SIZE,</span>
+<span class="diff-del">-	DMA_ERROR_MAX</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#else /* USE_BOOTROM_SPI_DMA */</span>
+<span class="diff-del">-/* TODO: use bootrom code when it is mature enough FSW-2070 */</span>
+<span class="diff-del">-#endif /* USE_BOOTROM_SPI_DMA */</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> void hl_plat_pll_init(void);</span>
+<span class="diff-ctx"> int fs1_mem_copy(uint64_t src, uint64_t dst, uint32_t size, bool is_hbw, bool const_data);</span>
+<span class="diff-ctx"> int fs1_mem_init(uint64_t dst, uint32_t size, bool is_hbw);</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-22 08:52:12.702000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 08:52:18.246000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34780/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 08:52:22.222000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6833/ (1/3)</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-22 08:52:28.057000000)</span><pre>Topic set to NEW_SPI_DMA</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 08:55:06.259000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5681/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 08:55:06.284000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/235/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 08:59:12.545000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21459/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 08:59:12.564000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1766/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 09:00:06.348000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/235/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/212/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6833/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5681/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:32.502000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34780/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1766/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21459/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-05-08 05:52:38.611000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-08 05:52:43.987000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7302/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-08 05:52:44.323000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35294/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-08 05:55:30.478000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/239/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-08 05:55:30.496000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6062/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-08 05:59:15.488000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21857/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-08 05:59:15.489000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1770/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-08 06:11:24.465000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21857/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1770/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35294/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-08 06:15:05.964000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/239/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/216/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/216/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6062/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7302/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-05-12 05:16:07.831000000)</span><pre>Uploaded patch set 4.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 05:16:14.123000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7391/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 05:16:14.898000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35386/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 05:18:44.819000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/245/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 05:18:44.833000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6112/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 05:22:15.820000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_preboot_build_master_next/245/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_preboot_build_master_next/222/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6112/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7391/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 05:22:16.995000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1776/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 05:22:17.005000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21907/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 05:35:03.875000000)</span><pre>Patch Set 4: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/21907/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_preboot_build_master_next/1776/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35386/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

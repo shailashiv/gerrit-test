@@ -1,0 +1,49 @@
+From 54836ac36ecef5ab4abe1668383880c544fdf95a Mon Sep 17 00:00:00 2001
+From: Subrata Chatterjee <schatterjee@habana.ai>
+Date: Fri, 09 Aug 2024 09:50:00 +0300
+Subject: [PATCH] [SW-0] fs1: dsm: dsm from iccm on pldm
+
+This patch is to generate dsm firmware hex file from
+zephyr_dsm.bin. This hex can be used run dsm_fw as
+standalone application on PLDM.
+
+Change-Id: If6f6253e66c5e47c9dadb1c5792bb0072b275f68
+Signed-off-by: Subrata Chatterjee <schatterjee@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index d0f0f43..c554b0a 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -18,7 +18,7 @@
+ PPBOOT_BINFILE=${PPBOOT_BINFILE:-ppboot.bin}
+ PREBOOT_BINFILE=${PREBOOT_BINFILE:-preboot.bin}
+ PCIE_PHY_BINFILE=${PCIE_PHY_BINFILE:-pcie_phy_fw.bin}
+-
++ZEPHYR_DSM_BINFILE=${ZEPHYR_DSM_BINFILE:-zephyr_dsm.bin}
+ 
+ #SECURITY_BOOT_MODE
+ SECURE_BOOT=1
+@@ -407,6 +407,10 @@
+ 		${SCRIPTS_DIR}/palad/convert_app_to_io_bootrom_hex.sh ${ARCBOOT_BINFILE}
+ 		mv boot_rom_rom_ecc.hex ${HEXS_DIR}
+ 
++		# for zephyr_dsm binary
++		swap_file ${ZEPHYR_DSM_BINFILE} ${ZEPHYR_DSM_BINFILE}.orig.be
++		hl_pldm_hex zephyr_dsm ${ZEPHYR_DSM_BINFILE}.orig.be 1
++
+ 		# convert compute die bootrom to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_compute_bootrom_hex.sh ${ARCBOOT_COMP_BINFILE} fs1-pldm-bootrom_comp
+ 		mv boot_rom_comp_*.hex ${HEXS_DIR}
+diff --git a/package/dsm/dsm.mk b/package/dsm/dsm.mk
+index 2cf268d..76ccc4e 100644
+--- a/package/dsm/dsm.mk
++++ b/package/dsm/dsm.mk
+@@ -139,6 +139,7 @@
+ 
+ define DSM_INSTALL_TARGET_CMDS
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(DSM_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.bin $(BINS_DIR)/zephyr_$(DSM_APP_NAME).bin
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.stat $(STATS_DIR)/zephyr_$(DSM_APP_NAME).stat
+ endef
+ 

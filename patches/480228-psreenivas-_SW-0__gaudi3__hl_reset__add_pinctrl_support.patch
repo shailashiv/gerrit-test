@@ -1,0 +1,106 @@
+From 576768380463603fd3e14a6335ae622b848022bc Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Wed, 21 May 2025 13:21:29 +0300
+Subject: [PATCH] [SW-0] gaudi3: hl_reset: add pinctrl support
+
+This patch adds pinctrl support to reset driver
+of gaudi3.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I335dc626a5f41704c647c3c0909c1bf270b029a4
+---
+
+diff --git a/boards/hl/gaudi3/pinmux_preboot.c b/boards/hl/gaudi3/pinmux_preboot.c
+index 0df2b58..22af053 100644
+--- a/boards/hl/gaudi3/pinmux_preboot.c
++++ b/boards/hl/gaudi3/pinmux_preboot.c
+@@ -16,12 +16,6 @@
+ 
+ 	set_gpio_pin_func(GPIO_FUNC(1), GPIO_HBM_PANIC);
+ 
+-	/* FLR notification to slave die and cpld */
+-	set_gpio_pin_func(GPIO_FUNC(1), GPIO_FLR);
+-
+-	/* die 0 wdt gpio */
+-	set_gpio_pin_func(GPIO_FUNC(1), GPIO_PSOC_WDT);
+-
+ 	/* PVT Thermal warning for master die */
+ 	set_gpio_pin_func(GPIO_FUNC(1), GPIO_THERMAL_WARN_OUT0);
+ 	set_gpio_pin_func(GPIO_FUNC(2), GPIO_THERMAL_WARN_OUT1);
+diff --git a/drivers/misc/hl_reset/common/hl.c b/drivers/misc/hl_reset/common/hl.c
+index 5330d2e..f539723 100644
+--- a/drivers/misc/hl_reset/common/hl.c
++++ b/drivers/misc/hl_reset/common/hl.c
+@@ -16,6 +16,10 @@
+ #include <hl_boot_if.h>
+ #include <boot_if.h>
+ 
++#ifdef CONFIG_PINCTRL
++#include <zephyr/drivers/pinctrl.h>
++#endif
++
+ LOG_MODULE_REGISTER(hl_reset);
+ 
+ #define DT_DRV_COMPAT hl_reset
+@@ -223,10 +227,22 @@
+ #endif
+ #endif
+ 
++#ifdef CONFIG_PINCTRL
++PINCTRL_DT_INST_DEFINE(0);
++#endif
+ static int hl_reset_drv_init(const struct device *dev)
+ {
+ 	struct hl_reset_driver_data *data = DEV_DATA_LOCAL(dev);
++#ifdef CONFIG_PINCTRL
++	const struct pinctrl_dev_config *pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(0);
++	int ret = pinctrl_apply_state(pcfg, PINCTRL_STATE_DEFAULT);
+ 
++	if (ret < 0) {
++		printk("reset driver pinctrl setup failed (%d)", ret);
++		return ret;
++	}
++	LOG_INF("Reset driver pinctrl setup done");
++#endif
+ 	hl_reset_dev_init(data);
+ 	hl_reset_dev_rst_mask(data);
+ 
+diff --git a/dts/arc/hl_gaudi3.dtsi b/dts/arc/hl_gaudi3.dtsi
+index 20492b9..b3c017e 100644
+--- a/dts/arc/hl_gaudi3.dtsi
++++ b/dts/arc/hl_gaudi3.dtsi
+@@ -337,6 +337,8 @@
+ 
+ 	reset: hl_reset {
+ 		status = "disabled";
++		pinctrl-0 = <&reset_default>;
++		pinctrl-names = "default";
+ 		compatible = "hl,reset";
+ 		node_label = "HL_RESET";
+ 	};
+@@ -415,6 +417,15 @@
+ 				 >;
+ 			};
+ 
++			reset_default: reset_default {
++				pinmux = < GPIO_FLR
++					GPIO_PSOC_WDT
++					>;
++				func  = < GPIO_FUNC(1)
++					GPIO_FUNC(1)
++					>;
++			};
++
+ 			i2c0_default: i2c0_default{
+ 				pinmux = < GPIO_I2C_M0_SCL
+ 				 GPIO_I2C_M0_SDA
+diff --git a/dts/bindings/misc/hl,reset.yaml b/dts/bindings/misc/hl,reset.yaml
+index 5203304db..70a30c3 100644
+--- a/dts/bindings/misc/hl,reset.yaml
++++ b/dts/bindings/misc/hl,reset.yaml
+@@ -12,4 +12,4 @@
+       required: true
+       description: node label
+ 
+-include: base.yaml
++include: [base.yaml, pinctrl-device.yaml]

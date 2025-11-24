@@ -1,0 +1,137 @@
+From 43e16a2347bc96c3efcfe4ded038b3e3a43f8c1c Mon Sep 17 00:00:00 2001
+From: Michal Kuligowski <mkuligowski@habana.ai>
+Date: Fri, 06 Sep 2024 09:35:47 +0000
+Subject: [PATCH] [SW-182084] amax_reduce frequency optimization
+
+Change-Id: I0e38951990710b4e45c8f88c28e4ab6f681cceb4
+---
+
+diff --git a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/fp8.py b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/fp8.py
+index 8b269cb..5678f56 100644
+--- a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/fp8.py
++++ b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/fp8.py
+@@ -357,7 +357,9 @@
+             fp8_meta[buffer_position_key] = len(cls.global_fp8_buffer[buffer_key]) - 1
+ 
+     @classmethod
+-    def copy_amax_from_global_buffer(cls, fp8_meta: Dict[str, Any], forward: bool = True) -> None:
++    def copy_amax_from_global_buffer(
++        cls, fp8_meta: Dict[str, Any], forward: bool = True, copy_all: bool = False
++    ) -> None:
+         """Populate current amax with the correct location from buffer."""
+         fp8_meta_tensor_key = cls.get_meta_tensor_key_bool(forward=forward)
+         buffer_position_key = cls.get_buffer_position_key(forward=forward)
+@@ -367,9 +369,12 @@
+         amax_buffer_key = cls.get_amax_buffer_key(fp8_meta, forward=forward)
+         assert amax_buffer_key in cls.global_fp8_buffer, "TE internal error."
+ 
+-        fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index] = (
+-            cls.global_fp8_buffer[amax_buffer_key][fp8_meta[buffer_position_key]]
+-        )
++        if copy_all:
++            fp8_meta[fp8_meta_tensor_key].amax_history = torch.stack(cls.global_fp8_buffer[amax_buffer_key])
++        else:
++            fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = (
++                cls.global_fp8_buffer[amax_buffer_key][fp8_meta[buffer_position_key]]
++            )
+ 
+         # NOTE: For hybrid mode amax_history is the same as for forward. To limit the number
+         # of reduce operation, only fwd amax_history was reduced. Now the reduction result needs to be copied also to hybrid
+diff --git a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
+index d40fa1b..1b00c88 100644
+--- a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
++++ b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
+@@ -56,6 +56,9 @@
+     tp_group: Optional[dist_group_type] = None,
+ ) -> Generator[None, None, None]:
+     """Checks and prep for BWD."""
++    curr_run_cnt = fp8_meta["run_cnt"]
++    scale_update_interval = fp8_meta["recipe"].interval
++    is_scale_update_required_for_next_iter = curr_run_cnt % scale_update_interval == scale_update_interval - 1
+     if fp8:
+         if fp8_meta["update_amax_bwd"].get("bwd_enabled", False):
+             # Update amax and scale; Skip all setup for global amax reduction
+@@ -63,7 +66,9 @@
+                 amax_and_scale_update(fp8_meta, False, is_scale_update_required)
+             else:
+                 # From previous iteration
+-                FP8GlobalStateManager.copy_amax_from_global_buffer(fp8_meta, forward=False)
++                FP8GlobalStateManager.copy_amax_from_global_buffer(
++                    fp8_meta, forward=False, copy_all=not is_scale_update_required
++                )
+                 amax_and_scale_update(fp8_meta, False, is_scale_update_required)
+                 if fp8_meta["first_module"]:
+                     FP8GlobalStateManager.set_amax_buffer_key_deletion(fp8_meta, forward=False)
+@@ -79,7 +84,7 @@
+     if fp8 and fp8_meta["recipe"].reduce_amax:
+         if amax_measure_state["bwd_enabled"]:
+             FP8GlobalStateManager.add_amax_to_global_buffer(fp8_meta, forward=False)
+-            if fp8_meta["first_module"]:
++            if fp8_meta["first_module"] and is_scale_update_required_for_next_iter:
+                 FP8GlobalStateManager.global_amax_reduction(
+                     fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False
+                 )
+@@ -496,11 +501,13 @@
+             # Previous iteration was grad_enabled
+             if self.fp8_meta["update_amax_fwd"].get("fwd_enabled", False):
+                 if self.fp8_meta["recipe"].reduce_amax:
+-                    if self.fp8_meta["first_module"]:
++                    if self.fp8_meta["first_module"] and self.fp8_meta["is_scale_update_required"]:
+                         FP8GlobalStateManager.global_amax_reduction(
+                             self.fp8_meta, self.sequence_parallel, self.tp_group, forward=True
+                         )
+-                    FP8GlobalStateManager.copy_amax_from_global_buffer(self.fp8_meta, forward=True)
++                    FP8GlobalStateManager.copy_amax_from_global_buffer(
++                        self.fp8_meta, forward=True, copy_all=not self.fp8_meta["is_scale_update_required"]
++                    )
+                     amax_and_scale_update(self.fp8_meta, True, self.fp8_meta["is_scale_update_required"])
+                     if self.fp8_meta["first_module"]:
+                         FP8GlobalStateManager.set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
+diff --git a/tests/pytest_working/any_mode/test_hpu_fp8_te.py b/tests/pytest_working/any_mode/test_hpu_fp8_te.py
+index 9e7b806..def62f6 100644
+--- a/tests/pytest_working/any_mode/test_hpu_fp8_te.py
++++ b/tests/pytest_working/any_mode/test_hpu_fp8_te.py
+@@ -682,6 +682,43 @@
+     _verify_executed_ops(fp8_format)
+ 
+ 
++class TestableLinear(te.Linear):
++
++    def __init__(self, scale_update_steps, *args, **kwargs):
++        super(TestableLinear, self).__init__(*args, **kwargs)
++        self.counter = 0
++        self.scale_update_steps = scale_update_steps
++
++    def is_scale_update_required(self) -> bool:
++        self.counter = self.counter + 1
++        return self.counter % self.scale_update_steps == 0
++
++
++def test_amax_gather_opt(device=torch.device("hpu:0"), dtype=torch.float32):
++    fp8_recipe = DelayedScaling(
++        fp8_format=Format.E5M2,
++        amax_history_len=1,
++        amax_compute_algo="max",
++        margin=0,
++        reduce_amax=True,
++    )
++
++    linear = TestableLinear(4, 4, 3, bias=True, params_dtype=dtype)
++    train_step = get_train_step_function()
++    inputs = [
++        torch.tensor([1, 2, 8, 4], dtype=dtype, device=device, requires_grad=True),
++        torch.tensor([5, 6, 7, 8], dtype=dtype, device=device, requires_grad=True),
++        torch.tensor([9, 10, 11, 12], dtype=dtype, device=device, requires_grad=True),
++        torch.tensor([1, 2, 8, 4], dtype=dtype, device=device, requires_grad=True),
++        torch.tensor([5, 6, 7, 8], dtype=dtype, device=device, requires_grad=True),
++        torch.tensor([9, 10, 11, 2], dtype=dtype, device=device, requires_grad=True),
++    ]
++    for input in inputs:
++        out = train_step(linear, input, fp8_recipe=fp8_recipe)
++
++    assert 12 in linear.fp8_meta["scaling_fwd"].amax_history
++
++
+ @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torch.float32):
+     if is_gaudi1():

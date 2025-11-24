@@ -1,0 +1,79 @@
+From 5835d12068ca89633a87919f64eb6a6dfc518d6a Mon Sep 17 00:00:00 2001
+From: Krzysztof Chrusciel <kchruscielx@habana.ai>
+Date: Wed, 23 Oct 2024 18:28:45 +0300
+Subject: [PATCH] [SW-202671] Add shared layer support: native_layer_norm
+
+Change-Id: I64974bb33637b5cd30cc4e475c27be6876b9510f
+Signed-off-by: Krzysztof Chrusciel <kchruscielx@habana.ai>
+---
+
+diff --git a/hpu_ops/backend/layer_norm_gen.cpp b/hpu_ops/backend/layer_norm_gen.cpp
+index 8937f41..c754d62 100644
+--- a/hpu_ops/backend/layer_norm_gen.cpp
++++ b/hpu_ops/backend/layer_norm_gen.cpp
+@@ -92,6 +92,53 @@
+   return storage.back().get();
+ }
+ 
++SharedMetaDataVector LayerNormSharedMeta(
++    const at::Stack& stack,
++    habana_helpers::HabanaFrontendTypes executionMode) {
++  const auto& input = stack.at(0).toTensor();
++  const auto& weightOpt = stack.at(2).toOptional<at::Tensor>();
++  const auto& biasOpt = stack.at(3).toOptional<at::Tensor>();
++  const auto inputDim = input.dim();
++  const auto inputType = input.scalar_type();
++
++  SharedMetaDataVector layerNormSharedMeta;
++
++  if (executionMode == habana_helpers::HabanaFrontendTypes::EAGER) {
++    SharedMetaData layerNormFwdPtSharedMeta{"layer_norm_fwd_pt"};
++    layerNormFwdPtSharedMeta.inputs_data.emplace_back(inputDim, inputType);
++    if (weightOpt && weightOpt.value().defined())
++      layerNormFwdPtSharedMeta.inputs_data.emplace_back(
++          weightOpt.value().dim(), weightOpt.value().scalar_type());
++    if (biasOpt && biasOpt.value().defined())
++      layerNormFwdPtSharedMeta.inputs_data.emplace_back(
++          biasOpt.value().dim(), biasOpt.value().scalar_type());
++    layerNormFwdPtSharedMeta.outputs_data.emplace_back(inputDim, inputType);
++    layerNormFwdPtSharedMeta.outputs_data.emplace_back(inputDim, c10::kFloat);
++    layerNormFwdPtSharedMeta.outputs_data.emplace_back(inputDim, c10::kFloat);
++    layerNormSharedMeta.push_back(layerNormFwdPtSharedMeta);
++  } else {
++    const int weightOptDimAfterReshape = 1;
++    const int biasOptDimAfterReshape = 1;
++    const int inputDimAfterReshape = 4;
++
++    SharedMetaData layerNormFwdSharedMeta{"layer_norm_fwd"};
++    layerNormFwdSharedMeta.inputs_data.emplace_back(
++        inputDimAfterReshape, inputType);
++    layerNormFwdSharedMeta.inputs_data.emplace_back(
++        weightOptDimAfterReshape, c10::kFloat);
++    layerNormFwdSharedMeta.inputs_data.emplace_back(
++        biasOptDimAfterReshape, c10::kFloat);
++    layerNormFwdSharedMeta.outputs_data.emplace_back(
++        inputDimAfterReshape, inputType);
++    layerNormFwdSharedMeta.outputs_data.emplace_back(
++        inputDimAfterReshape, c10::kFloat);
++    layerNormFwdSharedMeta.outputs_data.emplace_back(
++        inputDimAfterReshape, c10::kFloat);
++    layerNormSharedMeta.push_back(layerNormFwdSharedMeta);
++  }
++  return layerNormSharedMeta;
++}
++
+ void LayerNormHabanaOperator::AddNode(
+     sh::graph& graph,
+     const at::Stack& stack) {
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 4150b92..1b4e12a 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -4885,6 +4885,7 @@
+   op_backend: LayerNormHabanaOperator
+   output_meta: LayerNormHabanaMeta
+   out_ids: [0, 0, 0]
++  op_validator: LayerNormSharedMeta
+ 
+ native_layer_norm_backward:
+   dtypes:

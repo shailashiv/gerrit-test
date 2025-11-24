@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 481965: [SW-232336] checkpatch: backport brace check</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 481965: [SW-232336] checkpatch: backport brace check</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Jason Smith &lt;jsmith@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-06-17 15:13:41.483000000</p>
+            <p><strong>Updated:</strong> 2025-06-19 18:13:37.721000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-232336] checkpatch: backport brace check
+
+Backport change from upstream zephyr that modifies checkpatch such
+that braces are required around oneline statements (if/else/for/etc).
+Technically this was always the zephyr style, but the checkpatch
+script was still enforcing the kernel style of no braces on oneline
+blocks.
+
+Below is the original upstream commit message:
+----
+
+checkpatch: Adapt the braces check to Zephyr
+
+scripts/checkpatch.pl was written originally for the Linux kernel, and
+its code reflects the kernel&#x27;s coding style. In particular, it has
+checks for unneeded braces around single-statement if/else/for/while
+conditions. In Zephyr however, braces are always required, and so the
+checks needed modifying to verify the opposite condition.
+
+In order to enable the now-compatible checks, we also remove the
+--ignore BRACES statement in .checkpatch.conf.
+
+Limitations: the current code works well if there are not conditional
+statements (e.g. #if, #ifdef or #endif) next to the if/else/for/while
+conditions. This is rarely the case, but triggers with the Bluetooth
+controller in code like this:
+
+```
+ #if defined(CONFIG_BT_PERIPHERAL)
+        if (!lll-&gt;is_hdcd)
+ #endif /* CONFIG_BT_PERIPHERAL */
+        {
+```
+
+```
+        } else
+ #endif /* CONFIG_BT_CTLR_PRIVACY */
+        {
+
+```
+
+```
+ #if defined(CONFIG_BT_CTLR_DF_ADV_CTE_TX)
+        if (lll-&gt;cte_started) {
+                radio_switch_complete(phy_s, 0, phy_s, 0);
+        } else
+ #endif /* CONFIG_BT_CTLR_DF_ADV_CTE_TX */
+        {
+```
+
+```
+ #ifdef DUAL_BANK
+        while ((FLASH_STM32_REGS(dev)-&gt;SR1 &amp; FLASH_SR_QW) ||
+               (FLASH_STM32_REGS(dev)-&gt;SR2 &amp; FLASH_SR_QW))
+ #else
+        while (FLASH_STM32_REGS(dev)-&gt;SR1 &amp; FLASH_SR_QW)
+ #endif
+        {
+```
+Signed-off-by: Carles Cufi &lt;carles.cufi@nordicsemi.no&gt;
+
+Change-Id: Icad4a752051109716a7388592a39fd2c64f007a3
+Signed-off-by: Jason Smith &lt;jsmith@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Igor Grinberg: +0, David Kershner: +0, Jason Smith: +0, Bill Jordan: +0, Software Jenkins: +0, John Fleck: +0, Christopher J Champagne: +0, Jenkins EMB Service Account: +0, Josh Fazekas: +0, Michael J Ruhl: +1</li><li><strong>Verified</strong>: +2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>.checkpatch.conf</code> (M) +0 -1</li><li><code>doc/contribute/guidelines.rst</code> (M) +1 -2</li><li><code>scripts/checkpatch.pl</code> (M) +31 -57</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><span class="diff-del">--ignore BRACES statement in .checkpatch.conf.</span>
+<div class="diff-file"><h4 class="diff-filename">b/.checkpatch.conf</h4><pre class="diff-content"><span class="diff-hunk">@@ -5,7 +5,6 @@</span>
+<span class="diff-ctx"> --min-conf-desc-length=1</span>
+<span class="diff-ctx"> --typedefsfile=scripts/checkpatch/typedefsfile</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> --ignore PRINTK_WITHOUT_KERN_LEVEL</span>
+<span class="diff-ctx"> --ignore SPLIT_STRING</span>
+<span class="diff-ctx"> --ignore VOLATILE</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 5f31f64..460c79b 100644</span>
+<h4 class="diff-filename">b/doc/contribute/guidelines.rst</h4><pre class="diff-content"><span class="diff-hunk">@@ -536,8 +536,7 @@</span>
+<span class="diff-ctx"> * The line length is 100 columns or fewer. In the documentation, longer lines</span>
+<span class="diff-ctx">   for URL references are an allowed exception.</span>
+<span class="diff-ctx"> * Add braces to every ``if``, ``else``, ``do``, ``while``, ``for`` and</span>
+<span class="diff-del">-  ``switch`` body, even for single-line code blocks. Use the ``--ignore BRACES``</span>
+<span class="diff-del">-  flag to make *checkpatch* stop complaining.</span>
+<span class="diff-add">+  ``switch`` body, even for single-line code blocks.</span>
+<span class="diff-ctx"> * Use spaces instead of tabs to align comments after declarations, as needed.</span>
+<span class="diff-ctx"> * Use C89-style single line comments, ``/*  */``. The C99-style single line</span>
+<span class="diff-ctx">   comment, ``//``, is not allowed.</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 447bca6..6c1b9b0 100755</span>
+<h4 class="diff-filename">b/scripts/checkpatch.pl</h4><pre class="diff-content"><span class="diff-hunk">@@ -5505,8 +5505,9 @@</span>
+<span class="diff-ctx"> 					my ($whitespace) = ($cond =~ /^((?:\s*\n[+-])*\s*)/s);</span>
+<span class="diff-ctx"> 					my $offset = statement_rawlines($whitespace) - 1;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-					$allowed[$allow] = 0;</span>
+<span class="diff-del">-					#print &quot;COND&lt;$cond&gt; whitespace&lt;$whitespace&gt; offset&lt;$offset&gt;\n&quot;;</span>
+<span class="diff-add">+					# always allow braces (i.e. require them)</span>
+<span class="diff-add">+					$allowed[$allow] = 1;</span>
+<span class="diff-add">+					#print &quot;COND&lt;$cond&gt; block&lt;$block&gt; whitespace&lt;$whitespace&gt; offset&lt;$offset&gt;\n&quot;;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 					# We have looked at and allowed this specific line.</span>
+<span class="diff-ctx"> 					$suppress_ifbraces{$ln + $offset} = 1;</span>
+<span class="diff-hunk">@@ -5515,46 +5516,37 @@</span>
+<span class="diff-ctx"> 					$ln += statement_rawlines($block) - 1;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 					substr($block, 0, length($cond), &#x27;&#x27;);</span>
+<span class="diff-add">+					#print &quot;COND&lt;$cond&gt; block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+					# Remove any 0x1C characters. The script replaces</span>
+<span class="diff-add">+					# comments /* */ with those.</span>
+<span class="diff-add">+					$block =~ tr/\x1C//d;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 					$seen++ if ($block =~ /^\s*{/);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-					#print &quot;cond&lt;$cond&gt; block&lt;$block&gt; allowed&lt;$allowed[$allow]&gt;\n&quot;;</span>
+<span class="diff-del">-					if (statement_lines($cond) &gt; 1) {</span>
+<span class="diff-del">-						#print &quot;APW: ALLOWED: cond&lt;$cond&gt;\n&quot;;</span>
+<span class="diff-del">-						$allowed[$allow] = 1;</span>
+<span class="diff-del">-					}</span>
+<span class="diff-del">-					if ($block =~/\b(?:if|for|while)\b/) {</span>
+<span class="diff-del">-						#print &quot;APW: ALLOWED: block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-del">-						$allowed[$allow] = 1;</span>
+<span class="diff-del">-					}</span>
+<span class="diff-del">-					if (statement_block_size($block) &gt; 1) {</span>
+<span class="diff-del">-						#print &quot;APW: ALLOWED: lines block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-del">-						$allowed[$allow] = 1;</span>
+<span class="diff-del">-					}</span>
+<span class="diff-ctx"> 					$allow++;</span>
+<span class="diff-ctx"> 				}</span>
+<span class="diff-del">-				if ($seen) {</span>
+<span class="diff-del">-					my $sum_allowed = 0;</span>
+<span class="diff-del">-					foreach (@allowed) {</span>
+<span class="diff-del">-						$sum_allowed += $_;</span>
+<span class="diff-del">-					}</span>
+<span class="diff-del">-					if ($sum_allowed == 0) {</span>
+<span class="diff-del">-						WARN(&quot;BRACES&quot;,</span>
+<span class="diff-del">-						     &quot;braces {} are not necessary for any arm of this statement\n&quot; . $herectx);</span>
+<span class="diff-del">-					} elsif ($sum_allowed != $allow &amp;&amp;</span>
+<span class="diff-del">-						 $seen != $allow) {</span>
+<span class="diff-del">-						CHK(&quot;BRACES&quot;,</span>
+<span class="diff-del">-						    &quot;braces {} should be used on all arms of this statement\n&quot; . $herectx);</span>
+<span class="diff-del">-					}</span>
+<span class="diff-add">+				my $sum_allowed = 0;</span>
+<span class="diff-add">+				foreach (@allowed) {</span>
+<span class="diff-add">+					$sum_allowed += $_;</span>
+<span class="diff-add">+				}</span>
+<span class="diff-add">+				#print &quot;sum_allowed&lt;$sum_allowed&gt; seen&lt;$seen&gt; allow&lt;$allow&gt;\n&quot;;</span>
+<span class="diff-add">+				if ($sum_allowed == 0) {</span>
+<span class="diff-add">+					WARN(&quot;BRACES&quot;,</span>
+<span class="diff-add">+					     &quot;braces {} are not necessary for any arm of this statement\n&quot; . $herectx);</span>
+<span class="diff-add">+				} elsif ($seen != $allow) {</span>
+<span class="diff-add">+					WARN(&quot;BRACES&quot;,</span>
+<span class="diff-add">+					    &quot;braces {} must be used on all arms of this statement\n&quot; . $herectx);</span>
+<span class="diff-ctx"> 				}</span>
+<span class="diff-ctx"> 			}</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-ctx"> 		if (!defined $suppress_ifbraces{$linenr - 1} &amp;&amp;</span>
+<span class="diff-ctx"> 					$line =~ /\b(if|while|for|else)\b/) {</span>
+<span class="diff-ctx"> 			my $allowed = 0;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-			# Check the pre-context.</span>
+<span class="diff-del">-			if (substr($line, 0, $-[0]) =~ /(\}\s*)$/) {</span>
+<span class="diff-add">+			# Check the pre-context for:</span>
+<span class="diff-add">+			# &#x27;#&#x27;: #if</span>
+<span class="diff-add">+			# &#x27;}&#x27;: } while()</span>
+<span class="diff-add">+			if (substr($line, 0, $-[0]) =~ /([\#\}]\s*)$/) {</span>
+<span class="diff-ctx"> 				#print &quot;APW: ALLOWED: pre&lt;$1&gt;\n&quot;;</span>
+<span class="diff-ctx"> 				$allowed = 1;</span>
+<span class="diff-ctx"> 			}</span>
+<span class="diff-hunk">@@ -5564,39 +5556,21 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 			# Check the condition.</span>
+<span class="diff-ctx"> 			my ($cond, $block) = @{$chunks[0]};</span>
+<span class="diff-del">-			#print &quot;CHECKING&lt;$linenr&gt; cond&lt;$cond&gt; block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-add">+			#print &quot;level $level CHECKING&lt;$linenr&gt; cond&lt;$cond&gt; block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-ctx"> 			if (defined $cond) {</span>
+<span class="diff-ctx"> 				substr($block, 0, length($cond), &#x27;&#x27;);</span>
+<span class="diff-ctx"> 			}</span>
+<span class="diff-del">-			if (statement_lines($cond) &gt; 1) {</span>
+<span class="diff-del">-				#print &quot;APW: ALLOWED: cond&lt;$cond&gt;\n&quot;;</span>
+<span class="diff-del">-				$allowed = 1;</span>
+<span class="diff-del">-			}</span>
+<span class="diff-del">-			if ($block =~/\b(?:if|for|while)\b/) {</span>
+<span class="diff-del">-				#print &quot;APW: ALLOWED: block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-del">-				$allowed = 1;</span>
+<span class="diff-del">-			}</span>
+<span class="diff-del">-			if (statement_block_size($block) &gt; 1) {</span>
+<span class="diff-del">-				#print &quot;APW: ALLOWED: lines block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-del">-				$allowed = 1;</span>
+<span class="diff-del">-			}</span>
+<span class="diff-del">-			# Check the post-context.</span>
+<span class="diff-del">-			if (defined $chunks[1]) {</span>
+<span class="diff-del">-				my ($cond, $block) = @{$chunks[1]};</span>
+<span class="diff-del">-				if (defined $cond) {</span>
+<span class="diff-del">-					substr($block, 0, length($cond), &#x27;&#x27;);</span>
+<span class="diff-del">-				}</span>
+<span class="diff-del">-				if ($block =~ /^\s*\{/) {</span>
+<span class="diff-del">-					#print &quot;APW: ALLOWED: chunk-1 block&lt;$block&gt;\n&quot;;</span>
+<span class="diff-del">-					$allowed = 1;</span>
+<span class="diff-del">-				}</span>
+<span class="diff-del">-			}</span>
+<span class="diff-del">-			if ($level == 0 &amp;&amp; $block =~ /^\s*\{/ &amp;&amp; !$allowed) {</span>
+<span class="diff-add">+			# Remove any 0x1C characters. The script replaces</span>
+<span class="diff-add">+			# comments /* */ with those.</span>
+<span class="diff-add">+			$block =~ tr/\x1C//d;</span>
+<span class="diff-add">+			#print sprintf &#x27;%v02X&#x27;, $block;</span>
+<span class="diff-add">+			#print &quot;\n&quot;;</span>
+<span class="diff-add">+			if ($level == 0 &amp;&amp; $block !~ /^\s*\{/ &amp;&amp; !$allowed) {</span>
+<span class="diff-ctx"> 				my $cnt = statement_rawlines($block);</span>
+<span class="diff-ctx"> 				my $herectx = get_stat_here($linenr, $cnt, $here);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 				WARN(&quot;BRACES&quot;,</span>
+<span class="diff-del">-				     &quot;braces {} are not necessary for single statement blocks\n&quot; . $herectx);</span>
+<span class="diff-add">+				     &quot;braces {} are required around if/while/for/else\n&quot; . $herectx);</span>
+<span class="diff-ctx"> 			}</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-17 15:13:41.483000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 15:13:50.267000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37049/ (1/5)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-17 15:13:51.060000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8875/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-17 15:16:21.384000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7248/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-17 15:16:21.399000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7975/ (3/3)</pre></div><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-17 15:17:03.662000000)</span><pre>Uploaded patch set 2: Commit message was updated.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 15:17:52.084000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23080/ (2/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 15:17:52.104000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/62/ (3/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 15:17:52.118000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/60/ (4/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 15:17:52.140000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/153/ (5/5)</pre></div><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-17 15:46:07.855000000)</span><pre>Patch Set 2: Code-Review-2
+
+Marking as -2 to avoid accidental merge.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-17 15:52:57.626000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7248/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7975/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8875/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-17 16:48:01.504000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37049/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23080/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/153/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/62/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/60/ : SUCCESS</pre></div><div class="message"><strong>Igor Grinberg</strong> <span class="date">(2025-06-17 17:11:43.840000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+commit message changes do not trigger jenkings jobs.
+Set 1 has passed all the tests, so +1V and +1F</pre></div><div class="message"><strong>Igor Grinberg</strong> <span class="date">(2025-06-17 17:11:55.149000000)</span><pre>Removed Finished-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Igor Grinberg</strong> <span class="date">(2025-06-17 17:11:56.646000000)</span><pre>Removed Finished-1 by Software Jenkins (1000235)
+</pre></div><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-18 14:05:55.948000000)</span><pre>Removed Code-Review-2 by Jason Smith &lt;jsmith@habana.ai&gt;
+</pre></div><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-18 14:41:39.342000000)</span><pre>Patch Set 3: Patch Set 2 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:41:45.972000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37088/ (1/5)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-18 14:41:50.065000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8911/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:42:24.390000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/188/ (2/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:42:24.396000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23115/ (4/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:42:24.401000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/96/ (3/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:42:24.419000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/98/ (5/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-18 14:44:00.727000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23115/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23115/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/188/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/188/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/98/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/98/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/96/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/96/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37088/ : FAILURE
+
+unable to find valid certification path ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37088/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-18 14:44:29.982000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/8004/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-18 14:44:29.994000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7280/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-18 15:20:59.719000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8911/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/8004/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7280/ : SUCCESS</pre></div><div class="message"><strong>Michael J Ruhl</strong> <span class="date">(2025-06-18 15:45:38.376000000)</span><pre>Patch Set 3: Code-Review+1
+
+(1 comment)
+
+no idea why this works...but if it is from upstream it MUST be ok...</pre></div><div class="message"><strong>Jason Smith</strong> <span class="date">(2025-06-19 17:28:19.137000000)</span><pre>Patch Set 4: Patch Set 3 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 17:28:26.562000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37125/ (1/5)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 17:28:27.536000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8943/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 17:30:57.650000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7304/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 17:30:57.765000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/8028/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 17:32:22.125000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/128/ (2/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 17:32:22.132000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/126/ (3/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 17:32:22.157000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23144/ (4/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 17:32:22.198000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/221/ (5/5)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-06-19 18:09:38.193000000)</span><pre>Patch Set 4: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8943/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/7304/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/8028/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-19 18:13:37.721000000)</span><pre>Patch Set 4: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37125/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23144/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_jgs_build_master_next/221/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/128/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/126/ : SUCCESS</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>scripts/checkpatch.pl</h4><ul><li><strong>Michael J Ruhl</strong> (Line 5489): hmm, why didn&#x27;t they just cut this code out of the script?</li></ul></div></div>
+    </div>
+</body>
+</html>

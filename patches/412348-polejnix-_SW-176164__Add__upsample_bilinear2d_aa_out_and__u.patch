@@ -1,0 +1,237 @@
+From 0ad32735e04a938847fd07a557bfc27acfcb1f82 Mon Sep 17 00:00:00 2001
+From: Paweł Olejniczak <polejniczakx@habana.ai>
+Date: Mon, 22 Apr 2024 16:42:13 +0300
+Subject: [PATCH] [SW-176164] Add _upsample_bilinear2d_aa.out and _upsample_bilinear2d_aa_backward.grad_input
+
+Change-Id: Ibb7c0a5bdfe0e989679481184b784f87096619cf
+---
+
+diff --git a/docs/Pytorch_Operators.rst b/docs/Pytorch_Operators.rst
+index 56a0f3d..5c59484 100644
+--- a/docs/Pytorch_Operators.rst
++++ b/docs/Pytorch_Operators.rst
+@@ -81,6 +81,7 @@
+ tanh                                     Yes      Yes      Yes       No       No        No       No     torch.nn.functional
+ threshold                                Yes      Yes      No        No       No        No       No     torch.nn.functional
+ upsample                                 Yes      Yes      Yes       No       No        No       No     torch.nn.functional
++upsample_bilinear                        Yes      Yes      Yes       No       No        No       No     torch.nn.functional
+ upsample_nearest                         Yes      Yes      Yes       No       No        No       No     torch.nn.functional
+ vector_norm                              Yes      Yes      No        No       No        No       No     torch.linalg
+ abs                                      Yes      Yes      Yes       No       No        No       No     torch
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 7a669b2..4beeb2b 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -6697,6 +6697,30 @@
+     Gaudi2: [BFloat16, Float, Half]
+     Gaudi3: [BFloat16, Float, Half]
+ 
++_upsample_bilinear2d_aa.out:
++  custom_fill_params: FillBilinearFwdParams
++  output_meta: UpsampleBilinear2DFwdMeta
++  dtypes:
++    Gaudi: [BFloat16, Float]
++    Gaudi2: [BFloat16, Float, Half]
++    Gaudi3: [BFloat16, Float, Half]
++  guid: resize_fwd
++  synapse_layouts:
++  - [WHCN, WHCN]
++  - [WHCN]
++
++_upsample_bilinear2d_aa_backward.grad_input:
++  custom_fill_params: FillBilinearBwdParams
++  output_meta: UpsampleBilinear2DBwdMeta
++  dtypes:
++    Gaudi: [BFloat16, Float]
++    Gaudi2: [BFloat16, Float, Half]
++    Gaudi3: [BFloat16, Float, Half]
++  guid: resize_bwd
++  synapse_layouts:
++  - [WHCN, WHCN]
++  - [WHCN]
++
+ upsample_bilinear2d_backward:
+   custom_fill_params: FillBilinearBwdParams
+   output_meta: UpsampleBilinear2DBwdMeta
+diff --git a/tests/cpp/hpu_ops/upsample_bilinear2d.cpp b/tests/cpp/hpu_ops/upsample_bilinear2d.cpp
+index 0413c5f..f11f0d9 100644
+--- a/tests/cpp/hpu_ops/upsample_bilinear2d.cpp
++++ b/tests/cpp/hpu_ops/upsample_bilinear2d.cpp
+@@ -247,4 +247,153 @@
+       {},
+       result);
+   Compare(expected, result);
+-}
+\ No newline at end of file
++}
++
++// antialiasing variants
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_CL) {
++  GenerateInputs(1, {{2, 7, 3, 4}});
++  std::vector<double> scale_factor = {1.999, 2.999};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
++      c10::nullopt,
++      /*align_corner*/ false,
++      scale_factor);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
++      c10::nullopt,
++      /*align_corner*/ false,
++      scale_factor);
++  Compare(expected, result);
++}
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale) {
++  GenerateInputs(1, {{2, 7, 3, 4}});
++  std::vector<double> scale_factor = {1.999, 2.999};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0),
++      c10::nullopt,
++      /*align_corner*/ false,
++      scale_factor);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetHpuInput(0),
++      c10::nullopt,
++      /*align_corner*/ false,
++      scale_factor);
++  Compare(expected, result);
++}
++//
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_zero_CL) {
++  GTEST_SKIP(); // [SW-186353] Unsupported test configuration
++  GenerateInputs(1, {{2, 7, 3, 4}});
++  std::vector<double> scale_factor = {0.6, 1.7};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
++      c10::nullopt,
++      /*align_corner*/ true,
++      scale_factor);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
++      c10::nullopt,
++      /*align_corner*/ true,
++      scale_factor);
++  Compare(expected, result);
++}
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_zero) {
++  GTEST_SKIP(); // [SW-186353] Unsupported test configuration
++  GenerateInputs(1, {{2, 7, 3, 4}});
++  std::vector<double> scale_factor = {0.6, 1.7};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0),
++      c10::nullopt,
++      /*align_corner*/ true,
++      scale_factor);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetHpuInput(0),
++      c10::nullopt,
++      /*align_corner*/ true,
++      scale_factor);
++  Compare(expected, result);
++}
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_size_CL) {
++  GenerateInputs(1, {{4, 5, 3, 25}});
++  std::vector<int64_t> size = {8, 50};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
++      size,
++      /*align_corner*/ false);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
++      size,
++      /*align_corner*/ false);
++  Compare(expected, result);
++}
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_size) {
++  GenerateInputs(1, {{4, 5, 3, 25}});
++  std::vector<int64_t> size = {8, 50};
++
++  auto expected = torch::_upsample_bilinear2d_aa(
++      GetCpuInput(0),
++      size,
++      /*align_corner*/ false);
++  auto result = torch::_upsample_bilinear2d_aa(
++      GetHpuInput(0),
++      size,
++      /*align_corner*/ false);
++  Compare(expected, result);
++}
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_out_CL) {
++  GTEST_SKIP(); // [SW-186353] Unsupported test configuration
++  GenerateInputs(1, {{5, 6, 8, 4}});
++  std::vector<int64_t> size = {7, 9};
++  auto expected = torch::empty(0, TENSOR_TYPE_float);
++  auto result = expected.to(torch::kHPU);
++
++  torch::_upsample_bilinear2d_aa_outf(
++      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
++      size,
++      /*align_corner*/ false,
++      {},
++      {},
++      expected);
++  torch::_upsample_bilinear2d_aa_outf(
++      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast),
++      size,
++      /*align_corner*/ false,
++      {},
++      {},
++      result);
++  Compare(expected, result);
++}
++
++TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_out) {
++  GTEST_SKIP(); // [SW-186353] Unsupported test configuration
++  GenerateInputs(1, {{5, 6, 8, 4}});
++  std::vector<int64_t> size = {7, 9};
++  auto expected = torch::empty(0, TENSOR_TYPE_float);
++  auto result = expected.to(torch::kHPU);
++
++  torch::_upsample_bilinear2d_aa_outf(
++      GetCpuInput(0),
++      size,
++      /*align_corner*/ false,
++      {},
++      {},
++      expected);
++  torch::_upsample_bilinear2d_aa_outf(
++      GetHpuInput(0),
++      size,
++      /*align_corner*/ false,
++      {},
++      {},
++      result);
++  Compare(expected, result);
++}
+diff --git a/tests/pytest_working/any_mode/test_hpu_upsample_ops.py b/tests/pytest_working/any_mode/test_hpu_upsample_ops.py
+index d4eb72f..d8760c0 100644
+--- a/tests/pytest_working/any_mode/test_hpu_upsample_ops.py
++++ b/tests/pytest_working/any_mode/test_hpu_upsample_ops.py
+@@ -74,14 +74,9 @@
+     @pytest.mark.parametrize("align_corners", [True, False])
+     @pytest.mark.parametrize("antialias", [True, False])
+     def test_upsample_bilinear2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
+-        if antialias and (
+-            (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor == None)
+-            or (shape == (2, 2, 3, 3) and size == None and scale_factor == [1, 2])
+-        ):
+-            pytest.skip(
+-                "Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)"
+-            )
+-        if pytest.mode == "compile" and antialias == False:
++        #if antialias and align_corners:
++        #    pytest.skip("[SW-186353] Unsupported test configuration")
++        if pytest.mode == "compile":
+             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
+         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bilinear", dtype)
+ 

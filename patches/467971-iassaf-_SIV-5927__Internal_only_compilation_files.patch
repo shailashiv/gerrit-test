@@ -1,0 +1,89 @@
+From 1e155dd30e1c5e55d21baca138f9b39457d39f4a Mon Sep 17 00:00:00 2001
+From: Itamar Assaf <iassaf@habana.ai>
+Date: Mon, 30 Dec 2024 16:05:37 +0200
+Subject: [PATCH] [SIV-5927] Internal only compilation files
+
+Building the internal compilation logic for future integration.
+This includes the compilation and config files.
+
+Change-Id: I0c2db975953b6f259dc9e8d45b94188ddc1ea2ed
+Signed-off-by: Itamar Assaf <iassaf@habana.ai>
+---
+
+diff --git a/drivers/hbm/CMakeLists.txt b/drivers/hbm/CMakeLists.txt
+index 21bbad6..94d190b 100644
+--- a/drivers/hbm/CMakeLists.txt
++++ b/drivers/hbm/CMakeLists.txt
+@@ -1,3 +1,37 @@
+ # SPDX-License-Identifier: Apache-2.0
+ 
+-add_subdirectory_ifdef(CONFIG_INTEL_FS_HBM fs)
++zephyr_library()
++
++zephyr_include_directories(.)
++zephyr_include_directories(common)
++zephyr_include_directories(${DEVICE})
++zephyr_include_directories(${DEVICE}/common)
++zephyr_include_directories(${DEVICE}/mc)
++zephyr_include_directories(${DEVICE}/phy)
++zephyr_include_directories(${DEVICE}/mcbist)
++zephyr_include_directories(${DEVICE}/mbist)
++zephyr_include_directories(${DEVICE}/rma)
++zephyr_include_directories($ENV{ZEPHYR_BASE}/drivers/misc/hl_common_utils/${DEVICE}/${ARCH})
++zephyr_include_directories($ENV{ZEPHYR_BASE}/drivers/hbm/${DEVICE}/${ARCH})
++zephyr_include_directories($ENV{ZEPHYR_BASE}/drivers/misc/hl_common_utils)
++zephyr_include_directories($ENV{ZEPHYR_BASE}/include/drivers/misc/hl_hbm)
++zephyr_include_directories($ENV{ZEPHYR_BASE}/include/drivers/misc/hl_hbm/common)
++zephyr_include_directories($ENV{ZEPHYR_BASE}/include/drivers/misc/hl_hbm/${DEVICE})
++zephyr_include_directories($ENV{SPECS_ROOT}/${DEVICE}/)
++
++message("!!!!!!!!NEW HBM ARCH!!!!!!!!!!!!!")
++
++zephyr_library_sources_ifdef(CONFIG_USERSPACE		common/hbm_handlers.c)
++
++# if (CONFIG_HL_HBM_DRIVER)
++# 	FILE(GLOB app_sources *.c)
++# endif ()
++
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/common/common.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/mc/mc.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/phy/phy.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/mcbist/mcbist.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/mbist/mbist.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/rma/hbm_rma_ecc.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	${DEVICE}/rma/hbm_rma.c)
++zephyr_library_sources_ifdef(CONFIG_HL_HBM_DRIVER	hbm.c)
+diff --git a/drivers/hbm/Kconfig b/drivers/hbm/Kconfig
+index 38b9a0e..fdc7c0f 100644
+--- a/drivers/hbm/Kconfig
++++ b/drivers/hbm/Kconfig
+@@ -1,15 +1,21 @@
+-# HBM configuration options
++# Habanalabs HBM configuration options
+ 
+-# Copyright (c) 2024 Habanalabs
++# Copyright (c) 2020 Habanalabs
+ # SPDX-License-Identifier: Apache-2.0
+ 
+-menuconfig HBM
+-	bool "HBM Drivers"
++config HL_HBM_DRIVER
++	bool "HBM Driver for Habanalabs Embedded common functionality"
+ 	help
+-	  This option enables HBM Driver in zephyr
++	  This option enables the HBM driver for Habanalabs Embedded.
+ 
+-if HBM
++config HL_HBM_STORE_TEST_INFO
++	bool "enables storage of HBM init test info, used by HBM margin tool"
++	default n
+ 
+-source "drivers/hbm/Kconfig.intel_hbm"
++config HBM_CHARACTERIZATION
++	bool "enables storage of HBM init test info, used by HBM margin tool"
++	default n
+ 
+-endif # HBM
++config ZEPHYR_TEMPORARY_SLEEP_FIX
++	bool "TEMPORARY - to be reverted! reduces sleep time until Zephyr delay functions are fixed"
++	default n

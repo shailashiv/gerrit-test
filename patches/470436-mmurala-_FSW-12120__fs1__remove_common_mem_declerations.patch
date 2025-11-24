@@ -1,0 +1,82 @@
+From 82cdaeaf9112b9bc8eb3cca7eff745e7097ca5a7 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Wed, 22 Jan 2025 16:59:00 +0200
+Subject: [PATCH] [FSW-12120] fs1: remove common mem declerations
+
+Change-Id: Iad6896ca92f12d29ac78428e2ee33dffa130d2ff
+---
+
+diff --git a/arch/fs1/arc/common.h b/arch/fs1/arc/common.h
+index 502639d..0a60e10 100644
+--- a/arch/fs1/arc/common.h
++++ b/arch/fs1/arc/common.h
+@@ -12,15 +12,8 @@
+ 
+ #define HL_FW_BOOT_PTRS_BASE		0
+ 
+-/* same as IO0_SP_SRAM_FULL_BASE (left here for backwards compatibility) */
+-#define HL_SP_SRAM_BASE			0x300007FF8A00000ULL
+-#define HL_SP_SRAM_SIZE			SZ_1M
+-
+-/* CFG is at Arc region F, specs CFG base address is 0x70000000. 7+8 = 0xF */
+-/* defined here in addition to specs because they are in use im common code */
+-#define FW_MEM_REGION_BASE		0x78800000 /* IO Die0 Half0 FW memories */
+-#define FW_SRAM_BASE			(FW_MEM_REGION_BASE + 0x1A0000)
+-#define SP_SRAM_BASE			(FW_MEM_REGION_BASE + 0x200000)
++#define FW_SRAM_BASE			(FW_MEM_BASE + PSOC_FWSRAM_OFFSET)
++#define SP_SRAM_BASE			(FW_MEM_BASE + SCRATCHPAD_SRAM_OFFSET)
+ 
+ #define BOOT_INFO_BASE			SP_SRAM_BASE
+ #define BOOT_INFO_SIZE			SZ_32K
+@@ -28,7 +21,7 @@
+ #define PPBOOT_TEXT_BASE		FW_SRAM_BASE
+ /* preboot sits after bootinfo */
+ #define PREBOOT_TEXT_BASE		(SP_SRAM_BASE + BOOT_INFO_SIZE)
+-#define PREBOOT_TEXT_BASE_FULL		(HL_SP_SRAM_BASE + BOOT_INFO_SIZE)
++#define PREBOOT_TEXT_BASE_FULL		(SCRATCHPAD_SRAM_BASE_FULL + BOOT_INFO_SIZE)
+ #define RECOVERY_TEXT_BASE		0x0
+ #define RECOVERY_SIZE			SZ_16K
+ 
+diff --git a/include/baremetal.h b/include/baremetal.h
+index 820adac..0be0f51 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -9,6 +9,7 @@
+ #define COMMON_PREBOOT_H_
+ 
+ #include <address_space.h>
++#include <mem_io.h>
+ #include <common.h>
+ #include <sizes.h>
+ 
+@@ -115,30 +116,6 @@
+ #define FUSE_DEVID_SIZE	8
+ 
+ extern u8 hl_asic_sn[FUSE_DEVID_SIZE];
+-
+-static inline u8 regmap_readb(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return (u8)(reg & 0xFF);
+-}
+-
+-static inline void regmap_writeb(u8 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = (u32)val;
+-}
+-
+-static inline u32 regmap_readl(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return reg;
+-}
+-
+-static inline void regmap_writel(u32 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = val;
+-}
+ 
+ static inline void regmap_rmwritel(u32 addr, u32 data, u32 mask)
+ {

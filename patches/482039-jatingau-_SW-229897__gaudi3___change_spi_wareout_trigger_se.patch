@@ -1,0 +1,27 @@
+From 6667ed9241491e4ad3bfa172c1052e1353e8264f Mon Sep 17 00:00:00 2001
+From: jagaur <jagaur@habana.ai>
+Date: Wed, 18 Jun 2025 14:00:48 +0300
+Subject: [PATCH] [SW-229897] gaudi3 : change spi wareout trigger sector address
+
+To enable SPI wareout feature we need to do a dummy write
+to flash. Changing the address used for this write from the
+28th to the unused 31st sector.
+This design to trigger the wareout timer will be changed
+later on.
+
+Change-Id: Icbaf57ca37ce023666279ffda7fc00e22d8c4755
+---
+
+diff --git a/dts/arc/hl_gaudi3.dtsi b/dts/arc/hl_gaudi3.dtsi
+index a4d22a4..584795f 100644
+--- a/dts/arc/hl_gaudi3.dtsi
++++ b/dts/arc/hl_gaudi3.dtsi
+@@ -717,7 +717,7 @@
+ 			flash0: flash@0 {
+ 				status = "disabled";
+ 				compatible = "jedec,spi-nor";
+-				reg = <0 0 0xfc48b9a0 0xfc48b040 0x221C0000 0xfc48b3cc 0xfc48b3c4
++				reg = <0 0 0xfc48b9a0 0xfc48b040 0x221F0000 0xfc48b3cc 0xfc48b3c4
+ 					0xfc48b3b8 0xfc48b3b4>;
+ 				reg-names = "spi_dev_idx", "cfg_base_h", "spi_pad_sel",
+ 					    "spi_mem_en", "mmio_wo_addr", "wo_tmr_mx_h",

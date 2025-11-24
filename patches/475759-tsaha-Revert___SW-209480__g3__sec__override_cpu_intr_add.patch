@@ -1,0 +1,60 @@
+From 356a9bdf54c1f28314c8c38403d482fa38dc9368 Mon Sep 17 00:00:00 2001
+From: Tamal Saha <tasaha@habana.ai>
+Date: Mon, 24 Mar 2025 09:48:13 +0000
+Subject: [PATCH] Revert "[SW-209480] g3: sec: override cpu intr addr mstr if as priv"
+
+This reverts commit 16e3f1c2d12eb3527c554b25f2488294d7cb7bf3.
+
+Change-Id: Ib708f37644231368414e350ed28044206107d277
+---
+
+diff --git a/arch/gaudi3/common/security.c b/arch/gaudi3/common/security.c
+index 9020437..3239b8f 100644
+--- a/arch/gaudi3/common/security.c
++++ b/arch/gaudi3/common/security.c
+@@ -466,26 +466,6 @@
+ 				CFG_RREG32(mmD0_CPU_INT_AGG_SHARED_SEI_INT_MSG_BASE));
+ }
+ 
+-#define AXPROT_PERM_BITS	3
+-#define AXPROT_PERM_GROUPS	2	/* read and write */
+-#define AXPROT_PERM_GRP_SZ	0x10
+-
+-static const uint32_t axprot_perm_priv_val[AXPROT_PERM_BITS] = { 0x11, 0x01, 0x01 };
+-
+-static void preboot_set_cpu_int_agg_mstr_if_axprot(void)
+-{
+-	uint32_t addr;
+-	unsigned int protbit, grp;
+-
+-	for (grp = 0; grp < AXPROT_PERM_GROUPS; grp++) {
+-		addr = mmD0_CPU_INT_AGG_MSTR_IF_AXPROT_LBW_BASE + grp * AXPROT_PERM_GRP_SZ;
+-		for (protbit = 0; protbit < AXPROT_PERM_BITS; protbit++) {
+-			CFG_WREG32(addr, axprot_perm_priv_val[protbit]);
+-			addr += sizeof(uint32_t);
+-		}
+-	}
+-}
+-
+ void hl_dev_sec_init(void)
+ {
+ 	sec_dev = HL_DEV_GET(DT_NODELABEL(security));
+@@ -497,18 +477,6 @@
+ 	preboot_get_security_info();
+ 
+ 	if (preboot_security_is_enabled()) {
+-		/*
+-		 * NOTE: Debug observations:
+-		 * SW-209480 issue appears only on first soft reset after cold reset.
+-		 * Also, this issue disappears on second soft reset or by overriding
+-		 * CPU_INT_AGG_MSTR_IF AXPROT to privilege or delay the ARC EVENT boot.
+-		 *
+-		 * To fix the promotion/release 1.19.0 RC1, we decided to override
+-		 * the CPU_INT_AGG_MSTR_IF AXPROT level to privilege.
+-		 *
+-		 * Need to investigate further, created a JIRA: SW-209838
+-		 */
+-		preboot_set_cpu_int_agg_mstr_if_axprot();
+ 		hl_dev_prot_bits_init();
+ 		preboot_secure_lbw();
+ 		preboot_secure_hbw();

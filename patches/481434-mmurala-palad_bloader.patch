@@ -1,0 +1,42 @@
+From aa232fff9cb834b610917bb271a14a0643086c36 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Tue, 10 Jun 2025 09:09:26 +0300
+Subject: [PATCH] palad bloader
+
+Change-Id: Ib16fbdebdf66a0cc835a3eb5727468878690e236
+---
+
+diff --git a/arch/jgs/arc/palad.c b/arch/jgs/arc/palad.c
+index 49586b0..7124c24 100644
+--- a/arch/jgs/arc/palad.c
++++ b/arch/jgs/arc/palad.c
+@@ -30,6 +30,7 @@
+ 
+ #include <pcie_fw_sram_regs.h>
+ #include <string.h>
++#include <mem_partition.h>
+ 
+ #define SYS_CLOCK_FREQUENCY	250000000ULL /* PCI PLL DIV3 Emulation clk */
+ 
+@@ -377,7 +378,7 @@
+ 	 * (or in RST ICCM for COMP-DIE).
+ 	 * An efuse bit is controlling whether the application binary is larger than available.
+ 	 */
+-	hw_mem_copy(IO0_MISC_ICCM_FULL_BASE, PREBOOT_TEXT_BASE_FULL, IO_MISC_ICCM_SIZE, false, false);
++	hw_mem_copy(IO_0_MISC_ARC_ICCM_BASE_FULL, PREBOOT_TEXT_BASE_FULL, IO_MISC_ICCM_SIZE, false, false);
+ 
+ 	err = preboot_fuse_read(IO_EFUSE_PALAD_CFG_0_OFFSET, &val);
+ 	if (err)
+diff --git a/include/baremetal.h b/include/baremetal.h
+index a2034c0..9792d11 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -8,7 +8,7 @@
+ #ifndef COMMON_PREBOOT_H_
+ #define COMMON_PREBOOT_H_
+ 
+-#include <common.h>
++#include <address_space.h>
+ #include <sizes.h>
+ #include <soc.h>
+ 

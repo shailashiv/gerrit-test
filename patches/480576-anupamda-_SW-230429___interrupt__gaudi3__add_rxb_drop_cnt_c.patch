@@ -1,0 +1,111 @@
+From a20a334e4599e168aa532827bee49b4e710b1db7 Mon Sep 17 00:00:00 2001
+From: Anupam Datta <andatta@habana.ai>
+Date: Tue, 27 May 2025 10:14:00 +0300
+Subject: [PATCH] [SW-230429]: interrupt: gaudi3: add rxb_drop_cnt coalescing
+
+- Problem: Frequent packet drops in NIC RXB_CORE can
+  generate a large number of software error events,
+  potentially overwhelming the system.
+- Introduced per-instance and per-die coalescing for
+  NIC RXB packet drop events (PKT_DROP_NO_CRDT_S) in
+  gaudi3_process_nic_sw_error() to reduce event flooding
+  and improve system stability.
+- If packet drops are detected, increment the counter
+  and only send an event if the timeout
+  (PACKET_DROP_COUNT_TIMEOUT_MS) has been exceeded,
+  then reset the counter and timestamp.
+- If no packet drop is detected, send the event
+  immediately as before.
+- During coalescing, `notify_lkd` is set to false to
+  ensure the interrupt driver unmasks the interrupt
+  directly, since the event is not sent to LKD and
+  LKD would otherwise not issue an unmask.
+
+Change-Id: Ida420393d278c46d5d99fa3e21d3f75a11594fb4
+Signed-off-by: Anupam Datta <andatta@habana.ai>
+---
+
+diff --git a/src/gaudi3/interrupt.c b/src/gaudi3/interrupt.c
+index b551ee8..ac500a0 100644
+--- a/src/gaudi3/interrupt.c
++++ b/src/gaudi3/interrupt.c
+@@ -63,6 +63,7 @@
+ #include <nic_qpc_regs.h>
+ #include <nic_tmr_regs.h>
+ #include <nic_rxb_core_regs.h>
++#include <nic_rxb_core_masks.h>
+ #include <nic_rxe_regs.h>
+ #include <nic_txs_regs.h>
+ #include <nic_txe_regs.h>
+@@ -2944,6 +2945,14 @@
+ 	uint32_t qpc_base, rxb_core_base, rxe_base, nic_offset, die_offset;
+ 	struct hl_eq_nic_spi_data data = {0};
+ 
++	/* Track RXB packet drop counts and last event timestamps per NIC instance */
++	static uint16_t sw_err_rxb_drop_cnt[GAUDI3_NUM_OF_DIES][GAUDI3_NUM_OF_NICS_PER_DIE];
++	static int64_t last_event_ts[GAUDI3_NUM_OF_DIES][GAUDI3_NUM_OF_NICS_PER_DIE];
++	int64_t get_current_ts = 0;
++
++	uint8_t die_id = intr_map->die_id;
++	uint8_t inst = intr_map->comp_inst;
++
+ 	nic_offset = (NIC_OFFSET * intr_map->comp_inst);
+ 	die_offset = (NIC_DIE_OFFSET * intr_map->die_id);
+ 
+@@ -2962,7 +2971,42 @@
+ 
+ 	data.spi_type = NIC_SPI_SW_ERROR;
+ 
+-	gaudi3_send_event(config, intr_map, &data, sizeof(struct hl_eq_nic_spi_data), false);
++	/* Track RXB packet drops per NIC instance and send event if timeout exceeded.
++	 * For other causes, send event immediately.
++	 *
++	 * TODO:
++	 * This logic depends on gaudi3_process_nic_sw_error() being
++	 * triggered within PACKET_DROP_COUNT_TIMEOUT_MS (1 second).
++	 * If no interrupt occurs after packet drops are accumulated,
++	 * the drops may never be reported.
++	 *
++	 * To address this, consider implementing a periodic polling
++	 * mechanism (e.g. a background thread or timer) that checks
++	 * the sw_err_rxb_drop_cnt[] and last_event_ts[] arrays for
++	 * each die and NIC instance. If the timeout has elapsed and
++	 * drops are pending, the event should be sent proactively.
++	 */
++	if (data.sw_err_data.rxb_core_cause.intr_cause_data &
++		NIC_RXB_CORE_SPI_INTR_CAUSE_PKT_DROP_NO_CRDT_M) {
++		sw_err_rxb_drop_cnt[die_id][inst]++;
++		get_current_ts = k_uptime_get();
++
++		if (get_current_ts - last_event_ts[die_id][inst] >
++			PACKET_DROP_COUNT_TIMEOUT_MS) {
++			data.sw_err_rxb_drop_cnt = sw_err_rxb_drop_cnt[die_id][inst];
++
++			gaudi3_send_event(config, intr_map, &data,
++				sizeof(struct hl_eq_nic_spi_data), false);
++
++			last_event_ts[die_id][inst] = get_current_ts;
++			sw_err_rxb_drop_cnt[die_id][inst] = 0;
++		} else {
++			intr_map->notify_lkd = false;
++		}
++	} else {
++		gaudi3_send_event(config, intr_map, &data,
++			sizeof(struct hl_eq_nic_spi_data), false);
++	}
+ 
+ 	/* clear interrupt */
+ 	if (data.sw_err_data.qpc_cause.intr_cause_data) {
+diff --git a/src/gaudi3/interrupt.h b/src/gaudi3/interrupt.h
+index 3b930c7..4a4aa75 100644
+--- a/src/gaudi3/interrupt.h
++++ b/src/gaudi3/interrupt.h
+@@ -42,6 +42,8 @@
+ 
+ #define RESET_DELAY_MS		1000
+ 
++#define PACKET_DROP_COUNT_TIMEOUT_MS	1000
++
+ enum spi_intr_idx {
+ 	SPI_INTR_MME0_SBTE0_1_CS_DBG,	/* 0 */
+ 	SPI_INTR_MME0_SBTE0,

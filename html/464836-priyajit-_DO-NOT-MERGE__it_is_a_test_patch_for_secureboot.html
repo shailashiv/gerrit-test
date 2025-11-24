@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 464836: [DO-NOT-MERGE] it is a test patch for secureboot</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 464836: [DO-NOT-MERGE] it is a test patch for secureboot</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Priyajit Ghosh &lt;prghosh@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-12-04 05:00:58.949000000</p>
+            <p><strong>Updated:</strong> 2024-12-17 17:10:10.616000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[DO-NOT-MERGE] it is a test patch for secureboot
+
+this patch will be use for secure boot time cal.
+this time should be less than 100 ms for successfull
+pci linkup.
+
+Change-Id: I3fd043800476b8165da6616fe63204dc3603ef94
+Signed-off-by: Priyajit Ghosh &lt;prghosh@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>app/boot_rom.c</code> (M) +13 -2</li><li><code>common/boot_flow.c</code> (M) +24 -0</li><li><code>common/common.c</code> (M) +15 -1</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/app/boot_rom.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -9,7 +9,9 @@</span>
+<span class="diff-ctx"> #include &lt;boot_flow.h&gt;</span>
+<span class="diff-ctx"> #include &lt;recovery.h&gt;</span>
+<span class="diff-ctx"> #include &lt;common.h&gt;</span>
+<span class="diff-del">-</span>
+<span class="diff-add">+#include &lt;global_conf_regs.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_reg_map.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_blocks_linux_driver.h&gt;</span>
+<span class="diff-ctx"> const int fs1_die_type = DIE_TYPE;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> struct boot_rom_global_s __attribute__((section (&quot;.rom_persistent_section&quot;)))boot_rom_global = {</span>
+<span class="diff-hunk">@@ -34,6 +36,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int boot_rom_main(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-add">+	uint64_t time_st;</span>
+<span class="diff-add">+	</span>
+<span class="diff-ctx"> 	boot_rom_init();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	boot_rom_fuse();</span>
+<span class="diff-hunk">@@ -75,7 +79,11 @@</span>
+<span class="diff-ctx"> 	if (boot_rom_boot_flow_is_secondary_manifest_valid())</span>
+<span class="diff-ctx"> 		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_14));</span>
+<span class="diff-ctx"> 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_PRIMARY)) {</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_15));</span>
+<span class="diff-ctx"> 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_PRIMARY);</span>
+<span class="diff-ctx"> 		boot_rom_halt();</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-hunk">@@ -84,8 +92,11 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	/* If the control reaches here start prefetch of recovery image */</span>
+<span class="diff-ctx"> 	boot_rom_boot_flow_prefetch_img(HL_FW_IMG_RECOVERY);</span>
+<span class="diff-del">-</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_16));</span>
+<span class="diff-ctx"> 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_SECONDARY)) {</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_17));</span>
+<span class="diff-ctx"> 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_SECONDARY);</span>
+<span class="diff-ctx"> 		boot_rom_halt();</span>
+<span class="diff-ctx"> 	}</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index c441acd..d29123d 100644</span>
+<h4 class="diff-filename">b/common/boot_flow.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -16,6 +16,9 @@</span>
+<span class="diff-ctx"> #include &lt;dev_boot_info.h&gt;</span>
+<span class="diff-ctx"> #include &lt;dev_security.h&gt;</span>
+<span class="diff-ctx"> #include &lt;secure_boot.h&gt;</span>
+<span class="diff-add">+#include &lt;global_conf_regs.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_reg_map.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_blocks_linux_driver.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> /* These fields will be added to proper structure later */</span>
+<span class="diff-ctx"> static enum hl_fw_manifest_type primary_manifest_idx = HL_FW_SPI_MANIFEST_0;</span>
+<span class="diff-hunk">@@ -60,6 +63,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-add">+	uint64_t time_st;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	struct boot_desc desc = {0};</span>
+<span class="diff-ctx"> 	/* TODO: Image status base is complicated. Handle based on img_type */</span>
+<span class="diff-ctx"> 	enum boot_rom_progress img_sts_base = PROGRESS_BRINGUP_PCI_PRI;</span>
+<span class="diff-hunk">@@ -86,7 +91,11 @@</span>
+<span class="diff-ctx"> 	curr_manifest_idx = primary_manifest_idx;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!primary_ppboot_prefetch_started &amp;&amp; !primary_ppboot_prefetch_failed) {</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_10));</span>
+<span class="diff-ctx"> 		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc, img_sts_base);</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_11));</span>
+<span class="diff-ctx"> 		if (!ret) {</span>
+<span class="diff-ctx"> 			primary_ppboot_prefetch_started = true;</span>
+<span class="diff-ctx"> 			return BOOT_ROM_SUCCESS;</span>
+<span class="diff-hunk">@@ -99,7 +108,11 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!secondary_ppboot_prefetch_started &amp;&amp; !secondary_ppboot_prefetch_failed) {</span>
+<span class="diff-ctx"> 		curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_12));</span>
+<span class="diff-ctx"> 		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &amp;desc, img_sts_base);</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_13));</span>
+<span class="diff-ctx"> 		if (!ret) {</span>
+<span class="diff-ctx"> 			secondary_ppboot_prefetch_started = true;</span>
+<span class="diff-ctx"> 			return BOOT_ROM_SUCCESS;</span>
+<span class="diff-hunk">@@ -178,13 +191,19 @@</span>
+<span class="diff-ctx"> void boot_rom_boot_flow_validate_manifests(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	enum hl_fw_manifest_type curr_manifest_idx = HL_FW_SPI_MANIFEST_0;</span>
+<span class="diff-add">+	uint64_t time_st;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!!boot_rom_global.fw_upd_switch_manifest)</span>
+<span class="diff-ctx"> 		curr_manifest_idx = HL_FW_SPI_MANIFEST_1;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_6));</span>
+<span class="diff-ctx"> 		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 			primary_manifest_valid = true;</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_7));</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!boot_rom_second_image_enabled())</span>
+<span class="diff-hunk">@@ -192,8 +211,13 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;</span>
+<span class="diff-ctx"> 	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_8));</span>
+<span class="diff-ctx"> 		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 			secondary_manifest_valid = true;</span>
+<span class="diff-add">+		time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_9));</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b525a8f..21f0bed 100644</span>
+<h4 class="diff-filename">b/common/common.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -19,6 +19,9 @@</span>
+<span class="diff-ctx"> #include &lt;dev_security.h&gt;</span>
+<span class="diff-ctx"> #include &lt;boot_desc.h&gt;</span>
+<span class="diff-ctx"> #include &lt;boot_flow.h&gt;</span>
+<span class="diff-add">+#include &lt;global_conf_regs.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_reg_map.h&gt;</span>
+<span class="diff-add">+#include &lt;fs1_blocks_linux_driver.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> extern uint32_t fake_fuse_offset_array[MAX_DIE_COUNT];</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -42,6 +45,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void boot_rom_init(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-add">+	uint64_t time_st;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	/* TODO: Change Die ID register as per SOL */</span>
+<span class="diff-ctx"> 	uint8_t die_id = boot_rom_get_die_id();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -70,7 +75,7 @@</span>
+<span class="diff-ctx"> 	if (!boot_rom_in_master_die())</span>
+<span class="diff-ctx"> 		return;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	boot_rom_iccm_init();</span>
+<span class="diff-add">+	//boot_rom_iccm_init();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	spi_flash_init();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -83,11 +88,20 @@</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (!boot_rom_global.validation_pass) {</span>
+<span class="diff-add">+		</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_3));</span>
+<span class="diff-ctx"> 		if (boot_desc_init(HL_FW_SPI_MANIFEST_0) != BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 			boot_rom_status_update(PROGRESS_INIT_SPI_MANIFEST_0_FAIL);</span>
+<span class="diff-add">+	</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_4));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 		if (boot_desc_init(HL_FW_SPI_MANIFEST_1) != BOOT_ROM_SUCCESS)</span>
+<span class="diff-ctx"> 			boot_rom_status_update(PROGRESS_INIT_SPI_MANIFEST_1_FAIL);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	time_st = boot_rom_get_ts_us();</span>
+<span class="diff-add">+	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_5));</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	boot_rom_tpm_next_pcr_index_init();</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:00:58.949000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-04 05:01:05.340000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/27810/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-04 05:01:06.902000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/763/ (1/2)</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:31.930000000)</span><pre>Removed reviewer Abhishek Patgaonkar.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:35.257000000)</span><pre>Removed reviewer Jenkins EMB Service Account with the following votes:
+
+* Finished-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:38.036000000)</span><pre>Removed reviewer Noam Lessner.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:40.916000000)</span><pre>Removed reviewer Sailaja Bandarupalli.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:42.661000000)</span><pre>Removed reviewer Noam Camus.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-04 05:01:46.421000000)</span><pre>Removed reviewer Software Jenkins with the following votes:
+
+* Finished-1 by Software Jenkins (1000235)
+</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-04 05:04:02.175000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/37/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-04 05:06:52.576000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/1059/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-04 05:33:48.946000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/37/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/763/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-04 07:07:52.299000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/27810/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/1059/ : SUCCESS</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-05 02:57:21.561000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-05 02:57:27.795000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/832/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-05 02:57:31.424000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/27879/ (1/2)</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-05 02:58:02.102000000)</span><pre>Removed reviewer Jenkins EMB Service Account with the following votes:
+
+* Finished-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-05 02:58:04.763000000)</span><pre>Removed reviewer Software Jenkins with the following votes:
+
+* Finished-1 by Software Jenkins (1000235)
+</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-05 03:00:07.154000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/38/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-05 03:03:55.667000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/1060/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-05 03:09:15.239000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/1060/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_arcboot_build_master_next/854/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/27879/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-05 03:31:55.050000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/38/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/832/ : SUCCESS</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:09:58.480000000)</span><pre>Removed reviewer Abhishek Patgaonkar.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:00.997000000)</span><pre>Removed reviewer Jenkins EMB Service Account with the following votes:
+
+* Finished+1 by Jenkins EMB Service Account (1001942)
+* Verified-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:02.897000000)</span><pre>Removed reviewer Noam Lessner.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:04.336000000)</span><pre>Removed reviewer Priyajit Ghosh.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:06.654000000)</span><pre>Removed reviewer Sailaja Bandarupalli.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:08.077000000)</span><pre>Removed reviewer Noam Camus.</pre></div><div class="message"><strong>Priyajit Ghosh</strong> <span class="date">(2024-12-17 17:10:10.616000000)</span><pre>Removed reviewer Software Jenkins with the following votes:
+
+* Finished+1 by Software Jenkins (1000235)
+* Verified+1 by Software Jenkins (1000235)
+</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

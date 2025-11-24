@@ -1,0 +1,52 @@
+From d15a6259256d2d261db9f55d869b992cb7b7c4dc Mon Sep 17 00:00:00 2001
+From: dkumbar <dkumbar@habana.ai>
+Date: Thu, 14 Nov 2024 09:49:34 +0200
+Subject: [PATCH] added iod phy top regression
+
+Change-Id: I4bf3758d2ad69613faa5ff599401f2c3212a5d9f
+---
+
+diff --git a/h15b/h15b_job_params_dkumbar.groovy b/h15b/h15b_job_params_dkumbar.groovy
+new file mode 100644
+index 0000000..7e54306
+--- /dev/null
++++ b/h15b/h15b_job_params_dkumbar.groovy
+@@ -0,0 +1,38 @@
++def JobsConfig() {
++    def jobsConfig = [
++          'h15b_d2d_phy_regression': [
++            'jobDescription': 'Regression environment for H15B D2D PHY',
++            'jenkinsView': 'VLSI-H15B',
++            'jobParameters': [
++                'PROJECT_NAME': 'H15B',
++                'BRANCH_NAME': 'h15b_die2die',
++                'BLOCK_NAME': 'd2d_phy',
++                'PATH_NAME': 'die2die_verif',
++                'ADDITIONAL_RUN_PARAMS': '-af " +define+INCLUDE_RAL_OBJUTILS+SVT_AXI_MAX_NUM_MASTERS_1" -xprop  -lte 7 ',
++                'MAILING_LIST': 'fbathurudeen@habana.ai cchandrasekaran@habana.ai ramkis@habana.ai rprakash@habana.ai dkumbar@habana.ai vdegalahal@habana.ai',
++                'CSV_FILE': 'die2die_verif/d2d_phy_verif/tb/tests/d2d_phy_regression.csv',
++		        'BUILD_PERIODICALLY': 'H 22 * * * ',
++                'RERUN_FAILED': true,
++                'RERUN_FAILED_PARAMS': ' -v UVM_MEDIUM -verdi -verdi_comp ',
++                'ADDITIONAL_COVERAGE_PARAMS': ' -db_name h15b_phy',
++                'RUN_ON_REPO_UPDATE': true
++            ]
++        ],
++
++          'h15b_sharedlib_d2d_phy_regression': [
++            'jobDescription': 'Regression sharedlib environment for H15B D2D PHY',
++            'jenkinsView': 'SHAREDLIB-H15',
++            'jobParameters': [
++                'PROJECT_NAME': 'H15B',
++                'BRANCH_NAME': 'h15b_die2die',
++                'BLOCK_NAME': 'd2d_phy',
++                'PATH_NAME': 'die2die_verif',
++                'ADDITIONAL_RUN_PARAMS': '-af " +define+INCLUDE_RAL_OBJUTILS+SVT_AXI_MAX_NUM_MASTERS_1" -xprop  -lte 7 ',
++                'MAILING_LIST': 'fbathurudeen@habana.ai cchandrasekaran@habana.ai ramkis@habana.ai rprakash@habana.ai dkumbar@habana.ai  vdegalahal@habana.ai',
++                'RUN_ON_REPO_UPDATE': true
++            ]
++        ]
++          
++	]
++    return jobsConfig
++}

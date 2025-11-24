@@ -1,0 +1,803 @@
+From 03b11ffe724471b051b7140a47a9f3e551935ba8 Mon Sep 17 00:00:00 2001
+From: John Fleck <jfleck@habana.ai>
+Date: Mon, 30 Dec 2024 01:37:31 +0200
+Subject: [PATCH] [SW-212593] g3: pldm: add oem state set pdrs
+
+Add the following OEM State Set PDRs
+Ethernet external internal map - Record Handle 5000
+FW State Set - Record Handle 5001
+FW ppBoot soure - Record Handle 5002
+Security key revocation - Record Handle 5003
+HBM row replacement failure causes - Record Handle 5004
+HBM initialization failure causes - Record Handle 5005
+HBM MBIST failure causes - Record Handle 5006
+PCIe error type for injection - Record Handle 5008
+Ethernet error type for injection - Record Handle 5009
+HBM error type for injection - Record Handle 5011
+SRAM BIST status - Record Handle 5014
+Security mode status - Record Handle 5015
+SPI flash W/P state - Record Handle 5016
+Watchdog error injection - Record Handle 5018
+
+Change-Id: I2ba976ffa013af26a3c6c3f94ce672cd4286435f
+Signed-off-by: John Fleck <jfleck@habana.ai>
+---
+
+diff --git a/arch/gaudi3/ras/pldm/pldm_pdr.c b/arch/gaudi3/ras/pldm/pldm_pdr.c
+index 70b30bc..dd40252 100644
+--- a/arch/gaudi3/ras/pldm/pldm_pdr.c
++++ b/arch/gaudi3/ras/pldm/pldm_pdr.c
+@@ -5287,9 +5287,141 @@
+ 	0x7000, 0x6300, 0x6900, 0x6500, 0x4800, 0x4400, 0x5200,
+ 	0x4c00, 0x6f00, 0x6700, 0x3300, 0x0000
+ };
++const uint16_t Internal_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x7400, 0x6500, 0x7200, 0x6E00, 0x6100,
++	0x6C00, 0x0000
++};
++const uint16_t External_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4500, 0x7800, 0x7400, 0x6500, 0x7200, 0x6E00, 0x6100,
++	0x6C00, 0x0000
++};
++const uint16_t In_preboot_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x2000, 0x7000, 0x7200, 0x6500, 0x6200,
++	0x6F00, 0x6F00, 0x7400, 0x0000
++};
++const uint16_t In_management_FW_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x2000, 0x6D00, 0x6100, 0x6E00, 0x6100,
++	0x6700, 0x6500, 0x6D00, 0x6500, 0x6E00, 0x7400, 0x2000,
++	0x4600, 0x5700, 0x0000
++};
++const uint16_t In_preboot_recovery_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x2000, 0x7000, 0x7200, 0x6500, 0x6200,
++	0x6F00, 0x6F00, 0x7400, 0x2000, 0x7200, 0x6500, 0x6300,
++	0x6F00, 0x7600, 0x6500, 0x7200, 0x7900, 0x0000
++};
++const uint16_t In_margin_tool_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x2000, 0x6D00, 0x6100, 0x7200, 0x6700,
++	0x6900, 0x6E00, 0x2000, 0x7400, 0x6F00, 0x6F00, 0x6C00,
++	0x0000
++};
++const uint16_t In_FW_loader_agent_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4900, 0x6E00, 0x2000, 0x4600, 0x5700, 0x2000, 0x6C00,
++	0x6F00, 0x6100, 0x6400, 0x6500, 0x7200, 0x2000, 0x6100,
++	0x6700, 0x6500, 0x6E00, 0x7400, 0x0000
++};
++const uint16_t Primary_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x7200, 0x6900, 0x6D00, 0x6100, 0x7200, 0x7900,
++	0x0000
++};
++const uint16_t Secondary_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5300, 0x6500, 0x6300, 0x6F00, 0x6E00, 0x6400, 0x6100,
++	0x7200, 0x7900, 0x0000
++};
++const uint16_t Not_revoked_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4E00, 0x6F00, 0x7400, 0x2000, 0x7200, 0x6500, 0x7600,
++	0x6F00, 0x6B00, 0x6500, 0x6400, 0x0000
++};
++const uint16_t Revoked_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5200, 0x6500, 0x7600, 0x6F00, 0x6B00, 0x6500, 0x6400,
++	0x0000
++};
++const uint16_t No_avail_row_in_specific_bank_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4E00, 0x6F00, 0x2000, 0x6100, 0x7600, 0x6100, 0x6900,
++	0x6C00, 0x2000, 0x7200, 0x6F00, 0x7700, 0x2000, 0x6900,
++	0x6E00, 0x2000, 0x7300, 0x7000, 0x6500, 0x6300, 0x6900,
++	0x6600, 0x6900, 0x6300, 0x2000, 0x6200, 0x6100, 0x6E00,
++	0x6B00, 0x0000
++};
++const uint16_t Row_replacement_table_full_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5200, 0x6F00, 0x7700, 0x2000, 0x7200, 0x6500, 0x7000,
++	0x6C00, 0x6100, 0x6300, 0x6500, 0x6D00, 0x6500, 0x6E00,
++	0x7400, 0x2000, 0x7400, 0x6100, 0x6200, 0x6C00, 0x6500,
++	0x2000, 0x6600, 0x7500, 0x6C00, 0x6C00, 0x0000
++};
++const uint16_t Ecc_for_prev_replaced_row_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4500, 0x6300, 0x6300, 0x2000, 0x6600, 0x6F00, 0x7200,
++	0x2000, 0x7000, 0x7200, 0x6500, 0x7600, 0x2000, 0x7200,
++	0x6500, 0x7000, 0x6C00, 0x6100, 0x6300, 0x6500, 0x6400,
++	0x2000, 0x7200, 0x6F00, 0x7700, 0x0000
++};
++const uint16_t Derr_and_multi_serr_crossed_th_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4400, 0x6500, 0x7200, 0x7200, 0x2000, 0x6100, 0x6E00,
++	0x6400, 0x2000, 0x6D00, 0x7500, 0x6C00, 0x7400, 0x6900,
++	0x2000, 0x7300, 0x6500, 0x7200, 0x7200, 0x2000, 0x6300,
++	0x7200, 0x6F00, 0x7300, 0x7300, 0x6500, 0x6400, 0x2000,
++	0x7400, 0x6800, 0x0000
++};
++const uint16_t Row_repair_if_comm_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5200, 0x6F00, 0x7700, 0x2000, 0x7200, 0x6500, 0x7000,
++	0x6100, 0x6900, 0x7200, 0x2000, 0x6900, 0x6600, 0x2000,
++	0x6300, 0x6F00, 0x6D00, 0x6D00, 0x2000, 0x6500, 0x7200,
++	0x7200, 0x6F00, 0x7200, 0x0000
++};
++const uint16_t Row_repair_scrubbing_failed_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5200, 0x6F00, 0x7700, 0x2000, 0x7200, 0x6500, 0x7000,
++	0x6100, 0x6900, 0x7200, 0x2000, 0x7300, 0x6300, 0x7200,
++	0x7500, 0x6200, 0x6200, 0x6900, 0x6E00, 0x6700, 0x2000,
++	0x6600, 0x6100, 0x6900, 0x6C00, 0x6500, 0x6400, 0x0000
++};
+ const uint16_t No_failure_str[] OFFLOAD_AUX_NAMES_ATTR = {
+ 	0x4E00, 0x6F00, 0x2000, 0x6600, 0x6100, 0x6900, 0x6C00,
+ 	0x7500, 0x7200, 0x6500, 0x0000
++};
++const uint16_t PLL_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x4C00, 0x4C00, 0x2000, 0x6600, 0x6100, 0x6900,
++	0x6C00, 0x0000
++};
++const uint16_t PHY_init_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x4800, 0x5900, 0x2000, 0x6900, 0x6E00, 0x6900,
++	0x7400, 0x2000, 0x6600, 0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t MRS_or_reset_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4D00, 0x5200, 0x5300, 0x2000, 0x6F00, 0x7200, 0x2000,
++	0x7200, 0x6500, 0x7300, 0x6500, 0x7400, 0x2000, 0x6600,
++	0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t Pre_training_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x7200, 0x6500, 0x2D00, 0x7400, 0x7200, 0x6100,
++	0x6900, 0x6E00, 0x6900, 0x6E00, 0x6700, 0x2000, 0x6600,
++	0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t MCBIST_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4D00, 0x4300, 0x4200, 0x4900, 0x5300, 0x5400, 0x2000,
++	0x6600, 0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t Training_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5400, 0x7200, 0x6100, 0x6900, 0x6E00, 0x6900, 0x6E00,
++	0x6700, 0x2000, 0x6600, 0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t MBIST_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4D00, 0x4200, 0x4900, 0x5300, 0x5400, 0x2000, 0x6600,
++	0x6100, 0x6900, 0x6C00, 0x0000
++};
++const uint16_t Lane_repair_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4C00, 0x6100, 0x6E00, 0x6500, 0x2000, 0x7200, 0x6500,
++	0x7000, 0x6100, 0x6900, 0x7200, 0x2000, 0x6600, 0x6100,
++	0x6900, 0x6C00, 0x0000
++};
++const uint16_t Row_repair_fail_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5200, 0x6F00, 0x7700, 0x2000, 0x7200, 0x6500, 0x7000,
++	0x6100, 0x6900, 0x7200, 0x2000, 0x6600, 0x6100, 0x6900,
++	0x6C00, 0x0000
++};
++const uint16_t Spare_rows_fusescan_failed_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5300, 0x7000, 0x6100, 0x7200, 0x6500, 0x2000, 0x7200,
++	0x6F00, 0x7700, 0x7300, 0x2700, 0x2000, 0x6600, 0x7500,
++	0x7300, 0x6500, 0x7300, 0x6300, 0x6100, 0x6E00, 0x2000,
++	0x6600, 0x6100, 0x6900, 0x6C00, 0x6500, 0x6400, 0x0000
+ };
+ const uint16_t PLL_lock_fail_in_clk_change_str[] OFFLOAD_AUX_NAMES_ATTR = {
+ 	0x5000, 0x4C00, 0x4C00, 0x2000, 0x6C00, 0x6F00, 0x6300,
+@@ -5324,6 +5456,30 @@
+ 	0x6900, 0x6E00, 0x6900, 0x7300, 0x6800, 0x6500, 0x6400,
+ 	0x2000, 0x7500, 0x6E00, 0x7200, 0x6500, 0x7000, 0x6100,
+ 	0x6900, 0x7200, 0x6100, 0x6200, 0x6C00, 0x6500, 0x0000
++};
++const uint16_t Crc_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4300, 0x5200, 0x4300, 0x2000, 0x6500, 0x7200, 0x7200,
++	0x6F00, 0x7200, 0x0000
++};
++const uint16_t Sequence_number_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5300, 0x6500, 0x7100, 0x7500, 0x6500, 0x6E00, 0x6300,
++	0x6500, 0x2000, 0x6E00, 0x7500, 0x6D00, 0x6200, 0x6500,
++	0x7200, 0x2000, 0x6500, 0x7200, 0x7200, 0x6F00, 0x7200,
++	0x0000
++};
++const uint16_t Symbol_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5300, 0x7900, 0x6D00, 0x6200, 0x6F00, 0x6C00, 0x2000,
++	0x6500, 0x7200, 0x7200, 0x6F00, 0x7200, 0x0000
++};
++const uint16_t High_ser_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4800, 0x6900, 0x6700, 0x6800, 0x2000, 0x5300, 0x4500,
++	0x5200, 0x2000, 0x6500, 0x7200, 0x7200, 0x6F00, 0x7200,
++	0x0000
++};
++const uint16_t Port_toggling_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x6F00, 0x7200, 0x7400, 0x2000, 0x7400, 0x6F00,
++	0x6700, 0x6700, 0x6C00, 0x6900, 0x6E00, 0x6700, 0x2000,
++	0x6500, 0x7200, 0x7200, 0x6F00, 0x7200, 0x0000
+ };
+ const uint16_t Index_0_str[] OFFLOAD_AUX_NAMES_ATTR = {
+ 	0x4900, 0x6E00, 0x6400, 0x6500, 0x7800, 0x2000, 0x3000,
+@@ -5425,6 +5581,24 @@
+ 	0x4900, 0x6E00, 0x6400, 0x6500, 0x7800, 0x2000, 0x3200,
+ 	0x3400, 0x0000
+ };
++const uint16_t Command_address_parity_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4300, 0x6F00, 0x6D00, 0x6D00, 0x6100, 0x6E00, 0x6400,
++	0x2000, 0x6100, 0x6400, 0x6400, 0x7200, 0x6500, 0x7300,
++	0x7300, 0x2000, 0x7000, 0x6100, 0x7200, 0x6900, 0x7400,
++	0x7900, 0x2000, 0x6500, 0x7200, 0x7200, 0x6F00, 0x7200,
++	0x0000
++};
++const uint16_t Write_data_parity_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5700, 0x7200, 0x6900, 0x7400, 0x6500, 0x2000, 0x6400,
++	0x6100, 0x7400, 0x6100, 0x2000, 0x7000, 0x6100, 0x7200,
++	0x6900, 0x7400, 0x7900, 0x2000, 0x6500, 0x7200, 0x7200,
++	0x6F00, 0x7200, 0x0000
++};
++const uint16_t Ecc_double_error_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4500, 0x4300, 0x4300, 0x2000, 0x6400, 0x6F00, 0x7500,
++	0x6200, 0x6C00, 0x6500, 0x2000, 0x6500, 0x7200, 0x7200,
++	0x6F00, 0x7200, 0x0000
++};
+ const uint16_t All_pass_str[] OFFLOAD_AUX_NAMES_ATTR = {
+ 	0x4100, 0x6C00, 0x6C00, 0x2000, 0x7000, 0x6100, 0x7300,
+ 	0x7300, 0x0000
+@@ -5454,6 +5628,25 @@
+ 	0x4100, 0x4D00, 0x2000, 0x6D00, 0x6500, 0x6D00, 0x6F00,
+ 	0x7200, 0x6900, 0x6500, 0x7300, 0x2000, 0x6600, 0x6100,
+ 	0x6900, 0x6C00, 0x0000
++};
++const uint16_t Not_permanent_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4E00, 0x6F00, 0x7400, 0x2000, 0x7000, 0x6500, 0x7200,
++	0x6D00, 0x6100, 0x6E00, 0x6500, 0x6E00, 0x7400, 0x0000
++};
++const uint16_t Permanent_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x5000, 0x6500, 0x7200, 0x6D00, 0x6100, 0x6E00, 0x6500,
++	0x6E00, 0x7400, 0x0000
++};
++const uint16_t Not_asserted_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4E00, 0x6F00, 0x7400, 0x2000, 0x6100, 0x7300, 0x7300,
++	0x6500, 0x7200, 0x7400, 0x6500, 0x6400, 0x0000
++};
++const uint16_t Asserted_str[] OFFLOAD_AUX_NAMES_ATTR = {
++	0x4100, 0x7300, 0x7300, 0x6500, 0x7200, 0x7400, 0x6500,
++	0x6400, 0x0000
++};
++const uint16_t Tdr_str[] = {
++	0x5400, 0x4400, 0x5200, 0x0000
+ };
+ const uint16_t Ver32_str[] OFFLOAD_AUX_NAMES_ATTR = {
+ 	0x5600, 0x6500, 0x7200, 0x3300, 0x3200, 0x0000
+@@ -7076,6 +7269,299 @@
+ const size_t pldm_pdr_name_records_length = ARRAY_SIZE(pldm_pdr_name_records);
+ 
+ struct pldm_pdr_oem_state_set_record pldm_pdr_oem_state_set_records[] OFFLOAD_PDR_ATTR = {
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_ETHERNET_MAP] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_ETHERNET_MAP,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_PORT_CONNECTIVITY,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_PORT_CONNECTIVITY,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Internal_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = External_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_FW_STATE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_FW_STATE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_FW_STATE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_FW_STATE,
++		.count = 5,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = In_preboot_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = In_management_FW_str,
++			},
++			{
++				.min_value = 3,
++				.max_value = 3,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = In_preboot_recovery_str,
++			},
++			{
++				.min_value = 4,
++				.max_value = 4,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = In_margin_tool_str,
++			},
++			{
++				.min_value = 5,
++				.max_value = 5,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = In_FW_loader_agent_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_PPBOOT_IMAGE_SOURCE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_PPBOOT_IMAGE_SOURCE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_PPBOOT_IMAGE_SOURCE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_PPBOOT_IMAGE_SOURCE,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Primary_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Secondary_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_SECURITY_KEY] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_SECURITY_KEY,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_SECURITY_KEY,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_SECURITY_KEY,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Not_revoked_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Revoked_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_ROW_REPLACEMENT_FAILURE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_HBM_ROW_REPLACEMENT_FAILURE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_HBM_ROW_REPLACEMENT_FAILURE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_HBM_ROW_REPLACEMENT_FAILURE,
++		.count = 7,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = No_failure_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = No_avail_row_in_specific_bank_str,
++			},
++			{
++				.min_value = 3,
++				.max_value = 3,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Row_replacement_table_full_str,
++			},
++			{
++				.min_value = 4,
++				.max_value = 4,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Ecc_for_prev_replaced_row_str,
++			},
++			{
++				.min_value = 5,
++				.max_value = 5,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Derr_and_multi_serr_crossed_th_str,
++			},
++			{
++				.min_value = 6,
++				.max_value = 6,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Row_repair_if_comm_error_str,
++			},
++			{
++				.min_value = 7,
++				.max_value = 7,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Row_repair_scrubbing_failed_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_INITIALIZE_FAILURE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_HBM_INITIALIZE_FAILURE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_HBM_INITIALIZE_FAILURE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_HBM_INITIALIZE_FAILURE,
++		.count = 11,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = No_failure_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = PLL_fail_str,
++			},
++			{
++				.min_value = 3,
++				.max_value = 3,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = PHY_init_fail_str,
++			},
++			{
++				.min_value = 4,
++				.max_value = 4,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = MRS_or_reset_fail_str,
++			},
++			{
++				.min_value = 5,
++				.max_value = 5,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Pre_training_fail_str,
++			},
++			{
++				.min_value = 6,
++				.max_value = 6,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = MCBIST_fail_str,
++			},
++			{
++				.min_value = 7,
++				.max_value = 7,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Training_fail_str,
++			},
++			{
++				.min_value = 8,
++				.max_value = 8,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = MBIST_fail_str,
++			},
++			{
++				.min_value = 9,
++				.max_value = 9,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Lane_repair_fail_str,
++			},
++			{
++				.min_value = 10,
++				.max_value = 10,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Row_repair_fail_str,
++			},
++			{
++				.min_value = 11,
++				.max_value = 11,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Spare_rows_fusescan_failed_str,
++			},
++		},
++	}},
+ 	[PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_MBIST_FAIL_CAUSE] = { .oem_state_set = {
+ 		.header = {
+ 			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_HBM_MBIST_FAIL_CAUSE,
+@@ -7137,6 +7623,71 @@
+ 				.name_string_count = 1,
+ 				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
+ 				.name = MBIST_finished_unrepairable_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_PCIE_ERR_INJECTION_TYPE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_PCIE_ERR_INJECTION_TYPE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_ERROR_PCIE_TYPE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_ERROR_PCIE_TYPE,
++		.count = 3,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Crc_error_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Sequence_number_error_str,
++			},
++			{
++				.min_value = 3,
++				.max_value = 3,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Symbol_error_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_ETHERNET_ERR_INJECTION_TYPE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_ETHERNET_ERR_INJECTION_TYPE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_ERROR_ETH_TYPE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_ERROR_ETH_TYPE,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = High_ser_error_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Port_toggling_error_str,
+ 			},
+ 		},
+ 	}},
+@@ -7330,6 +7881,42 @@
+ 			},
+ 		},
+ 	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_ERROR_INJECTION_TYPE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_HBM_ERROR_INJECTION_TYPE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_ERROR_HBM_TYPE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_ERROR_HBM_TYPE,
++		.count = 3,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Command_address_parity_error_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Write_data_parity_error_str,
++			},
++			{
++				.min_value = 3,
++				.max_value = 3,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Ecc_double_error_str,
++			},
++		},
++	}},
+ 	[PLDM_RIDX_SENSOR_OEM_STATE_SET_SRAM_BIST_FAIL_CAUSE] = { .oem_state_set = {
+ 		.header = {
+ 			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_SRAM_BIST_STATUS,
+@@ -7380,6 +7967,86 @@
+ 			},
+ 		},
+ 	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_SECURITY_MODE_STATUS] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_SECURITY_MODE_STATUS,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_SECURITY_MODE_STATUS,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_SECURITY_MODE_STATUS,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Not_permanent_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Permanent_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_SPI_FLASH_WRITE_PROTECT_STATE] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_SPI_FLASH_WRITE_PROTECT_STATE,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_SPI_FLASH_WRITE_PROTECT_STATE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_SPI_FLASH_WRITE_PROTECT_STATE,
++		.count = 2,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Not_asserted_str,
++			},
++			{
++				.min_value = 2,
++				.max_value = 2,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Asserted_str,
++			},
++		},
++	}},
++	[PLDM_RIDX_SENSOR_OEM_STATE_SET_WATCHDOG_ERROR_INJECTION] = { .oem_state_set = {
++		.header = {
++			.record_handle = PLDM_RH_SENSOR_OEM_STATE_SET_WATCHDOG_ERROR_INJECTION,
++			.header_version = PLDM_PDR_HEADER_VERSION,
++			.type = PLDM_PDR_TYPE_OEM_STATE_SET,
++			.record_change_number = 0,
++		},
++		.terminus_handle = 0,
++		.id_handle = PLDM_STATE_SET_OEM_ERROR_TDR_TYPE,
++		.iana = INTEL_IANA,
++		.id = PLDM_STATE_SET_OEM_ERROR_TDR_TYPE,
++		.count = 1,
++		.values = {
++			{
++				.min_value = 1,
++				.max_value = 1,
++				.name_string_count = 1,
++				.name_language_tag = PLDM_PDR_LANGUAGE_TAG_ENGLISH,
++				.name = Tdr_str,
++			},
++		},
++	}},
+ };
+ 
+ const size_t pldm_pdr_oem_state_set_records_length = ARRAY_SIZE(pldm_pdr_oem_state_set_records);
+diff --git a/include/arch/gaudi3/pldm_pdr.h b/include/arch/gaudi3/pldm_pdr.h
+index 49ff459..23d8d52 100644
+--- a/include/arch/gaudi3/pldm_pdr.h
++++ b/include/arch/gaudi3/pldm_pdr.h
+@@ -458,9 +458,21 @@
+ 	PLDM_RH_EFFECTER_AUX_NAMES_ERROR_INJECTION_HBMS			= 4112,
+ 	PLDM_RH_EFFECTER_AUX_NAMES_ERROR_INJECTION_TDR			= 4113,
+ 	PLDM_RH_EFFECTER_AUX_NAMES_ERROR_INJECTION_BOOT			= 4114,
++	PLDM_RH_SENSOR_OEM_STATE_SET_ETHERNET_MAP			= 5000,
++	PLDM_RH_SENSOR_OEM_STATE_SET_FW_STATE				= 5001,
++	PLDM_RH_SENSOR_OEM_STATE_SET_PPBOOT_IMAGE_SOURCE		= 5002,
++	PLDM_RH_SENSOR_OEM_STATE_SET_SECURITY_KEY			= 5003,
++	PLDM_RH_SENSOR_OEM_STATE_SET_HBM_ROW_REPLACEMENT_FAILURE	= 5004,
++	PLDM_RH_SENSOR_OEM_STATE_SET_HBM_INITIALIZE_FAILURE		= 5005,
+ 	PLDM_RH_SENSOR_OEM_STATE_SET_HBM_MBIST_FAIL_CAUSE		= 5006,
++	PLDM_RH_SENSOR_OEM_STATE_SET_PCIE_ERR_INJECTION_TYPE		= 5008,
++	PLDM_RH_SENSOR_OEM_STATE_SET_ETHERNET_ERR_INJECTION_TYPE	= 5009,
+ 	PLDM_RH_SENSOR_OEM_STATE_SET_ERROR_MODULE_INDEX			= 5010,
++	PLDM_RH_SENSOR_OEM_STATE_SET_HBM_ERROR_INJECTION_TYPE		= 5011,
+ 	PLDM_RH_SENSOR_OEM_STATE_SET_SRAM_BIST_STATUS			= 5014,
++	PLDM_RH_SENSOR_OEM_STATE_SET_SECURITY_MODE_STATUS		= 5015,
++	PLDM_RH_SENSOR_OEM_STATE_SET_SPI_FLASH_WRITE_PROTECT_STATE	= 5016,
++	PLDM_RH_SENSOR_OEM_STATE_SET_WATCHDOG_ERROR_INJECTION		= 5018,
+ 	PLDM_RH_SENSOR_OEM_UNIT_VER_32					= 5200,
+ 	PLDM_RH_SENSOR_OEM_UNIT_VER_8					= 5201,
+ 	PLDM_RH_SENSOR_OEM_UNIT_STRING_32				= 5202,
+@@ -1086,9 +1098,21 @@
+ };
+ 
+ enum pldm_oem_state_set_ridx {
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_ETHERNET_MAP,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_FW_STATE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_PPBOOT_IMAGE_SOURCE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_SECURITY_KEY,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_ROW_REPLACEMENT_FAILURE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_INITIALIZE_FAILURE,
+ 	PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_MBIST_FAIL_CAUSE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_PCIE_ERR_INJECTION_TYPE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_ETHERNET_ERR_INJECTION_TYPE,
+ 	PLDM_RIDX_SENSOR_OEM_STATE_SET_ERROR_MODULE_INDEX,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_HBM_ERROR_INJECTION_TYPE,
+ 	PLDM_RIDX_SENSOR_OEM_STATE_SET_SRAM_BIST_FAIL_CAUSE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_SECURITY_MODE_STATUS,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_SPI_FLASH_WRITE_PROTECT_STATE,
++	PLDM_RIDX_SENSOR_OEM_STATE_SET_WATCHDOG_ERROR_INJECTION,
+ };
+ 
+ enum pldm_oem_unit_ridx {

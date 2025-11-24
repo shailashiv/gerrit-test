@@ -1,0 +1,31 @@
+From 9d491fbabca5b5fa44b2425eb87032e8eabb8367 Mon Sep 17 00:00:00 2001
+From: Igal Zeltser <izeltser@habana.ai>
+Date: Wed, 27 Nov 2024 17:19:40 +0200
+Subject: [PATCH] [DO NOT MERGE] pci debug: adjust transmitter/rec present hint
+
+Change-Id: Ib8c798318863de2397c903da3746d6486a0dd702
+Signed-off-by: Igal Zeltser <izeltser@habana.ai>
+---
+
+diff --git a/arch/gaudi3/arc/common.c b/arch/gaudi3/arc/common.c
+index 5b6561c..572d027 100644
+--- a/arch/gaudi3/arc/common.c
++++ b/arch/gaudi3/arc/common.c
+@@ -1001,10 +1001,15 @@
+ 
+ static void pif_arc_config_dbi_params(void)
+ {
++	u32 regval = regmap_readl(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_MISC_CONTROL_1_OFF));
++
++	regmap_writel(regval | PCIE_DBI_MISC_CONTROL_1_OFF_DBI_RO_WR_EN_M,
++		      D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_MISC_CONTROL_1_OFF));
++	regmap_writel(0x103001F, D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_DEVICE_CAPABILITIES2_REG));
++	regmap_writel(regval, D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_MISC_CONTROL_1_OFF));
++
+ 	regmap_writel(0x02402801, D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_GEN3_RELATED_OFF));
+ 	regmap_writel(0x05026031, D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_GEN3_EQ_CONTROL_OFF));
+-	regmap_rmwritel(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_DEVICE_CAPABILITIES2_REG),
+-					ENABLE_PWRBRK_CTRL_VAL, EMR_PWR_M);
+ 
+ 	/* remove Vital Product Data (VPD) reporting capability */
+ 	regmap_rmwritel(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_PCI_MSIX_CAP_ID_NEXT_CTRL_REG), 0,

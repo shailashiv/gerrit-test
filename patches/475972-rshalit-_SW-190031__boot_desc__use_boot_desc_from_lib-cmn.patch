@@ -1,0 +1,303 @@
+From d2148a5133ae954b5420bc6f1c032c0a31ddba85 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Wed, 26 Mar 2025 08:55:47 +0200
+Subject: [PATCH] [SW-190031] boot_desc: use boot_desc from lib-cmn
+
+Now, that we have common boot_desc implementation
+in emb_cmn_lib, we should call it, and remove
+duplicated code from application.
+
+Change-Id: Ib3ca1a58caed80fa7e4223cd2091a5b042d5af14
+Signed-off-by: Ariel Aviad <aaviad@habana.ai>
+---
+
+diff --git a/arch/gaudi2/common/common.c b/arch/gaudi2/common/common.c
+index cfaf428..f3721cb 100644
+--- a/arch/gaudi2/common/common.c
++++ b/arch/gaudi2/common/common.c
+@@ -1266,7 +1266,7 @@
+ 	void *fit;
+ 	const char *buf;
+ 
+-	num = preboot_boot_desc_init(_BOOT_PTRS_EROM);
++	num = preboot_boot_desc_init(BOOT_PTRS_EROM);
+ 	if (num < EROM_FIT_IMG_NUM) {
+ 		LOG_ERR("EROM data fit is missing");
+ 		return 1;
+diff --git a/arch/gaudi2/common/validate_fw.c b/arch/gaudi2/common/validate_fw.c
+index 5b0554e..8e973cf 100644
+--- a/arch/gaudi2/common/validate_fw.c
++++ b/arch/gaudi2/common/validate_fw.c
+@@ -204,7 +204,7 @@
+ 	struct boot_desc desc;
+ 	int idx, err = 0;
+ 
+-	preboot_boot_desc_init(_BOOT_PTRS_EROM);
++	preboot_boot_desc_init(BOOT_PTRS_EROM);
+ 	idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_index, IMG_IDX_AUTO, &desc);
+ 	if (idx < 0) {
+ 		LOG_ERR("EROM img desc %s not present", info->img_name);
+@@ -218,7 +218,7 @@
+ 
+ 	err = validate_spi_img(desc.spi_offset, desc.img_size, info->img_name);
+ 	LOG_INF("%s:\t%s", info->img_name, err ? "BAD" : "Ok");
+-	preboot_boot_desc_release();
++	boot_desc_release();
+ 
+ 	return err;
+ }
+diff --git a/arch/gaudi3/common/common.c b/arch/gaudi3/common/common.c
+index b5aca50..734a347 100644
+--- a/arch/gaudi3/common/common.c
++++ b/arch/gaudi3/common/common.c
+@@ -524,7 +524,7 @@
+ {
+ 	int idx, err = 1;
+ 
+-	idx = preboot_boot_desc_init(_BOOT_PTRS_EROM);
++	idx = preboot_boot_desc_init(BOOT_PTRS_EROM);
+ 	if (!idx) {
+ 		LOG_ERR("Boot desc init for eROM is failed");
+ 		return err;
+@@ -537,7 +537,7 @@
+ 	else
+ 		err = 0; // No error
+ 
+-	preboot_boot_desc_release();
++	boot_desc_release();
+ 	return err;
+ }
+ 
+diff --git a/arch/gaudi3/common/validate_fw.c b/arch/gaudi3/common/validate_fw.c
+index 5cee271..1084f72 100644
+--- a/arch/gaudi3/common/validate_fw.c
++++ b/arch/gaudi3/common/validate_fw.c
+@@ -127,7 +127,7 @@
+ 	int err;
+ 	uint32_t idx;
+ 
+-	preboot_boot_desc_init(_BOOT_PTRS_EROM);
++	preboot_boot_desc_init(BOOT_PTRS_EROM);
+ 	for (i = 0; i < sizeof(erom_img_data) / sizeof(struct fw_img_info); i++) {
+ 		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_img_data[i].type,
+ 						erom_img_data[i].idx_sel_mode, &desc);
+@@ -150,7 +150,7 @@
+ 		}
+ 	}
+ 
+-	preboot_boot_desc_release();
++	boot_desc_release();
+ 	return 0;
+ }
+ 
+@@ -191,7 +191,7 @@
+ 	int err = 0;
+ 	uint32_t idx;
+ 
+-	preboot_boot_desc_init(_BOOT_PTRS_FW);
++	preboot_boot_desc_init(BOOT_PTRS_FW);
+ 	for (i = 0; i < sizeof(fw_img_data) / sizeof(struct fw_img_info); i++) {
+ 		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, fw_img_data[i].type,
+ 						fw_img_data[i].idx_sel_mode, &desc);
+@@ -241,7 +241,7 @@
+ 		}
+ 	}
+ 
+-	preboot_boot_desc_release();
++	boot_desc_release();
+ 	return 0;
+ }
+ 
+diff --git a/include/boot_desc.h b/include/boot_desc.h
+index 6f7a6dc..c9a2052 100644
+--- a/include/boot_desc.h
++++ b/include/boot_desc.h
+@@ -12,16 +12,11 @@
+ #include <hl_fw_upd_if.h>
+ #include <hl_boot_desc.h>
+ #include <sha.h>
++#include <lib_common.h>
+ 
+ #define HL_FW_IMG_NOT_FOUND	((u32)-1)
+ #define MULTI_CSUM_BOOT_VER	3
+ #define DESC_VER_BOOT_VER	5
+-
+-enum _boot_ptrs_type {
+-	_BOOT_PTRS_FW,
+-	_BOOT_PTRS_EROM,
+-	_BOOT_PTRS_MAX_NUM
+-};
+ 
+ struct boot_desc {
+ 	u32 desc_ver;
+@@ -46,7 +41,7 @@
+  *
+  * Returns: the amount of images available, or 0 - no images available - legacy
+  */
+-int preboot_boot_desc_init(enum _boot_ptrs_type ptrs_type);
++int preboot_boot_desc_init(enum boot_ptrs_type ptrs_type);
+ 
+ /*
+  * _boot_desc_get_img_desc() - get the struct boot_desc of the requested image
+@@ -64,11 +59,6 @@
+ u32 _boot_desc_get_img_desc(enum fw_post_reset_cmd upd_status, enum hl_fw_img_type type,
+ 				enum img_idx sel_idx_mode, struct boot_desc *desc);
+ 
+-/*
+- * preboot_boot_desc_release() - releases dynamic memory, allocated by boot_desc_init()
+- *
+- */
+-void preboot_boot_desc_release(void);
+ bool _dev_spec_img_desc_is_valid(struct hl_fw_img_desc *img_desc);
+ u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+ 			  enum img_idx sel_idx_mode, struct boot_desc *desc);
+diff --git a/lib/boot_desc.c b/lib/boot_desc.c
+index cfa93fd..80382d2 100644
+--- a/lib/boot_desc.c
++++ b/lib/boot_desc.c
+@@ -26,11 +26,6 @@
+ 
+ LOG_MODULE_REGISTER(boot_desc);
+ 
+-static struct hl_fw_boot_ptrs boot_ptrs;
+-static uint8_t *img_descs;
+-
+-static enum _boot_ptrs_type last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
+-
+ uint32_t *preboot_alloc_desc_offset(uint32_t size)
+ {
+ 	uint8_t *desc_offs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, size);
+@@ -61,93 +56,19 @@
+ 	sys_heap_free(&mem_heap_main,  (void *)img_descs);
+ }
+ 
+-void preboot_boot_desc_release(void)
+-{
+-	if (!img_descs)
+-		return;
+-
+-	preboot_free_image_desc(img_descs);
+-	last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
+-	img_descs = NULL;
+-}
+-
+ #define LEGACY_IMAGE_DESCRIPTOR_SIZE	220
+ 
+-int preboot_boot_desc_init(enum _boot_ptrs_type ptrs_type)
++struct boot_desc_callbacks boot_callbacks = {
++	.alloc_desc_offset = preboot_alloc_desc_offset,
++	.alloc_image_desc = preboot_alloc_image_desc,
++	.free_desc_offs = preboot_free_desc_offs,
++	.free_image_desc = preboot_free_image_desc,
++};
++
++int preboot_boot_desc_init(enum boot_ptrs_type ptrs_type)
+ {
+-	unsigned int count, i;
+-	u32 ptr_base, spi_off;
+-	u32 *desc_offs;
+-	u8 *descs_ptr;
+-
+-	if (ptrs_type == last_ptrs_initialized)
+-		return boot_ptrs.count;
+-
+-	ptr_base = (ptrs_type == _BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;
+-
+-	/* Read the main boot pointers structure */
+-	spi_flash_copy(&boot_ptrs, ptr_base, BOOT_PTRS_SZ, "BOOT PTRS");
+-	if (boot_ptrs.version > 0) {
+-		if (boot_ptrs.boot_ptrs_sz > BOOT_PTRS_SZ)
+-			LOG_WRN("boot_ptrs size is bigger than expected");
+-	}
+-	boot_desc_print_magic("FW boot PTRs", &boot_ptrs.magic);
+-
+-	if (boot_ptrs.magic.val != HL_FW_BOOT_MAGIC)
+-		goto err_exit;
+-
+-	count = boot_ptrs.count;
+-
+-	desc_offs = preboot_alloc_desc_offset(count * sizeof(u32));
+-	if (!desc_offs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
+-		goto err_exit;
+-	}
+-
+-	if (is_legacy_boot_descs(&boot_ptrs)) {
+-		/*
+-		 * In legacy boot ptrs meta data structure the last member is "count", the legacy
+-		 * offsets array starts where the "pub_key_sz" member is.
+-		 */
+-		spi_off = ptr_base + offsetof(struct hl_fw_boot_ptrs, pub_key_sz);
+-		/* legacy descriptors don't have size field. so constant value is used */
+-		boot_ptrs.img_desc_sz = LEGACY_IMAGE_DESCRIPTOR_SIZE;
+-	} else {
+-		spi_off = ptr_base + boot_ptrs.offset2array;
+-	}
+-
+-	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * count, "DESC OFFS");
+-
+-	img_descs = preboot_alloc_image_desc(count * boot_ptrs.img_desc_sz);
+-	if (!img_descs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
+-		preboot_free_desc_offs(desc_offs);
+-		goto err_exit;
+-	}
+-
+-	/* Read all descriptors */
+-	for (i = 0; i < count; i++) {
+-		spi_off = ptr_base + desc_offs[i];
+-		descs_ptr = img_descs + i * boot_ptrs.img_desc_sz;
+-		spi_flash_copy(descs_ptr, spi_off, boot_ptrs.img_desc_sz, "IMG DESC");
+-		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)descs_ptr)) {
+-			LOG_ERR("Bad boot descriptor: %d", i);
+-			preboot_free_desc_offs(desc_offs);
+-			goto err_exit;
+-		}
+-	}
+-
+-	preboot_free_desc_offs(desc_offs);
+-	last_ptrs_initialized = ptrs_type;
+-
+-	return count;
+-
+-err_exit:
+-	preboot_boot_desc_release();
+-	memset(&boot_ptrs, 0, sizeof(boot_ptrs));
+-	last_ptrs_initialized = _BOOT_PTRS_MAX_NUM;
+-
+-	return 0;
++	register_boot_desc(&boot_callbacks);
++	return boot_desc_init(ptrs_type);
+ }
+ 
+ __weak u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+@@ -161,25 +82,12 @@
+ u32 _boot_desc_get_img_desc(enum fw_post_reset_cmd upd_status,  enum hl_fw_img_type type,
+ 				enum img_idx sel_idx_mode, struct boot_desc *desc)
+ {
+-	int i;
+-	struct hl_fw_img_desc *img_desc;
+-	u32 ret;
++	struct hl_fw_img_desc *img_desc = boot_get_desc_ptr_type(type);
+ 
+-	/*
+-	 * struct hl_fw_img_desc is used for parsing the descriptor fields, but developer must
+-	 * take the descriptor version into account in order to know which fields are available
+-	 */
+-	for (i = 0; i < boot_ptrs.count; i++) {
+-		img_desc = (struct hl_fw_img_desc *)(img_descs + i * boot_ptrs.img_desc_sz);
++	if (img_desc) {
++		LOG_INF("Image type: %d - found!", type);
+ 
+-		if (img_desc->magic.type != type)
+-			continue;
+-
+-		LOG_INF("Looking for image type: %d - found!", type);
+-
+-		ret = _dev_spec_get_img_desc(img_desc, upd_status, sel_idx_mode, desc);
+-
+-		return ret;
++		return _dev_spec_get_img_desc(img_desc, upd_status, sel_idx_mode, desc);
+ 	}
+ 
+ 	LOG_ERR("image type: %d - not found!", type);

@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 482097: [HL338][tests] Fixing power_cycle logging and cleanup</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 482097: [HL338][tests] Fixing power_cycle logging and cleanup</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> hl-sa</p>
+            <p><strong>Branch:</strong> hl-sa_3.8.2.3_reliability</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Oded Rot &lt;orot@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-06-19 15:02:10.753000000</p>
+            <p><strong>Updated:</strong> 2025-06-25 12:37:14.354000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[HL338][tests] Fixing power_cycle logging and cleanup
+
+Change-Id: Ifcfcded259f855d098bef561eeee95028df0df16
+Signed-off-by: Oded Rot &lt;orot@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Yuval Zecharia: +0</li><li><strong>Verified</strong>: Yuval Zecharia: +0</li><li><strong>Finished</strong>: Yuval Zecharia: +0</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>tests/HL338/test_power_cycle.py</code> (M) +17 -1494</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/tests/HL338/test_power_cycle.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -671,12 +671,6 @@</span>
+<span class="diff-ctx">             hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-ctx">                                               operation=&#x27;SERR/DERR Checker result&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-        elif method.__name__ == &#x27;test_memory_bw&#x27;:</span>
+<span class="diff-del">-            self.print_uart_for_failed_devices()</span>
+<span class="diff-del">-            status = self.get_serr_derr()</span>
+<span class="diff-del">-            hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                              operation=&#x27;SERR/DERR Checker result&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx">         elif method.__name__ == &#x27;test_pci_synapse_bw&#x27;:</span>
+<span class="diff-ctx">             status = self.get_serr_derr()</span>
+<span class="diff-ctx">             hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-hunk">@@ -809,11 +803,11 @@</span>
+<span class="diff-ctx">     def run_hl_qual_test(self, test_options_name=None, t=None):</span>
+<span class="diff-ctx">         MAX_QUAL_DURATION = 48 * 3600</span>
+<span class="diff-ctx">         if not test_options_name:</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-add">+            # log_manager.log_browser()</span>
+<span class="diff-ctx">             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-ctx">                         operation=f&#x27;failed to get test options for {self.test_name}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-ctx">             return False</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-add">+        # log_manager.log_browser()</span>
+<span class="diff-ctx">         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-ctx">                     operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-ctx">         # self._get_needed_parameters(t=t)</span>
+<span class="diff-hunk">@@ -935,48 +929,6 @@</span>
+<span class="diff-ctx">                             operation=&#x27;Exception during print_cpld_fault (USB Device Index %d)&#x27; % device_idx,</span>
+<span class="diff-ctx">                             read_value=&#x27;Exception: %s&#x27; % str(exception), result=&#x27;FAIL&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def _start_rate_limiter(self):</span>
+<span class="diff-del">-        if self.production_mode:</span>
+<span class="diff-del">-            # Start rate limiter</span>
+<span class="diff-del">-            for device in self.operational_devices_address:</span>
+<span class="diff-del">-                # todo check test_options params (execute or enable)</span>
+<span class="diff-del">-                if self.functional_tests_options[self.test_name][&#x27;rate_limiter&#x27;][&#x27;enable&#x27;]:</span>
+<span class="diff-del">-                    log_manager.log_browser(device.strip())</span>
+<span class="diff-del">-                    self.rate_limiter_to_set = self.functional_tests_options[self.test_name][&#x27;rate_limiter&#x27;][</span>
+<span class="diff-del">-                        &#x27;rate_limiter_value&#x27;]</span>
+<span class="diff-del">-                    long_pci_address = self.devices[device][&quot;long_pci_address&quot;]</span>
+<span class="diff-del">-                    if not self.rate_limiter_cli.set_rate_limiter(long_pci_address, str(self.rate_limiter_to_set)):</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                    operation=f&#x27;[Setup] Failed to Set Rate Limiter Device: {device.upper()}&#x27;,</span>
+<span class="diff-del">-                                    result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                        pytest.xfail(f&#x27;{self.test_code} - Setup FAIL&#x27;)</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;HL-QUAL FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                                    operation=f&#x27;Set,Rate Limiter Device: {device.upper()}&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-            self.hl_qual_control.remove_hl_qual_logs(&#x27;HL225-pci-*&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def _stop_rate_limiter(self):</span>
+<span class="diff-del">-        if self.production_mode:</span>
+<span class="diff-del">-            # Stop rate limiter</span>
+<span class="diff-del">-            for device in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(device.strip())</span>
+<span class="diff-del">-                if self.functional_tests_options[self.test_name][&#x27;rate_limiter&#x27;][&#x27;enable&#x27;]:</span>
+<span class="diff-del">-                    rate_limiter_to_set = &#x27;100&#x27;</span>
+<span class="diff-del">-                    hl_device_number = self.devices[device][&quot;hl_num&quot;]</span>
+<span class="diff-del">-                    self.check_value_is_not_none(logger, hl_device_number,</span>
+<span class="diff-del">-                                                 &quot;Get, get_hl_number(%s), %s&quot; % (device, str(hl_device_number)))</span>
+<span class="diff-del">-                    if not self.rate_limiter_cli.set_rate_limiter(hl_device_number, rate_limiter_to_set):</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                    operation=f&#x27;[Teardown] Failed to Set Rate Limiter Device: {device.upper()}&#x27;,</span>
+<span class="diff-del">-                                    result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                        pytest.xfail(f&#x27;{self.test_code} - Teardown FAIL&#x27;)</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                    operation=f&#x27;Set,Rate Limiter Device: {device.upper()}&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                operation=&#x27;[Teardown] Rate Limiter Disabled...&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx">     def _check_production_mode_criteria_files(self):</span>
+<span class="diff-ctx">         criteria_path = self.test_options[&quot;functional_tests&quot;][&quot;criteria_file_to_send&quot;]</span>
+<span class="diff-ctx">         path_to_copy = self.test_options[&quot;functional_tests&quot;][&quot;path_to_copy&quot;]</span>
+<span class="diff-hunk">@@ -1054,8 +1006,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">         self.driver_cli.devices_hard_reset()</span>
+<span class="diff-ctx">         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;FUNCTIONAL&#x27;,</span>
+<span class="diff-del">-                    operation=f&#x27;Execute,sleep {self.sleep_time}&#x27;)</span>
+<span class="diff-del">-        time.sleep(self.sleep_time)</span>
+<span class="diff-add">+                    operation=f&#x27;Execute,sleep 60 sec&#x27;)</span>
+<span class="diff-add">+        time.sleep(60)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def _print_tests_result(self, output, measurements, csv_report):</span>
+<span class="diff-ctx">         for line in output:</span>
+<span class="diff-hunk">@@ -1225,12 +1177,13 @@</span>
+<span class="diff-ctx">         hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-ctx">                                           operation=&#x27;Check test result&#x27;,</span>
+<span class="diff-ctx">                                           ignore_assert=True)</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx">     def limit_power(self, stage_duration_sec, max_power_set_values):</span>
+<span class="diff-ctx">         activate_test_thread = True</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-ctx">         sleep_between_itr = stage_duration_sec // (len(max_power_set_values) - 1)</span>
+<span class="diff-ctx">         for value in max_power_set_values:</span>
+<span class="diff-ctx">             try:</span>
+<span class="diff-add">+                itr_start_time = time.time()</span>
+<span class="diff-ctx">                 if value &lt;= 600:</span>
+<span class="diff-ctx">                     itr_start_time = time.time()</span>
+<span class="diff-ctx">                     for pci_addr in self.operational_devices_address:</span>
+<span class="diff-hunk">@@ -1260,18 +1213,24 @@</span>
+<span class="diff-ctx">                         hl_smi_val = self.smi_control.get_power_draw(f&#x27;0000:{pci_addr}&#x27;)</span>
+<span class="diff-ctx">                         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_name, dev_address=pci_addr,</span>
+<span class="diff-ctx">                                     operation=&#x27;HL-SMI Power Draw value&#x27;, read_value=hl_smi_val)</span>
+<span class="diff-del">-                set_thread_log_context(None)</span>
+<span class="diff-del">-                # log_manager.log_browser()</span>
+<span class="diff-add">+                    set_thread_log_context(None) # For fixing logs per device</span>
+<span class="diff-ctx">                 sleep_between_itr_time = sleep_between_itr - (time.time() - itr_start_time)</span>
+<span class="diff-ctx">                 if sleep_between_itr_time &gt;=0:</span>
+<span class="diff-ctx">                     time.sleep(sleep_between_itr_time)</span>
+<span class="diff-ctx">             except Exception as exception:</span>
+<span class="diff-ctx">                 set_thread_log_context(None)</span>
+<span class="diff-del">-                # log_manager.log_browser()</span>
+<span class="diff-ctx">                 hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;exception: {exception}&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def run_power_cycle(self, test_options_name=None, t=None):</span>
+<span class="diff-del">-        set_thread_log_context(&quot;main&quot;)</span>
+<span class="diff-add">+        # set_thread_log_context(&quot;main&quot;) # For fixing logs per device</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+        for device in self.connected_pcie_devices:</span>
+<span class="diff-add">+            if not self.test_name in self.Devices[device][&#x27;functional_tests&#x27;].keys():  # used on DC_power_cycle runs</span>
+<span class="diff-add">+                self.Devices[device][&#x27;functional_tests&#x27;][test_options_name] = {&#x27;status&#x27;: &#x27;#RESULTS_FAILED#&#x27;}</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;Fixing Devices Dict {test_options_name}&#x27;)</span>
+<span class="diff-add">+                self.Devices[device.strip()][&#x27;status&#x27;] = True</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx">         self.test_status = self.run_hl_qual_test(test_options_name=test_options_name, t=t)</span>
+<span class="diff-ctx">         status = self.collect_monitors_csv_output(fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-ctx">     # Version Compare - Mutate Devices, Adds Versions (Must be Executed 1st !)</span>
+<span class="diff-hunk">@@ -1378,189 +1337,6 @@</span>
+<span class="diff-ctx">                     operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-ctx">             assert False</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # def test_load_driver_iteration(self):</span>
+<span class="diff-del">-    #     try:</span>
+<span class="diff-del">-    #         # Test Status Affect The Current Test Execution</span>
+<span class="diff-del">-    #         TEST_STATUS = True</span>
+<span class="diff-del">-    #         log_manager.log_browser()  # Log Maste</span>
+<span class="diff-del">-    #         # Iterate Through PCIe Devices</span>
+<span class="diff-del">-    #         if self.test_options.load_driver_iteration.num_of_test_loops == 0:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                         operation=&#x27;Number of test loop is: 0&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #             return</span>
+<span class="diff-del">-    #         status = self.driver_cli.remove_driver()</span>
+<span class="diff-del">-    #         hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                           operation=&#x27;Remove Driver,Habanalabs&#x27;)</span>
+<span class="diff-del">-    #         for iteration in range(self.test_options.load_driver_iteration.num_of_test_loops):</span>
+<span class="diff-del">-    #             # log_manager.log_browser()</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                 operation=&#x27;Iteration {} of {}&#x27;.format(iteration + 1, self.test_options.load_driver_iteration.num_of_test_loops))</span>
+<span class="diff-del">-    #             # status = self.driver_cli.load_driver(timeout_locked=0)</span>
+<span class="diff-del">-    #             self.driver_options = hw_manager.get_driver_options()</span>
+<span class="diff-del">-    #             status = self.driver_cli.load_driver(drivin_flags=self.driver_options)</span>
+<span class="diff-del">-    #             time.sleep(1)</span>
+<span class="diff-del">-    #             hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, operation=&#x27;Load Driver&#x27;)</span>
+<span class="diff-del">-    #             self.actual_operational_devices_address = self.driver_cli.get_operational_devices()</span>
+<span class="diff-del">-    #             print_dmesg = False</span>
+<span class="diff-del">-    #             try:</span>
+<span class="diff-del">-    #                 for device in self.operational_devices_address:</span>
+<span class="diff-del">-    #                     hl_device_number = self.devices[device][&quot;hl_num&quot;]</span>
+<span class="diff-del">-    #                     mezz = self.devices[device][&#x27;mezz&#x27;]</span>
+<span class="diff-del">-    #                     # log_manager.log_browser()  # Log Maste</span>
+<span class="diff-del">-    #                     hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=str(iteration), driver_number=hl_device_number,</span>
+<span class="diff-del">-    #                                 dev_address=device, mezzanine=mezz, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                 operation=f&#x27;Connected PCIE Device&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-    #                     if device not in self.actual_operational_devices_address:</span>
+<span class="diff-del">-    #                         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, loop=str(iteration),</span>
+<span class="diff-del">-    #                                     driver_number=hl_device_number,</span>
+<span class="diff-del">-    #                                     dev_address=device, mezzanine=mezz, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                     operation=f&#x27;ERROR PCIE Address: {device} Is Not Operational (!)&#x27;)</span>
+<span class="diff-del">-    #                         log_manager.log_browser(str(device))</span>
+<span class="diff-del">-    #                         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, loop=str(iteration),</span>
+<span class="diff-del">-    #                                     driver_number=hl_device_number,</span>
+<span class="diff-del">-    #                                     dev_address=device, mezzanine=mezz, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                     operation=f&#x27;ERROR PCIE Address: {device} Is Not Operational (!)&#x27;)</span>
+<span class="diff-del">-    #                         self.Devices[device.strip()][&#x27;status&#x27;] = False</span>
+<span class="diff-del">-    #                         TEST_STATUS = False</span>
+<span class="diff-del">-    #                         print_dmesg = True</span>
+<span class="diff-del">-    #                         try:</span>
+<span class="diff-del">-    #                             uart_buffer = self.dict_uart_index_connection[</span>
+<span class="diff-del">-    #                                 self.Devices[device][&#x27;uart_id&#x27;]].stop_sniffer()</span>
+<span class="diff-del">-    #                             for line in uart_buffer.splitlines():</span>
+<span class="diff-del">-    #                                 hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, driver_number=hl_device_number,</span>
+<span class="diff-del">-    #                                             dev_address=device, mezzanine=mezz,</span>
+<span class="diff-del">-    #                                             test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                             operation=f&#x27;UART LOG: {line}&#x27;)</span>
+<span class="diff-del">-    #                             self.dict_uart_index_connection[self.Devices[device][&#x27;uart_id&#x27;]].start_sniffer()</span>
+<span class="diff-del">-    #                         except Exception as exception:</span>
+<span class="diff-del">-    #                             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                         operation=f&#x27;UART LOG: {exception}&#x27;)</span>
+<span class="diff-del">-    #                     log_manager.log_browser()</span>
+<span class="diff-del">-    #                 if print_dmesg:</span>
+<span class="diff-del">-    #                     message = get_dmesg()</span>
+<span class="diff-del">-    #                     # log_manager.log_browse_all()</span>
+<span class="diff-del">-    #                     if message is not None:</span>
+<span class="diff-del">-    #                         for line in message:</span>
+<span class="diff-del">-    #                             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                         operation=f&#x27;dmesg: {line}&#x27;)</span>
+<span class="diff-del">-    #                 status = self.driver_cli.remove_driver()</span>
+<span class="diff-del">-    #                 hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                                                   operation=&#x27;Remove Driver,Habanalabs&#x27;)</span>
+<span class="diff-del">-    #                 # on Default Run have Power Cycle 54V , On Production_mode Need Config The JSON File</span>
+<span class="diff-del">-    #                 if self.test_options.load_driver_iteration.pwr_54V_reset_enable:</span>
+<span class="diff-del">-    #                     self._54v_reset()</span>
+<span class="diff-del">-    #                 elif self.test_options.load_driver_iteration.reset_device_fw_loader_enable:</span>
+<span class="diff-del">-    #                     self._fw_loader_reset()</span>
+<span class="diff-del">-    #                 elif self.test_options.load_driver_iteration.machxo3_reset_enable:</span>
+<span class="diff-del">-    #                     self._machxo3_reset()</span>
+<span class="diff-del">-    #                 else:</span>
+<span class="diff-del">-    #                     self._54v_reset()</span>
+<span class="diff-del">-    #             except Exception as exception:</span>
+<span class="diff-del">-    #                 hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                             operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-    #         # status = self.driver_cli.load_driver(timeout_locked=0 )</span>
+<span class="diff-del">-    #         self.driver_options = hw_manager.get_driver_options()</span>
+<span class="diff-del">-    #         status = self.driver_cli.load_driver(drivin_flags=self.driver_options)</span>
+<span class="diff-del">-    #         if not status:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Load Driver Iteration&#x27;,</span>
+<span class="diff-del">-    #                         operation=&#x27;Init Driver&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #         time.sleep(1)</span>
+<span class="diff-del">-    #         for device in self.operational_devices_address:</span>
+<span class="diff-del">-    #             if self.Devices[device.strip()][&#x27;status&#x27;]:</span>
+<span class="diff-del">-    #                 self.Devices[device.strip()][&#x27;functional_tests&#x27;][self.test_name][&#x27;status&#x27;] = &#x27;#RESULTS_PASS#&#x27;</span>
+<span class="diff-del">-    #             else:</span>
+<span class="diff-del">-    #                 self.Devices[device.strip()][&#x27;functional_tests&#x27;][self.test_name][&#x27;status&#x27;] = &#x27;#RESULTS_FAILED#&#x27;</span>
+<span class="diff-del">-    #         assert TEST_STATUS</span>
+<span class="diff-del">-    #     except Exception as exception:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_name.upper()}&#x27;,</span>
+<span class="diff-del">-    #                     operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-    #         assert False</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    # # todo ------- need update (not refactor , see todo comments inside the method)</span>
+<span class="diff-del">-    # @pytest.mark.HL225_pt</span>
+<span class="diff-del">-    # @pytest.mark.HL225_pt3</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft1</span>
+<span class="diff-del">-    # @pytest.mark.HL225_bi</span>
+<span class="diff-del">-    # def test_sensors_read_for_qual(self):</span>
+<span class="diff-del">-    #     try:</span>
+<span class="diff-del">-    #         TEST_STATUS = True</span>
+<span class="diff-del">-    #         log_manager.log_browser()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         path_dest = self.functional_tests[self.test_name][&quot;file_path&quot;][&quot;destination&quot;]</span>
+<span class="diff-del">-    #         for PCI_address in self.operational_devices_address:</span>
+<span class="diff-del">-    #             pci_for_sensor = PCI_address.split(&quot;.&quot;)</span>
+<span class="diff-del">-    #             pci_for_sensor = pci_for_sensor[0].replace(&#x27;:&#x27;, &#x27;&#x27;)</span>
+<span class="diff-del">-    #             file_name = f&#x27;{self.device.name}-pci-{pci_for_sensor}&#x27;</span>
+<span class="diff-del">-    #             retries = int(self.functional_tests[self.test_name][&quot;retries&quot;])</span>
+<span class="diff-del">-    #             for run_idx in range(retries):</span>
+<span class="diff-del">-    #                 hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #                             operation=f&#x27;Running sensors cmd on idle {run_idx + 1}/{retries}&#x27;, dev_address=PCI_address)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #                 log_level = &#x27;error&#x27; if run_idx == retries - 1 else &#x27;warning&#x27;</span>
+<span class="diff-del">-    #                 log_result = &#x27;FAIL&#x27; if log_level == &#x27;error&#x27; else &#x27;&#x27;</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #                 code, stdout = self.cli_control.execute_command(f&#x27;sensors {file_name} | sudo tee {path_dest}{file_name}.txt &gt;/dev/null&#x27;)</span>
+<span class="diff-del">-    #                 if code != 0:</span>
+<span class="diff-del">-    #                     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #                                 operation=&#x27;Sensors data read&#x27;, result=log_result)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #                 else:</span>
+<span class="diff-del">-    #                     try:</span>
+<span class="diff-del">-    #                         self.Devices[PCI_address.strip()][&#x27;functional_tests&#x27;][self.test_name][&#x27;status&#x27;] = &#x27;#RESULTS_PASS#&#x27;</span>
+<span class="diff-del">-    #                         status = self.sensors_read_for_qual_test(&#x27;offline&#x27;,1, file_name, False, True,fail_log_level=log_level,</span>
+<span class="diff-del">-    #                                         return_status_on_warning=False, loop_override=run_idx)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #                         if status:</span>
+<span class="diff-del">-    #                             break</span>
+<span class="diff-del">-    #                         if not status and run_idx == retries - 1:</span>
+<span class="diff-del">-    #                             log_manager.update_status_false(PCI_address)</span>
+<span class="diff-del">-    #                     except Exception as exception:</span>
+<span class="diff-del">-    #                         log_manager.log_browser()</span>
+<span class="diff-del">-    #                         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Get&#x27;, test_code=self.test_code,operation=f&#x27;sensors_read_for_qual_test {exception}&#x27;)</span>
+<span class="diff-del">-    #                         TEST_STATUS = False</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #                                     operation=&#x27;Execute Sensors data read&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         # Examine Test Status</span>
+<span class="diff-del">-    #         log_manager.log_browser()</span>
+<span class="diff-del">-    #         self.print_uart_for_failed_devices()</span>
+<span class="diff-del">-    #         assert TEST_STATUS</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #     except Exception as exception:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #                     operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-    #         assert False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # @pytest.mark.HL225_bi</span>
+<span class="diff-del">-    # @pytest.mark.HL225_sysval_stress</span>
+<span class="diff-del">-    # def test_memory_bw(self):</span>
+<span class="diff-del">-    #     if self.functional_tests_options[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #         self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.memory_bw)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.memory_bw)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code, operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_ft2</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_bi</span>
+<span class="diff-del">-    # @pytest.mark.HLB_ft2</span>
+<span class="diff-ctx">     def test_power_stress(self):</span>
+<span class="diff-ctx">         self.test_status = self.run_hl_qual_test(&#x27;power_stress&#x27;)</span>
+<span class="diff-ctx">         status = self.collect_monitors_csv_output(fail_log_level=&#x27;error&#x27;)</span>
+<span class="diff-hunk">@@ -1582,7 +1358,7 @@</span>
+<span class="diff-ctx">         self.TEST_THREAD = SuperThread(&#x27;power_stress&#x27;, lambda: self.run_power_cycle(test_options_name=&quot;power_stress&quot;, t=int(cycle_duration+100)))</span>
+<span class="diff-ctx">         self.TEST_THREAD.start()</span>
+<span class="diff-ctx">         while t_duration &lt; cycle_duration:</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-add">+            # log_manager.log_browser() # For fixing logs per device</span>
+<span class="diff-ctx">             start_time = time.time()</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-hunk">@@ -1792,809 +1568,6 @@</span>
+<span class="diff-ctx">         else:</span>
+<span class="diff-ctx">             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code, operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    # def test_hl_qual_functional(self):</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #     if self.functional_tests[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #         self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.functional_test_2)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.functional_test_2)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # @pytest.mark.HL225_bi</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft1</span>
+<span class="diff-del">-    # def test_resnet50_training_accuracy(self):</span>
+<span class="diff-del">-    #     if self.functional_tests[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #         self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.training_app)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.training_app)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_ft</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_ft2</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_pt_bmc_exp</span>
+<span class="diff-del">-    def test_serdes_fec(self):</span>
+<span class="diff-del">-        TEST_STATUS = True</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        # self.operational_devices_address = self.driver_cli.get_operational_devices()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        if self.functional_tests_options.serdes_fec.polarity_fix:</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                if self.devices[pci][&quot;mezz&quot;] == &#x27;0&#x27;:</span>
+<span class="diff-del">-                    hl_num = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-                    command = f&#x27;echo 42 0 1 | sudo tee /sys/kernel/debug/habanalabs_cn/hl_cn{hl_num}/nic_polarity&#x27;</span>
+<span class="diff-del">-                    code, stdout = self.device_cli.execute_command(command)</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(code == 0, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                      mezzanine=self.devices[pci][&quot;mezz&quot;],</span>
+<span class="diff-del">-                                                      driver_number=hl_num, operation=f&#x27;Set polarity for oam 0 port 21&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True)</span>
+<span class="diff-del">-                    status = self.toggle_up_ports()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        # Run FEC test</span>
+<span class="diff-del">-        self.ports_status = {}</span>
+<span class="diff-del">-        self.changes_counter_calc = {}</span>
+<span class="diff-del">-        self.failed_exp = []</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        for pci in self.operational_devices_address:</span>
+<span class="diff-del">-            self.ports_status[pci] = {}</span>
+<span class="diff-del">-            self.changes_counter_calc[pci] = {}</span>
+<span class="diff-del">-            self.ports_status[pci][&#x27;current_status&#x27;] = {}</span>
+<span class="diff-del">-            self.ports_status[pci][&#x27;previous_status&#x27;] = {}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        for pci in self.operational_devices_address:</span>
+<span class="diff-del">-            for port in range(0, 24):</span>
+<span class="diff-del">-                self.ports_status[pci][&#x27;current_status&#x27;][port] = False</span>
+<span class="diff-del">-                self.ports_status[pci][&#x27;previous_status&#x27;][port] = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            # self.calculate_ports_changes_counter(retries=1)</span>
+<span class="diff-del">-            log_level = &#x27;error&#x27;</span>
+<span class="diff-del">-            if self.functional_tests_options.serdes_fec.check_internal_ports:</span>
+<span class="diff-del">-                log_level = &#x27;warning&#x27;</span>
+<span class="diff-del">-            status = self.print_fec_status_per_pci(pci, self.test_name, log_level_ports=log_level)</span>
+<span class="diff-del">-            if self.functional_tests_options.serdes_fec.check_internal_ports and not status:</span>
+<span class="diff-del">-                TEST_STATUS = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            # if not status:</span>
+<span class="diff-del">-            #     TEST_STATUS = False</span>
+<span class="diff-del">-                # log_manager.update_status_false(pci)</span>
+<span class="diff-del">-        for exp_id in self.test_options.connected_exp_cards:</span>
+<span class="diff-del">-            try:</span>
+<span class="diff-del">-                log_manager.log_browser(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                if str(exp_id) in self.failed_exp:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;INFO&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                                dev_address=exp_id, operation=f&#x27;{self.__module__}.py::{self.__class__.__name__}::test_serdes_fec&#x27;,</span>
+<span class="diff-del">-                                result=&#x27;#RESULTS_FAIL#&#x27;)</span>
+<span class="diff-del">-                    log_manager.update_status_false(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                    TEST_STATUS = False</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;INFO&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                            dev_address=exp_id,</span>
+<span class="diff-del">-                            operation=f&#x27;{self.__module__}.py::{self.__class__.__name__}::test_serdes_fec&#x27;,</span>
+<span class="diff-del">-                            result=&#x27;#RESULTS_PASS#&#x27;)</span>
+<span class="diff-del">-            except Exception as exception:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;Exception during parsing fec_stats: {str(exception)}&#x27;)</span>
+<span class="diff-del">-                log_manager.log_browser()</span>
+<span class="diff-del">-                TEST_STATUS = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        assert TEST_STATUS</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # @pytest.mark.HL225_bi</span>
+<span class="diff-del">-    # def test_serdes_ber_pam4(self):</span>
+<span class="diff-del">-    #     if not self.test_options.enable_nic_tests:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #             operation=f&#x27;Skipped {self.test_name} - enable_nic_test&#x27;,read_value=self.test_options.enable_nic_test)</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if self.functional_tests_options[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #             self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.ber_plugin)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.ber_plugin)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             else:</span>
+<span class="diff-del">-    #                 hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    # def test_serdes_bw(self):</span>
+<span class="diff-del">-    #     if not self.test_options.enable_nic_tests:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #             operation=f&#x27;Skipped {self.test_name} - enable_nic_test&#x27;,read_value=self.test_options.enable_nic_test)</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if self.functional_tests_options[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             else:</span>
+<span class="diff-del">-    #                 hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    # @pytest.mark.HL225_ft</span>
+<span class="diff-del">-    # @pytest.mark.HL225_bi</span>
+<span class="diff-del">-    # def test_serdes_bw_pam4(self):</span>
+<span class="diff-del">-    #     if not self.test_options.enable_nic_tests:</span>
+<span class="diff-del">-    #         hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-    #             operation=f&#x27;Skipped {self.test_name} - enable_nic_test&#x27;,read_value=self.test_options.enable_nic_test)</span>
+<span class="diff-del">-    #     else:</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #         if self.functional_tests_options[self.test_name][&#x27;execute&#x27;]:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} started&#x27;)</span>
+<span class="diff-del">-    #             self._get_needed_parameters()</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             if str(self.running_mode).lower() == &quot;multi&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             elif str(self.running_mode).lower() == &quot;single&quot;:</span>
+<span class="diff-del">-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             else:</span>
+<span class="diff-del">-    #                 hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;get hl_qual running mode&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-    #</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} finished&#x27;)</span>
+<span class="diff-del">-    #         else:</span>
+<span class="diff-del">-    #             hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,operation=f&#x27;Test {self.test_name} skipped&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # todo fix this test code (only copied from prod, need to update to support all modes)</span>
+<span class="diff-del">-    def sensors_read_for_qual_test(self, mode, sensors_sample_t=1, csv=None, offline_override=False,</span>
+<span class="diff-del">-                                   disable_print_jig_temp_console=False,</span>
+<span class="diff-del">-                                   fail_log_level=&#x27;error&#x27;, return_status_on_warning=True, loop_override=0):</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        parser = RegexParser.RegexParser()</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        pci = None</span>
+<span class="diff-del">-        hl_num = None</span>
+<span class="diff-del">-        mezz = None</span>
+<span class="diff-del">-        if self.mark_input is not None and self.mark_input != &quot;&quot; and \</span>
+<span class="diff-del">-                self.functional_tests_options[self.test_name][&#x27;production_flags&#x27;][self.mark_input][&#x27;sensors&#x27;]:</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            sensors_sample_tmp = self.functional_tests_options[self.test_name][&#x27;production_flags&#x27;][self.mark_input][&#x27;sensors&#x27;]</span>
+<span class="diff-del">-            sensors_sample_t = int(re.findall(r&quot;-sensors\s+(\d+)&quot;, sensors_sample_tmp)[0])</span>
+<span class="diff-del">-            # sensors_sample_t = sensors_sample_t-15 # sync to hl_qual sensors sample time  # TODO check sync value</span>
+<span class="diff-del">-            if sensors_sample_t &lt;= 0:</span>
+<span class="diff-del">-                sensors_sample_t = 10</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Sensors sample time: {sensors_sample_t}&#x27;)</span>
+<span class="diff-del">-            test_loop = 0</span>
+<span class="diff-del">-            final_ignore_loops_num = 2</span>
+<span class="diff-del">-            if self.mark_input == &quot;HL225_pt&quot; or self.mark_input == &quot;HL225_pt3&quot;:</span>
+<span class="diff-del">-                final_ignore_loops_num = 0</span>
+<span class="diff-del">-            limits_criteria = self.functional_tests_options.limits_criteria</span>
+<span class="diff-del">-            selected_criteria_idx = limits_criteria.index(</span>
+<span class="diff-del">-                self.functional_tests_options[self.test_name][&#x27;sensors_threshold_criteria&#x27;][self.mark_input])</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Sensors threshold criteria: {self.functional_tests_options[self.test_name][&quot;sensors_threshold_criteria&quot;][self.mark_input]}&#x27;)</span>
+<span class="diff-del">-            power_from_hl_qual_sensors = self.functional_tests_options[self.test_name][&#x27;power_from_hl_qual_sensors&#x27;]</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Sensors - get power value from hl_qual sensors file: {power_from_hl_qual_sensors}&#x27;)</span>
+<span class="diff-del">-            delta_lim = {&quot;On Chip 4x TS&quot;: [], &quot;On Chip 4x TD&quot;: [], &quot;TD0 to TS0&quot;: [],</span>
+<span class="diff-del">-                         &quot;TD1 to TS1&quot;: [], &quot;TD2 to TS2&quot;: [], &quot;TD3 to TS3&quot;: []}</span>
+<span class="diff-del">-            ts_collector = {&quot;On Chip 0&quot;: [], &quot;On Chip 1&quot;: [], &quot;On Chip 2&quot;: [], &quot;On Chip 3&quot;: []}</span>
+<span class="diff-del">-            td_collector = {&quot;On Chip TD 0&quot;: [], &quot;On Chip TD 1&quot;: [], &quot;On Chip TD 2&quot;: [], &quot;On Chip TD 3&quot;: []}</span>
+<span class="diff-del">-            while True:</span>
+<span class="diff-del">-                sensors_log = []</span>
+<span class="diff-del">-                if mode.upper() == &#x27;ONLINE&#x27; and not power_from_hl_qual_sensors:</span>
+<span class="diff-del">-                    code, sensors_log = self.cli_control.execute_command(&quot;sensors&quot;)</span>
+<span class="diff-del">-                    if code != 0:</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Read&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                    operation=&#x27;Sensors data read&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                        return False</span>
+<span class="diff-del">-                if mode.upper() == &#x27;OFFLINE&#x27;:</span>
+<span class="diff-del">-                    path_src = f&#x27;{self.functional_tests_options[&quot;hl_qual_path&quot;][self.driver_mode.upper()][&quot;source&quot;]}{csv}&#x27;</span>
+<span class="diff-del">-                    path_dest = f&#x27;{self.functional_tests_options[&quot;hl_qual_path&quot;][self.driver_mode.upper()][&quot;destination&quot;]}{csv}&#x27;</span>
+<span class="diff-del">-                    if self.functional_tests_options[self.test_name].get(&quot;file_path&quot;):</span>
+<span class="diff-del">-                        path_src = f&#x27;{self.functional_tests_options[self.test_name][&quot;file_path&quot;][&quot;source&quot;]}{csv}&#x27;</span>
+<span class="diff-del">-                        path_dest = f&#x27;{self.functional_tests_options[self.test_name][&quot;file_path&quot;][&quot;destination&quot;]}{csv}&#x27;</span>
+<span class="diff-del">-                    # Get File</span>
+<span class="diff-del">-                    status = self.driver_cli.get_file(path_src, path_dest)</span>
+<span class="diff-del">-                    assert status, f&#x27;\n[Sensors] Get ,Faild To Get Sensors Log File for card: {csv}, Check path write permissions ,#FAIL_DETAIL#&quot;&#x27;</span>
+<span class="diff-del">-                    # Open Log File From TestPc</span>
+<span class="diff-del">-                    f = open(path_dest, &quot;r&quot;)</span>
+<span class="diff-del">-                    sensors_log = f.readlines()</span>
+<span class="diff-del">-                res = {}</span>
+<span class="diff-del">-                if len(sensors_log) != 0:</span>
+<span class="diff-del">-                    # Analyze Read Per Device</span>
+<span class="diff-del">-                    res = parser.extract_results(sensors_log, self.sensors_regx_parser)</span>
+<span class="diff-del">-                    if res is not None:</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                    operation=&#x27;PCI sensors results&#x27;, result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        hlsa_logger(level=fail_log_level, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                    operation=&#x27;PCI sensors results&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                        assert res is not None</span>
+<span class="diff-del">-                test_pass = 1</span>
+<span class="diff-del">-                devices_data = self.operational_devices_address</span>
+<span class="diff-del">-                if mode.upper() == &#x27;OFFLINE&#x27; and offline_override is False:</span>
+<span class="diff-del">-                    devices_data = res[&quot;PCI_adapter_address&quot;][&quot;HL225&quot;][&quot;PCI_Address&quot;]</span>
+<span class="diff-del">-                try:</span>
+<span class="diff-del">-                    for index, pci in enumerate(devices_data):</span>
+<span class="diff-del">-                        try:</span>
+<span class="diff-del">-                            if &#x27;:&#x27; not in pci:  # Fix pci format on offline mode</span>
+<span class="diff-del">-                                pci = pci[0] + pci[1] + &#x27;:&#x27; + pci[2] + pci[3] + &#x27;.0&#x27;</span>
+<span class="diff-del">-                            hl_num = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-                            mezz = self.devices[pci][&quot;mezz&quot;]</span>
+<span class="diff-del">-                            if mode.upper() == &#x27;OFFLINE&#x27; and offline_override is False:</span>
+<span class="diff-del">-                                test_loop = index</span>
+<span class="diff-del">-                                if pci not in self.delta_lim_final:</span>
+<span class="diff-del">-                                    self.delta_lim_final[pci] = delta_lim.copy()</span>
+<span class="diff-del">-                                    self.delta_lim_final[pci].update(td_collector.copy())</span>
+<span class="diff-del">-                                    self.delta_lim_final[pci].update(ts_collector.copy())</span>
+<span class="diff-del">-                            sensors_types = [&quot;PCI_adapter_voltage&quot;, &quot;PCI_adapter_temperature&quot;, &quot;PCI_adapter_current&quot;]</span>
+<span class="diff-del">-                            if power_from_hl_qual_sensors:</span>
+<span class="diff-del">-                                sensors_types = [&quot;PCI_adapter_voltage&quot;, &quot;PCI_adapter_temperature&quot;,</span>
+<span class="diff-del">-                                                 &quot;PCI_adapter_current&quot;,</span>
+<span class="diff-del">-                                                 &quot;PCI_adapter_power&quot;]</span>
+<span class="diff-del">-                            threshold_mapping = {&quot;PCI_adapter_voltage&quot;: &quot;voltage&quot;,</span>
+<span class="diff-del">-                                                 &quot;PCI_adapter_temperature&quot;: &quot;temperature&quot;,</span>
+<span class="diff-del">-                                                 &quot;PCI_adapter_current&quot;: &quot;current&quot;,</span>
+<span class="diff-del">-                                                 &quot;PCI_adapter_power&quot;: &quot;power&quot;</span>
+<span class="diff-del">-                                                 }</span>
+<span class="diff-del">-                            # Sensors cmd</span>
+<span class="diff-del">-                            # print sensors from sensors cmd</span>
+<span class="diff-del">-                            if mode.upper() == &#x27;OFFLINE&#x27; or not power_from_hl_qual_sensors:</span>
+<span class="diff-del">-                                for sensors_type in sensors_types:</span>
+<span class="diff-del">-                                    for item in res[sensors_type].keys():</span>
+<span class="diff-del">-                                        if index &gt;= len(res[sensors_type][item][&quot;Value&quot;]):</span>
+<span class="diff-del">-                                            continue</span>
+<span class="diff-del">-                                        val = res[sensors_type][item][&quot;Value&quot;][index]</span>
+<span class="diff-del">-                                        try:</span>
+<span class="diff-del">-                                            unit = res[sensors_type][item][&quot;unit&quot;][index]</span>
+<span class="diff-del">-                                        except Exception as exception:</span>
+<span class="diff-del">-                                            hlsa_logger(level=&#x27;debug&#x27;, ident=&#x27;Get&#x27;,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=f&#x27;Unit for {item} is missing {exception}&#x27;)</span>
+<span class="diff-del">-                                            unit = &#x27;&#x27;</span>
+<span class="diff-del">-                                        if unit == &#x27;&#x27;:</span>
+<span class="diff-del">-                                            unit = &#x27;W&#x27; if sensors_type == &#x27;PCI_adapter_power&#x27; else &#x27;&#x27;</span>
+<span class="diff-del">-                                        min_limit = round(</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][</span>
+<span class="diff-del">-                                                threshold_mapping[sensors_type]][item][&#x27;min&#x27;], 4)</span>
+<span class="diff-del">-                                        if min_limit is None:</span>
+<span class="diff-del">-                                            log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Get&#x27;,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=f&#x27;Voltage minimum not defined&#x27;)</span>
+<span class="diff-del">-                                            log_manager.log_browser()</span>
+<span class="diff-del">-                                            min_limit = 0</span>
+<span class="diff-del">-                                        max_limit = round(</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][</span>
+<span class="diff-del">-                                                threshold_mapping[sensors_type]][item][&#x27;max&#x27;], 4)</span>
+<span class="diff-del">-                                        try:</span>
+<span class="diff-del">-                                            if &quot;m&quot; in unit:</span>
+<span class="diff-del">-                                                max_limit = max_limit * 1000</span>
+<span class="diff-del">-                                                min_limit = min_limit * 1000</span>
+<span class="diff-del">-                                        except Exception as exception:</span>
+<span class="diff-del">-                                            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Get&#x27;,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=f&#x27;Cannot convert milli units {exception}&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                                        sensor_print = self.sensors_threshold[limits_criteria[selected_criteria_idx]][</span>
+<span class="diff-del">-                                            threshold_mapping[sensors_type]][item][&#x27;print&#x27;]</span>
+<span class="diff-del">-                                        if test_loop == 0 and sensors_sample_t != 1:</span>
+<span class="diff-del">-                                            sensor_print = 0</span>
+<span class="diff-del">-                                        if sensors_sample_t != 1 and test_loop &gt;= (</span>
+<span class="diff-del">-                                                len(devices_data) - final_ignore_loops_num):</span>
+<span class="diff-del">-                                            sensor_print = 0</span>
+<span class="diff-del">-                                        if sensor_print == 1:</span>
+<span class="diff-del">-                                            # Unique Log</span>
+<span class="diff-del">-                                            log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                            if loop_override != 0:</span>
+<span class="diff-del">-                                                test_loop = loop_override</span>
+<span class="diff-del">-                                            if min_limit &lt;= float(val.replace(&quot;+&quot;, &quot;&quot;)) &lt;= max_limit:</span>
+<span class="diff-del">-                                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                            driver_number=hl_num,</span>
+<span class="diff-del">-                                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                            operation=item,</span>
+<span class="diff-del">-                                                            read_value=val, units=unit,</span>
+<span class="diff-del">-                                                            expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                            result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                            else:</span>
+<span class="diff-del">-                                                hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                            driver_number=hl_num,</span>
+<span class="diff-del">-                                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                            operation=item,</span>
+<span class="diff-del">-                                                            read_value=val, units=unit,</span>
+<span class="diff-del">-                                                            expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                            result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                test_pass = 0</span>
+<span class="diff-del">-                                # On Chip TS Delta, On Chip TD Delta</span>
+<span class="diff-del">-                                test_loop_filter = 0 &lt; test_loop &lt; (len(devices_data) - final_ignore_loops_num)</span>
+<span class="diff-del">-                                if test_loop_filter and sensors_sample_t != 1:</span>
+<span class="diff-del">-                                    sensors_for_delta_per_type = [[&quot;On Chip 0&quot;, &quot;On Chip 1&quot;, &quot;On Chip 2&quot;, &quot;On Chip 3&quot;],</span>
+<span class="diff-del">-                                                                  [&quot;On Chip TD 0&quot;, &quot;On Chip TD 1&quot;, &quot;On Chip TD 2&quot;,</span>
+<span class="diff-del">-                                                                   &quot;On Chip TD 3&quot;]]</span>
+<span class="diff-del">-                                    sensors_for_delta_per_type_mapping = [&quot;On Chip 4x TS&quot;, &quot;On Chip 4x TD&quot;]</span>
+<span class="diff-del">-                                    sensors_for_delta_per_chip = [&quot;TD0 to TS0&quot;, &quot;TD1 to TS1&quot;, &quot;TD2 to TS2&quot;,</span>
+<span class="diff-del">-                                                                  &quot;TD3 to TS3&quot;]</span>
+<span class="diff-del">-                                    # map_place=0</span>
+<span class="diff-del">-                                    delta_values_per_chip = []</span>
+<span class="diff-del">-                                    for delta_type_index, sensors_for_delta in enumerate(sensors_for_delta_per_type):</span>
+<span class="diff-del">-                                        # delta_max_sensor = &#x27;&#x27;</span>
+<span class="diff-del">-                                        # delta_min_sensor = &#x27;&#x27;</span>
+<span class="diff-del">-                                        try:</span>
+<span class="diff-del">-                                            # sensors_for_delta = delta_type</span>
+<span class="diff-del">-                                            delta_values_dic = {}</span>
+<span class="diff-del">-                                            for sensor_idx, item in enumerate(sensors_for_delta):</span>
+<span class="diff-del">-                                                delta_values_dic[item] = res[&quot;PCI_adapter_temperature&quot;][item][&quot;Value&quot;][</span>
+<span class="diff-del">-                                                    index]</span>
+<span class="diff-del">-                                                val_wo_plus_sign = str(</span>
+<span class="diff-del">-                                                    res[&quot;PCI_adapter_temperature&quot;][item][&quot;Value&quot;][index]).replace(&#x27;+&#x27;,</span>
+<span class="diff-del">-                                                                                                                  &#x27;&#x27;)</span>
+<span class="diff-del">-                                                self.delta_lim_final[pci][item].append(float(val_wo_plus_sign))</span>
+<span class="diff-del">-                                            for element in delta_values_dic.values():</span>
+<span class="diff-del">-                                                delta_values_per_chip.append(float(element))</span>
+<span class="diff-del">-                                            delta_max_sensor = max(delta_values_dic, key=delta_values_dic.get)</span>
+<span class="diff-del">-                                            delta_min_sensor = min(delta_values_dic, key=delta_values_dic.get)</span>
+<span class="diff-del">-                                            sensor_max = max(delta_values_dic.values())</span>
+<span class="diff-del">-                                            sensor_min = min(delta_values_dic.values())</span>
+<span class="diff-del">-                                            delta_value = float(max(delta_values_dic.values())) - float(</span>
+<span class="diff-del">-                                                min(delta_values_dic.values()))</span>
+<span class="diff-del">-                                            self.delta_lim_final[pci][</span>
+<span class="diff-del">-                                                sensors_for_delta_per_type_mapping[delta_type_index]].append(</span>
+<span class="diff-del">-                                                delta_value)</span>
+<span class="diff-del">-                                            val = round(delta_value, 2)</span>
+<span class="diff-del">-                                            criteria, item, unit = &#x27;delta&#x27;, sensors_for_delta_per_type_mapping[</span>
+<span class="diff-del">-                                                delta_type_index], &#x27;C&#x27;</span>
+<span class="diff-del">-                                            min_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][</span>
+<span class="diff-del">-                                                &#x27;min&#x27;]</span>
+<span class="diff-del">-                                            max_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][</span>
+<span class="diff-del">-                                                &#x27;max&#x27;]</span>
+<span class="diff-del">-                                            sensor_print = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][</span>
+<span class="diff-del">-                                                &#x27;print&#x27;] if not (test_loop == 0 and sensors_sample_t != 1) else 0</span>
+<span class="diff-del">-                                            if sensor_print == 1:</span>
+<span class="diff-del">-                                                # Unique Log</span>
+<span class="diff-del">-                                                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                                if min_limit &lt;= val &lt;= max_limit:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=f&#x27;{item}&#x27;, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=f&#x27;Max Delta {delta_max_sensor}&#x27;,</span>
+<span class="diff-del">-                                                                read_value=sensor_max, units=unit,</span>
+<span class="diff-del">-                                                                result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=f&#x27;Min Delta {delta_min_sensor}&#x27;,</span>
+<span class="diff-del">-                                                                read_value=sensor_min, units=unit,</span>
+<span class="diff-del">-                                                                result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                                else:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                    hlsa_logger(level=fail_log_level, ident=&#x27;value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=f&#x27;Max Delta {delta_max_sensor}&#x27;,</span>
+<span class="diff-del">-                                                                read_value=sensor_max, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                    hlsa_logger(level=fail_log_level, ident=&#x27;value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=f&#x27;Min Sensor {delta_min_sensor}&#x27;,</span>
+<span class="diff-del">-                                                                read_value=sensor_min, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                    test_pass = 0</span>
+<span class="diff-del">-                                        except Exception as exception:</span>
+<span class="diff-del">-                                            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                        driver_number=hl_num,</span>
+<span class="diff-del">-                                                        dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=f&#x27;Sensors Max Delta {exception}&#x27;)</span>
+<span class="diff-del">-                                            test_pass = 0</span>
+<span class="diff-del">-                                            val = 0</span>
+<span class="diff-del">-                                    # Compare TS And TD Per Chip</span>
+<span class="diff-del">-                                    try:</span>
+<span class="diff-del">-                                        for sensor_idx, item in enumerate(sensors_for_delta_per_chip):</span>
+<span class="diff-del">-                                            tmp = delta_values_per_chip[sensor_idx + len(sensors_for_delta_per_chip)] - \</span>
+<span class="diff-del">-                                                  delta_values_per_chip[sensor_idx]</span>
+<span class="diff-del">-                                            Delta_max_sensor = &quot;&quot;</span>
+<span class="diff-del">-                                            Delta_min_sensor = &quot;&quot;</span>
+<span class="diff-del">-                                            sensor_max = delta_values_per_chip[</span>
+<span class="diff-del">-                                                sensor_idx + len(sensors_for_delta_per_chip)]</span>
+<span class="diff-del">-                                            sensor_min = delta_values_per_chip[sensor_idx]</span>
+<span class="diff-del">-                                            # if tmp &gt; 0:</span>
+<span class="diff-del">-                                            #     Delta_max_sensor = &quot;TD&quot; + str(sensor_idx)</span>
+<span class="diff-del">-                                            #     Delta_min_sensor = &quot;TS&quot; + str(sensor_idx)</span>
+<span class="diff-del">-                                            # else:</span>
+<span class="diff-del">-                                            #     Delta_max_sensor = &quot;TS&quot; + str(sensor_idx)</span>
+<span class="diff-del">-                                            #     Delta_min_sensor = &quot;TD&quot; + str(sensor_idx)</span>
+<span class="diff-del">-                                            #     sensor_max, sensor_min = sensor_min, sensor_max</span>
+<span class="diff-del">-                                            self.delta_lim_final[pci][item].append(tmp)</span>
+<span class="diff-del">-                                            val = round(tmp, 3)</span>
+<span class="diff-del">-                                            criteria, unit = &#x27;delta&#x27;, &#x27;C&#x27;</span>
+<span class="diff-del">-                                            min_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][</span>
+<span class="diff-del">-                                                &#x27;min&#x27;]</span>
+<span class="diff-del">-                                            max_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][</span>
+<span class="diff-del">-                                                &#x27;max&#x27;]</span>
+<span class="diff-del">-                                            sensor_print = \</span>
+<span class="diff-del">-                                                self.sensors_threshold[limits_criteria[selected_criteria_idx]][</span>
+<span class="diff-del">-                                                    criteria][item][</span>
+<span class="diff-del">-                                                    &#x27;print&#x27;] if not (test_loop == 0 and sensors_sample_t != 1) else 0</span>
+<span class="diff-del">-                                            if sensor_print == 1:</span>
+<span class="diff-del">-                                                # Unique Log</span>
+<span class="diff-del">-                                                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                                if min_limit &lt;= val &lt;= max_limit:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                                else:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                    test_pass = 0</span>
+<span class="diff-del">-                                    except Exception as exception:</span>
+<span class="diff-del">-                                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                    driver_number=hl_num,</span>
+<span class="diff-del">-                                                    dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                    operation=f&#x27;Sensors TD TS Delta per chip {exception}&#x27;)</span>
+<span class="diff-del">-                                    # Compare ADC54V Current And VRM1 Input Current</span>
+<span class="diff-del">-                                    try:</span>
+<span class="diff-del">-                                        sensors_for_delta_per_type = [[&quot;ADC 54V Current&quot;, &quot;VRM1 Input Current&quot;],</span>
+<span class="diff-del">-                                                                      [&quot;VRM1 Output Current&quot;, &quot;VRM2 13.5V Current&quot;]]</span>
+<span class="diff-del">-                                        name_sensors_for_delta = [&quot;ADC 54V Current to VRM1 Input Current&quot;,</span>
+<span class="diff-del">-                                                                  &quot;VRM1 Output Current to VRM2 13.5V Current&quot;]</span>
+<span class="diff-del">-                                        units_sensors_for_delta = [&quot;mA&quot;, &quot;A&quot;]</span>
+<span class="diff-del">-                                        for delta_type in sensors_for_delta_per_type:</span>
+<span class="diff-del">-                                            sensors_for_delta = delta_type</span>
+<span class="diff-del">-                                            delta_values_dic = {}</span>
+<span class="diff-del">-                                            delta_values_per_chip = []</span>
+<span class="diff-del">-                                            for sensor_idx, item in enumerate(sensors_for_delta):</span>
+<span class="diff-del">-                                                delta_values_dic[item] = res[&quot;PCI_adapter_current&quot;][item][&quot;Value&quot;][</span>
+<span class="diff-del">-                                                    index]</span>
+<span class="diff-del">-                                            for element in delta_values_dic.values():</span>
+<span class="diff-del">-                                                delta_values_per_chip.append(float(element))</span>
+<span class="diff-del">-                                            # for sensor_idx, item in enumerate(name_sensors_for_delta):</span>
+<span class="diff-del">-                                            tmp = delta_values_per_chip[0] - delta_values_per_chip[1]</span>
+<span class="diff-del">-                                            val = round(tmp, 3)</span>
+<span class="diff-del">-                                            criteria, item, unit = &#x27;delta&#x27;, name_sensors_for_delta[</span>
+<span class="diff-del">-                                                sensors_for_delta_per_type.index(delta_type)], units_sensors_for_delta[</span>
+<span class="diff-del">-                                                sensors_for_delta_per_type.index(delta_type)]</span>
+<span class="diff-del">-                                            # criteria, unit = &#x27;delta&#x27;, &#x27;mA&#x27;</span>
+<span class="diff-del">-                                            min_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][&#x27;min&#x27;]</span>
+<span class="diff-del">-                                            max_limit = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][&#x27;max&#x27;]</span>
+<span class="diff-del">-                                            sensor_print = \</span>
+<span class="diff-del">-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][</span>
+<span class="diff-del">-                                                item][&#x27;print&#x27;] if not (test_loop == 0 and sensors_sample_t != 1) else 0</span>
+<span class="diff-del">-                                            if sensor_print == 1:</span>
+<span class="diff-del">-                                                # Unique Log</span>
+<span class="diff-del">-                                                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                                if min_limit &lt;= val &lt;= max_limit:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                                else:</span>
+<span class="diff-del">-                                                    hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                                driver_number=hl_num,</span>
+<span class="diff-del">-                                                                dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                                test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                                operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                                expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                                result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                                    test_pass = 0</span>
+<span class="diff-del">-                                    except Exception as exception:</span>
+<span class="diff-del">-                                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                    driver_number=hl_num,</span>
+<span class="diff-del">-                                                    dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                    operation=f&#x27;Delta Current Sensors {exception}&#x27;)</span>
+<span class="diff-del">-                            if mode.upper() == &#x27;ONLINE&#x27; or offline_override is True:</span>
+<span class="diff-del">-                                if not power_from_hl_qual_sensors:</span>
+<span class="diff-del">-                                    # hl-smi power draw</span>
+<span class="diff-del">-                                    # time.sleep(2)</span>
+<span class="diff-del">-                                    try:</span>
+<span class="diff-del">-                                        hl_smi_val = self.smi_control.get_power_draw(f&#x27;0000:{pci}&#x27;)</span>
+<span class="diff-del">-                                        val = float(hl_smi_val.strip(&quot;W&quot;))</span>
+<span class="diff-del">-                                    except Exception as exception:</span>
+<span class="diff-del">-                                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                    driver_number=hl_num,</span>
+<span class="diff-del">-                                                    dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                    operation=f&#x27;hl-smi power draw {exception}&#x27;)</span>
+<span class="diff-del">-                                        test_pass = 0</span>
+<span class="diff-del">-                                        val = 0</span>
+<span class="diff-del">-                                    criteria, item, unit = &#x27;power&#x27;, &#x27;power.draw&#x27;, &#x27;W&#x27;</span>
+<span class="diff-del">-                                    min_limit = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;min&#x27;]</span>
+<span class="diff-del">-                                    max_limit = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;max&#x27;]</span>
+<span class="diff-del">-                                    sensor_print = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;print&#x27;] if not (test_loop == 0 and sensors_sample_t != 1) else 0</span>
+<span class="diff-del">-                                    if sensor_print == 1:</span>
+<span class="diff-del">-                                        # Unique Log</span>
+<span class="diff-del">-                                        log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                        if min_limit &lt;= val &lt;= max_limit:</span>
+<span class="diff-del">-                                            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                        driver_number=hl_num,</span>
+<span class="diff-del">-                                                        dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                        expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                        result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                        else:</span>
+<span class="diff-del">-                                            hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                        driver_number=hl_num,</span>
+<span class="diff-del">-                                                        dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                        expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                        result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                            test_pass = 0</span>
+<span class="diff-del">-                                # FT_jig sensors</span>
+<span class="diff-del">-                                if self.test_options[&#x27;ft_jig_module&#x27;]:</span>
+<span class="diff-del">-                                    if mezz == 0:</span>
+<span class="diff-del">-                                        log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                        hlsa_logger(level=fail_log_level, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                    operation=f&#x27;Module ID by HL-SMI PCI Device 0000:{pci} cannot be 0&#x27;)</span>
+<span class="diff-del">-                                    try:</span>
+<span class="diff-del">-                                        log_manager.log_browser()</span>
+<span class="diff-del">-                                        ft_jig_temp_sensor = self.ft_jig_control.get_sensor_temperature(mezz)</span>
+<span class="diff-del">-                                        val = ft_jig_temp_sensor</span>
+<span class="diff-del">-                                    except Exception as exception:</span>
+<span class="diff-del">-                                        log_manager.log_browser()</span>
+<span class="diff-del">-                                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                                    test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                    operation=f&#x27; ft_jig_control.get_sensor_temperature {exception}&#x27;)</span>
+<span class="diff-del">-                                        val = 0</span>
+<span class="diff-del">-                                        pass</span>
+<span class="diff-del">-                                    criteria, item, unit = &#x27;inlet Temp&#x27;, f&#x27;OAM{mezz} temp&#x27;, &#x27;C&#x27;</span>
+<span class="diff-del">-                                    min_limit = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;min&#x27;]</span>
+<span class="diff-del">-                                    max_limit = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;max&#x27;]</span>
+<span class="diff-del">-                                    sensor_print = \</span>
+<span class="diff-del">-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][</span>
+<span class="diff-del">-                                        &#x27;print&#x27;] if not (test_loop == 0 and sensors_sample_t != 1) else 0</span>
+<span class="diff-del">-                                    if sensor_print == 1:</span>
+<span class="diff-del">-                                        # Unique Log</span>
+<span class="diff-del">-                                        log_manager.log_browser(pci)</span>
+<span class="diff-del">-                                        if min_limit &lt;= float(val) &lt;= max_limit:</span>
+<span class="diff-del">-                                            if val &lt;= max_limit:</span>
+<span class="diff-del">-                                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                            driver_number=hl_num,</span>
+<span class="diff-del">-                                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                            operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                            expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                            result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                                        else:</span>
+<span class="diff-del">-                                            hlsa_logger(level=fail_log_level, ident=&#x27;Value&#x27;, loop=test_loop,</span>
+<span class="diff-del">-                                                        driver_number=hl_num,</span>
+<span class="diff-del">-                                                        dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                                        operation=item, read_value=val, units=unit,</span>
+<span class="diff-del">-                                                        expected_value=f&#x27;Min: {min_limit} | Max: {max_limit}&#x27;,</span>
+<span class="diff-del">-                                                        result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                                            test_pass = 0</span>
+<span class="diff-del">-                                    if self.test_options[</span>
+<span class="diff-del">-                                        &#x27;print_jig_temp_console&#x27;] and disable_print_jig_temp_console is False:</span>
+<span class="diff-del">-                                        # Print to console</span>
+<span class="diff-del">-                                        # print(f&#x27;Date,Time,Milliseconds,Level,Filename,Line,Ident,{test_loop},{hl_num},{pci},{mezz},{test_code} {mode.upper()},{item},{val},{unit},Expected Value,Result&#x27;)</span>
+<span class="diff-del">-                                        print(</span>
+<span class="diff-del">-                                            f&#x27;\nLoop:{test_loop},hl:{hl_num},pcie:{pci},mezz:{mezz},test:{self.test_code} {mode.upper()},inlet {item},value:{val},{unit}&#x27;)</span>
+<span class="diff-del">-                                        fan_speed_dic = self.ft_jig_control.get_fan_speed(int(mezz))</span>
+<span class="diff-del">-                                        if self.test_options[&#x27;print_jig_fan_rpm_console&#x27;]:</span>
+<span class="diff-del">-                                            for item_dic in fan_speed_dic.items():</span>
+<span class="diff-del">-                                                print(</span>
+<span class="diff-del">-                                                    f&#x27;\nLoop:{test_loop},hl:{hl_num},pcie:{pci},mezz:{mezz},test:{self.test_code} {mode.upper()},fan {item_dic[0]},value:{item_dic[1]},rpm&#x27;)</span>
+<span class="diff-del">-                            if not test_pass:</span>
+<span class="diff-del">-                                if fail_log_level == &#x27;error&#x27;:</span>
+<span class="diff-del">-                                    self.Devices[pci][&#x27;functional_tests&#x27;][self.test_name][</span>
+<span class="diff-del">-                                        &#x27;status&#x27;] = &#x27;#RESULTS_FAILED#&#x27;</span>
+<span class="diff-del">-                                hlsa_logger(level=fail_log_level, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                            operation=f&#x27;Sensors limits check failed&#x27;, driver_number=hl_num,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz)</span>
+<span class="diff-del">-                        except Exception as exception:</span>
+<span class="diff-del">-                            log_manager.log_browser()</span>
+<span class="diff-del">-                            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                        test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                        operation=f&#x27;exception during sensors parsing: {exception}&#x27;)</span>
+<span class="diff-del">-                except Exception as exception:</span>
+<span class="diff-del">-                    log_manager.log_browser()</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                operation=f&#x27;exception during sensors parsing: {exception}&#x27;)</span>
+<span class="diff-del">-                    pass</span>
+<span class="diff-del">-                # Making a Log Of Min/Max Using All The Deltas</span>
+<span class="diff-del">-                test_loop_print = test_loop - final_ignore_loops_num</span>
+<span class="diff-del">-                if test_loop != 0 or sensors_sample_t != 1:</span>
+<span class="diff-del">-                    if mode.upper() == &#x27;OFFLINE&#x27; and self.functional_tests_options[&quot;sensors_read_for_qual&quot;][&quot;min_max_print&quot;]:</span>
+<span class="diff-del">-                        log_manager.log_browser(pci)</span>
+<span class="diff-del">-                        for sensor_name, sensor_val in self.delta_lim_final[pci].items():</span>
+<span class="diff-del">-                            if (len(sensor_val) &gt; 0) and (max(sensor_val) != min(sensor_val)):</span>
+<span class="diff-del">-                                # sensor_val_unsgin = list(map(lambda x: x.replace(&#x27;+&#x27;, &#x27;&#x27;), sensor_val))</span>
+<span class="diff-del">-                                # sensor_val_unsgin = [tmp.replace(&#x27;+&#x27;,&#x27;&#x27;) for tmp in sensor_val]</span>
+<span class="diff-del">-                                sensor_val_abs = [abs(item) for item in sensor_val]</span>
+<span class="diff-del">-                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop_print, driver_number=hl_num,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                            operation=f&#x27;Final Max Abs {sensor_name}&#x27;,</span>
+<span class="diff-del">-                                            read_value=round(max(sensor_val_abs), 2), units=&#x27;C&#x27;)</span>
+<span class="diff-del">-                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop_print, driver_number=hl_num,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                            operation=f&#x27;Final Max Abs {sensor_name}_loop&#x27;,</span>
+<span class="diff-del">-                                            read_value=sensor_val_abs.index(max(sensor_val_abs)) + 1)</span>
+<span class="diff-del">-                                # loop0 is removed from calculation</span>
+<span class="diff-del">-                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop_print, driver_number=hl_num,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                            operation=f&#x27;Final Min Abs {sensor_name}&#x27;,</span>
+<span class="diff-del">-                                            read_value=round(min(sensor_val_abs), 2), units=&#x27;C&#x27;)</span>
+<span class="diff-del">-                                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, loop=test_loop_print, driver_number=hl_num,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                            test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                            operation=f&#x27;Final Min Abs {sensor_name}_loop&#x27;,</span>
+<span class="diff-del">-                                            read_value=sensor_val_abs.index(min(sensor_val_abs)) + 1)</span>
+<span class="diff-del">-                                # loop0 is removed from calculation</span>
+<span class="diff-del">-                                # remove last loop from calculation</span>
+<span class="diff-del">-                # Excluding last loop from calculations</span>
+<span class="diff-del">-                if mode.upper() == &#x27;OFFLINE&#x27; and offline_override is False:</span>
+<span class="diff-del">-                    if test_loop &lt;= len(devices_data) - final_ignore_loops_num:</span>
+<span class="diff-del">-                        log_manager.log_browser()</span>
+<span class="diff-del">-                        if test_pass:</span>
+<span class="diff-del">-                            return True</span>
+<span class="diff-del">-                        else:</span>
+<span class="diff-del">-                            return False if fail_log_level == &#x27;error&#x27; else return_status_on_warning</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                if mode.upper() == &#x27;OFFLINE&#x27;:</span>
+<span class="diff-del">-                    log_manager.log_browser()</span>
+<span class="diff-del">-                    if test_pass:</span>
+<span class="diff-del">-                        return True</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        return False if fail_log_level == &#x27;error&#x27; else return_status_on_warning</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    try:</span>
+<span class="diff-del">-                        time.sleep(sensors_sample_t)</span>
+<span class="diff-del">-                        test_loop = test_loop + 1</span>
+<span class="diff-del">-                    except SystemExit as exception:</span>
+<span class="diff-del">-                        break</span>
+<span class="diff-del">-                    except Exception as exception:</span>
+<span class="diff-del">-                        log_manager.log_browser()</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=f&#x27;{self.test_code} {mode.upper()}&#x27;,</span>
+<span class="diff-del">-                                    operation=f&#x27;exception during sensors parsing: {exception}&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # @pytest.mark.HL225_sysval_stress</span>
+<span class="diff-del">-    # Must Be Executed Last (!!!)</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_ft2</span>
+<span class="diff-del">-    # @pytest.mark.HLS3_bi</span>
+<span class="diff-del">-    # @pytest.mark.HLB_ft2</span>
+<span class="diff-del">-    def test_analyze_global_result(self):</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        TEST_STATUS = True</span>
+<span class="diff-del">-        if not self.global_status:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;ANALYZE GLOBAL RESULT&#x27;,</span>
+<span class="diff-del">-                        operation=f&#x27;Functional Test Fail Due to 1 or More Malfunction Devices (!)&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-        self.global_status = TestFunctionalProd.analyze_results(self.Devices)</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(self.global_status, ident=&#x27;Description&#x27;, test_code=&#x27;ANALYZE GLOBAL RESULT&#x27;,</span>
+<span class="diff-del">-                                          operation=f&#x27;Check All Inner Functional Test Results&#x27;)</span>
+<span class="diff-del">-        if not self.global_status:</span>
+<span class="diff-del">-            TEST_STATUS = False</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        assert TEST_STATUS</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    # Pass - Fail Analysis</span>
+<span class="diff-del">-    @staticmethod</span>
+<span class="diff-del">-    def analyze_results(devices):</span>
+<span class="diff-del">-        analysis_status = True</span>
+<span class="diff-del">-        # PASS - FAIL Analysis Per PCIe Device</span>
+<span class="diff-del">-        # Iterate Through Devices Result</span>
+<span class="diff-del">-        for device in devices:</span>
+<span class="diff-del">-            # Unique Log Per PCIe Device</span>
+<span class="diff-del">-            log_manager.log_browser(device)</span>
+<span class="diff-del">-            for func_test, func_tests_dic in devices[device][&#x27;functional_tests&#x27;].items():</span>
+<span class="diff-del">-                if func_tests_dic[&#x27;status&#x27;] == &#x27;#RESULTS_FAILED#&#x27;:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                                dev_address=f&#x27;{device}&#x27;,</span>
+<span class="diff-del">-                                operation=f&#x27;Functional test summary:{func_test}&#x27;, result=func_tests_dic[&#x27;status&#x27;])</span>
+<span class="diff-del">-                    # Update Status Collector</span>
+<span class="diff-del">-                    log_manager.update_status_false(device)</span>
+<span class="diff-del">-                    analysis_status = False</span>
+<span class="diff-del">-                    devices[device][&#x27;status&#x27;] = False</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                                dev_address=f&#x27;{device}&#x27;, operation=f&#x27;Functional test summary:{func_test}&#x27;,</span>
+<span class="diff-del">-                                result=func_tests_dic[&#x27;status&#x27;])</span>
+<span class="diff-del">-            if devices[device][&#x27;status&#x27;]:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;INFO&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                            dev_address=str(device), operation=&#x27;Functional test summary:analyze_global_result&#x27;,</span>
+<span class="diff-del">-                            result=&#x27;#RESULTS_PASS#&#x27;)</span>
+<span class="diff-del">-            else:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;Final Test Results&#x27;,</span>
+<span class="diff-del">-                            dev_address=str(device), operation=&#x27;Functional test summary:analyze_global_result&#x27;,</span>
+<span class="diff-del">-                            result=&#x27;#RESULTS_FAILED#&#x27;)</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        return analysis_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def get_device_component_version(self, component_name, hl_device_number):</span>
+<span class="diff-ctx">         func = getattr(self.device_cli, &quot;get_%s_version&quot; % component_name)</span>
+<span class="diff-hunk">@@ -3055,19 +2028,6 @@</span>
+<span class="diff-ctx">             except Exception as exception:</span>
+<span class="diff-ctx">                 hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-ctx">                             operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-            try:</span>
+<span class="diff-del">-                if self.ft_jig_sensors:</span>
+<span class="diff-del">-                    jig_monitor_config_sensors = getattr(self.test_options.monitors.HL325_jig_monitor, self.test_name)</span>
+<span class="diff-del">-                    if jig_monitor_config_sensors.read_sensors:</span>
+<span class="diff-del">-                        jig_monitor_status = False</span>
+<span class="diff-del">-                        device_data = self.get_jig_monitor_results(test_name=self.test_name,</span>
+<span class="diff-del">-                                                                   id=self.devices[device][&quot;mezz&quot;])</span>
+<span class="diff-del">-                        if device_data is not None:</span>
+<span class="diff-del">-                            jig_monitor_status = self.print_sensor_csv_by_device(device_data, pci=device,</span>
+<span class="diff-del">-                                                                                 fail_log_level=&#x27;warning&#x27;,jig_sensors=True)</span>
+<span class="diff-del">-            except Exception as exception:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                            operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-ctx">             if not (sensor_monitor_status and jig_monitor_status):</span>
+<span class="diff-ctx">                 self.Devices[device][&#x27;functional_tests&#x27;][self.test_name] = {&#x27;status&#x27;: &#x27;#RESULTS_FAILED#&#x27;}</span>
+<span class="diff-ctx">                 all_devices_status = False</span>
+<span class="diff-hunk">@@ -3084,352 +2044,6 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">         return all_devices_status</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def check_ports_up_per_pci(self, pci):</span>
+<span class="diff-del">-        status = True</span>
+<span class="diff-del">-        ports_state_dic = self.driver_cli.get_ports_state(pci)</span>
+<span class="diff-del">-        for key in ports_state_dic.keys():</span>
+<span class="diff-del">-            if ports_state_dic[key] != &#x27;up&#x27;:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                            operation=f&#x27;Check Port {key}&#x27;, read_value=f&#x27;{ports_state_dic[key]}&#x27;,</span>
+<span class="diff-del">-                            expected_value=&#x27;up&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                status = False</span>
+<span class="diff-del">-        return status</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def get_ports_down_per_pci(self, pci):</span>
+<span class="diff-del">-        port_down_list = []</span>
+<span class="diff-del">-        ports_state_dic = self.driver_cli.get_ports_state(pci)</span>
+<span class="diff-del">-        for key in ports_state_dic.keys():</span>
+<span class="diff-del">-            if ports_state_dic[key] == &#x27;down&#x27;:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                            operation=f&#x27;Check Port {key}&#x27;, read_value=f&#x27;{ports_state_dic[key]}&#x27;)</span>
+<span class="diff-del">-                port_down_list.append(key)</span>
+<span class="diff-del">-        return port_down_list</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def check_ports_up(self, retries_check=3):</span>
+<span class="diff-del">-        for retry_check in range(retries_check):</span>
+<span class="diff-del">-            # Check port *3</span>
+<span class="diff-del">-            all_ports_up = True</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                pci_ports_up = self.check_ports_up_per_pci(pci)</span>
+<span class="diff-del">-                hlsa_checker.check_status_is_true(pci_ports_up, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                  operation=f&#x27;Check device all ports state &#x27;</span>
+<span class="diff-del">-                                                            f&#x27;{retry_check + 1}/{retries_check}&#x27;,</span>
+<span class="diff-del">-                                                  ignore_assert=True, fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-del">-                log_manager.log_browser()</span>
+<span class="diff-del">-                all_ports_up = all_ports_up and pci_ports_up</span>
+<span class="diff-del">-            hlsa_checker.check_status_is_true(all_ports_up, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                              operation=f&#x27;Check all devices ports state &#x27;</span>
+<span class="diff-del">-                                                        f&#x27;{retry_check + 1}/{retries_check}&#x27;,</span>
+<span class="diff-del">-                                              ignore_assert=True, fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-del">-            if all_ports_up:</span>
+<span class="diff-del">-                return all_ports_up</span>
+<span class="diff-del">-            time.sleep(30)</span>
+<span class="diff-del">-        return False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def check_port_speed_nrz(self, pci):</span>
+<span class="diff-del">-        ports_net_if_list = self.driver_cli.get_ports_net_if_list(pci)</span>
+<span class="diff-del">-        for net_if in ports_net_if_list:</span>
+<span class="diff-del">-            speed = self.driver_cli.get_net_if_speed(net_if)</span>
+<span class="diff-del">-            expected_speed = self.test_options[&#x27;nrz_port_speed&#x27;]</span>
+<span class="diff-del">-            hlsa_checker.check_values_is_equal(read_val=speed, expected_val=expected_speed, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                               test_code=f&#x27;NIC SETUP&#x27;, operation=f&#x27;Check port {net_if} speed match NRZ&#x27;,</span>
+<span class="diff-del">-                                               dev_address=pci, mezzanine=self.devices[pci][&quot;mezz&quot;],</span>
+<span class="diff-del">-                                               driver_number=self.devices[pci][&quot;hl_num&quot;], ignore_assert=True)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def check_ports_changes_counter_per_pci(self, pci):</span>
+<span class="diff-del">-        log_manager.log_browser(pci)</span>
+<span class="diff-del">-        ports_state_dic = self.driver_cli.get_ports_counter_changes(pci)</span>
+<span class="diff-del">-        for key in ports_state_dic.keys():</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;debug&#x27;, ident=&#x27;Description&#x27;, dev_address=pci, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=f&#x27;Check Port {key} Changes Counter&#x27;, read_value=f&#x27;{ports_state_dic[key]}&#x27;)</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        return ports_state_dic</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def nic_setup(self, nrz_enable=True, manage_network_ifs_fix=False):</span>
+<span class="diff-del">-        TEST_STATUS = True</span>
+<span class="diff-del">-        self.hl_qual_path = self.test_options.hl_qual_costumer_path</span>
+<span class="diff-del">-        if self.driver_mode == &quot;DEVELOPMENT&quot;:</span>
+<span class="diff-del">-            self.hl_qual_path = self.test_options.hl_qual_development_path</span>
+<span class="diff-del">-        # habanalabs driver is up</span>
+<span class="diff-del">-        # NRZ pre _en load</span>
+<span class="diff-del">-        for pci in self.operational_devices_address:</span>
+<span class="diff-del">-            hl_device_number = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-            if nrz_enable:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=&#x27;Enable NRZ mode&#x27;,</span>
+<span class="diff-del">-                            driver_number=hl_device_number)</span>
+<span class="diff-del">-                self.TEST_THREAD = SuperThread(f&#x27;Nrz_hl{hl_device_number}&#x27;,</span>
+<span class="diff-del">-                                               lambda: self.driver_cli.enable_hl_device_nrz(hl_device_number))</span>
+<span class="diff-del">-            else:</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=&#x27;Disable NRZ mode&#x27;,</span>
+<span class="diff-del">-                            driver_number=hl_device_number)</span>
+<span class="diff-del">-                self.TEST_THREAD = SuperThread(f&#x27;Nrz_hl{hl_device_number}&#x27;,</span>
+<span class="diff-del">-                                               lambda: self.driver_cli.disable_hl_device_nrz(hl_device_number))</span>
+<span class="diff-del">-            self.TEST_THREAD.start()</span>
+<span class="diff-del">-        time.sleep(60)</span>
+<span class="diff-del">-        for pci in self.operational_devices_address:</span>
+<span class="diff-del">-            hl_device_number = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-            SuperThread.terminate_by_name(f&#x27;Nrz_hl{hl_device_number}&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        self.driver_options = hw_manager.get_driver_options()</span>
+<span class="diff-del">-        status = self.driver_cli.load_driver(driver_form=&quot;habanalabs_en&quot;, drivin_flags=self.driver_options)</span>
+<span class="diff-del">-        time.sleep(60)</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(status, ident=&#x27;Description&#x27;, operation=&#x27;Load Driver to Serdes&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        if manage_network_ifs_fix:</span>
+<span class="diff-del">-            for i in range(5):</span>
+<span class="diff-del">-                try:</span>
+<span class="diff-del">-                    time.sleep(60)</span>
+<span class="diff-del">-                    code = self.manage_network_operation(operation=&#x27;down&#x27;, ignore_assert=True, fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                    if code == 0:</span>
+<span class="diff-del">-                        break</span>
+<span class="diff-del">-                except Exception as exception:</span>
+<span class="diff-del">-                    log_manager.log_browser()</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                                operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-            try:</span>
+<span class="diff-del">-                self.manage_network_operation(operation=&#x27;up&#x27;, ignore_assert=True, fail_log_level=&#x27;warning&#x27;)</span>
+<span class="diff-del">-            except Exception as exception:</span>
+<span class="diff-del">-                log_manager.log_browser()</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code,</span>
+<span class="diff-del">-                            operation=f&#x27;Exception during test: {exception}&#x27;)</span>
+<span class="diff-del">-        status = self.check_ports_up(retries_check=6)</span>
+<span class="diff-del">-        if not status:</span>
+<span class="diff-del">-            self.manage_network_operation(operation=&#x27;up&#x27;, time_sleep=80)</span>
+<span class="diff-del">-        if manage_network_ifs_fix:</span>
+<span class="diff-del">-            self.manage_network_operation(operation=&#x27;fix&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        if nrz_enable:</span>
+<span class="diff-del">-            for device in self.operational_devices_address:</span>
+<span class="diff-del">-                self.check_port_speed_nrz(device)</span>
+<span class="diff-del">-        return TEST_STATUS</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def print_fec_status_per_pci(self, pci, snip_method_name, log_level_ports=&#x27;error&#x27;, final_check=False):</span>
+<span class="diff-del">-        # log_manager.log_browser(pci)</span>
+<span class="diff-del">-        test_code = snip_method_name.replace(&#x27;_&#x27;, &#x27; &#x27;)</span>
+<span class="diff-del">-        hl_num = self.devices[pci][&quot;hl_num&quot;]</span>
+<span class="diff-del">-        mezz = self.smi_control.get_module_id(f&#x27;0000:{pci}&#x27;)</span>
+<span class="diff-del">-        device_status = True</span>
+<span class="diff-del">-        status_post = False</span>
+<span class="diff-del">-        status_pre = False</span>
+<span class="diff-del">-        failed_ports = []</span>
+<span class="diff-del">-        passed_ports = []</span>
+<span class="diff-del">-        final_check_prefix = &#x27;&#x27;# TODO  &#x27;Final &#x27; if final_check else &#x27;&#x27;</span>
+<span class="diff-del">-        stdout = self.driver_cli.device_print_fec_status(hl_num=hl_num)</span>
+<span class="diff-del">-        for line in stdout:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;nic_print_fec_stats: {line}&#x27;)</span>
+<span class="diff-del">-        # parser = RegexParser.RegexParser()</span>
+<span class="diff-del">-        try:</span>
+<span class="diff-del">-            stdout = [row.replace(&#x27;\0&#x27;, &#x27;&#x27;) for row in stdout[1:]]</span>
+<span class="diff-del">-            stdout = list(filter(None, stdout))</span>
+<span class="diff-del">-            stdout = list(dict.fromkeys(stdout))</span>
+<span class="diff-del">-            sorted_with_header = sorted(stdout, key=len, reverse=True)</span>
+<span class="diff-del">-            if not any(&#x27;card&#x27; in x for x in sorted_with_header):# if all ports are down</span>
+<span class="diff-del">-                status = False</span>
+<span class="diff-del">-                device_status = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            reader = csv.DictReader(sorted_with_header)</span>
+<span class="diff-del">-            data_dict = [row for row in reader]</span>
+<span class="diff-del">-            # res = []</span>
+<span class="diff-del">-            # [res.append(x) for x in data_dict if x not in res]</span>
+<span class="diff-del">-            res = data_dict.copy()</span>
+<span class="diff-del">-            for idx, port_data in enumerate(res):</span>
+<span class="diff-del">-                if port_data[&#x27;card&#x27;] == &#x27;card&#x27;:</span>
+<span class="diff-del">-                    del res[idx]</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                         operation=&#x27;parser results&#x27;, read_value=res)</span>
+<span class="diff-del">-            max_limit_pre = float(</span>
+<span class="diff-del">-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][</span>
+<span class="diff-del">-                    &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-del">-            min_limit_pre = float(</span>
+<span class="diff-del">-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][</span>
+<span class="diff-del">-                    &quot;SERDES FEC&quot;][&quot;pre_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-del">-            max_limit_post = float(</span>
+<span class="diff-del">-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][</span>
+<span class="diff-del">-                    &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;max&quot;])</span>
+<span class="diff-del">-            min_limit_post = float(</span>
+<span class="diff-del">-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][</span>
+<span class="diff-del">-                    &quot;SERDES FEC&quot;][&quot;post_fec_SER&quot;][&quot;min&quot;])</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-            for port_data in res:</span>
+<span class="diff-del">-                port = re.split(&quot;Port (\\d+): (Link is down)&quot;, port_data[&#x27;card&#x27;])</span>
+<span class="diff-del">-                if len(port) &gt; 1:</span>
+<span class="diff-del">-                    port_data[&quot;port&quot;] = port[1]</span>
+<span class="diff-del">-                    skip_port = False</span>
+<span class="diff-del">-                    if self.functional_tests_options.serdes_fec.skip_oam_port:</span>
+<span class="diff-del">-                        for ignore_oam_port in self.functional_tests_options.serdes_fec.skip_oam_port:</span>
+<span class="diff-del">-                            if str(port_data[&quot;port&quot;]) == str(ignore_oam_port[1]) and str(mezz) == str(ignore_oam_port[0]):</span>
+<span class="diff-del">-                                hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                            dev_address=pci, mezzanine=mezz,</span>
+<span class="diff-del">-                                            operation=f&#x27;Ignore fec for oam {mezz} port {port[1]}&#x27;)</span>
+<span class="diff-del">-                                skip_port = True</span>
+<span class="diff-del">-                        if skip_port:</span>
+<span class="diff-del">-                            continue</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                    status = False</span>
+<span class="diff-del">-                    device_status = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port_data[&quot;port&quot;]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level_ports)</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status, ident=&#x27;Value&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port_data[&quot;port&quot;]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=&#x27;N/A&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level_ports)</span>
+<span class="diff-del">-                    failed_ports.append(int(port_data[&quot;port&quot;]))</span>
+<span class="diff-del">-                    oam = mezz</span>
+<span class="diff-del">-                    exp_id = self.get_exp_card_per_oam_port(oam, int(port_data[&quot;port&quot;]))</span>
+<span class="diff-del">-                    if exp_id is not None:</span>
+<span class="diff-del">-                        log_manager.log_browser(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                        hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                                    dev_address=pci, mezzanine=oam, result=&#x27;FAIL&#x27;,</span>
+<span class="diff-del">-                                    operation=f&#x27;Port connected to Exp card {self.get_exp_card_per_oam_port(oam, int(port_data[&quot;port&quot;]))} failed - Mezz {oam} port {int(port_data[&quot;port&quot;])}&#x27;)</span>
+<span class="diff-del">-                        log_manager.update_status_false(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                        log_manager.log_browser()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                else:</span>
+<span class="diff-del">-                    pre_fec_value = float(port_data[&quot;Max pre_FEC_SER_int&quot;])</span>
+<span class="diff-del">-                    status_pre = pre_fec_value &lt;= max_limit_pre</span>
+<span class="diff-del">-                    post_fec_value = float(port_data[&quot;Max post_FEC_SER_int&quot;])</span>
+<span class="diff-del">-                    status_post = post_fec_value &lt;= max_limit_post</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                    passed_status_prefix = &#x27;&#x27;# TODO &#x27;Final &#x27; if status_post and status_pre else &#x27;&#x27;</span>
+<span class="diff-del">-                    if final_check_prefix:</span>
+<span class="diff-del">-                        passed_status_prefix = &#x27;&#x27;</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status_pre, ident=&#x27;Value&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port_data[&quot;port&quot;]} {passed_status_prefix}{final_check_prefix}pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=port_data[&quot;Max pre_FEC_SER_int&quot;],</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level_ports)</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(status_post, ident=&#x27;Value&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port_data[&quot;port&quot;]} {passed_status_prefix}{final_check_prefix}post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                                      read_value=port_data[&quot;Max post_FEC_SER_int&quot;],</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level_ports)</span>
+<span class="diff-del">-                    status = status_pre and status_post</span>
+<span class="diff-del">-                    device_status = status and device_status</span>
+<span class="diff-del">-                # if update_ports_status:</span>
+<span class="diff-del">-                if status:</span>
+<span class="diff-del">-                # if status and not self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])]:</span>
+<span class="diff-del">-                    # passed fec but failed on changes_counter</span>
+<span class="diff-del">-                    # hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;, test_code=test_code.upper(), dev_address=pci,</span>
+<span class="diff-del">-                    #             operation=f&#x27;Port {int(value[&quot;Port&quot;][0])} &#x27;</span>
+<span class="diff-del">-                    #                       f&#x27;failed on previous changes_counter and passed fec check&#x27;)</span>
+<span class="diff-del">-                    # hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                    #             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                    #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                    #             read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                    #             expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;)</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                                operation=f&#x27;Port {port_data[&quot;port&quot;]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                                dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                                read_value=f&#x27;{port_data[&quot;Max post_FEC_SER_int&quot;]}&#x27;,</span>
+<span class="diff-del">-                                expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;)</span>
+<span class="diff-del">-                    passed_ports.append(int(port_data[&quot;port&quot;]))</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-                # if not status:</span>
+<span class="diff-del">-                #     # self.ports_status[pci][&#x27;current_status&#x27;][int(value[&quot;Port&quot;][0])] = False</span>
+<span class="diff-del">-                #     # if not status_post:</span>
+<span class="diff-del">-                #     #     # hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #     #     #             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                #     #     #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #     #     #             read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #     #     #             expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #     #     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #     #                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                #     #                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #     #                 read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #     #                 expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #     # elif not status_pre:</span>
+<span class="diff-del">-                #     #     # hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #     #     #             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                #     #     #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #     #     #             read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #     #     #             expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #     #     hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #     #                 operation=f&#x27;Port {value[&quot;Port&quot;][0]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                #     #                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #     #                 read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #     #                 expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #     #     failed_ports.append(int(value[&quot;Port&quot;][0]))</span>
+<span class="diff-del">-                #     #     oam = mezz</span>
+<span class="diff-del">-                #     #     exp_id = self.get_exp_card_per_oam_port(oam,</span>
+<span class="diff-del">-                #     #                                             int(value[&quot;Port&quot;][0]))</span>
+<span class="diff-del">-                #     #     if exp_id is not None:</span>
+<span class="diff-del">-                #     #         log_manager.log_browser(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                #     #         hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;HL-QUAL SERDES BER PAM4&#x27;,</span>
+<span class="diff-del">-                #     #                     dev_address=pci, mezzanine=oam, result=&#x27;FAIL&#x27;,</span>
+<span class="diff-del">-                #     #                     operation=f&#x27;Port connected to Exp card {self.get_exp_card_per_oam_port(oam, int(value[&quot;Port&quot;][0]))} failed - port {int(value[&quot;Port&quot;][0])}&#x27;)</span>
+<span class="diff-del">-                #     #         log_manager.update_status_false(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                #     #         log_manager.log_browser()</span>
+<span class="diff-del">-                #     else:</span>
+<span class="diff-del">-                #         # hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #         #             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                #         #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #         #             read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #         #             expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #         # hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #         #             operation=f&#x27;Port {value[&quot;Port&quot;][0]} Last Changes Counter: {self.changes_counter_calc[pci][&quot;calc&quot;][int(value[&quot;Port&quot;][0])]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                #         #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #         #             read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #         #             expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #         hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #                     operation=f&#x27;Port {value[&quot;Port&quot;][0]} post_fec_SER&#x27;,</span>
+<span class="diff-del">-                #                     dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #                     read_value=f&#x27;{value[&quot;post_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #                     expected_value=f&#x27;Min: {min_limit_post} | Max: {max_limit_post}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #         hlsa_logger(level=log_level, ident=&#x27;Description&#x27;, test_code=test_code.upper(),</span>
+<span class="diff-del">-                #                     operation=f&#x27;Port {value[&quot;Port&quot;][0]} pre_fec_SER&#x27;,</span>
+<span class="diff-del">-                #                     dev_address=pci, mezzanine=mezz, driver_number=hl_num,</span>
+<span class="diff-del">-                #                     read_value=f&#x27;{value[&quot;pre_fec_SER&quot;][0]}&#x27;,</span>
+<span class="diff-del">-                #                     expected_value=f&#x27;Min: {min_limit_pre} | Max: {max_limit_pre}&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-                #         failed_ports.append(int(value[&quot;Port&quot;][0]))</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        except Exception as exception:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;warning&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;Exception during parsing fec_stats: {str(exception)}&#x27;)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            device_status = False</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        failed_ports = list(dict.fromkeys(failed_ports))</span>
+<span class="diff-del">-        for fail_port in failed_ports:</span>
+<span class="diff-del">-            oam = mezz</span>
+<span class="diff-del">-            if self.get_exp_card_per_oam_port(oam, fail_port) is not None:</span>
+<span class="diff-del">-                self.failed_exp.append(self.get_exp_card_per_oam_port(oam, fail_port))</span>
+<span class="diff-del">-                self.failed_exp = list(dict.fromkeys(self.failed_exp))</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;exp {self.failed_exp} failed due to failed oam:{oam} port:{fail_port}&#x27;)</span>
+<span class="diff-del">-            exp_id = self.get_exp_card_per_oam_port(oam, fail_port)</span>
+<span class="diff-del">-            if exp_id is not None:</span>
+<span class="diff-del">-                log_manager.log_browser(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;,</span>
+<span class="diff-del">-                            dev_address=pci, mezzanine=oam, result=&#x27;FAIL&#x27;,</span>
+<span class="diff-del">-                            operation=f&#x27;Port connected to Exp card {exp_id} failed - port {fail_port}&#x27;)</span>
+<span class="diff-del">-                log_manager.update_status_false(f&#x27;exp{exp_id}&#x27;)</span>
+<span class="diff-del">-                log_manager.log_browser()</span>
+<span class="diff-del">-        # for idx in [i for i in range(len(res[&#x27;test_results&#x27;][pci][&#x27;Device&#x27;][&#x27;result&#x27;])) if</span>
+<span class="diff-del">-        #             res[&#x27;test_results&#x27;][pci][&#x27;Device&#x27;][&#x27;result&#x27;][i] == &#x27;Passed&#x27;]:</span>
+<span class="diff-del">-        #     passed_ports.append(int(value[&quot;Port&quot;][0]))</span>
+<span class="diff-del">-        # passed_ports = list(dict.fromkeys(passed_ports))</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        return device_status</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def get_exp_card_per_oam_port(self, oam, port):</span>
+<span class="diff-del">-        data = self.device.spec.components.HL325.HL325_on_HLS3[oam]</span>
+<span class="diff-del">-        for dic in data:</span>
+<span class="diff-del">-            if int(dic[&#x27;Port&#x27;]) == port:</span>
+<span class="diff-del">-                return str(int(dic[&#x27;Exp&#x27;]) + 1)</span>
+<span class="diff-del">-        return None</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def update_operational_devices_info(self):</span>
+<span class="diff-ctx">         test_status = True</span>
+<span class="diff-hunk">@@ -3456,97 +2070,6 @@</span>
+<span class="diff-ctx">         #     self.devices[device][&quot;hl_smi_serial_number&quot;] = self.smi_control.get_serial_number(</span>
+<span class="diff-ctx">         #         self.devices[device][&quot;long_pci_address&quot;])</span>
+<span class="diff-ctx">         #     self.devices[device][&quot;mezz&quot;] = self.smi_control.get_module_id(self.devices[device][&quot;long_pci_address&quot;])</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def toggle_port_pci_idx(self, pci, ports, state):</span>
+<span class="diff-del">-        if type(ports) == int:</span>
+<span class="diff-del">-            ports_to_toggle = [ports]</span>
+<span class="diff-del">-        else:</span>
+<span class="diff-del">-            ports_to_toggle = ports</span>
+<span class="diff-del">-        function_status = True</span>
+<span class="diff-del">-        ports_net_if_list = self.driver_cli.get_ports_net_if_list(pci)</span>
+<span class="diff-del">-        for net_if in ports_net_if_list:</span>
+<span class="diff-del">-            idx = self.driver_cli.get_ports_index(pci, net_if)</span>
+<span class="diff-del">-            if idx in ports_to_toggle:</span>
+<span class="diff-del">-                status = self.driver_cli.set_net_if_state(net_if, state)</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, operation=f&#x27;toggle {net_if} {state}&#x27;)</span>
+<span class="diff-del">-                function_status = function_status and status</span>
+<span class="diff-del">-        return function_status</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def toggle_up_ports(self):</span>
+<span class="diff-del">-        toggle_status = True</span>
+<span class="diff-del">-        for pci in self.operational_devices_address:</span>
+<span class="diff-del">-            log_manager.log_browser(pci)</span>
+<span class="diff-del">-            ports_down_list = self.get_ports_down_per_pci(pci=pci)</span>
+<span class="diff-del">-            if ports_down_list:</span>
+<span class="diff-del">-                status = self.toggle_port_pci_idx(pci, ports_down_list, &#x27;down&#x27;)</span>
+<span class="diff-del">-                toggle_status = toggle_status and status</span>
+<span class="diff-del">-                time.sleep(10)</span>
+<span class="diff-del">-                status = self.toggle_port_pci_idx(pci, ports_down_list, &#x27;up&#x27;)</span>
+<span class="diff-del">-                toggle_status = toggle_status and status</span>
+<span class="diff-del">-                time.sleep(20)</span>
+<span class="diff-del">-        return toggle_status</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def calculate_ports_changes_counter(self, retries=3, log_level=&#x27;error&#x27;):</span>
+<span class="diff-del">-        log_manager.log_browser()</span>
+<span class="diff-del">-        all_devices_status = True</span>
+<span class="diff-del">-        for run_idx in range(retries):</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-del">-            # self.changes_counter_calc = {}</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                            operation=f&#x27;Start Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-del">-                # self.changes_counter_calc[pci] = {}</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;start&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            time.sleep(self.functional_tests_options[self.test_name][&quot;port_changes_counter_duration&quot;])</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;end&#x27;] = self.check_ports_changes_counter_per_pci(pci)</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                            operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;, dev_address=pci)</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                        operation=f&#x27;End Changes Counter measurement try:{run_idx + 1}/{retries}&#x27;)</span>
+<span class="diff-del">-            for pci in self.operational_devices_address:</span>
+<span class="diff-del">-                self.changes_counter_calc[pci][&#x27;calc&#x27;] = {}</span>
+<span class="diff-del">-                # self.changes_counter_calc[pci][&#x27;status&#x27;] = {}</span>
+<span class="diff-del">-                log_manager.log_browser(pci)</span>
+<span class="diff-del">-                device_status = True</span>
+<span class="diff-del">-                for port in self.changes_counter_calc[pci][&#x27;start&#x27;].keys():</span>
+<span class="diff-del">-                    if self.ports_status[pci][&#x27;previous_status&#x27;][port]:</span>
+<span class="diff-del">-                        continue</span>
+<span class="diff-del">-                    self.changes_counter_calc[pci][&#x27;calc&#x27;][port] = int(</span>
+<span class="diff-del">-                        self.changes_counter_calc[pci][&#x27;end&#x27;][port]) - int(</span>
+<span class="diff-del">-                        self.changes_counter_calc[pci][&#x27;start&#x27;][port])</span>
+<span class="diff-del">-                    limit_check = int(self.changes_counter_calc[pci][&#x27;calc&#x27;][port]) &lt;= \</span>
+<span class="diff-del">-                                  self.functional_tests_options[self.test_name][</span>
+<span class="diff-del">-                                      &quot;port_changes_counter_max&quot;]</span>
+<span class="diff-del">-                    hlsa_checker.check_status_is_true(limit_check, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                      test_code=self.test_code.upper(),</span>
+<span class="diff-del">-                                                      operation=f&#x27;Check Port {port} Changes Counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-del">-                                                      read_value=f&#x27;{self.changes_counter_calc[pci][&quot;calc&quot;][port]}&#x27;,</span>
+<span class="diff-del">-                                                      expected_value=f&#x27;Min: {0} | Max: {self.functional_tests_options[self.test_name][&quot;port_changes_counter_max&quot;]}&#x27;,</span>
+<span class="diff-del">-                                                      ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                    if not limit_check:</span>
+<span class="diff-del">-                        self.ports_status[pci][&#x27;current_status&#x27;][port] = False</span>
+<span class="diff-del">-                        device_status = False</span>
+<span class="diff-del">-                    else:</span>
+<span class="diff-del">-                        self.ports_status[pci][&#x27;current_status&#x27;][port] = True</span>
+<span class="diff-del">-                hlsa_checker.check_status_is_true(device_status, ident=&#x27;Description&#x27;, dev_address=pci,</span>
+<span class="diff-del">-                                                  operation=f&#x27;Check device port up/down changes counter try:{run_idx + 1}/{retries}&#x27;,</span>
+<span class="diff-del">-                                                  ignore_assert=True, fail_log_level=log_level)</span>
+<span class="diff-del">-                all_devices_status = device_status and all_devices_status</span>
+<span class="diff-del">-            log_manager.log_browser()</span>
+<span class="diff-del">-            time.sleep(30)</span>
+<span class="diff-del">-        return all_devices_status</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):</span>
+<span class="diff-del">-        ports_status_list = [0] * num_of_ports_per_device</span>
+<span class="diff-del">-        for failed_port_idx in failed_ports_idx:</span>
+<span class="diff-del">-            ports_status_list[int(failed_port_idx)] = 1</span>
+<span class="diff-del">-        return ports_status_list</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def print_uart_for_failed_devices(self):</span>
+<span class="diff-ctx">         try:</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Oded Rot</strong> <span class="date">(2025-06-19 15:02:10.753000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Yuval Zecharia</strong> <span class="date">(2025-06-25 12:37:14.354000000)</span><pre>Uploaded patch set 2: Patch Set 1 was rebased.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

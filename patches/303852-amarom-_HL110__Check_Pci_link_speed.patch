@@ -1,0 +1,114 @@
+From b4548dbb9aaface006b94c91de27a912d06994b2 Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Wed, 22 Feb 2023 12:42:05 +0200
+Subject: [PATCH] [HL110] Check Pci link speed
+
+Change-Id: Ifc0514507a45a33eea1b26b83a55e84ef5e0ffb1
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/tests/HL110/test_pci_link_spec.py b/tests/HL110/test_pci_link_spec.py
+index 05cdac7..9c66bc0 100644
+--- a/tests/HL110/test_pci_link_spec.py
++++ b/tests/HL110/test_pci_link_spec.py
+@@ -8,11 +8,11 @@
+ ****************************************************************************
+ """
+ 
+-help_dict = {'Owner':'Oded, Maor',
+-'required OS system':' Linux or Windows',
+-'required connection ':' ',
+-'pci_machine_ssh_details':'json/tests/test_machines.json',
+-}
++help_dict = {'Owner': 'Oded, Maor',
++             'required OS system': ' Linux or Windows',
++             'required connection ': ' ',
++             'pci_machine_ssh_details': 'json/tests/test_machines.json',
++             }
+ import logging
+ import hw_manager
+ from tests.test_base import TestBase
+@@ -40,43 +40,51 @@
+         hlsa_logger(level='debug', ident='Description', test_code='PCI', operation='Get SSH')
+         host = hw_manager.get_machine_component("pci_machine")
+         cls.device_cli = host.get_control(hw_manager.controls.device_cli)
++        cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
+ 
+     def test_pci_link_spec(self):
+         TEST_STATUS = True
+-        # Get PCI Link Spec
+-        code, stdout = self.device_cli.execute_command('sudo lspci -d 1da3: -vvv')
+-        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code='PCI', operation='Get PCI Link spec')
+-
+-        # Validate PCI Link Spec
+-        hlsa_checker.check_status_is_true(len(stdout) != 0, ident='Description', test_code='PCI', operation='Validate PCI Link buffer',
+-                        read_value='Empty Buffer')
+-
+-        # Parse Results
+         parser = RegexParser.RegexParser()
+-        res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.test_pci_link_spec)
+-        hlsa_checker.check_value_is_not_none(res, ident='Description', test_code='PCI', operation='Parse Success')
+-
+-        keywords = self.test_options['keywords']['gen_keywords']
+-        if len(keywords) == 0:
+-            hlsa_logger(level='error', ident='Description', test_code='PCI', operation='Validate PCI Link Spec',
+-                        read_value='Cant Take The Keywords For This Test', result='FAIL')
+-            assert False, "\nValidate,PCI Link Spec,Cant Take The Keywords For This Test ,#FAIL_DETAIL#"
+-
+-        for card in res["pci_link_status"].keys():
+-            link_status = res["pci_link_status"][card]["LnkSta"]["linkStatus"][0]
++        for pci_addr in self.connected_pcie_devices:
++            pci_info_cmd = 'sudo lspci -s ' + pci_addr + ' -d 1da3: -vvv'  # Get PCI Link Spec
++            code, stdout = self.device_cli.execute_command(pci_info_cmd)
++            hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code='PCI',
++                                              operation='Get PCI Link spec')
++            # Validate PCI Link Spec
++            hlsa_checker.check_status_is_true(len(stdout) != 0, ident='Description', test_code='PCI',
++                                              operation='Validate PCI Link buffer')
++            # Parse Results
++            res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.test_pci_link_spec)
++            hlsa_checker.check_value_is_not_none(res, ident='Description', test_code='PCI', operation='Parse Success')
++            link_status = res["pci_link_status"][pci_addr]["LnkSta"]["linkStatus"][0]
++            keywords = self.test_options['keywords']
++            if len(keywords) == 0:
++                hlsa_logger(level='error', ident='Description', test_code='PCI', operation='Validate PCI Link Spec',
++                            read_value='Cant Take The Keywords For This Test', result='FAIL')
++                assert False, "\nValidate,PCI Link Spec,Cant Take The Keywords For This Test ,#FAIL_DETAIL#"
++            if keywords.find('8GT') != -1:
++                mode_str = 'Gen3 Mode'
++            else:
++                mode_str = 'Gen4 Mode'
+             if str(link_status) != str(keywords):
+-                hlsa_logger(level='error', ident='Value', test_code='PCI', operation='Card %s not on Gen3 Mode' % card,
++                operation_str = 'Pci card %s is not on ' + mode_str
++                hlsa_logger(level='info', ident='Value', test_code='PCI', operation='Gen Mode', read_value=link_status,
++                            expected_value=str(keywords))
++                hlsa_logger(level='error', ident='Value', test_code='PCI', operation=operation_str % pci_addr,
+                             read_value=link_status, result='FAIL')
+                 TEST_STATUS = False
+ 
+-        for line in stdout:
+-            hlsa_logger(level='info', ident='Description', test_code='PCI', operation='PCI Spec:', read_value=line.strip())
+-            # Search Keywords
+-            for idx, keyword in enumerate(keywords):
+-                if keyword in line:
+-                    hlsa_logger(level='Value', ident='Description', test_code='PCI', operation='Keyword Detected:',
+-                                read_value=keyword,result='SUCCESS')
+-                    list(keywords).pop(idx)
++            else:
++                operation_str = 'Pci card %s is on ' + mode_str
++                hlsa_logger(level='info', ident='Value', test_code='PCI', operation='Gen Mode', read_value=link_status,
++                            expected_value=str(keywords))
++                hlsa_logger(level='error', ident='Value', test_code='PCI', operation=operation_str % pci_addr,
++                            read_value=link_status, result='Pass')
+ 
+-        hlsa_logger(level='info', ident='Description', test_code='PCI', operation='Gen Mode', read_value=link_status, expected_value=str(keywords))
+-        hlsa_checker.check_status_is_true(TEST_STATUS, ident='Description', test_code='PCI', operation='Validate PCI Link spec - All Cards On Gen3 Mode')
+\ No newline at end of file
++        if TEST_STATUS:
++            operation_str = 'Validate PCI Link spec - All Cards On ' + mode_str
++        else:
++            operation_str = 'Validate PCI Link spec -Not all Cards On ' + mode_str
++        hlsa_checker.check_status_is_true(TEST_STATUS, ident='Description', test_code='PCI', operation=operation_str)
++
++

@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 473367: SerDes statistics analyzer tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 473367: SerDes statistics analyzer tool</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> SerDes</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Ofer Benjamin &lt;obenjamin@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-02-19 11:21:25.287000000</p>
+            <p><strong>Updated:</strong> 2025-02-23 11:17:55.833000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>SerDes statistics analyzer tool
+
+Change-Id: I7646c18635f16e5c8ac14c63bb032f98eb4fc197
+Signed-off-by: obenjamin &lt;obenjamin@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: +2 by Ofer Benjamin</li><li><strong>Verified</strong>: +2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Ofer Benjamin</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>scripts/DB_Gui.py</code> (A) +195 -0</li><li><code>scripts/DB_analyze.py</code> (A) +309 -0</li><li><code>scripts/DB_compare.py</code> (A) +277 -0</li><li><code>scripts/DB_stat_calc_par.sh</code> (A) +273 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/scripts/DB_Gui.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,195 @@</span>
+<span class="diff-add">+import subprocess</span>
+<span class="diff-add">+import os </span>
+<span class="diff-add">+import tkinter as tk</span>
+<span class="diff-add">+from tkinter import filedialog</span>
+<span class="diff-add">+import ttkbootstrap as ttk  # Modern themed widgets</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def select_test_folder():</span>
+<span class="diff-add">+    default_test_folder = &quot;/software/devops/logs/pre_fec_stats&quot;  # Replace with your desired default folder</span>
+<span class="diff-add">+    test_folder_path.set(filedialog.askdirectory(initialdir=default_test_folder))  # Open folder picker with default path</span>
+<span class="diff-add">+    # Change the &quot;Browse&quot; button color to green on click</span>
+<span class="diff-add">+    browse_test_button.configure(style=&quot;BrowseButtonGreen.TButton&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def select_output_folder():</span>
+<span class="diff-add">+    default_output_folder = &quot;~/&quot;  # Replace with your desired default folder</span>
+<span class="diff-add">+    output_folder_path.set(filedialog.askdirectory(initialdir=default_output_folder))  # Open folder picker with default path</span>
+<span class="diff-add">+    # Change the &quot;Browse&quot; button color to green on click</span>
+<span class="diff-add">+    browse_output_button.configure(style=&quot;BrowseButtonGreen.TButton&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def select_old_test_folder():</span>
+<span class="diff-add">+    default_test_folder = &quot;/software/devops/logs/pre_fec_stats&quot;  # Replace with your desired default folder</span>
+<span class="diff-add">+    test_old_folder_path.set(filedialog.askdirectory(initialdir=default_test_folder))  # Open folder picker with default path</span>
+<span class="diff-add">+    # Change the &quot;Browse&quot; button color to green on click</span>
+<span class="diff-add">+    browse_old_button.configure(style=&quot;BrowseButtonGreen.TButton&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def select_old_output_folder():</span>
+<span class="diff-add">+    default_output_folder = &quot;~/&quot;  # Replace with your desired default folder</span>
+<span class="diff-add">+    output_old_folder_path.set(filedialog.askdirectory(initialdir=default_output_folder))  # Open folder picker with default path</span>
+<span class="diff-add">+    # Change the &quot;Browse&quot; button color to green on click</span>
+<span class="diff-add">+    browse_old_output_button.configure(style=&quot;BrowseButtonGreen.TButton&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def select_test_file():</span>
+<span class="diff-add">+    test_file_path.set(filedialog.askopenfilename())</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def run_script():</span>
+<span class="diff-add">+    test_path = test_folder_path.get()</span>
+<span class="diff-add">+    output_path = output_folder_path.get()</span>
+<span class="diff-add">+    old_test_path = test_old_folder_path.get()</span>
+<span class="diff-add">+    old_output_path = output_old_folder_path.get()</span>
+<span class="diff-add">+    # Define the path to your shell script</span>
+<span class="diff-add">+    script_path = os.path.join(os.getcwd(), &quot;DB_stat_calc_par.sh&quot;)</span>
+<span class="diff-add">+    python_script_path = &quot;~/SerDes/script/DB_analyze.py&quot;</span>
+<span class="diff-add">+    python_compare_script_path = &quot;~/SerDes/script/DB_compare.py&quot;</span>
+<span class="diff-add">+    try:</span>
+<span class="diff-add">+        if test_vars[&quot;build new data-base&quot;].get() and test_path and output_path:</span>
+<span class="diff-add">+            print(f&quot;Running build new data-base on folder: {test_path} and output folder: {output_path}&quot;) </span>
+<span class="diff-add">+            # Print the command to ensure it&#x27;s correct</span>
+<span class="diff-add">+            command = [&quot;bash&quot;, &quot;~/SerDes/script/DB_stat_calc_par.sh&quot;, test_path, output_path]</span>
+<span class="diff-add">+            print(f&quot;Executing command: {&#x27; &#x27;.join(command)}&quot;)</span>
+<span class="diff-add">+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)</span>
+<span class="diff-add">+            print(f&quot;Script Output: {result.stdout.decode()}&quot;)</span>
+<span class="diff-add">+            print(f&quot;Script Error (if any): {result.stderr.decode()}&quot;)</span>
+<span class="diff-add">+    </span>
+<span class="diff-add">+        if test_vars[&quot;build new data-base&quot;].get() and old_test_path and old_output_path:</span>
+<span class="diff-add">+            print(f&quot;Running build new data-base on folder: {old_test_path} and output folder: {old_output_path}&quot;) </span>
+<span class="diff-add">+    	# Print the command to ensure it&#x27;s correct</span>
+<span class="diff-add">+            command = [&quot;bash&quot;, &quot;~/SerDes/script/DB_stat_calc_par.sh&quot;, old_test_path, old_output_path]</span>
+<span class="diff-add">+            print(f&quot;Executing command: {&#x27; &#x27;.join(command)}&quot;)</span>
+<span class="diff-add">+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)</span>
+<span class="diff-add">+            print(f&quot;Script Output: {result.stdout.decode()}&quot;)</span>
+<span class="diff-add">+            print(f&quot;Script Error (if any): {result.stderr.decode()}&quot;)</span>
+<span class="diff-add">+    </span>
+<span class="diff-add">+        if test_vars[&quot;analyze the data-base&quot;].get() and test_path and output_path:</span>
+<span class="diff-add">+	# Execute Python Script</span>
+<span class="diff-add">+            command_python = [&quot;python3&quot;, python_script_path, output_path]</span>
+<span class="diff-add">+            print(f&quot;Executing command: {&#x27; &#x27;.join(command_python)}&quot;)</span>
+<span class="diff-add">+            result_python = subprocess.run(command_python, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)</span>
+<span class="diff-add">+            print(f&quot;Python Script Output: {result_python.stdout.decode()}&quot;)</span>
+<span class="diff-add">+            print(f&quot;Python Script Error (if any): {result_python.stderr.decode()}&quot;)</span>
+<span class="diff-add">+    </span>
+<span class="diff-add">+        if test_vars[&quot;Compare two data-base&quot;].get() and old_output_path and output_path:</span>
+<span class="diff-add">+            command_python = [&quot;python3&quot;, python_compare_script_path, output_path, old_output_path]</span>
+<span class="diff-add">+            print(f&quot;Executing command: {&#x27; &#x27;.join(command_python)}&quot;)</span>
+<span class="diff-add">+            result_python = subprocess.run(command_python, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)</span>
+<span class="diff-add">+            print(f&quot;Python Script Output: {result_python.stdout.decode()}&quot;)</span>
+<span class="diff-add">+            print(f&quot;Python Script Error (if any): {result_python.stderr.decode()}&quot;)</span>
+<span class="diff-add">+     </span>
+<span class="diff-add">+        # Change the &quot;Run&quot; button color to green on click</span>
+<span class="diff-add">+        run_button.configure(style=&quot;RunButtonGreen.TButton&quot;)  </span>
+<span class="diff-add">+    except subprocess.CalledProcessError as e:</span>
+<span class="diff-add">+        print(f&quot;Error occurred: {e}&quot;)</span>
+<span class="diff-add">+        print(f&quot;Exit Code: {e.returncode}&quot;)</span>
+<span class="diff-add">+        print(f&quot;Error Output: {e.stderr.decode()}&quot;)  </span>
+<span class="diff-add">+    </span>
+<span class="diff-add">+    print(f&quot;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;Finish the Run Command&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&quot;)   </span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create main window</span>
+<span class="diff-add">+root = ttk.Window(themename=&quot;darkly&quot;)  # Modern dark theme</span>
+<span class="diff-add">+root.title(&quot;SerDes Statistics analyzer Runner&quot;)</span>
+<span class="diff-add">+root.geometry(&quot;450x650&quot;)  # Adjust window size</span>
+<span class="diff-add">+root.minsize(750, 600)  # Minimum size of the window</span>
+<span class="diff-add">+root.resizable(False, False)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+test_folder_path = tk.StringVar()</span>
+<span class="diff-add">+output_folder_path = tk.StringVar()</span>
+<span class="diff-add">+test_old_folder_path = tk.StringVar()</span>
+<span class="diff-add">+output_old_folder_path = tk.StringVar()</span>
+<span class="diff-add">+test_file_path = tk.StringVar()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create styles for buttons</span>
+<span class="diff-add">+style = ttk.Style()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Red font style (initial)</span>
+<span class="diff-add">+style.configure(&quot;RunButtonRed.TButton&quot;, foreground=&quot;red&quot;, font=(&quot;Arial&quot;, 10, &quot;bold&quot;))</span>
+<span class="diff-add">+style.configure(&quot;BrowseButtonRed.TButton&quot;, foreground=&quot;red&quot;, font=(&quot;Arial&quot;, 10, &quot;bold&quot;))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Green font style (after click)</span>
+<span class="diff-add">+style.configure(&quot;RunButtonGreen.TButton&quot;, foreground=&quot;green&quot;, font=(&quot;Arial&quot;, 10))</span>
+<span class="diff-add">+style.configure(&quot;BrowseButtonGreen.TButton&quot;, foreground=&quot;green&quot;, font=(&quot;Arial&quot;, 10))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Folder selection</span>
+<span class="diff-add">+#frame = ttk.Frame(root, padding=40)</span>
+<span class="diff-add">+frame = ttk.Frame(root)</span>
+<span class="diff-add">+frame.pack(side=&quot;right&quot;, fill=&quot;both&quot;, expand=True)#fill=&quot;x&quot;, padx=(300, 10), pady=10)</span>
+<span class="diff-add">+#frame.pack(fill=&quot;both&quot;, expand=True)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+label_test = ttk.Label(frame, text=&quot;Select New DB Folder:&quot;)</span>
+<span class="diff-add">+label_test.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+entry_test = ttk.Entry(frame, textvariable=test_folder_path, width=40, state=&quot;readonly&quot;)</span>
+<span class="diff-add">+entry_test.pack(fill=&quot;x&quot;, padx=5, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Browse button for test folder with red text</span>
+<span class="diff-add">+browse_test_button = ttk.Button(frame, text=&quot;Browse&quot;, command=select_test_folder, style=&quot;BrowseButtonRed.TButton&quot;)</span>
+<span class="diff-add">+browse_test_button.pack(pady=5)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#select_file_button = ttk.Button(frame, text=&quot;Select File&quot;, command=select_test_file)</span>
+<span class="diff-add">+#select_file_button.pack(side=&quot;left&quot;, padx=5)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+label_output = ttk.Label(frame, text=&quot;Select Output Folder:&quot;)</span>
+<span class="diff-add">+label_output.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+entry_output = ttk.Entry(frame, textvariable=output_folder_path, width=40, state=&quot;readonly&quot;)</span>
+<span class="diff-add">+entry_output.pack(fill=&quot;x&quot;, padx=5, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Browse button for output folder with red text</span>
+<span class="diff-add">+browse_output_button = ttk.Button(frame, text=&quot;Browse&quot;, command=select_output_folder, style=&quot;BrowseButtonRed.TButton&quot;)</span>
+<span class="diff-add">+browse_output_button.pack(pady=5)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+label_old = ttk.Label(frame, text=&quot;Select previous DB Folder:&quot;)</span>
+<span class="diff-add">+label_old.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+entry_old = ttk.Entry(frame, textvariable=test_old_folder_path, width=40, state=&quot;readonly&quot;)</span>
+<span class="diff-add">+entry_old.pack(fill=&quot;x&quot;, padx=5, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Browse button for test folder with red text</span>
+<span class="diff-add">+browse_old_button = ttk.Button(frame, text=&quot;Browse&quot;, command=select_old_test_folder, style=&quot;BrowseButtonRed.TButton&quot;)</span>
+<span class="diff-add">+browse_old_button.pack(pady=5)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+label_old_output = ttk.Label(frame, text=&quot;Select previous DB Outout Folder:&quot;)</span>
+<span class="diff-add">+label_old_output.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+entry_old_output = ttk.Entry(frame, textvariable=output_old_folder_path, width=40, state=&quot;readonly&quot;)</span>
+<span class="diff-add">+entry_old_output.pack(fill=&quot;x&quot;, padx=5, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Browse button for test folder with red text</span>
+<span class="diff-add">+browse_old_output_button = ttk.Button(frame, text=&quot;Browse&quot;, command=select_old_output_folder, style=&quot;BrowseButtonRed.TButton&quot;)</span>
+<span class="diff-add">+browse_old_output_button.pack(pady=5)</span>
+<span class="diff-add">+# ========</span>
+<span class="diff-add">+# Run button with red text initially</span>
+<span class="diff-add">+run_button = ttk.Button(frame, text=&quot;Run&quot;, command=run_script, style=&quot;RunButtonRed.TButton&quot;)</span>
+<span class="diff-add">+run_button.pack(side=&quot;bottom&quot;, pady=10)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a frame for the test list on the right side</span>
+<span class="diff-add">+test_list_frame = ttk.Frame(root, padding=10)</span>
+<span class="diff-add">+test_list_frame.pack(side=&quot;bottom&quot;, fill=&quot;x&quot;, padx=(10,10), expand=True)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+frame_right = ttk.Frame(root, padding=10)</span>
+<span class="diff-add">+frame_right.pack(side=&quot;bottom&quot;,fill=&quot;x&quot;, padx=(10,10), expand=True)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Label for test list</span>
+<span class="diff-add">+label_tests = ttk.Label(frame_right, text=&quot;Select Tests:&quot;)</span>
+<span class="diff-add">+label_tests.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a list of test names (Test1, Test2, Test3)</span>
+<span class="diff-add">+tests = [&quot;build new data-base&quot;, &quot;analyze the data-base&quot;, &quot;Compare two data-base&quot;]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a dictionary to store the state of each test&#x27;s checkbox (enabled or disabled)</span>
+<span class="diff-add">+test_vars = {}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create checkboxes for each test</span>
+<span class="diff-add">+for test in tests:</span>
+<span class="diff-add">+    var = tk.BooleanVar(value=False)  # Default to unchecked</span>
+<span class="diff-add">+    test_vars[test] = var</span>
+<span class="diff-add">+    check_button = ttk.Checkbutton(test_list_frame, text=test, variable=var)</span>
+<span class="diff-add">+    check_button.pack(anchor=&quot;w&quot;, pady=3)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+analyze_var = tk.BooleanVar()</span>
+<span class="diff-add">+analyze_checkbox = ttk.Checkbutton(frame_right, text=&quot;Analyze File&quot;, variable=analyze_var)</span>
+<span class="diff-add">+analyze_checkbox.pack(anchor=&quot;w&quot;, pady=5)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+root.mainloop()</span>
+<span class="diff-add">+</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..c12bb43</span>
+<h4 class="diff-filename">b/scripts/DB_analyze.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,309 @@</span>
+<span class="diff-add">+import subprocess</span>
+<span class="diff-add">+import pandas as pd</span>
+<span class="diff-add">+import numpy as np</span>
+<span class="diff-add">+import matplotlib.pyplot as plt</span>
+<span class="diff-add">+import seaborn as sns</span>
+<span class="diff-add">+import time</span>
+<span class="diff-add">+import sys</span>
+<span class="diff-add">+import os</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a new DataFrame with transformed values</span>
+<span class="diff-add">+def transform_cell(cell, p50, std):</span>
+<span class="diff-add">+     # Convert std to a float (if it&#x27;s a string)</span>
+<span class="diff-add">+    try:</span>
+<span class="diff-add">+        std = float(std)</span>
+<span class="diff-add">+    except ValueError:</span>
+<span class="diff-add">+        raise ValueError(f&quot;Invalid std value: {std}&quot;)</span>
+<span class="diff-add">+    # Check if std is 0</span>
+<span class="diff-add">+    if std == 0:</span>
+<span class="diff-add">+        return 0  # Replace with 0 if std is 0</span>
+<span class="diff-add">+    else:</span>
+<span class="diff-add">+        print(&quot;cell&quot;, cell)</span>
+<span class="diff-add">+        print(&quot;p50&quot;, p50)</span>
+<span class="diff-add">+        print(&quot;std&quot;, std)</span>
+<span class="diff-add">+        return ((cell - p50) / std)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def transform_cell1(cell, p50, std):</span>
+<span class="diff-add">+     # Convert std to a float (if it&#x27;s a string)</span>
+<span class="diff-add">+    try:</span>
+<span class="diff-add">+        std = float(std)</span>
+<span class="diff-add">+    except ValueError:</span>
+<span class="diff-add">+        raise ValueError(f&quot;Invalid std value: {std}&quot;)</span>
+<span class="diff-add">+    # Check if std is 0</span>
+<span class="diff-add">+    data = ((cell - p50) / std) if (cell &gt; p50) else 0</span>
+<span class="diff-add">+    print(&quot;cell max&quot;, cell)</span>
+<span class="diff-add">+    print(&quot;p50 max&quot;, p50)</span>
+<span class="diff-add">+    print(&quot;std max&quot;, std)</span>
+<span class="diff-add">+    if cell &lt; -7:</span>
+<span class="diff-add">+        if cell &lt; -8:</span>
+<span class="diff-add">+            return 0  # Replace with 0 if std is 0</span>
+<span class="diff-add">+        else:</span>
+<span class="diff-add">+            return 0.1 * data</span>
+<span class="diff-add">+    else:</span>
+<span class="diff-add">+    	</span>
+<span class="diff-add">+        return data</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+# Function to find outliers based on IQR</span>
+<span class="diff-add">+def find_outliers(data):</span>
+<span class="diff-add">+    Q1 = np.percentile(data, 25)</span>
+<span class="diff-add">+    Q3 = np.percentile(data, 75)</span>
+<span class="diff-add">+    IQR = Q3 - Q1</span>
+<span class="diff-add">+    lower_fence = Q1 - 1.5 * IQR</span>
+<span class="diff-add">+    upper_fence = Q3 + 1.5 * IQR</span>
+<span class="diff-add">+    outliers = data[(data &lt; lower_fence) | (data &gt; upper_fence)]</span>
+<span class="diff-add">+    return outliers</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Get the output_path from the command line arguments</span>
+<span class="diff-add">+if len(sys.argv) &lt; 2:</span>
+<span class="diff-add">+    print(&quot;Usage: python DB_analyze.py &lt;test_path&gt; &lt;output_path&gt;&quot;)</span>
+<span class="diff-add">+    sys.exit(1)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+output_path = sys.argv[1]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Construct the full path to the CSV file in the output folder</span>
+<span class="diff-add">+csv_file_path = os.path.join(output_path, &#x27;ALL_G3_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+csv_file_path_max = os.path.join(output_path, &#x27;ALL_G3_max_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Load data</span>
+<span class="diff-add">+df = pd.read_csv(csv_file_path)</span>
+<span class="diff-add">+df_max = pd.read_csv(csv_file_path_max)</span>
+<span class="diff-add">+#df = pd.read_csv(&#x27;ALL_G3_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+#df_max = pd.read_csv(&#x27;ALL_G3_max_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+# Ensure numeric conversion for required columns</span>
+<span class="diff-add">+numeric_columns = [&quot;ave&quot;, &quot;P95&quot;, &quot;P75&quot;, &quot;P50&quot;]</span>
+<span class="diff-add">+df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+df_max[numeric_columns] = df_max[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# Arranging different data-frames</span>
+<span class="diff-add">+#	1. sort by ave (performance )</span>
+<span class="diff-add">+#	2. sort by card and port (logical)</span>
+<span class="diff-add">+#	3. Change the data frame for box and whiskler</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# Sort the DataFrame</span>
+<span class="diff-add">+df_sorted = df.sort_values(</span>
+<span class="diff-add">+    by=[df.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+df_max_sorted = df_max.sort_values(</span>
+<span class="diff-add">+    by=[df_max.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+df_logical = df.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+df_max_logical = df_max.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_sorted[&quot;x_labels&quot;] = df_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_max_sorted[&quot;x_labels&quot;] = df_max_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Melt the DataFrame: Keep &quot;card&quot; and &quot;port&quot; as identifiers, convert server columns into one column</span>
+<span class="diff-add">+# Identify server columns (starting with &quot;g3-&quot;)</span>
+<span class="diff-add">+server_columns = [col for col in df.columns if col.startswith(&quot;g3-&quot;)]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Melt the DataFrame correctly, keeping &#x27;Type&#x27; for classification</span>
+<span class="diff-add">+melted_df = df.melt(id_vars=[&quot;Type&quot;], value_vars=server_columns, var_name=&quot;server&quot;, value_name=&quot;SER&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Remove rows where SER == 0</span>
+<span class="diff-add">+melted_df = melted_df[melted_df[&quot;SER&quot;] != 0]</span>
+<span class="diff-add">+# =============================================================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 1st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) </span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+fig, axs = plt.subplots(2, 1)  # 2 rows and 2 columns</span>
+<span class="diff-add">+fig.set_size_inches(12, 6)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+axs[0].plot(df_sorted[&quot;x_labels&quot;], df_sorted[&quot;ave&quot;], label=&quot;ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+axs[0].plot(df_sorted[&quot;x_labels&quot;], df_sorted[&quot;P50&quot;], label=&quot;P50&quot;, marker=&quot;s&quot;)</span>
+<span class="diff-add">+axs[0].plot(df_sorted[&quot;x_labels&quot;], df_sorted[&quot;P75&quot;], label=&quot;P75&quot;, marker=&quot;^&quot;)</span>
+<span class="diff-add">+axs[0].plot(df_sorted[&quot;x_labels&quot;], df_sorted[&quot;P95&quot;], label=&quot;P95&quot;, marker=&quot;x&quot;)</span>
+<span class="diff-add">+# Adjust x-axis to range -1 to 192</span>
+<span class="diff-add">+axs[0].set_xlim(-1, 192)</span>
+<span class="diff-add">+# Formatting</span>
+<span class="diff-add">+axs[0].set_xticks(range(len(df_sorted[&quot;x_labels&quot;])))  # Set positions</span>
+<span class="diff-add">+axs[0].set_xticklabels(df_sorted[&quot;x_labels&quot;], rotation=90, ha=&#x27;right&#x27;, fontsize=8)</span>
+<span class="diff-add">+axs[0].set_xlabel(&quot;Concatenated Columns (Type Card-Port)&quot;)</span>
+<span class="diff-add">+axs[0].set_ylabel(&quot;Pre_FEC SER&quot;)</span>
+<span class="diff-add">+axs[0].set_title(&quot;Comparison of ave, P50, P75, and P95&quot;)</span>
+<span class="diff-add">+axs[0].legend()</span>
+<span class="diff-add">+axs[0].set_yticks(np.arange(min(df_sorted[&quot;ave&quot;].min(), df_max_sorted[&quot;ave&quot;].min()), </span>
+<span class="diff-add">+                             max(df_sorted[&quot;P95&quot;].max(), df_max_sorted[&quot;P95&quot;].max()) + 1, 1))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+axs[0].grid(True)</span>
+<span class="diff-add">+# Second subplot (df_max_sorted)</span>
+<span class="diff-add">+axs[1].plot(df_max_sorted[&quot;x_labels&quot;], df_max_sorted[&quot;ave&quot;], label=&quot;ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+axs[1].plot(df_max_sorted[&quot;x_labels&quot;], df_max_sorted[&quot;P50&quot;], label=&quot;P50&quot;, marker=&quot;s&quot;)</span>
+<span class="diff-add">+axs[1].plot(df_max_sorted[&quot;x_labels&quot;], df_max_sorted[&quot;P75&quot;], label=&quot;P75&quot;, marker=&quot;^&quot;)</span>
+<span class="diff-add">+axs[1].plot(df_max_sorted[&quot;x_labels&quot;], df_max_sorted[&quot;P95&quot;], label=&quot;P95&quot;, marker=&quot;x&quot;)</span>
+<span class="diff-add">+# Formatting</span>
+<span class="diff-add">+axs[1].set_xlim(-1, 192)</span>
+<span class="diff-add">+axs[1].set_xticks(range(len(df_max_sorted[&quot;x_labels&quot;])))  # Set positions</span>
+<span class="diff-add">+axs[1].set_xticklabels(df_max_sorted[&quot;x_labels&quot;], rotation=90, ha=&#x27;right&#x27;, fontsize=8)</span>
+<span class="diff-add">+axs[1].set_xlabel(&quot;Concatenated Columns (Type Card-Port)&quot;)</span>
+<span class="diff-add">+axs[1].set_ylabel(&quot;Max Pre FEC SER&quot;)</span>
+<span class="diff-add">+axs[1].set_title(&quot;Comparison of ave, P50, P75, and P95&quot;)</span>
+<span class="diff-add">+axs[1].legend()</span>
+<span class="diff-add">+axs[1].set_yticks(np.arange(min(df_sorted[&quot;ave&quot;].min(), df_max_sorted[&quot;ave&quot;].min()), </span>
+<span class="diff-add">+                             max(df_sorted[&quot;P95&quot;].max(), df_max_sorted[&quot;P95&quot;].max()) + 1, 1))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+axs[1].grid(True)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+plt.tight_layout(pad=2.0)</span>
+<span class="diff-add">+plt.savefig(&quot;SER_statistics_FOM.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show plot</span>
+<span class="diff-add">+# plt.show(block=False)</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;SER_statistics_FOM.png&quot;])</span>
+<span class="diff-add">+# =============================================================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 2nd plot linear fit between pre and max</span>
+<span class="diff-add">+# ======================================= </span>
+<span class="diff-add">+# Create figure and axis</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+fig1, axs1 = plt.subplots(1, 1)  # 2 rows and 2 columns</span>
+<span class="diff-add">+# Add grid</span>
+<span class="diff-add">+axs1.plot(df_sorted[&quot;ave&quot;], df_max_sorted[&quot;ave&quot;], label=&quot;pre_fec&quot;, marker=&#x27;+&#x27;, color=&#x27;blue&#x27;, linestyle=&#x27;none&#x27;)</span>
+<span class="diff-add">+axs1.grid(visible=True, linestyle=&#x27;--&#x27;, alpha=0.7)</span>
+<span class="diff-add">+axs1.set_title(&#x27;Pre FEC SER ave &amp; Max&#x27;)</span>
+<span class="diff-add">+axs1.legend(loc=&#x27;upper right&#x27;, bbox_to_anchor=(1.15, 1))</span>
+<span class="diff-add">+axs1.grid(visible=True, linestyle=&#x27;--&#x27;, alpha=0.7)</span>
+<span class="diff-add">+# Fit a linear regression line for axs1[1]</span>
+<span class="diff-add">+x = df_sorted[&quot;ave&quot;]</span>
+<span class="diff-add">+y = df_max_sorted[&quot;ave&quot;]</span>
+<span class="diff-add">+# Fit a linear regression line (degree=1 for a straight line)</span>
+<span class="diff-add">+coefficients = np.polyfit(x, y, 1)</span>
+<span class="diff-add">+trend_line = np.poly1d(coefficients)</span>
+<span class="diff-add">+# Plot the trendline</span>
+<span class="diff-add">+axs1.plot(x, trend_line(x), label=&#x27;Trend Line&#x27;, color=&#x27;green&#x27;, linestyle=&#x27;-&#x27;, linewidth=2)</span>
+<span class="diff-add">+# Display the equation of the trend line</span>
+<span class="diff-add">+slope, intercept = coefficients</span>
+<span class="diff-add">+equation = f&quot;y = {slope:.2f}x + {intercept:.2f}&quot;</span>
+<span class="diff-add">+# Add the equation as text on the plot</span>
+<span class="diff-add">+axs1.text(0.05, 0.95, equation, transform=axs1.transAxes, fontsize=12, verticalalignment=&#x27;top&#x27;, color=&#x27;green&#x27;)</span>
+<span class="diff-add">+plt.savefig(&quot;Average2Max_SER_fit.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show the plot</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Average2Max_SER_fit.png&quot;])</span>
+<span class="diff-add">+# =============================================================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# ===================================</span>
+<span class="diff-add">+#     Box &amp; Whisker</span>
+<span class="diff-add">+#	1. on the average data set - split per port and split per card</span>
+<span class="diff-add">+#	2. on the max data set - split per port and split per card</span>
+<span class="diff-add">+#	3. On mekt data frame - split per server</span>
+<span class="diff-add">+# ===================================</span>
+<span class="diff-add">+# Plot 1</span>
+<span class="diff-add">+# Define the properties for the outliers (fliers)</span>
+<span class="diff-add">+flierprops = {&#x27;marker&#x27;: &#x27;o&#x27;, &#x27;color&#x27;: &#x27;red&#x27;, &#x27;markersize&#x27;: 9}</span>
+<span class="diff-add">+# Define outlier properties</span>
+<span class="diff-add">+flierprops = dict(marker=&#x27;o&#x27;, color=&#x27;red&#x27;, alpha=0.6)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+fig2, axes2 = plt.subplots(2, 1, figsize=(8, 10))  # 2 rows, 1 column</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+sns.boxplot(x=&#x27;port&#x27;, y=&#x27;ave&#x27;, data=df, ax=axes2[0],medianprops=dict(color=&quot;yellow&quot;),flierprops=flierprops)</span>
+<span class="diff-add">+axes2[0].set_title(&quot;Boxplot per Port&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+sns.boxplot(x=&#x27;card&#x27;, y=&#x27;ave&#x27;, data=df, ax=axes2[1],medianprops=dict(color=&quot;yellow&quot;),flierprops=flierprops)</span>
+<span class="diff-add">+axes2[1].set_title(&quot;Boxplot per Card&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+for ax in axes2:</span>
+<span class="diff-add">+    ax.set_xticks(ax.get_xticks())  # Set tick positions explicitly</span>
+<span class="diff-add">+    ax.set_xticklabels(ax.get_xticklabels())</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+plt.tight_layout()</span>
+<span class="diff-add">+plt.savefig(&quot;Box_Whisker_Ave.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Box_Whisker_Ave.png&quot;])</span>
+<span class="diff-add">+#  Extract Outliers - currently the print are mask, kept the code for future debug use</span>
+<span class="diff-add">+for ax in axes2:</span>
+<span class="diff-add">+    for x_label in ax.get_xticks():  # Iterate through x-axis labels (ports or cards)</span>
+<span class="diff-add">+        # Get the subset of data for this label (port or card)</span>
+<span class="diff-add">+        subset = df[df[ax.get_xlabel()] == x_label][&#x27;ave&#x27;]</span>
+<span class="diff-add">+        # Find outliers for this subset of data</span>
+<span class="diff-add">+        outliers = find_outliers(subset)</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        if not outliers.empty:</span>
+<span class="diff-add">+            #print(f&quot;\nDEBUG: Outliers detected for {ax.get_xlabel()} {x_label}:&quot;)</span>
+<span class="diff-add">+            for outlier in outliers:</span>
+<span class="diff-add">+                # Find the row(s) corresponding to the outlier value</span>
+<span class="diff-add">+                matching_rows = df[(df[ax.get_xlabel()] == x_label) &amp; (df[&#x27;ave&#x27;] == outlier)]</span>
+<span class="diff-add">+                #for _, row in matching_rows.iterrows():</span>
+<span class="diff-add">+                    #print(f&quot;DEBUG: Outlier - Port: {row[&#x27;port&#x27;]}, Card: {row[&#x27;card&#x27;]}, ave: {outlier}&quot;)</span>
+<span class="diff-add">+# ===================================</span>
+<span class="diff-add">+# Plot 2</span>
+<span class="diff-add">+# Define the properties for the outliers (fliers)</span>
+<span class="diff-add">+flierprops = {&#x27;marker&#x27;: &#x27;o&#x27;, &#x27;color&#x27;: &#x27;red&#x27;, &#x27;markersize&#x27;: 9}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+fig2, axes2 = plt.subplots(2, 1, figsize=(8, 10))  # 2 rows, 1 column</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+sns.boxplot(x=&#x27;port&#x27;, y=&#x27;max&#x27;, data=df, ax=axes2[0],medianprops=dict(color=&quot;yellow&quot;),flierprops=flierprops)</span>
+<span class="diff-add">+axes2[0].set_title(&quot;Boxplot per Port&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+sns.boxplot(x=&#x27;card&#x27;, y=&#x27;max&#x27;, data=df, ax=axes2[1],medianprops=dict(color=&quot;yellow&quot;),flierprops=flierprops)</span>
+<span class="diff-add">+axes2[1].set_title(&quot;Boxplot per Card&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+for ax in axes2:</span>
+<span class="diff-add">+    ax.set_xticks(ax.get_xticks())  # Set tick positions explicitly</span>
+<span class="diff-add">+    ax.set_xticklabels(ax.get_xticklabels())</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+plt.tight_layout()</span>
+<span class="diff-add">+plt.savefig(&quot;Box_Whisker_Max.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Box_Whisker_Max.png&quot;])</span>
+<span class="diff-add">+# Extract Outliers - currently the print are mask, kept the code for future debug use</span>
+<span class="diff-add">+for ax in axes2:</span>
+<span class="diff-add">+    for x_label in ax.get_xticks():  # Iterate through x-axis labels (ports or cards)</span>
+<span class="diff-add">+        # Get the subset of data for this label (port or card)</span>
+<span class="diff-add">+        subset = df[df[ax.get_xlabel()] == x_label][&#x27;max&#x27;]</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        # Find outliers for this subset of data</span>
+<span class="diff-add">+        outliers = find_outliers(subset)</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        if not outliers.empty:</span>
+<span class="diff-add">+            #print(f&quot;\nDEBUG: Outliers detected for {ax.get_xlabel()} {x_label}:&quot;)</span>
+<span class="diff-add">+            for outlier in outliers:</span>
+<span class="diff-add">+                # Find the row(s) corresponding to the outlier value</span>
+<span class="diff-add">+                matching_rows = df[(df[ax.get_xlabel()] == x_label) &amp; (df[&#x27;max&#x27;] == outlier)]</span>
+<span class="diff-add">+                #for _, row in matching_rows.iterrows():</span>
+<span class="diff-add">+                    #print(f&quot;DEBUG: Outlier - Port: {row[&#x27;port&#x27;]}, Card: {row[&#x27;card&#x27;]}, Max: {outlier}&quot;)</span>
+<span class="diff-add">+# ===================================</span>
+<span class="diff-add">+# Plot 3</span>
+<span class="diff-add">+# Create subplots</span>
+<span class="diff-add">+fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)</span>
+<span class="diff-add">+# Define server types</span>
+<span class="diff-add">+server_types = [&quot;External&quot;, &quot;Internal&quot;, &quot;Xbar&quot;]</span>
+<span class="diff-add">+titles = [&quot;External Servers&quot;, &quot;Internal Servers&quot;, &quot;Xbar Servers&quot;]</span>
+<span class="diff-add">+# Plot each type separately</span>
+<span class="diff-add">+for ax, server_type, title in zip(axes, server_types, titles):</span>
+<span class="diff-add">+    subset = melted_df[melted_df[&quot;Type&quot;] == server_type]</span>
+<span class="diff-add">+    if not subset.empty:</span>
+<span class="diff-add">+        sns.boxplot(x=&quot;server&quot;, y=&quot;SER&quot;, data=subset, ax=ax)</span>
+<span class="diff-add">+        ax.set_title(title)</span>
+<span class="diff-add">+        # Set x-ticks explicitly</span>
+<span class="diff-add">+        ax.set_xticks(range(len(subset[&#x27;server&#x27;].unique())))</span>
+<span class="diff-add">+        ax.set_xticklabels(subset[&#x27;server&#x27;].unique(), rotation=90, ha=&#x27;right&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Final plot adjustments</span>
+<span class="diff-add">+axes[-1].set_xlabel(&quot;Server&quot;, fontsize=12) </span>
+<span class="diff-add">+plt.tight_layout()</span>
+<span class="diff-add">+plt.savefig(&quot;Box_Whisker_per_server.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+#plt.show(block=False)  </span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Box_Whisker_per_server.png&quot;])</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..6b71673</span>
+<h4 class="diff-filename">b/scripts/DB_compare.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,277 @@</span>
+<span class="diff-add">+import subprocess</span>
+<span class="diff-add">+import pandas as pd</span>
+<span class="diff-add">+import numpy as np</span>
+<span class="diff-add">+import matplotlib.pyplot as plt</span>
+<span class="diff-add">+import seaborn as sns</span>
+<span class="diff-add">+import time</span>
+<span class="diff-add">+import sys</span>
+<span class="diff-add">+import os</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a new DataFrame with transformed values</span>
+<span class="diff-add">+def transform_cell(cell, p50, std):</span>
+<span class="diff-add">+     # Convert std to a float (if it&#x27;s a string)</span>
+<span class="diff-add">+    try:</span>
+<span class="diff-add">+        std = float(std)</span>
+<span class="diff-add">+    except ValueError:</span>
+<span class="diff-add">+        raise ValueError(f&quot;Invalid std value: {std}&quot;)</span>
+<span class="diff-add">+    # Check if std is 0</span>
+<span class="diff-add">+    if std == 0:</span>
+<span class="diff-add">+        return 0  # Replace with 0 if std is 0</span>
+<span class="diff-add">+    else:</span>
+<span class="diff-add">+        print(&quot;cell&quot;, cell)</span>
+<span class="diff-add">+        print(&quot;p50&quot;, p50)</span>
+<span class="diff-add">+        print(&quot;std&quot;, std)</span>
+<span class="diff-add">+        return ((cell - p50) / std)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+def transform_cell1(cell, p50, std):</span>
+<span class="diff-add">+     # Convert std to a float (if it&#x27;s a string)</span>
+<span class="diff-add">+    try:</span>
+<span class="diff-add">+        std = float(std)</span>
+<span class="diff-add">+    except ValueError:</span>
+<span class="diff-add">+        raise ValueError(f&quot;Invalid std value: {std}&quot;)</span>
+<span class="diff-add">+    # Check if std is 0</span>
+<span class="diff-add">+    data = ((cell - p50) / std) if (cell &gt; p50) else 0</span>
+<span class="diff-add">+    print(&quot;cell max&quot;, cell)</span>
+<span class="diff-add">+    print(&quot;p50 max&quot;, p50)</span>
+<span class="diff-add">+    print(&quot;std max&quot;, std)</span>
+<span class="diff-add">+    if cell &lt; -7:</span>
+<span class="diff-add">+        if cell &lt; -8:</span>
+<span class="diff-add">+            return 0  # Replace with 0 if std is 0</span>
+<span class="diff-add">+        else:</span>
+<span class="diff-add">+            return 0.1 * data</span>
+<span class="diff-add">+    else:</span>
+<span class="diff-add">+    	</span>
+<span class="diff-add">+        return data</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+# Function to find outliers based on IQR</span>
+<span class="diff-add">+def find_outliers(data):</span>
+<span class="diff-add">+    Q1 = np.percentile(data, 25)</span>
+<span class="diff-add">+    Q3 = np.percentile(data, 75)</span>
+<span class="diff-add">+    IQR = Q3 - Q1</span>
+<span class="diff-add">+    lower_fence = Q1 - 1.5 * IQR</span>
+<span class="diff-add">+    upper_fence = Q3 + 1.5 * IQR</span>
+<span class="diff-add">+    outliers = data[(data &lt; lower_fence) | (data &gt; upper_fence)]</span>
+<span class="diff-add">+    return outliers</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Get the output_path of both DB from the command line arguments</span>
+<span class="diff-add">+if len(sys.argv) &lt; 3:</span>
+<span class="diff-add">+    print(&quot;Usage: python DB_analyze.py &lt;test_path&gt; &lt;output_path&gt;&quot;)</span>
+<span class="diff-add">+    sys.exit(1)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+output_path = sys.argv[1]</span>
+<span class="diff-add">+old_output_path = sys.argv[2]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Construct the full path to the CSV file in the output folder</span>
+<span class="diff-add">+csv_file_path = os.path.join(output_path, &#x27;ALL_G3_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+csv_file_path_max = os.path.join(output_path, &#x27;ALL_G3_max_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+csv_old_file_path = os.path.join(old_output_path, &#x27;ALL_G3_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+csv_old_file_path_max = os.path.join(old_output_path, &#x27;ALL_G3_max_pre_FEC_SER_int_data.csv&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Load data</span>
+<span class="diff-add">+df = pd.read_csv(csv_file_path)</span>
+<span class="diff-add">+df_max = pd.read_csv(csv_file_path_max)</span>
+<span class="diff-add">+old_df = pd.read_csv(csv_old_file_path)</span>
+<span class="diff-add">+old_df_max = pd.read_csv(csv_old_file_path_max)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+numeric_columns = [&quot;ave&quot;, &quot;P95&quot;, &quot;P75&quot;, &quot;P50&quot;]</span>
+<span class="diff-add">+df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+df_max[numeric_columns] = df_max[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+old_df[numeric_columns] = old_df[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+old_df_max[numeric_columns] = old_df_max[numeric_columns].apply(pd.to_numeric, errors=&#x27;coerce&#x27;).fillna(0)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# Arranging different data-frames</span>
+<span class="diff-add">+#	1. sort by ave (performance )</span>
+<span class="diff-add">+#	2. sort by card and port (logical)</span>
+<span class="diff-add">+#	3. Change the data frame for box and whiskler</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# Sort the DataFrame</span>
+<span class="diff-add">+df_sorted = df.sort_values(</span>
+<span class="diff-add">+    by=[df.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+df_max_sorted = df_max.sort_values(</span>
+<span class="diff-add">+    by=[df_max.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+df_logical = df.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+df_max_logical = df_max.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_sorted[&quot;x_labels&quot;] = df_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_max_sorted[&quot;x_labels&quot;] = df_max_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+# -------</span>
+<span class="diff-add">+old_df_sorted = old_df.sort_values(</span>
+<span class="diff-add">+    by=[old_df.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+old_df_max_sorted = old_df_max.sort_values(</span>
+<span class="diff-add">+    by=[old_df_max.columns[0], &quot;ave&quot;],</span>
+<span class="diff-add">+    key=lambda col: col.str.lower() if col.dtypes == &quot;object&quot; else col</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+old_df_logical = old_df.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+old_df_max_logical = old_df_max.sort_values(by=[&quot;card&quot;, &quot;port&quot;], ascending=False)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_sorted[&quot;x_labels&quot;] = df_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                        df_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+df_max_sorted[&quot;x_labels&quot;] = df_max_sorted[df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                            df_max_sorted[df.columns[2]].astype(str)</span>
+<span class="diff-add">+                            </span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+old_df_sorted[&quot;x_labels&quot;] = old_df_sorted[old_df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                            old_df_sorted[old_df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                            old_df_sorted[old_df.columns[2]].astype(str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create the x-axis labels</span>
+<span class="diff-add">+old_df_max_sorted[&quot;x_labels&quot;] = old_df_max_sorted[old_df.columns[0]].astype(str) + &quot;_&quot; + \</span>
+<span class="diff-add">+                                old_df_max_sorted[old_df.columns[1]].astype(str) + &quot;-&quot; + \</span>
+<span class="diff-add">+                                old_df_max_sorted[old_df.columns[2]].astype(str)</span>
+<span class="diff-add">+# Melt the DataFrame: Keep &quot;card&quot; and &quot;port&quot; as identifiers, convert server columns into one column</span>
+<span class="diff-add">+# Identify server columns (starting with &quot;g3-&quot;)</span>
+<span class="diff-add">+server_columns = [col for col in df.columns if col.startswith(&quot;g3-&quot;)]</span>
+<span class="diff-add">+# Melt the DataFrame correctly, keeping &#x27;Type&#x27; for classification</span>
+<span class="diff-add">+melted_df = df.melt(id_vars=[&quot;Type&quot;], value_vars=server_columns, var_name=&quot;server&quot;, value_name=&quot;SER&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+old_server_columns = [col for col in old_df.columns if col.startswith(&quot;g3-&quot;)]</span>
+<span class="diff-add">+# Melt the DataFrame correctly, keeping &#x27;Type&#x27; for classification</span>
+<span class="diff-add">+old_melted_df = old_df.melt(id_vars=[&quot;Type&quot;], value_vars=old_server_columns, var_name=&quot;server&quot;, value_name=&quot;SER&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Remove rows where SER == 0</span>
+<span class="diff-add">+melted_df = melted_df[melted_df[&quot;SER&quot;] != 0]</span>
+<span class="diff-add">+old_melted_df = old_melted_df[old_melted_df[&quot;SER&quot;] != 0]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =============================================================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 1st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) </span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+fig, ax1 = plt.subplots()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Plot the first dataset</span>
+<span class="diff-add">+ax1.plot(df_sorted[&quot;x_labels&quot;], df_sorted[&quot;ave&quot;], &#x27;b--&#x27;, label=&quot;New ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+ax1.set_ylabel(&quot;New Rev Ave&quot;, color=&#x27;b&#x27;)</span>
+<span class="diff-add">+ax1.tick_params(axis=&#x27;y&#x27;, labelcolor=&#x27;b&#x27;, labelsize=8)</span>
+<span class="diff-add">+ax1.set_xticks(df_sorted[&quot;x_labels&quot;])  # Ensure ticks match labels</span>
+<span class="diff-add">+ax1.set_xticklabels(df_sorted[&quot;x_labels&quot;], rotation=90, ha=&#x27;right&#x27;)</span>
+<span class="diff-add">+ax1.set_xlim(-1, 192)</span>
+<span class="diff-add">+#ax1.set_ylim(df_sorted[&quot;ave&quot;].min(), df_sorted[&quot;ave&quot;].max())</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a second x-axis on top</span>
+<span class="diff-add">+ax2 = ax1.secondary_xaxis(&#x27;top&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a second y-axis for the second dataset</span>
+<span class="diff-add">+ax3 = ax1.twinx()</span>
+<span class="diff-add">+ax3.plot(df_sorted[&quot;x_labels&quot;], old_df_sorted[&quot;ave&quot;], &#x27;r--&#x27;, label=&quot;old ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+ax3.tick_params(axis=&#x27;y&#x27;, labelcolor=&#x27;r&#x27;)</span>
+<span class="diff-add">+ax3.set_xticklabels(df_sorted[&quot;x_labels&quot;], ha=&#x27;right&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show legend</span>
+<span class="diff-add">+ax1.legend(loc=&quot;upper left&quot;)</span>
+<span class="diff-add">+ax3.legend(loc=&quot;upper right&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+plt.title(&quot;Average pre_fec compare&quot;)</span>
+<span class="diff-add">+plt.tight_layout(pad=0.1)</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+plt.savefig(&quot;Average_SER_statistics_FOM_compare.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Average_SER_statistics_FOM_compare.png&quot;])</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 2st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) </span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+fig1, ax4 = plt.subplots()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Plot the first dataset</span>
+<span class="diff-add">+ax4.plot(df_max_sorted[&quot;x_labels&quot;], df_max_sorted[&quot;ave&quot;], &#x27;b--&#x27;, label=&quot;New ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+ax4.set_ylabel(&quot;New Rev Ave&quot;, color=&#x27;b&#x27;)</span>
+<span class="diff-add">+ax4.tick_params(axis=&#x27;y&#x27;, labelcolor=&#x27;b&#x27;, labelsize=8)</span>
+<span class="diff-add">+ax4.set_xticks(df_max_sorted[&quot;x_labels&quot;])  # Ensure ticks match labels</span>
+<span class="diff-add">+ax4.set_xticklabels(df_max_sorted[&quot;x_labels&quot;], rotation=90, ha=&#x27;right&#x27;)</span>
+<span class="diff-add">+ax4.set_xlim(-1, 192)</span>
+<span class="diff-add">+#ax1.set_ylim(df_sorted[&quot;ave&quot;].min(), df_sorted[&quot;ave&quot;].max())</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a second x-axis on top</span>
+<span class="diff-add">+ax5 = ax4.secondary_xaxis(&#x27;top&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Create a second y-axis for the second dataset</span>
+<span class="diff-add">+ax6 = ax4.twinx()</span>
+<span class="diff-add">+ax6.plot(df_max_sorted[&quot;x_labels&quot;], old_df_max_sorted[&quot;ave&quot;], &#x27;r--&#x27;, label=&quot;old ave&quot;, marker=&quot;o&quot;)</span>
+<span class="diff-add">+ax6.tick_params(axis=&#x27;y&#x27;, labelcolor=&#x27;r&#x27;)</span>
+<span class="diff-add">+ax6.set_xticklabels(df_max_sorted[&quot;x_labels&quot;], ha=&#x27;right&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show legend</span>
+<span class="diff-add">+ax4.legend(loc=&quot;upper left&quot;)</span>
+<span class="diff-add">+ax6.legend(loc=&quot;upper right&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+plt.title(&quot;Max pre_fec compare&quot;)</span>
+<span class="diff-add">+plt.tight_layout(pad=0.1)</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+plt.savefig(&quot;Max_SER_statistics_FOM_compare.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;Max_SER_statistics_FOM_compare.png&quot;])</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 3rd Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) </span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Select the numerical column to plot (e.g., &quot;ave&quot;)</span>
+<span class="diff-add">+column_to_plot = &quot;ave&quot;</span>
+<span class="diff-add">+# Create a histogram for both datasets</span>
+<span class="diff-add">+# Create a histogram with only outlines</span>
+<span class="diff-add">+plt.figure(figsize=(10, 6))</span>
+<span class="diff-add">+plt.hist(old_df_logical[column_to_plot], bins=30, histtype=&quot;step&quot;, linewidth=2, label=&quot;Old Data&quot;, color=&quot;blue&quot;)</span>
+<span class="diff-add">+plt.hist(df_logical[column_to_plot], bins=30, histtype=&quot;step&quot;, linewidth=2, label=&quot;New Data&quot;, color=&quot;red&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Formatting</span>
+<span class="diff-add">+plt.xlabel(column_to_plot)</span>
+<span class="diff-add">+plt.ylabel(&quot;Frequency&quot;)</span>
+<span class="diff-add">+plt.title(f&quot;Histogram of {column_to_plot}&quot;)</span>
+<span class="diff-add">+plt.legend()</span>
+<span class="diff-add">+plt.grid(axis=&quot;y&quot;, linestyle=&quot;--&quot;, alpha=0.7)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show plot</span>
+<span class="diff-add">+#plt.show(block=False)</span>
+<span class="diff-add">+plt.savefig(&quot;SER_Histogram_compare.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;SER_Histogram_compare.png&quot;])</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+# 4rd Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) </span>
+<span class="diff-add">+# Create a 2x2 grid of subplots</span>
+<span class="diff-add">+# =======================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Select the numerical column to plot (e.g., &quot;ave&quot;)</span>
+<span class="diff-add">+column_to_plot = &quot;ave&quot;</span>
+<span class="diff-add">+# Create a histogram for both datasets</span>
+<span class="diff-add">+# Create a histogram with only outlines</span>
+<span class="diff-add">+plt.figure(figsize=(10, 6))</span>
+<span class="diff-add">+plt.hist(old_df_logical[column_to_plot]-df_logical[column_to_plot], bins=20, histtype=&quot;step&quot;, linewidth=2, label=&quot;per port diff: old - new&quot;, color=&quot;blue&quot;)</span>
+<span class="diff-add">+#plt.hist(df_logical[column_to_plot], bins=30, histtype=&quot;step&quot;, linewidth=2, label=&quot;New Data&quot;, color=&quot;red&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Formatting</span>
+<span class="diff-add">+plt.xlabel(column_to_plot)</span>
+<span class="diff-add">+plt.ylabel(&quot;Frequency&quot;)</span>
+<span class="diff-add">+plt.title(f&quot;Histogram of {column_to_plot}&quot;)</span>
+<span class="diff-add">+plt.legend()</span>
+<span class="diff-add">+plt.grid(axis=&quot;y&quot;, linestyle=&quot;--&quot;, alpha=0.7)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Show plot</span>
+<span class="diff-add">+#plt.show()</span>
+<span class="diff-add">+plt.savefig(&quot;SER_change_Histogram.png&quot;)  # Save as PNG</span>
+<span class="diff-add">+subprocess.run([&quot;xdg-open&quot;, &quot;SER_Change_Histogram.png&quot;])</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100755</span>
+<span class="diff-ctx">index 0000000..d3b5999</span>
+<h4 class="diff-filename">b/scripts/DB_stat_calc_par.sh</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,273 @@</span>
+<span class="diff-add">+#!/bin/bash</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Directory containing the files</span>
+<span class="diff-add">+# directory=&quot;/software/devops/logs/pre_fec_stats/g3&quot;</span>
+<span class="diff-add">+# directory=&quot;/home/obenjamin/eth_an_31012024/&quot;</span>
+<span class="diff-add">+# Check if the correct number of arguments are provided</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Function to show progress</span>
+<span class="diff-add">+show_progress() {</span>
+<span class="diff-add">+    local iteration=&quot;$1&quot;</span>
+<span class="diff-add">+    local total=&quot;$2&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    if [[ &quot;$OSTYPE&quot; == &quot;linux-gnu&quot;* ]]; then</span>
+<span class="diff-add">+        echo &quot;$((iteration * 100 / total))&quot;</span>
+<span class="diff-add">+    elif [[ &quot;$OSTYPE&quot; == &quot;darwin&quot;* ]]; then</span>
+<span class="diff-add">+        osascript -e &quot;display notification \&quot;Running iteration $iteration - $total...\&quot; with title \&quot;Loop Status\&quot;&quot;</span>
+<span class="diff-add">+    else</span>
+<span class="diff-add">+        echo &quot;Unsupported OS: $OSTYPE&quot;</span>
+<span class="diff-add">+        exit 1</span>
+<span class="diff-add">+    fi</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Debugging the arguments</span>
+<span class="diff-add">+echo &quot;Number of arguments passed: $#&quot;</span>
+<span class="diff-add">+echo &quot;Test Path: $1&quot;</span>
+<span class="diff-add">+echo &quot;Output Path: $2&quot;</span>
+<span class="diff-add">+if [ &quot;$#&quot; -ne 2 ]; then</span>
+<span class="diff-add">+    echo &quot;Usage: $0 &lt;test_path&gt; &lt;output_path&gt;&quot;</span>
+<span class="diff-add">+    exit 1</span>
+<span class="diff-add">+fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Get the test_path and output_path arguments</span>
+<span class="diff-add">+test_path=$1</span>
+<span class="diff-add">+output_path=$2</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Debug: Print values of test_path and output_path</span>
+<span class="diff-add">+echo &quot;Test Path: $test_path&quot;</span>
+<span class="diff-add">+echo &quot;Output Path: $output_path&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Update the variables to use the provided arguments</span>
+<span class="diff-add">+directory=&quot;$test_path&quot;  # test_path from the argument</span>
+<span class="diff-add">+output_file=&quot;$output_path/ALL_G3_pre_FEC_SER_int_data.csv&quot;  # output_path from the argument</span>
+<span class="diff-add">+output_maxfile=&quot;$output_path/ALL_G3_max_pre_FEC_SER_int_data.csv&quot;  # output_path from the argument</span>
+<span class="diff-add">+output_postfile=&quot;$output_path/ALL_G3_post_FEC_SER_int_data.csv&quot; </span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;directory: $directory&quot;</span>
+<span class="diff-add">+echo &quot;output_file: $output_file&quot;</span>
+<span class="diff-add">+#directory=&quot;/home/obenjamin/ALL_G3/&quot;</span>
+<span class="diff-add">+#directory=&quot;/software/devops/logs/pre_fec_stats/ALL_G3_Rev20P0/&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Output file to store the results</span>
+<span class="diff-add">+#output_file=&quot;/home/obenjamin/Rev_1p20p0/ALL_G3_pre_FEC_SER_int_data.csv&quot;</span>
+<span class="diff-add">+#output_maxfile=&quot;/home/obenjamin/Rev_1p20p0/ALL_G3_max_pre_FEC_SER_int_data.csv&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Table data extracted from the image (assuming it&#x27;s in the same order as shown)</span>
+<span class="diff-add">+table_data=(&quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Internal&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;External&quot; &quot;Xbar&quot; &quot;Xbar&quot; &quot;Internal&quot; &quot;Internal&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Function to calculate log10 using awk</span>
+<span class="diff-add">+log10() {</span>
+<span class="diff-add">+    awk -v val=&quot;$1&quot; &#x27;BEGIN {if (val &gt; 0) print log(val)/log(10); else print &quot;0&quot;}&#x27;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Function to calculate median using awk</span>
+<span class="diff-add">+median() {</span>
+<span class="diff-add">+    sort -n | awk &#x27;</span>
+<span class="diff-add">+    {</span>
+<span class="diff-add">+        count[NR] = $1</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    END {</span>
+<span class="diff-add">+        if (NR % 2) {</span>
+<span class="diff-add">+            print count[(NR + 1) / 2]</span>
+<span class="diff-add">+        } else {</span>
+<span class="diff-add">+            print (count[(NR / 2)] + count[(NR / 2) + 1]) / 2</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+    }&#x27;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+percentile() {</span>
+<span class="diff-add">+    sort -n | awk -v p=&quot;$1&quot; &#x27;</span>
+<span class="diff-add">+    BEGIN {ORS=&quot; &quot;}</span>
+<span class="diff-add">+    {</span>
+<span class="diff-add">+        a[NR] = $1</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    END {</span>
+<span class="diff-add">+        if (NR == 0) print &quot;0&quot;</span>
+<span class="diff-add">+        else {</span>
+<span class="diff-add">+            idx = int(NR * p / 100 + 0.5);</span>
+<span class="diff-add">+            if (idx &lt; 1) idx = 1;  # Ensure index is at least 1</span>
+<span class="diff-add">+            print a[idx];</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+    }&#x27;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Function to process a single card-port combination</span>
+<span class="diff-add">+process_card_port() {</span>
+<span class="diff-add">+    local card=$1</span>
+<span class="diff-add">+    local port=$2</span>
+<span class="diff-add">+    local row_num=$3</span>
+<span class="diff-add">+    local start_time=$(date +%s)</span>
+<span class="diff-add">+    index=$((card * 24 + port))</span>
+<span class="diff-add">+    # Start building the line with card and port</span>
+<span class="diff-add">+    #local line=&quot;$card,$port,&quot;</span>
+<span class="diff-add">+    # Initialize line with table data, card, and port</span>
+<span class="diff-add">+    local line=&quot;${table_data[$index]},$card,$port,&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Initialize sum and count for average calculation</span>
+<span class="diff-add">+    local sum_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+    local count_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+    local sum_log_pre_fec_ser_int_sq=0</span>
+<span class="diff-add">+    local log_pre_fec_ser_int_values=()</span>
+<span class="diff-add">+    local max_log_pre_fec_ser_int=-99999</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    for file in &quot;$directory&quot;/*; do</span>
+<span class="diff-add">+        # Skip directories</span>
+<span class="diff-add">+        [ -d &quot;$file&quot; ] &amp;&amp; continue</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+        # Extract pre_FEC_SER_int data</span>
+<span class="diff-add">+        #pre_fec_ser_int=$(grep -ai &quot;^$card,$port&quot; &quot;$file&quot; | awk -F, &#x27;NR==1 {print $27}&#x27;)</span>
+<span class="diff-add">+        pre_fec_ser_int=$(grep -ai &quot;^$card,$port&quot; &quot;$file&quot; | awk -F, -v col=&quot;$row_num&quot; &#x27;NR==1 {print $col}&#x27;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        # Replace 0e-0 with 1e-12 if found</span>
+<span class="diff-add">+        if [ &quot;$pre_fec_ser_int&quot; == &quot;0e-0&quot; ]; then</span>
+<span class="diff-add">+            pre_fec_ser_int=&quot;1e-12&quot;</span>
+<span class="diff-add">+        fi</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+       # ***</span>
+<span class="diff-add">+        if [ -z &quot;$pre_fec_ser_int&quot; ]; then</span>
+<span class="diff-add">+            pre_fec_ser_int=&quot;1&quot;</span>
+<span class="diff-add">+            #count_log_pre_fec_ser_int=$((count_log_pre_fec_ser_int - 1))</span>
+<span class="diff-add">+            # Calculate log10 of pre_fec_ser_int</span>
+<span class="diff-add">+            log_pre_fec_ser_int=$(log10 $pre_fec_ser_int)</span>
+<span class="diff-add">+        else</span>
+<span class="diff-add">+            # Calculate log10 of pre_fec_ser_int</span>
+<span class="diff-add">+            log_pre_fec_ser_int=$(log10 $pre_fec_ser_int)</span>
+<span class="diff-add">+            # Update max_log_pre_fec_ser_int</span>
+<span class="diff-add">+            if (( $(echo &quot;$log_pre_fec_ser_int &gt; $max_log_pre_fec_ser_int&quot; | bc -l) )); then</span>
+<span class="diff-add">+                max_log_pre_fec_ser_int=$log_pre_fec_ser_int</span>
+<span class="diff-add">+            fi</span>
+<span class="diff-add">+            # Accumulate sum and count for average calculation</span>
+<span class="diff-add">+            sum_log_pre_fec_ser_int=$(awk &quot;BEGIN {print $sum_log_pre_fec_ser_int + $log_pre_fec_ser_int}&quot;)</span>
+<span class="diff-add">+            sum_log_pre_fec_ser_int_sq=$(awk &quot;BEGIN {print $sum_log_pre_fec_ser_int_sq + ($log_pre_fec_ser_int * $log_pre_fec_ser_int)}&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+            count_log_pre_fec_ser_int=$((count_log_pre_fec_ser_int + 1))</span>
+<span class="diff-add">+            # Collect log_pre_fec_ser_int for median calculation</span>
+<span class="diff-add">+            log_pre_fec_ser_int_values+=(&quot;$log_pre_fec_ser_int&quot;)</span>
+<span class="diff-add">+        fi</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        # Append log_pre_fec_ser_int to the line</span>
+<span class="diff-add">+        line=&quot;$line$log_pre_fec_ser_int,&quot;</span>
+<span class="diff-add">+    done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Calculate average log_pre_fec_ser_int if count is not zero</span>
+<span class="diff-add">+    if [ $count_log_pre_fec_ser_int -ne 0 ]; then</span>
+<span class="diff-add">+        average_log_pre_fec_ser_int=$(awk &quot;BEGIN {print $sum_log_pre_fec_ser_int / $count_log_pre_fec_ser_int}&quot;)</span>
+<span class="diff-add">+        variance_log_pre_fec_ser_int=$(awk &quot;BEGIN {print ($sum_log_pre_fec_ser_int_sq / $count_log_pre_fec_ser_int) - ($average_log_pre_fec_ser_int * $average_log_pre_fec_ser_int)}&quot;)</span>
+<span class="diff-add">+        stdev_log_pre_fec_ser_int=$(awk &quot;BEGIN {print sqrt($variance_log_pre_fec_ser_int)}&quot;)</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        # Calculate median log_pre_fec_ser_int</span>
+<span class="diff-add">+        median_log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | median)</span>
+<span class="diff-add">+        </span>
+<span class="diff-add">+        # Calculate percentiles log_pre_fec_ser_int</span>
+<span class="diff-add">+        P5log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 5)</span>
+<span class="diff-add">+        P15log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 15)</span>
+<span class="diff-add">+        P25log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 25)</span>
+<span class="diff-add">+        P35log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 35)</span>
+<span class="diff-add">+        P65log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 65)</span>
+<span class="diff-add">+        P75log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 75)</span>
+<span class="diff-add">+        P85log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 85)</span>
+<span class="diff-add">+        P95log_pre_fec_ser_int=$(echo &quot;${log_pre_fec_ser_int_values[@]}&quot; | tr &#x27; &#x27; &#x27;\n&#x27; | percentile 95)</span>
+<span class="diff-add">+    else</span>
+<span class="diff-add">+        average_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        stdev_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        median_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        max_log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P5log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P15log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P25log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P35log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P55log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P65log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P75log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P85log_pre_fec_ser_int=0</span>
+<span class="diff-add">+        P95log_pre_fec_ser_int=0</span>
+<span class="diff-add">+    fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Remove the trailing comma and append the line and average to the output file</span>
+<span class="diff-add">+    # Set output file name based on row_num</span>
+<span class="diff-add">+    local output_file_name</span>
+<span class="diff-add">+#    if [[ $row_num -eq 27 ]]; then</span>
+<span class="diff-add">+#        output_file_name=&quot;$output_file&quot;</span>
+<span class="diff-add">+#    else</span>
+<span class="diff-add">+#        output_file_name=&quot;$output_maxfile&quot;</span>
+<span class="diff-add">+#    fi</span>
+<span class="diff-add">+    case $row_num in</span>
+<span class="diff-add">+        27) output_file_name=&quot;$output_file&quot; ;;</span>
+<span class="diff-add">+        28) output_file_name=&quot;$output_maxfile&quot; ;;</span>
+<span class="diff-add">+        29) output_file_name=&quot;$output_postfile&quot; ;;</span>
+<span class="diff-add">+    esac</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    </span>
+<span class="diff-add">+    echo &quot;${line%,},,$count_log_pre_fec_ser_int,, $average_log_pre_fec_ser_int,$stdev_log_pre_fec_ser_int, $P5log_pre_fec_ser_int, $P15log_pre_fec_ser_int, $P25log_pre_fec_ser_int,$P35log_pre_fec_ser_int,$median_log_pre_fec_ser_int,$P65log_pre_fec_ser_int,$P75log_pre_fec_ser_int,$P85log_pre_fec_ser_int,$P95log_pre_fec_ser_int, $max_log_pre_fec_ser_int&quot; &gt;&gt; &quot;$output_file_name&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    local end_time=$(date +%s)</span>
+<span class="diff-add">+    local elapsed_time=$((end_time - start_time))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Print elapsed time</span>
+<span class="diff-add">+    #echo -ne &quot;\nProcessing completed for card $card, port $port. time: $elapsed_time.&quot;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Generate the title row with all filenames from the directory</span>
+<span class="diff-add">+title_row=&quot;Type,card,port,&quot;</span>
+<span class="diff-add">+for file in &quot;$directory&quot;/*; do</span>
+<span class="diff-add">+    # Skip directories</span>
+<span class="diff-add">+    [ -d &quot;$file&quot; ] &amp;&amp; continue</span>
+<span class="diff-add">+    title_row=&quot;$title_row$(basename &quot;$file&quot;),&quot;</span>
+<span class="diff-add">+done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;${title_row%,},,Number_of_files,stats:,ave,std,P5,P15,P25,P35,P50,P65,P75,P85,P95,max&quot; &gt; &quot;$output_file&quot;</span>
+<span class="diff-add">+echo &quot;${title_row%,},,Number_of_files,stats:,ave,std,P5,P15,P25,P35,P50,P65,P75,P85,P95,max&quot; &gt; &quot;$output_maxfile&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Check if card and port are provided as arguments</span>
+<span class="diff-add">+if [ &quot;$#&quot; -eq 4 ]; then</span>
+<span class="diff-add">+    # User-specified card and port</span>
+<span class="diff-add">+    card=$3</span>
+<span class="diff-add">+    port=$4</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Validate card and port</span>
+<span class="diff-add">+    if ! [[ &quot;$card&quot; =~ ^[0-7]$ ]]; then</span>
+<span class="diff-add">+        echo &quot;Error: Card must be a number between 0 and 7.&quot;</span>
+<span class="diff-add">+        exit 1</span>
+<span class="diff-add">+    fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    if ! [[ &quot;$port&quot; =~ ^[0-9]{2}$ ]] || [ &quot;$port&quot; -lt 0 ] || [ &quot;$port&quot; -gt 23 ]; then</span>
+<span class="diff-add">+        echo &quot;Error: Port must be a number between 00 and 23.&quot;</span>
+<span class="diff-add">+        exit 1</span>
+<span class="diff-add">+    fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    # Process specific card and port</span>
+<span class="diff-add">+    process_card_port $card $port 27</span>
+<span class="diff-add">+    exit 0</span>
+<span class="diff-add">+fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Processing all cards and ports in parallel</span>
+<span class="diff-add">+i=0</span>
+<span class="diff-add">+total=192</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+for card in {0..7}; do</span>
+<span class="diff-add">+    for port in {0..23}; do</span>
+<span class="diff-add">+        process_card_port $card $port 27 &amp;</span>
+<span class="diff-add">+    done</span>
+<span class="diff-add">+done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+for card in {0..7}; do</span>
+<span class="diff-add">+    for port in {0..23}; do</span>
+<span class="diff-add">+        process_card_port $card $port 28 &amp;</span>
+<span class="diff-add">+    done</span>
+<span class="diff-add">+done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+for card in {0..7}; do</span>
+<span class="diff-add">+    for port in {0..23}; do</span>
+<span class="diff-add">+        process_card_port $card $port 29 &amp;</span>
+<span class="diff-add">+    done</span>
+<span class="diff-add">+done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Wait for all background processes to finish</span>
+<span class="diff-add">+wait</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo -ne &quot;\nAll processing completed. Results saved to $output_file &amp; $output_maxfile.\n&quot;</span>
+<span class="diff-add">+exit 0</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-19 11:21:25.287000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-19 11:21:36.645000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32153/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-19 11:27:21.674000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6311/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-19 11:27:21.679000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5558/ (3/3)</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-19 11:27:44.978000000)</span><pre>Removed Finished-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-19 11:27:49.055000000)</span><pre>Patch Set 1: Code-Review+2</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-19 12:39:32.253000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6311/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7332/ )
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7332/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5558/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/4716/ )
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/4716/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32153/ : SUCCESS</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-23 09:23:14.580000000)</span><pre>Removed Verified-1 by Jenkins EMB Service Account (1001942)
+</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-23 09:23:19.337000000)</span><pre>Patch Set 1: Finished+1</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-23 09:23:44.262000000)</span><pre>Patch Set 2: Patch Set 1 was rebased</pre></div><div class="message"><strong>Ofer Benjamin</strong> <span class="date">(2025-02-23 09:23:49.708000000)</span><pre>Patch Set 2: Finished+1</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-23 09:23:50.817000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32297/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-23 09:29:22.178000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6349/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-23 09:29:22.179000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5596/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-23 11:17:55.833000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32297/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6349/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5596/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

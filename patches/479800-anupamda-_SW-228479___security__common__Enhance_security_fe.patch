@@ -1,0 +1,42 @@
+From 55bbab50130cef7f55f94c12008c8979711e9b91 Mon Sep 17 00:00:00 2001
+From: Anupam Datta <andatta@habana.ai>
+Date: Thu, 15 May 2025 10:29:50 +0300
+Subject: [PATCH] [SW-228479]: security: common: Enhance security features in Makefile with additional compiler flags
+
+This patch enhances the build configuration by
+introducing additional compiler and linker flags aimed
+at improving binary security:
+
+- Enables PIE (`-fPIE`, `-pie`) for position-independent
+  executables.
+- Enables RELRO (`-Wl,-z,relro`) and immediate binding
+  (`-Wl,-z,now`) to harden the binary against certain
+  memory corruption attacks.
+- Adds `_FORTIFY_SOURCE=2` for lightweight buffer
+  overflow protection.
+- Enables `-O3` for maximum optimization.
+
+Change-Id: Ib0cd0d0426953e0eb9448446160ca5572a107e05
+Signed-off-by: Anupam Datta <andatta@habana.ai>
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b3b0c07..a91d5ea 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -107,7 +107,14 @@
+ 							${ZEPHYR_MODULES_DIR}/littlefs/zephyr/lfs_log_console_sender.c)
+ target_sources_ifdef(CONFIG_LFS_SHELL app PRIVATE ${ZEPHYR_MODULES_DIR}/littlefs/zephyr/lfs_zephyr_shell.c)
+ 
+-zephyr_ld_options(-Wl,--no-warn-rwx-segments)
++# Add security-related compiler flags
++target_compile_options(app PRIVATE
++    -O3
++    -D_FORTIFY_SOURCE=2
++    -fPIE
++)
++
++zephyr_ld_options(-pie -Wl,-z,relro -Wl,-z,now -Wl,--no-warn-rwx-segments)
+ 
+ if(CONFIG_SOC_HL_GAUDI2_MGMT)
+ if(CONFIG_LIBI2C_INDIRECT)

@@ -1,0 +1,27 @@
+From af7165b82e5d4632fdfdcc88826ed4ba90e84fd1 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Thu, 08 May 2025 10:09:13 +0300
+Subject: [PATCH] [SW-224126] installer: openmpi - disable output numerous warnings
+
+Change-Id: I061323ff290f26e746c5e2efc8752db9c58a70e5
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+(cherry picked from commit 7ba67157531db4ea3cad75d9f2b6246120e4ea46)
+---
+
+diff --git a/installer/src/lib/common.sh b/installer/src/lib/common.sh
+index 306bab8..667dae1 100644
+--- a/installer/src/lib/common.sh
++++ b/installer/src/lib/common.sh
+@@ -648,9 +648,9 @@
+     wget -q -O ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz "${DEFAULT_OPENMPI_DOWNLOAD_URL}/openmpi-${OPENMPI_VERSION}.tar.gz"
+     pushd ${_mpi_temp_dir} && tar xzf ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz && popd
+     pushd ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}
+-    ./configure --prefix=${OPENMPI_ROOT}
+-    make -j `nproc --all`
+-    $_SUDO_CMD make install
++    ./configure --prefix=${OPENMPI_ROOT} 2>&1 | $_SUDO_CMD tee -a "$HABANALABS_INSTALLER_LOG"
++    make -j `nproc --all` 2>&1 | $_SUDO_CMD tee -a "$HABANALABS_INSTALLER_LOG"
++    $_SUDO_CMD make install 2>&1 | $_SUDO_CMD tee -a "$HABANALABS_INSTALLER_LOG"
+     $_SUDO_CMD cp LICENSE ${OPENMPI_ROOT}
+     popd
+     rm -rf ${_mpi_temp_dir}

@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 461186: [SW-207601] Override torch.matmul in eager and t.compile</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 461186: [SW-207601] Override torch.matmul in eager and t.compile</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> pytorch-integration</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Amadeusz Skrzypczak &lt;askrzypczak@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-11-06 11:44:10.352000000</p>
+            <p><strong>Updated:</strong> 2024-11-07 13:03:43.819000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-207601] Override torch.matmul in eager and t.compile
+
+Change-Id: Ib064fbb6fef5d51d8f8cfc7915037e7e569eb402
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Piotr Papierkowski: +0, Pawel Swider: +0, Amadeusz Skrzypczak: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>habana_eager/CMakeLists.txt</code> (M) +1 -0</li><li><code>habana_eager/ops/matmul.cpp</code> (A) +115 -0</li><li><code>hpu_ops/CMakeLists.txt</code> (M) +1 -0</li><li><code>hpu_ops/backend/matmul.cpp</code> (A) +178 -0</li><li><code>hpu_ops/matmul.h</code> (A) +33 -0</li><li><code>python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py</code> (M) +21 -0</li><li><code>python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py</code> (M) +14 -0</li><li><code>python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py</code> (M) +5 -1</li><li><code>python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py</code> (M) +1 -0</li><li><code>tests/pytest_working/any_mode/test_hpu_matmul.py</code> (R) +26 -3</li><li><code>tests/pytest_working/compile/test_pass_inference.py</code> (M) +1 -1</li><li><code>tests/pytest_working/compile/test_pt2e_quant_flow.py</code> (M) +1 -1</li><li><code>tests/pytest_working/lazy/test_lazy_matmul.py</code> (D) +0 -97</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/habana_eager/CMakeLists.txt</h4><pre class="diff-content"><span class="diff-hunk">@@ -37,6 +37,7 @@</span>
+<span class="diff-ctx">           ops/index_put.cpp</span>
+<span class="diff-ctx">           ops/instance_norm.cpp</span>
+<span class="diff-ctx">           ops/local_scalar_dense.cpp</span>
+<span class="diff-add">+          ops/matmul.cpp</span>
+<span class="diff-ctx">           ops/masked_select.cpp</span>
+<span class="diff-ctx">           ops/nonzero.cpp</span>
+<span class="diff-ctx">           ops/unique.cpp</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..a7f919d</span>
+<h4 class="diff-filename">b/habana_eager/ops/matmul.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,115 @@</span>
+<span class="diff-add">+/*******************************************************************************</span>
+<span class="diff-add">+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ * Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-add">+ * is strictly prohibited.</span>
+<span class="diff-add">+ * This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-add">+ * and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-add">+ * was provided.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ *******************************************************************************</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+#include &quot;hpu_ops/matmul.h&quot;</span>
+<span class="diff-add">+#include &lt;ATen/ATen.h&gt;</span>
+<span class="diff-add">+#include &lt;ATen/Tensor.h&gt;</span>
+<span class="diff-add">+#include &lt;torch/library.h&gt;</span>
+<span class="diff-add">+#include &quot;backend/helpers/tensor_utils.h&quot;</span>
+<span class="diff-add">+#include &quot;common/dump_args.h&quot;</span>
+<span class="diff-add">+#include &quot;habana_eager/ops/eager_op.h&quot;</span>
+<span class="diff-add">+#include &quot;habana_helpers/logging.h&quot;</span>
+<span class="diff-add">+#include &quot;hpu_ops/op_logger.h&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+namespace habana {</span>
+<span class="diff-add">+namespace eager {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+at::Tensor matmul_forward(const at::Tensor&amp; self, const at::Tensor&amp; other) {</span>
+<span class="diff-add">+  PT_EAGER_TRACE;</span>
+<span class="diff-add">+  PT_OP_INFO(&quot;matmul: &quot;, DUMP_2ARGS(self, other));</span>
+<span class="diff-add">+  habana::eager::EagerOp&lt;at::Tensor&gt; hpu_op{&quot;hpu::matmul&quot;, {self, other}};</span>
+<span class="diff-add">+  hpu_op.SetOutputMetaFn(MatmulMeta);</span>
+<span class="diff-add">+  return hpu_op.call();</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+at::Tensor matmul_forward_dispatch(</span>
+<span class="diff-add">+    const at::Tensor&amp; self,</span>
+<span class="diff-add">+    const at::Tensor&amp; other) {</span>
+<span class="diff-add">+  static auto op = torch::Dispatcher::singleton()</span>
+<span class="diff-add">+                       .findSchemaOrThrow(&quot;hpu::matmul&quot;, &quot;&quot;)</span>
+<span class="diff-add">+                       .typed&lt;decltype(matmul_forward_dispatch)&gt;();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  return op.call(self, other);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+std::tuple&lt;at::Tensor, at::Tensor&gt; matmul_bwd(</span>
+<span class="diff-add">+    const at::Tensor&amp; grad_output,</span>
+<span class="diff-add">+    const at::Tensor&amp; self,</span>
+<span class="diff-add">+    const at::Tensor&amp; other) {</span>
+<span class="diff-add">+  PT_EAGER_TRACE;</span>
+<span class="diff-add">+  PT_OP_INFO(&quot;matmul_bwd: &quot;, DUMP_3ARGS(grad_output, self, other));</span>
+<span class="diff-add">+  habana::eager::EagerOp&lt;std::tuple&lt;at::Tensor, at::Tensor&gt;&gt; hpu_op(</span>
+<span class="diff-add">+      &quot;hpu::matmul_bwd&quot;,</span>
+<span class="diff-add">+      {grad_output, self, other},</span>
+<span class="diff-add">+      {self.sizes().vec(), other.sizes().vec()});</span>
+<span class="diff-add">+  return hpu_op.call();</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+std::tuple&lt;at::Tensor, at::Tensor&gt; matmul_bwd_dispatch(</span>
+<span class="diff-add">+    const at::Tensor&amp; grad_output,</span>
+<span class="diff-add">+    const at::Tensor&amp; self,</span>
+<span class="diff-add">+    const at::Tensor&amp; other) {</span>
+<span class="diff-add">+  static auto op = torch::Dispatcher::singleton()</span>
+<span class="diff-add">+                       .findSchemaOrThrow(&quot;hpu::matmul_bwd&quot;, &quot;&quot;)</span>
+<span class="diff-add">+                       .typed&lt;decltype(matmul_bwd_dispatch)&gt;();</span>
+<span class="diff-add">+  return op.call(grad_output, self, other);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct MatmulFunction : public torch::autograd::Function&lt;MatmulFunction&gt; {</span>
+<span class="diff-add">+  static torch::autograd::variable_list forward(</span>
+<span class="diff-add">+      torch::autograd::AutogradContext* ctx,</span>
+<span class="diff-add">+      const at::Tensor&amp; self,</span>
+<span class="diff-add">+      const at::Tensor&amp; other) {</span>
+<span class="diff-add">+    at::AutoDispatchBelowADInplaceOrView g;</span>
+<span class="diff-add">+    auto output = matmul_forward_dispatch(self, other);</span>
+<span class="diff-add">+    ctx-&gt;save_for_backward({self, other});</span>
+<span class="diff-add">+    return {output};</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  static torch::autograd::variable_list backward(</span>
+<span class="diff-add">+      torch::autograd::AutogradContext* ctx,</span>
+<span class="diff-add">+      torch::autograd::variable_list grad_output) {</span>
+<span class="diff-add">+    torch::autograd::variable_list saved_vars = ctx-&gt;get_saved_variables();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    auto grads =</span>
+<span class="diff-add">+        matmul_bwd_dispatch(grad_output[0], saved_vars[0], saved_vars[1]);</span>
+<span class="diff-add">+    return {std::get&lt;0&gt;(grads), std::get&lt;1&gt;(grads)};</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+at::Tensor matmul_autograd_wrap(</span>
+<span class="diff-add">+    const at::Tensor&amp; self,</span>
+<span class="diff-add">+    const at::Tensor&amp; other) {</span>
+<span class="diff-add">+  return MatmulFunction::apply(self, other)[0];</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+TORCH_LIBRARY_IMPL(hpu, HPU, m) {</span>
+<span class="diff-add">+  m.impl(&quot;hpu::matmul&quot;, matmul_forward);</span>
+<span class="diff-add">+  m.impl(&quot;hpu::matmul_bwd&quot;, matmul_bwd);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+TORCH_LIBRARY_FRAGMENT(hpu, m) {</span>
+<span class="diff-add">+  m.def(&quot;hpu::matmul(Tensor self, Tensor other) -&gt; Tensor&quot;);</span>
+<span class="diff-add">+  m.def(</span>
+<span class="diff-add">+      &quot;hpu::matmul_bwd(Tensor grad_out, Tensor self, Tensor other) -&gt; (Tensor, Tensor)&quot;);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+TORCH_LIBRARY_IMPL(aten, HPU, m) {</span>
+<span class="diff-add">+  m.impl(&quot;matmul&quot;, matmul_forward);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {</span>
+<span class="diff-add">+  m.impl(&quot;matmul&quot;, matmul_autograd_wrap);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+} // namespace eager</span>
+<span class="diff-add">+} // namespace habana</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 5592ee6..623e16c 100644</span>
+<h4 class="diff-filename">b/hpu_ops/CMakeLists.txt</h4><pre class="diff-content"><span class="diff-hunk">@@ -232,6 +232,7 @@</span>
+<span class="diff-ctx">   backend/masked_batch_gemm.cpp</span>
+<span class="diff-ctx">   backend/masked_fill_gen.cpp</span>
+<span class="diff-ctx">   backend/_masked_scale_gen.cpp</span>
+<span class="diff-add">+  backend/matmul.cpp</span>
+<span class="diff-ctx">   backend/max_min_gen.cpp</span>
+<span class="diff-ctx">   backend/maxpool_gen.cpp</span>
+<span class="diff-ctx">   backend/median_gen.cpp</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..3b35c26</span>
+<h4 class="diff-filename">b/hpu_ops/backend/matmul.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,178 @@</span>
+<span class="diff-add">+/*******************************************************************************</span>
+<span class="diff-add">+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ * Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-add">+ * is strictly prohibited.</span>
+<span class="diff-add">+ * This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-add">+ * and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-add">+ * was provided.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ *******************************************************************************</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &quot;hpu_ops/matmul.h&quot;</span>
+<span class="diff-add">+#include &quot;hpu_ops/common/batched_matmul_output_shape.h&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+namespace sh = synapse_helpers;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+namespace habana {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+OutputMetaDataVector MatmulMeta(const at::Stack&amp; stack) {</span>
+<span class="diff-add">+  const auto&amp; self = stack_tensor(stack, 0);</span>
+<span class="diff-add">+  const auto&amp; other = stack_tensor(stack, 1);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  OutputMetaDataVector meta(1);</span>
+<span class="diff-add">+  meta.at(0).shape =</span>
+<span class="diff-add">+      getBatchMatmulOutShape(self.sizes(), other.sizes(), false, false);</span>
+<span class="diff-add">+  meta.at(0).dtype = self.scalar_type();</span>
+<span class="diff-add">+  return meta;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+Matmul::Matmul(int device_id, c10::ScalarType scalar_type)</span>
+<span class="diff-add">+    : OpBackend(device_id, &quot;batch_gemm&quot;, scalar_type, {0}, {}, {}, false) {</span>
+<span class="diff-add">+  SetOutputMetaFn(MatmulMeta);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void Matmul::AddNode(synapse_helpers::graph&amp; graph, const at::Stack&amp; stack) {</span>
+<span class="diff-add">+  const auto&amp; self = stack_tensor(stack, 0);</span>
+<span class="diff-add">+  const auto self_dim = self.dim();</span>
+<span class="diff-add">+  const auto self_dtype = self.scalar_type();</span>
+<span class="diff-add">+  const auto&amp; other = stack_tensor(stack, 1);</span>
+<span class="diff-add">+  const auto other_dim = other.dim();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  synGEMMParams params{false, false};</span>
+<span class="diff-add">+  const auto meta = MatmulMeta(stack)[0];</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  if (self_dim == other_dim or (self_dim == 2 and other_dim == 1)) {</span>
+<span class="diff-add">+    if (self_dim == other_dim) {</span>
+<span class="diff-add">+      if (self_dim == 1) {</span>
+<span class="diff-add">+        SetGuid(get_guid_with_precision(&quot;dot_fwd&quot;, self_dtype));</span>
+<span class="diff-add">+      } else if (self_dim == 2) {</span>
+<span class="diff-add">+        SetGuid(&quot;gemm&quot;);</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+    } else {</span>
+<span class="diff-add">+      SetGuid(get_guid_with_precision(&quot;mv_fwd&quot;, self_dtype));</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    auto output = OpBackend::BuildNode(</span>
+<span class="diff-add">+        this,</span>
+<span class="diff-add">+        graph,</span>
+<span class="diff-add">+        {guid_, {syn_in(0), syn_in(1)}, {{meta.shape, meta.dtype, 0}}});</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    syn_out(0) = std::move(output[0]);</span>
+<span class="diff-add">+    return;</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  auto gemm_output_shape = meta.shape;</span>
+<span class="diff-add">+  auto max_dim = std::max(self_dim, other_dim);</span>
+<span class="diff-add">+  std::optional&lt;int64_t&gt; dim_to_squeeze;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  if (self_dim == 1) {</span>
+<span class="diff-add">+    dim_to_squeeze = max_dim - 2;</span>
+<span class="diff-add">+    gemm_output_shape.insert(gemm_output_shape.end() - 1, 1);</span>
+<span class="diff-add">+  } else if (other_dim == 1) {</span>
+<span class="diff-add">+    dim_to_squeeze = max_dim - 1;</span>
+<span class="diff-add">+    gemm_output_shape.insert(gemm_output_shape.end(), 1);</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  std::vector&lt;synTensor&gt; expanded_syn_tensors;</span>
+<span class="diff-add">+  std::vector&lt;sh::tensor&gt; expanded_tensors;</span>
+<span class="diff-add">+  std::vector&lt;synTensor&gt; gemm_syn_tensors;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  if (max_dim &gt; self_dim) {</span>
+<span class="diff-add">+    expanded_syn_tensors.push_back(syn_in(0));</span>
+<span class="diff-add">+    auto diff = max_dim - self_dim;</span>
+<span class="diff-add">+    auto expanded_sizes = self.sizes().vec();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    while (diff &gt; 0) {</span>
+<span class="diff-add">+      expanded_sizes.insert(expanded_sizes.begin(), 1);</span>
+<span class="diff-add">+      auto dim_tpc = get_dim_in_tpc_order(0, expanded_sizes.size());</span>
+<span class="diff-add">+      expanded_tensors.emplace_back(OpBackend::BuildExpandDims(</span>
+<span class="diff-add">+          this,</span>
+<span class="diff-add">+          graph,</span>
+<span class="diff-add">+          expanded_syn_tensors.back(),</span>
+<span class="diff-add">+          expanded_sizes,</span>
+<span class="diff-add">+          self_dtype,</span>
+<span class="diff-add">+          dim_tpc));</span>
+<span class="diff-add">+      expanded_syn_tensors.push_back(expanded_tensors.back().get());</span>
+<span class="diff-add">+      diff--;</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    gemm_syn_tensors = {expanded_syn_tensors.back(), syn_in(1)};</span>
+<span class="diff-add">+  } else {</span>
+<span class="diff-add">+    expanded_syn_tensors.push_back(syn_in(1));</span>
+<span class="diff-add">+    auto diff = max_dim - other_dim;</span>
+<span class="diff-add">+    auto expanded_sizes = other.sizes().vec();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    if (other_dim == 1) {</span>
+<span class="diff-add">+      expanded_sizes.insert(expanded_sizes.end(), 1);</span>
+<span class="diff-add">+      auto dim_tpc = get_dim_in_tpc_order(1, expanded_sizes.size());</span>
+<span class="diff-add">+      expanded_tensors.emplace_back(OpBackend::BuildExpandDims(</span>
+<span class="diff-add">+          this,</span>
+<span class="diff-add">+          graph,</span>
+<span class="diff-add">+          expanded_syn_tensors.back(),</span>
+<span class="diff-add">+          expanded_sizes,</span>
+<span class="diff-add">+          self_dtype,</span>
+<span class="diff-add">+          dim_tpc));</span>
+<span class="diff-add">+      expanded_syn_tensors.push_back(expanded_tensors.back().get());</span>
+<span class="diff-add">+      diff--;</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    while (diff &gt; 0) {</span>
+<span class="diff-add">+      expanded_sizes.insert(expanded_sizes.begin(), 1);</span>
+<span class="diff-add">+      auto dim_tpc = get_dim_in_tpc_order(0, expanded_sizes.size());</span>
+<span class="diff-add">+      expanded_tensors.emplace_back(OpBackend::BuildExpandDims(</span>
+<span class="diff-add">+          this,</span>
+<span class="diff-add">+          graph,</span>
+<span class="diff-add">+          expanded_syn_tensors.back(),</span>
+<span class="diff-add">+          expanded_sizes,</span>
+<span class="diff-add">+          self_dtype,</span>
+<span class="diff-add">+          dim_tpc));</span>
+<span class="diff-add">+      expanded_syn_tensors.push_back(expanded_tensors.back().get());</span>
+<span class="diff-add">+      diff--;</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    gemm_syn_tensors = {syn_in(0), expanded_syn_tensors.back()};</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  c10::optional&lt;int&gt; gemm_idx =</span>
+<span class="diff-add">+      dim_to_squeeze ? c10::nullopt : c10::optional(0);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  auto output = OpBackend::BuildNode(</span>
+<span class="diff-add">+      this,</span>
+<span class="diff-add">+      graph,</span>
+<span class="diff-add">+      {max_dim == 2 ? &quot;gemm&quot; : &quot;batch_gemm&quot;,</span>
+<span class="diff-add">+       std::move(gemm_syn_tensors),</span>
+<span class="diff-add">+       {{gemm_output_shape, meta.dtype, gemm_idx}}});</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  if (dim_to_squeeze) {</span>
+<span class="diff-add">+    auto dim_tpc = get_dim_in_tpc_order(*dim_to_squeeze, max_dim);</span>
+<span class="diff-add">+    syn_out(0) = SqueezeHelper(</span>
+<span class="diff-add">+        graph, output[0].get(), meta.shape, meta.dtype, dim_tpc, 0);</span>
+<span class="diff-add">+  } else {</span>
+<span class="diff-add">+    syn_out(0) = std::move(output[0]);</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+OutputMetaDataVector MatmulBwdMeta(const at::Stack&amp; stack) {</span>
+<span class="diff-add">+  const auto&amp; self = stack_tensor(stack, 1);</span>
+<span class="diff-add">+  const auto&amp; other = stack_tensor(stack, 2);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  OutputMetaDataVector meta(2);</span>
+<span class="diff-add">+  meta.at(0).shape = self.sizes().vec();</span>
+<span class="diff-add">+  meta.at(0).dtype = self.scalar_type();</span>
+<span class="diff-add">+  meta.at(1).shape = other.sizes().vec();</span>
+<span class="diff-add">+  meta.at(1).dtype = other.scalar_type();</span>
+<span class="diff-add">+  return meta;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+MatmulBwd::MatmulBwd(int device_id, c10::ScalarType scalar_type)</span>
+<span class="diff-add">+    : OpBackend(device_id, &quot;matmul_bwd&quot;, scalar_type, {1, 2}, {}, {}, false) {</span>
+<span class="diff-add">+  SetOutputMetaFn(MatmulBwdMeta);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+} // namespace habana</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static const auto&amp; CustomSoftmaxKernelRegistry =</span>
+<span class="diff-add">+    habana::KernelRegistry()</span>
+<span class="diff-add">+        .add(&quot;hpu::matmul&quot;, KERNEL_FN_GLOBAL(habana::Matmul))</span>
+<span class="diff-add">+        .add(&quot;hpu::matmul_bwd&quot;, KERNEL_FN_GLOBAL(habana::MatmulBwd));</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..92af9c0</span>
+<h4 class="diff-filename">b/hpu_ops/matmul.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,33 @@</span>
+<span class="diff-add">+/******************************************************************************</span>
+<span class="diff-add">+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ * Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-add">+ * is strictly prohibited.</span>
+<span class="diff-add">+ * This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-add">+ * and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-add">+ * was provided.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ *******************************************************************************</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#pragma once</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &quot;hpu_ops/hpu_op_helper.h&quot;</span>
+<span class="diff-add">+#include &quot;hpu_ops/op_backend.h&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+namespace habana {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct Matmul : OpBackend {</span>
+<span class="diff-add">+  Matmul(int device_id, c10::ScalarType scalar_type);</span>
+<span class="diff-add">+  void AddNode(synapse_helpers::graph&amp;, const at::Stack&amp;) override;</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct MatmulBwd : OpBackend {</span>
+<span class="diff-add">+  MatmulBwd(int device_id, c10::ScalarType scalar_type);</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+OUTMETA_DECL(MatmulMeta)</span>
+<span class="diff-add">+OUTMETA_DECL(MatmulBwdMeta)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+} // namespace habana</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index cd3fb25..4f19550 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -140,6 +140,27 @@</span>
+<span class="diff-ctx">     return out</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+@register_meta([torch.ops.hpu.matmul.default])</span>
+<span class="diff-add">+def meta_matmul(</span>
+<span class="diff-add">+    A,</span>
+<span class="diff-add">+    B,</span>
+<span class="diff-add">+):</span>
+<span class="diff-add">+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int(&quot;fp8_gemm_v2&quot;, [A, B], [False, False])[0]</span>
+<span class="diff-add">+    out = A.new_empty(out_shape)</span>
+<span class="diff-add">+    return out</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+@register_meta([torch.ops.hpu.matmul_bwd.default])</span>
+<span class="diff-add">+def meta_matmul_bwd(</span>
+<span class="diff-add">+    grad_out,</span>
+<span class="diff-add">+    self,</span>
+<span class="diff-add">+    other,</span>
+<span class="diff-add">+):</span>
+<span class="diff-add">+    self_grad = self.new_empty(self.shape)</span>
+<span class="diff-add">+    other_grad = other.new_empty(other.shape)</span>
+<span class="diff-add">+    return self_grad, other_grad</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> @register_meta([torch.ops.hpu.fp8_gemm_v2.default])</span>
+<span class="diff-ctx"> def meta_fp8_gemm_v2(</span>
+<span class="diff-ctx">     A,</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b3d848b..5d248e1 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -695,3 +695,17 @@</span>
+<span class="diff-ctx">         return {**core_aten_decompositions()}</span>
+<span class="diff-ctx">     else:</span>
+<span class="diff-ctx">         return None</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Some ops are decomposed at the CompositeImplicitAutograd and PyTorch doesn&#x27;t</span>
+<span class="diff-add">+# allow for easy removal of this decomposition https://github.com/pytorch/pytorch/issues/112744.</span>
+<span class="diff-add">+# Below code allows to override it.</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+old_fn = torch.ops.aten.matmul.default.py_kernels.pop(DispatchKey.CompositeImplicitAutograd)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+@torch.ops.aten.matmul.default.py_impl(DispatchKey.CompositeImplicitAutograd)</span>
+<span class="diff-add">+def impl_matmul(tensor1, tensor2):</span>
+<span class="diff-add">+    if tensor1.device.type == &quot;hpu&quot;:</span>
+<span class="diff-add">+        return torch.ops.hpu.matmul(tensor1, tensor2)</span>
+<span class="diff-add">+    return old_fn(tensor1, tensor2)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 03aa0af..fdcf529 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -2899,7 +2899,11 @@</span>
+<span class="diff-ctx">                 bias, inp, _ = list(u.args)</span>
+<span class="diff-ctx">                 weight = list(node.args)[0]</span>
+<span class="diff-ctx">                 new_args = (inp, weight, bias)</span>
+<span class="diff-del">-            elif u.target == torch.ops.aten.mm.default:</span>
+<span class="diff-add">+            elif u.target == torch.ops.aten.mm.default or (</span>
+<span class="diff-add">+                u.target == torch.ops.hpu.matmul.default</span>
+<span class="diff-add">+                and len(u.args[0].meta[&quot;output_shapes&quot;][0]) == 2</span>
+<span class="diff-add">+                and len(u.args[1].meta[&quot;output_shapes&quot;][0]) == 2</span>
+<span class="diff-add">+            ):</span>
+<span class="diff-ctx">                 # transpose should be mm&#x27;s second input to be fused to linear</span>
+<span class="diff-ctx">                 if len(u.args) &lt; 2 or node is not u.args[1]:</span>
+<span class="diff-ctx">                     break</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 07b2cd6..766ba7b 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -50,6 +50,7 @@</span>
+<span class="diff-ctx">     &quot;fp8_gemm_v2&quot;,</span>
+<span class="diff-ctx">     &quot;in_place_interleave&quot;,</span>
+<span class="diff-ctx">     &quot;kv_reorder&quot;,</span>
+<span class="diff-add">+    &quot;matmul_bwd&quot;,</span>
+<span class="diff-ctx">     &quot;mixture_of_experts&quot;,</span>
+<span class="diff-ctx">     &quot;plain_index&quot;,</span>
+<span class="diff-ctx">     &quot;rms_norm&quot;,</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..38e9fc3</span>
+<h4 class="diff-filename">b/tests/pytest_working/any_mode/test_hpu_matmul.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,101 @@</span>
+<span class="diff-add">+###############################################################################</span>
+<span class="diff-add">+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-add">+# All Rights Reserved.</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-add">+# is strictly prohibited.</span>
+<span class="diff-add">+# This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-add">+# and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-add">+# was provided.</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+###############################################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+import habana_frameworks.torch.core as htcore</span>
+<span class="diff-add">+import numpy as np</span>
+<span class="diff-add">+import pytest</span>
+<span class="diff-add">+import torch</span>
+<span class="diff-add">+from test_utils import (</span>
+<span class="diff-add">+    check_ops_executed_in_jit_ir,</span>
+<span class="diff-add">+    compare_tensors,</span>
+<span class="diff-add">+    compile_function_if_compile_mode,</span>
+<span class="diff-add">+    hpu,</span>
+<span class="diff-add">+    is_pytest_mode_compile,</span>
+<span class="diff-add">+)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+shapes = [</span>
+<span class="diff-add">+    # size1, size2</span>
+<span class="diff-add">+    ((2), (2)),</span>
+<span class="diff-add">+    ((3), (3, 2)),</span>
+<span class="diff-add">+    ((4), (3, 4, 2)),</span>
+<span class="diff-add">+    ((5), (2, 3, 5, 1)),</span>
+<span class="diff-add">+    ((6), (2, 3, 2, 6, 2)),</span>
+<span class="diff-add">+    ((2, 3), (3)),</span>
+<span class="diff-add">+    ((3, 2, 4), (4)),</span>
+<span class="diff-add">+    ((2, 3, 1, 5), (5)),</span>
+<span class="diff-add">+    ((2, 3, 2, 2, 6), (6)),</span>
+<span class="diff-add">+    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),</span>
+<span class="diff-add">+    ((2, 3), (3, 4)),</span>
+<span class="diff-add">+    ((2, 3, 4), (4, 5)),</span>
+<span class="diff-add">+    ((2, 3, 4), (2, 4, 5)),</span>
+<span class="diff-add">+    ((2, 3, 4), (4)),</span>
+<span class="diff-add">+    ((2, 2, 3, 4), (2, 4, 3)),</span>
+<span class="diff-add">+    ((1, 8, 16), (10, 16, 12)),</span>
+<span class="diff-add">+    ((1, 10, 8, 16), (2, 10, 16, 12)),</span>
+<span class="diff-add">+]</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+@pytest.mark.parametrize(&quot;size1, size2&quot;, shapes)</span>
+<span class="diff-add">+def test_hpu_matmul_fwd_bwd(size1, size2):</span>
+<span class="diff-add">+    t1 = torch.randn(size1, requires_grad=True)</span>
+<span class="diff-add">+    t2 = torch.randn(size2, requires_grad=True)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    t1_h = t1.to(hpu)</span>
+<span class="diff-add">+    t1_h.retain_grad()</span>
+<span class="diff-add">+    t2_h = t2.to(hpu)</span>
+<span class="diff-add">+    t2_h.retain_grad()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    out = torch.matmul(t1, t2)</span>
+<span class="diff-add">+    loss = out.sum()</span>
+<span class="diff-add">+    loss.backward()</span>
+<span class="diff-add">+    grad_t1_cpu = t1.grad.clone().detach()</span>
+<span class="diff-add">+    grad_t2_cpu = t2.grad.clone().detach()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    fn = compile_function_if_compile_mode(torch.matmul)</span>
+<span class="diff-add">+    out_h = fn(t1_h, t2_h)</span>
+<span class="diff-add">+    loss_h = out_h.sum()</span>
+<span class="diff-add">+    loss_h.backward()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    grad_t1_h = t1_h.grad.cpu()</span>
+<span class="diff-add">+    grad_t2_h = t2_h.grad.cpu()</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3)</span>
+<span class="diff-add">+    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+@pytest.mark.parametrize(&quot;size1, size2&quot;, shapes)</span>
+<span class="diff-add">+def test_hpu_matmul_fwd(size1, size2):</span>
+<span class="diff-add">+    t1 = torch.randn(size1)</span>
+<span class="diff-add">+    t2 = torch.randn(size2)</span>
+<span class="diff-add">+    t1_h = t1.to(hpu)</span>
+<span class="diff-add">+    t2_h = t2.to(hpu)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    out = torch.matmul(t1, t2)</span>
+<span class="diff-add">+    fn = compile_function_if_compile_mode(torch.matmul)</span>
+<span class="diff-add">+    out_h = fn(t1_h, t2_h)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+@pytest.mark.parametrize(&quot;size1, size2&quot;, shapes)</span>
+<span class="diff-add">+def test_hpu_matmul_inference(size1, size2):</span>
+<span class="diff-add">+    t1 = torch.randn(size1)</span>
+<span class="diff-add">+    t2 = torch.randn(size2)</span>
+<span class="diff-add">+    t1_h = t1.to(hpu)</span>
+<span class="diff-add">+    t2_h = t2.to(hpu)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    fn = compile_function_if_compile_mode(torch.matmul)</span>
+<span class="diff-add">+    out_training = fn(t1_h, t2_h)</span>
+<span class="diff-add">+    with torch.inference_mode():</span>
+<span class="diff-add">+        out_inference = fn(t1_h, t2_h)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    assert torch.equal(out_training, out_inference)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 57d0d46..494c64c 100644</span>
+<h4 class="diff-filename">b/tests/pytest_working/compile/test_pass_inference.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -163,7 +163,7 @@</span>
+<span class="diff-ctx">         out_hpu = func(x=x, m=m, device=&quot;hpu&quot;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     ops_summary = fga.get_ops_summary()</span>
+<span class="diff-del">-    op_name = &quot;torch.ops.aten.linear&quot; if fuse_linear is True else &quot;torch.ops.aten.mm.default&quot;</span>
+<span class="diff-add">+    op_name = &quot;torch.ops.aten.linear&quot; if fuse_linear is True else &quot;torch.ops.hpu.matmul.default&quot;</span>
+<span class="diff-ctx">     fga_assert_helper(ops_summary=ops_summary, op=op_name, count_list=[(1, 0)])</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     out_cpu = func(x=x_c, m=m_c, device=&quot;cpu&quot;)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 06be343..d9d376d 100644</span>
+<h4 class="diff-filename">b/tests/pytest_working/compile/test_pt2e_quant_flow.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -217,7 +217,7 @@</span>
+<span class="diff-ctx">             &quot;skip_torch.ops.hpu.linear.default&quot;: [(1, 0), (1, 0)],</span>
+<span class="diff-ctx">             &quot;skip_torch.ops.aten.linear&quot;: [(1, 0), (1, 0)],</span>
+<span class="diff-ctx">             &quot;torch.ops.aten.transpose.int&quot;: [(1, 0), (1, 0)],</span>
+<span class="diff-del">-            &quot;torch.ops.aten.mm.default&quot;: [(1, 0), (0, 0)],</span>
+<span class="diff-add">+            &quot;torch.ops.hpu.matmul.default&quot;: [(1, 0), (0, 0)],</span>
+<span class="diff-ctx">             &quot;torch.ops.aten.addmm.default&quot;: [(0, 0), (1, 0)],</span>
+<span class="diff-ctx">         },</span>
+<span class="diff-ctx">         &quot;after_convert_pt2e&quot;: {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 8802aee..0000000</span>
+<span class="diff-hunk">@@ -1,78 +0,0 @@</span>
+<span class="diff-del">-###############################################################################</span>
+<span class="diff-del">-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-del">-# All Rights Reserved.</span>
+<span class="diff-del">-#</span>
+<span class="diff-del">-# Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-del">-# is strictly prohibited.</span>
+<span class="diff-del">-# This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-del">-# and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-del">-# was provided.</span>
+<span class="diff-del">-#</span>
+<span class="diff-del">-###############################################################################</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-import habana_frameworks.torch.core as htcore</span>
+<span class="diff-del">-import numpy as np</span>
+<span class="diff-del">-import pytest</span>
+<span class="diff-del">-import torch</span>
+<span class="diff-del">-from test_utils import compare_tensors, hpu</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-shapes = [</span>
+<span class="diff-del">-    # size1, size2</span>
+<span class="diff-del">-    ((2), (2)),</span>
+<span class="diff-del">-    ((3), (3, 2)),</span>
+<span class="diff-del">-    ((4), (3, 4, 2)),</span>
+<span class="diff-del">-    ((5), (2, 3, 5, 1)),</span>
+<span class="diff-del">-    ((6), (2, 3, 2, 6, 2)),</span>
+<span class="diff-del">-    ((2, 3), (3)),</span>
+<span class="diff-del">-    ((3, 2, 4), (4)),</span>
+<span class="diff-del">-    ((2, 3, 1, 5), (5)),</span>
+<span class="diff-del">-    ((2, 3, 2, 2, 6), (6)),</span>
+<span class="diff-del">-    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),</span>
+<span class="diff-del">-    ((2, 3), (3, 4)),</span>
+<span class="diff-del">-    ((2, 3, 4), (4, 5)),</span>
+<span class="diff-del">-    ((2, 3, 4), (2, 4, 5)),</span>
+<span class="diff-del">-    ((2, 3, 4), (4)),</span>
+<span class="diff-del">-    ((2, 2, 3, 4), (2, 4, 3)),</span>
+<span class="diff-del">-    ((1, 8, 16), (10, 16, 12)),</span>
+<span class="diff-del">-    ((1, 10, 8, 16), (2, 10, 16, 12)),</span>
+<span class="diff-del">-]</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;size1, size2&quot;, shapes)</span>
+<span class="diff-del">-def test_hpu_matmul_fwd_bwd(size1, size2):</span>
+<span class="diff-del">-    t1 = torch.randn(size1, requires_grad=True)</span>
+<span class="diff-del">-    t2 = torch.randn(size2, requires_grad=True)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    t1_h = t1.to(hpu)</span>
+<span class="diff-del">-    t1_h.retain_grad()</span>
+<span class="diff-del">-    t2_h = t2.to(hpu)</span>
+<span class="diff-del">-    t2_h.retain_grad()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out = torch.matmul(t1, t2)</span>
+<span class="diff-del">-    loss = out.sum()</span>
+<span class="diff-del">-    loss.backward()</span>
+<span class="diff-del">-    grad_t1_cpu = t1.grad.clone().detach()</span>
+<span class="diff-del">-    grad_t2_cpu = t2.grad.clone().detach()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out_h = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-    loss_h = out_h.sum()</span>
+<span class="diff-del">-    loss_h.backward()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    grad_t1_h = t1_h.grad.cpu()</span>
+<span class="diff-del">-    grad_t2_h = t2_h.grad.cpu()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3)</span>
+<span class="diff-del">-    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;size1, size2&quot;, shapes)</span>
+<span class="diff-del">-def test_hpu_matmul_fwd(size1, size2):</span>
+<span class="diff-del">-    t1 = torch.randn(size1)</span>
+<span class="diff-del">-    t2 = torch.randn(size2)</span>
+<span class="diff-del">-    t1_h = t1.to(hpu)</span>
+<span class="diff-del">-    t2_h = t2.to(hpu)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out = torch.matmul(t1, t2)</span>
+<span class="diff-del">-    out_h = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 286efcb..0000000</span>
+<span class="diff-hunk">@@ -1,97 +0,0 @@</span>
+<span class="diff-del">-###############################################################################</span>
+<span class="diff-del">-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-del">-# All Rights Reserved.</span>
+<span class="diff-del">-#</span>
+<span class="diff-del">-# Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-del">-# is strictly prohibited.</span>
+<span class="diff-del">-# This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-del">-# and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-del">-# was provided.</span>
+<span class="diff-del">-#</span>
+<span class="diff-del">-###############################################################################</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-import habana_frameworks.torch.core as htcore</span>
+<span class="diff-del">-import numpy as np</span>
+<span class="diff-del">-import pytest</span>
+<span class="diff-del">-import torch</span>
+<span class="diff-del">-from test_utils import compare_tensors, hpu</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-matmul_lazy_list = [</span>
+<span class="diff-del">-    # size1, size2</span>
+<span class="diff-del">-    ((2), (2)),</span>
+<span class="diff-del">-    ((3), (3, 2)),</span>
+<span class="diff-del">-    ((4), (3, 4, 2)),</span>
+<span class="diff-del">-    ((5), (2, 3, 5, 1)),</span>
+<span class="diff-del">-    ((6), (2, 3, 2, 6, 2)),</span>
+<span class="diff-del">-    ((2, 3), (3)),</span>
+<span class="diff-del">-    ((3, 2, 4), (4)),</span>
+<span class="diff-del">-    ((2, 3, 1, 5), (5)),</span>
+<span class="diff-del">-    ((2, 3, 2, 2, 6), (6)),</span>
+<span class="diff-del">-    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),</span>
+<span class="diff-del">-    ((2, 3), (3, 4)),</span>
+<span class="diff-del">-    ((2, 3, 4), (4, 5)),</span>
+<span class="diff-del">-    ((2, 3, 4), (2, 4, 5)),</span>
+<span class="diff-del">-    ((2, 3, 4), (4)),</span>
+<span class="diff-del">-    ((2, 2, 3, 4), (2, 4, 3)),</span>
+<span class="diff-del">-    ((10, 8, 16), (1, 16, 12)),</span>
+<span class="diff-del">-    ((2, 10, 8, 16), (2, 1, 16, 12)),</span>
+<span class="diff-del">-]</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-@pytest.mark.skip(reason=&quot;Results mismatch&quot;)</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;size1, size2&quot;, matmul_lazy_list)</span>
+<span class="diff-del">-def test_hpu_lazy_matmul_fwd_bwd(size1, size2):</span>
+<span class="diff-del">-    t1 = torch.randn(size1, requires_grad=True)</span>
+<span class="diff-del">-    t2 = torch.randn(size2, requires_grad=True)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    hpu = torch.device(&quot;hpu&quot;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    t1_h = t1.to(hpu)</span>
+<span class="diff-del">-    t1_h.retain_grad()</span>
+<span class="diff-del">-    t2_h = t2.to(hpu)</span>
+<span class="diff-del">-    t2_h.retain_grad()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out = torch.matmul(t1, t2)</span>
+<span class="diff-del">-    loss = out.sum()</span>
+<span class="diff-del">-    loss.backward()</span>
+<span class="diff-del">-    grad_t1_cpu = t1.grad.clone().detach()</span>
+<span class="diff-del">-    grad_t2_cpu = t2.grad.clone().detach()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out_h = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-    loss_h = out_h.sum()</span>
+<span class="diff-del">-    loss_h.backward()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    htcore.mark_step()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    grad_t1_h = t1_h.grad.cpu()</span>
+<span class="diff-del">-    grad_t2_h = t2_h.grad.cpu()</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3), f&quot;Data mismatch&quot;</span>
+<span class="diff-del">-    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3), f&quot;Data mismatch&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;size1, size2&quot;, matmul_lazy_list)</span>
+<span class="diff-del">-def test_hpu_matmul_fwd(size1, size2):</span>
+<span class="diff-del">-    t1 = torch.randn(size1)</span>
+<span class="diff-del">-    t2 = torch.randn(size2)</span>
+<span class="diff-del">-    t1_h = t1.to(hpu)</span>
+<span class="diff-del">-    t2_h = t2.to(hpu)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out = torch.matmul(t1, t2)</span>
+<span class="diff-del">-    out_h = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;size1, size2&quot;, matmul_lazy_list)</span>
+<span class="diff-del">-def test_hpu_matmul_inference(size1, size2):</span>
+<span class="diff-del">-    t1 = torch.randn(size1)</span>
+<span class="diff-del">-    t2 = torch.randn(size2)</span>
+<span class="diff-del">-    t1_h = t1.to(hpu)</span>
+<span class="diff-del">-    t2_h = t2.to(hpu)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    out_training = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-    with torch.inference_mode():</span>
+<span class="diff-del">-        out_inference = torch.matmul(t1_h, t2_h)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-    assert torch.equal(out_training, out_inference)</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Amadeusz Skrzypczak</strong> <span class="date">(2024-11-06 11:44:10.352000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:44:18.838000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13887/ (1/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.119000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7267/ (2/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.133000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7252/ (3/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.144000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12865/ (4/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.195000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12915/ (5/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.221000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12955/ (6/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.224000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7365/ (8/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.226000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13236/ (7/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.274000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12980/ (9/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.304000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13225/ (11/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.312000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2804/ (10/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.316000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13104/ (12/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.327000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12910/ (13/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.387000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13140/ (15/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.387000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7410/ (14/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.440000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5830/ (16/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.442000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12909/ (17/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.466000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7147/ (18/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.525000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12971/ (19/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.529000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12978/ (21/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.536000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12984/ (20/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.573000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7552/ (22/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.581000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12899/ (23/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.638000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13211/ (26/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.638000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13232/ (25/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.669000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12969/ (24/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.710000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7260/ (27/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.752000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7301/ (29/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.759000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12890/ (30/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.847000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13181/ (28/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.869000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12971/ (33/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.923000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13071/ (32/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 11:53:01.945000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12913/ (31/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-06 15:38:24.178000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12971/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12971/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25458/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25458/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7301/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7301/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7541/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7541/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13181/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13181/ )
+
+Artifactory Connection Error ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/40405/ )
+
+Reading remote site timed out ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/40405/ )
+
+Tests failure in container ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/40405/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7260/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7260/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7533/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7533/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7533/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7552/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7552/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7951/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7951/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7951/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13232/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13232/ )
+
+Tests failure in container ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/40288/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12984/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12984/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/23117/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/23117/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7267/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13140/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12909/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12910/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5830/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7410/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12980/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13104/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13225/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2804/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7365/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13236/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12955/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12865/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12915/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7147/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12913/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13071/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12890/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13211/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12899/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12978/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12969/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12971/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7252/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13887/ : SUCCESS</pre></div><div class="message"><strong>Amadeusz Skrzypczak</strong> <span class="date">(2024-11-07 10:18:13.532000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:18:21.422000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13941/ (1/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.217000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13187/ (2/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.244000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12955/ (3/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.276000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7313/ (4/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.456000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5880/ (5/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.549000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12936/ (6/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.557000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13018/ (7/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.560000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7348/ (8/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.595000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12945/ (10/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.597000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13018/ (9/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.623000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13306/ (11/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.769000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13260/ (12/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.773000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13024/ (14/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.784000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13032/ (13/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.790000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7299/ (16/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.803000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12961/ (15/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.859000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13282/ (18/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.880000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7193/ (17/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.888000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7598/ (19/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:02.922000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13118/ (20/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.173000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7307/ (21/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.293000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13250/ (22/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.325000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12959/ (23/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.339000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/13001/ (26/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.394000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12911/ (25/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.400000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/13015/ (24/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.416000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7412/ (27/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.536000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13150/ (30/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.548000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2854/ (29/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.566000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13272/ (28/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.602000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12956/ (31/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.776000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13026/ (33/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 10:27:03.824000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7457/ (32/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 13:03:43.819000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5880/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5880/ )
+
+Tests failure in container ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/6127/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13272/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13272/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/27483/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/27483/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/27483/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7412/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7412/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7744/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7744/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7744/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13018/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13018/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25512/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25512/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25512/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7307/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7307/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7586/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7586/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7586/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7586/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7598/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7598/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/8004/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/8004/ )
+
+libc.so check caused termination ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/8004/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/8004/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7313/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13187/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12955/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12956/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7457/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13026/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13150/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2854/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13282/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/13001/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12911/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12961/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7193/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12959/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13118/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12936/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7348/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13250/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13260/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13306/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12945/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13024/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/13015/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13018/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13032/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7299/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13941/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

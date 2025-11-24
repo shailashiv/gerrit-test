@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 480606: [SW-228856] fit: new infra wo duplicate</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 480606: [SW-228856] fit: new infra wo duplicate</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> emb-common-mods</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Avi Niddam &lt;aniddam@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-27 10:13:08.928000000</p>
+            <p><strong>Updated:</strong> 2025-06-03 07:57:04.356000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-228856] fit: new infra wo duplicate
+
+We encountered several code duplications related to
+fit_foreach_property.
+So, we create a new fit services infrastructure to solve
+this issue in a clean way.
+The main lego pieces are the newly created:
+fit_services.c/h located (in emb_common_mod).
+This infra is ready and so far it supports the use of
+fit_foreach_property
+But potentially, it can support ANY of the
+fit related functions that we find today in fit_utils.c
+or fit.c
+Therefore, from now, please, anyone doing an infrastructure
+change related to the fit files should carefully double-check:
+Any unfied code can be and should be located in
+fit_services.c/h
+For this, please, follow the example of how it has been
+done with fit_foreach_property.
+
+Change-Id: I7a9a55d882c23da0d16353e21b63693cae5d55b6
+Signed-off-by: Avi Niddam &lt;aniddam@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: -2 by Avi Niddam</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>include/fit_services.h</code> (A) +29 -0</li><li><code>include/fit_utils.h</code> (M) +0 -8</li><li><code>lib/common/fit_services.c</code> (A) +41 -0</li><li><code>lib/common/fit_utils.c</code> (M) +5 -28</li><li><code>lib/preboot/fit.c</code> (M) +1 -28</li><li><code>lib/preboot/fit.h</code> (M) +1 -3</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/include/fit_services.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,29 @@</span>
+<span class="diff-add">+/* SPDX-License-Identifier: Apache-2.0</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ * Copyright (C) 2024 HabanaLabs Ltd.</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#ifndef _EMB_CMN_MOD_FIT_SERVICES_H_</span>
+<span class="diff-add">+#define _EMB_CMN_MOD_FIT_SERVICES_H_</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &lt;stdint.h&gt;</span>
+<span class="diff-add">+#include &quot;libfdt.h&quot;</span>
+<span class="diff-add">+#include &quot;fdt.h&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+enum fit_sec_failure {</span>
+<span class="diff-add">+	FIT_SEC_NONE = 0,</span>
+<span class="diff-add">+	FIT_SEC_SVN_INVALID,</span>
+<span class="diff-add">+	FIT_SEC_KEY_REVOKED,</span>
+<span class="diff-add">+	FIT_SEC_HASH_FAILED,</span>
+<span class="diff-add">+	FIT_SEC_SIGN_FAILED,</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+typedef int (*fit_property_match_cb)(const void *fit,</span>
+<span class="diff-add">+		const struct fdt_property *prop, void *data);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+int fit_foreach_property(const void *fit, const char *node_path,</span>
+<span class="diff-add">+			fit_property_match_cb match_cb, void *data);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#endif</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 4c5af25..c3ba750 100644</span>
+<h4 class="diff-filename">b/include/fit_utils.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -36,14 +36,6 @@</span>
+<span class="diff-ctx"> 	FIT_FORMAT_BAD_SIZE,</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-enum fit_sec_failure {</span>
+<span class="diff-del">-	FIT_SEC_NONE = 0,</span>
+<span class="diff-del">-	FIT_SEC_SVN_INVALID,</span>
+<span class="diff-del">-	FIT_SEC_KEY_REVOKED,</span>
+<span class="diff-del">-	FIT_SEC_HASH_FAILED,</span>
+<span class="diff-del">-	FIT_SEC_SIGN_FAILED,</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> struct fit_error {</span>
+<span class="diff-ctx"> 	enum fit_load_result load;</span>
+<span class="diff-ctx"> 	enum fit_format_result fmt;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..5eeeacb</span>
+<h4 class="diff-filename">b/lib/common/fit_services.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,41 @@</span>
+<span class="diff-add">+// SPDX-License-Identifier:     GPL-2.0+</span>
+<span class="diff-add">+/*</span>
+<span class="diff-add">+ * Copyright (C) 2024 HabanaLabs Ltd.</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &lt;stdint.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_fit_if.h&gt;</span>
+<span class="diff-add">+#include &lt;libfdt.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &lt;fit_services.h&gt;</span>
+<span class="diff-add">+#include &lt;emb_cmn_log.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+int fit_foreach_property(const void *fit, const char *node_path,</span>
+<span class="diff-add">+			fit_property_match_cb match_cb, void *data)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret, count = 0;</span>
+<span class="diff-add">+	int noffset, property;</span>
+<span class="diff-add">+	const struct fdt_property *prop;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	noffset = fdt_path_offset(fit, node_path);</span>
+<span class="diff-add">+	if (noffset &lt; 0) {</span>
+<span class="diff-add">+		EMB_LOG_RAW_ERR(&quot;Cannot find entry &quot;);</span>
+<span class="diff-add">+		EMB_LOG_RAW(node_path);</span>
+<span class="diff-add">+		EMB_LOG_RAW(&quot;\n\r&quot;);</span>
+<span class="diff-add">+		return -1;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	fdt_for_each_property_offset(property, fit, noffset) {</span>
+<span class="diff-add">+		prop = fdt_get_property_by_offset(fit, property, NULL);</span>
+<span class="diff-add">+		if (!prop)</span>
+<span class="diff-add">+			continue;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		ret = match_cb(fit, prop, data);</span>
+<span class="diff-add">+		if (!ret)</span>
+<span class="diff-add">+			count++;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return count;</span>
+<span class="diff-add">+}</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 5dce23b..521a0d2 100644</span>
+<h4 class="diff-filename">b/lib/common/fit_utils.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -10,10 +10,13 @@</span>
+<span class="diff-ctx"> #include &lt;libfdt.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #include &lt;fit_utils.h&gt;</span>
+<span class="diff-add">+include &quot;fit_services.h&quot;</span>
+<span class="diff-ctx"> #include &lt;emb_cmn_log.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #ifdef __ZEPHYR__</span>
+<span class="diff-ctx"> LOG_MODULE_REGISTER(fit_utils);</span>
+<span class="diff-add">+#else</span>
+<span class="diff-add">+#include &lt;baremetal.h&gt;</span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static bool fit_resp_node_end;</span>
+<span class="diff-hunk">@@ -78,38 +81,12 @@</span>
+<span class="diff-ctx"> 	return FIT_FORMAT_NO_PROPERTY;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static int fit_foreach_property(const void *fit, const char *node_path, const char *match_prop)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int ret, count = 0;</span>
+<span class="diff-del">-	int noffset, property;</span>
+<span class="diff-del">-	const struct fdt_property *prop;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	noffset = fdt_path_offset(fit, node_path);</span>
+<span class="diff-del">-	if (noffset &lt; 0) {</span>
+<span class="diff-del">-		EMB_LOG_RAW_ERR(&quot;Cannot find entry &quot;);</span>
+<span class="diff-del">-		EMB_LOG_RAW(node_path);</span>
+<span class="diff-del">-		EMB_LOG_RAW(&quot;\n\r&quot;);</span>
+<span class="diff-del">-		return noffset;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	fdt_for_each_property_offset(property, fit, noffset) {</span>
+<span class="diff-del">-		prop = fdt_get_property_by_offset(fit, property, NULL);</span>
+<span class="diff-del">-		if (!prop)</span>
+<span class="diff-del">-			continue;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		ret = fit_match_prop_and_print(fit, prop, match_prop);</span>
+<span class="diff-del">-		if (!ret)</span>
+<span class="diff-del">-			count++;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return count;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> void fit_print_versions(void *fit)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	int ret;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	ret = fit_foreach_property(fit, &quot;/&quot;, HL_FIT_VERSION);</span>
+<span class="diff-add">+	ret = fit_foreach_property(fit, &quot;/&quot;,  (fit_property_match_cb)fit_match_prop_and_print</span>
+<span class="diff-add">+				, HL_FIT_VERSION);</span>
+<span class="diff-ctx"> 	if (ret &lt;= 0)</span>
+<span class="diff-ctx"> 		EMB_LOG_WRN(&quot;[FIT] No version properties were found.&quot;);</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index cd7da3a..8b9a7c7 100644</span>
+<h4 class="diff-filename">b/lib/preboot/fit.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -36,6 +36,7 @@</span>
+<span class="diff-ctx"> #include &lt;lib_common.h&gt;</span>
+<span class="diff-ctx"> #include &lt;oob_if.h&gt;</span>
+<span class="diff-ctx"> #include &lt;emb_cmn_log.h&gt;</span>
+<span class="diff-add">+#include &quot;fit_services.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #ifdef __ZEPHYR__</span>
+<span class="diff-ctx"> LOG_MODULE_REGISTER(fit_emb_common);</span>
+<span class="diff-hunk">@@ -214,34 +215,6 @@</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return dflt_conf_node;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int fit_foreach_property(const void *fit, const char *node_path,</span>
+<span class="diff-del">-			fit_property_match_cb match_cb, void *data)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int ret, count = 0;</span>
+<span class="diff-del">-	int noffset, property;</span>
+<span class="diff-del">-	const struct fdt_property *prop;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	noffset = fdt_path_offset(fit, node_path);</span>
+<span class="diff-del">-	if (noffset &lt; 0) {</span>
+<span class="diff-del">-		EMB_LOG_RAW_ERR(&quot;Cannot find entry &quot;);</span>
+<span class="diff-del">-		EMB_LOG_RAW(node_path);</span>
+<span class="diff-del">-		EMB_LOG_RAW(&quot;\n\r&quot;);</span>
+<span class="diff-del">-		return -1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	fdt_for_each_property_offset(property, fit, noffset) {</span>
+<span class="diff-del">-		prop = fdt_get_property_by_offset(fit, property, NULL);</span>
+<span class="diff-del">-		if (!prop)</span>
+<span class="diff-del">-			continue;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		ret = match_cb(fit, prop, data);</span>
+<span class="diff-del">-		if (!ret)</span>
+<span class="diff-del">-			count++;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return count;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int match_prop_version(const void *fit, const struct fdt_property *prop, void *data)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b07d3be..7a55bad 100644</span>
+<h4 class="diff-filename">b/lib/preboot/fit.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -8,6 +8,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #include &lt;libfdt.h&gt;</span>
+<span class="diff-ctx"> #include &lt;hl_fit_if.h&gt;</span>
+<span class="diff-add">+#include &quot;fit_services.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define HL_SEC_KEY_NAME		&quot;hl_rsa3072&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -70,9 +71,6 @@</span>
+<span class="diff-ctx"> 		       size_t sec_desc_size, const void *pub_key_fit,</span>
+<span class="diff-ctx"> 		       const u8 *sig, size_t sig_len);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-typedef int (*fit_property_match_cb)(const void *fit, const struct fdt_property *prop, void *data);</span>
+<span class="diff-del">-int fit_foreach_property(const void *fit, const char *node_path, fit_property_match_cb match_cb,</span>
+<span class="diff-del">-						void *data);</span>
+<span class="diff-ctx"> void fit_print_versions(void *fit);</span>
+<span class="diff-ctx"> int fit_check_format(const void *fit);</span>
+<span class="diff-ctx"> bool is_fit_verify_supported(void);</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-27 10:13:08.928000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:13:18.743000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36185/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:13:19.035000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8103/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:15:43.552000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7303/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:15:43.576000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6631/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:18:50.530000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22438/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:18:50.568000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24918/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:19:24.366000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7303/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6733/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8103/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6631/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:25:47.497000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24918/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27072/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22438/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36185/ : SUCCESS</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-27 17:16:49.023000000)</span><pre>Patch Set 1: Code-Review+2</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-27 17:16:57.801000000)</span><pre>Patch Set 1: -Code-Review</pre></div><div class="message"><strong>Ariel Aviad</strong> <span class="date">(2025-05-28 06:07:39.956000000)</span><pre>Patch Set 1: Code-Review+2</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-29 11:00:31.557000000)</span><pre>Patch Set 1: Code-Review-2</pre></div><div class="message"><strong>Meron Cohen</strong> <span class="date">(2025-06-03 07:57:04.356000000)</span><pre>Patch Set 1: Code-Review-1
+
+(2 comments)</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>/COMMIT_MSG</h4><ul><li><strong>Meron Cohen</strong> (Line 22): typo</li></ul></div><div class="file-comments"><h4>lib/common/fit_utils.c</h4><ul><li><strong>Meron Cohen</strong> (Line 88): I understand that the casting is because of the 3rd parameter to the match callback. It is better to use the same signature as the callback typedef and inside the callback function to cast to the right type.</li></ul></div></div>
+    </div>
+</body>
+</html>

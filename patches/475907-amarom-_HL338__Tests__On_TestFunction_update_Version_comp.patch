@@ -1,0 +1,329 @@
+From bb36ed9facb3833fd6f2a24e9dd9e3709212133c Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Tue, 25 Mar 2025 15:28:40 +0200
+Subject: [PATCH] [HL338][Tests] On TestFunction update Version compare test
+
+Change-Id: I8213109b75aa651135b7e6c8da408b94e07dc47b
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/hw_manager/controls/device_cli.py b/hw_manager/controls/device_cli.py
+index ef159fb..fd6f4da 100644
+--- a/hw_manager/controls/device_cli.py
++++ b/hw_manager/controls/device_cli.py
+@@ -54,6 +54,7 @@
+     cmd_get_acc_pci_switches = "lspci | grep PMC"
+     cmd_check_pci_switches_host_port = "sudo lspci -s %s -vvnn | grep 'Upstream Port'"
+     cmd_get_hl_revision = "sudo lspci -s %s -d 1da3: | grep -Eo 'rev ([0-9]+)' | grep -Eo '[0-9]+'"
++    cmd_get_all_hl_revision = "sudo lspci -d 1da3: | grep -Eo 'rev ([0-9]+)' | grep -Eo '[0-9]+'"
+     cmd_remove = r'echo 1 | sudo tee /sys/bus/pci/devices/0000\:%s\:00.0/remove'
+     cmd_get_pci_device_by_name = 'sudo lspci | grep %s'
+     cmd_rescan = 'echo 1 | sudo tee /sys/bus/pci/rescan'
+@@ -68,6 +69,7 @@
+     cmd_check_pcie_link_status = "lspci | grep 'Device 1060 (rev 01)'"
+     cmd_link_status = 'sudo lspci -vvv -s %s:00.0 | grep LnkSta:'
+     cmd_jc_sel_elist = "sudo ipmitool sel elist"
++    cmd_get_all_devices_version = 'for i in {0..%s}; do cat /sys/class/accel/accel$i/device/*_ver ; cat /sys/class/accel/accel$i/device/pci_addr ; done'
+ 
+     # get_all_pci_addresses = 'lspci -d 1da3: | cut -c1-7'
+ 
+@@ -435,6 +437,27 @@
+         code, stdout = self.execute_command(self.cmd_get_hl_revision % (pci_addr))
+         return self._check_return_execute_command(code, stdout[0])
+ 
++    def get_all_hl_revision_version(self):
++        code, stdout = self.execute_command(self.cmd_get_all_hl_revision)
++        if code != 0:
++            return None
++        else:
++            return stdout
++
++        # Get all devices components
++    def get_all_devices_component_version(self, devices_number):
++        code, stdout = self.execute_command(self.cmd_get_all_devices_version % str(devices_number))
++        if code != 0:
++            hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                        operation=f'Failed to get all components of all {devices_number + 1} devices')
++            return None
++        else:
++            hlsa_logger(level='info', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                        operation=f'Succeeded to get all components of all {devices_number + 1} devices')
++            return stdout
++
++
++
+     # Get PCIe Address of Specific Device
+     def get_pcie_address(self, hl_number):
+         code, stdout = self.execute_command(self.PCIE_cli % hl_number)
+diff --git a/hw_manager/controls/smi_cli.py b/hw_manager/controls/smi_cli.py
+index f071169..337faf2 100644
+--- a/hw_manager/controls/smi_cli.py
++++ b/hw_manager/controls/smi_cli.py
+@@ -27,6 +27,7 @@
+     SMI_product_number_cli = HL_SMI_gerp_cli % 'Product Name'
+     SMI_model_number_cli = HL_SMI_gerp_cli % 'Model'
+     SMI_serial_number_cli = HL_SMI_gerp_cli % 'Serial Number'
++    SMI_get_all_serial_number = 'hl-smi -q | grep "Serial Number"'
+     SMI_pcb_assembly_ver_cli = HL_SMI_gerp_cli % 'PCB Assembly Version'
+     SMI_pcb_version_cli = HL_SMI_gerp_cli % 'PCB Version'
+     SMI_hl_revision_cli = HL_SMI_gerp_cli % 'HL Revision'
+@@ -90,6 +91,14 @@
+     def get_serial_number(self, pcie_address):
+         return self.execute_smi_command(self.SMI_serial_number_cli, pcie_address)
+ 
++    # Get serial number of all devices.
++    def get_all_serial_number(self):
++        return_code, return_value = self.execute_command(self.SMI_get_all_serial_number)
++        if return_code != 0:
++            return None
++        else:
++            return return_value
++
+     # Get PCB assembly version of specific device.
+     def get_pcb_assembly_version(self, pcie_address):
+         return self.execute_smi_command(self.SMI_pcb_assembly_ver_cli, pcie_address)
+diff --git a/json/tests/HL338/tests_options.json b/json/tests/HL338/tests_options.json
+index 442248c..c8bbfde 100644
+--- a/json/tests/HL338/tests_options.json
++++ b/json/tests/HL338/tests_options.json
+@@ -1651,19 +1651,17 @@
+       "MV": {
+         "criteria": "mark",
+         "default": {
+-          "uboot": "",
+-          "driver": "1.20.0-bd87f71",
+-          "preboot": "hl-gaudi3-1.20.0-fw-58.1.1-sec-2",
+-          "zephyr": "hl-gaudi3-1.20.0-fw-58.1.1-sec-2",
++          "driver": "1.21.0-a22e58e",
++          "preboot": "hl-gaudi3-1.20.1-fw-58.2.5-sec-2",
++          "zephyr": "hl-gaudi3-1.20.1-fw-58.2.5-sec-2",
+           "vrm": "0x02:0x02:0x01",
+           "cpld": "0x67b64f7b00000001",
+           "hl_revision": "01"
+         },
+         "HL338_ft2": {
+-          "uboot": "",
+-          "driver": "1.20.0-bd87f71",
+-          "preboot": "hl-gaudi3-1.20.0-fw-58.1.1-sec-2",
+-          "zephyr": "hl-gaudi3-1.20.0-fw-58.1.1-sec-2",
++          "driver": "1.21.0-a22e58e",
++          "preboot": "hl-gaudi3-1.20.1-fw-58.2.5-sec-2",
++          "zephyr": "hl-gaudi3-1.20.1-fw-58.2.5-sec-2",
+           "vrm": "0x02:0x02:0x01",
+           "cpld": "0x67b64f7b00000001",
+           "hl_revision": "01"
+diff --git a/tests/HL338/test_functional.py b/tests/HL338/test_functional.py
+index 547026f..ef87bed 100644
+--- a/tests/HL338/test_functional.py
++++ b/tests/HL338/test_functional.py
+@@ -1661,6 +1661,12 @@
+             # Test Status Affect The Current Test Execution
+             test_status = True
+             log_manager.log_browser()  # Log Master
++            self.operational_devices_address = self.driver_cli.get_operational_devices()
++            test_options_versions = getattr(self.test_options, "versions")
++            # size is a generic variable taken from test option data version size
++            size = len(test_options_versions)
++            actual_devices_ver = self.get_actual_devices_component_version(self.operational_devices_address, size)
++
+             # TEST - Check Device Versions
+             # Iterate Through PCIe Devices
+             for device in self.Devices:
+@@ -1676,7 +1682,7 @@
+                         hlsa_logger(level='warning', ident='Description', test_code='VERSION COMPARE',
+                                     operation=f'Failed to get HL Number or Mezz ID {exception}')
+                     self.Devices[device]['versions'] = {}
+-                    self.operational_devices_address = self.driver_cli.get_operational_devices()
++                    # self.operational_devices_address = self.driver_cli.get_operational_devices()
+                     if device not in self.operational_devices_address:
+                         hlsa_logger(level='error', ident='Description',
+                                     operation=f'PCIE Address: {device} Is Not Operational (!)')
+@@ -1687,10 +1693,11 @@
+                         test_status = False
+                     # Collect Uboot, Driver, Preboot Versions and Compare Against Expected Versions (Test Options)
+                     try:
+-                        test_options_versions = getattr(self.test_options, "versions")
++                        # test_options_versions = getattr(self.test_options, "versions")
+                         for component_name in test_options_versions:
+-                            actual_version = self.get_device_component_version(component_name,
+-                                                                               self.Devices[device]['index'])
++                            # actual_version = self.get_device_component_version(component_name,
++                            #                                                    self.Devices[device]['index'])
++                            actual_version = actual_devices_ver[device][component_name]
+                             self.Devices[device]['versions'][component_name] = actual_version
+                             expected_version = test_options_versions[component_name]
+                             # Validate Component Versions
+@@ -1708,8 +1715,8 @@
+                                     test_status = False
+                         # Print HL-SMI Data
+                         hl_smi_data = self.smi_control.get_all_data(device)
+-                        hl_smi_serial_number = self.smi_control.get_serial_number(device)
+-                        fuse_version = "".join(self.device_cli.get_fuse_version(hl_device_number))
++                        # hl_smi_serial_number = self.smi_control.get_serial_number(device)
++                        # fuse_version = "".join(self.device_cli.get_fuse_version(hl_device_number))
+                         log_manager.log_browser(self.pci_to_mezz_log_format[device])
+                         for line in hl_smi_data:
+                             hlsa_logger(level='info', ident='Description', test_code='VERSION COMPARE',
+@@ -1720,10 +1727,10 @@
+                         log_manager.log_browser()
+                         hlsa_logger(level='info', ident='Description', test_code='HL-SMI', dev_address=device,
+                                     mezzanine=mezz, driver_number=hl_device_number,
+-                                    operation='Serial Number', read_value=str(hl_smi_serial_number), result='SUCCESS')
++                                    operation='Serial Number', read_value=actual_devices_ver[device]['serial_number'], result='SUCCESS')
+                         hlsa_logger(level='info', ident='Description', test_code='HL-SMI', dev_address=device,
+                                     mezzanine=mezz, driver_number=hl_device_number,
+-                                    operation='Fuse Version', read_value=fuse_version, result='SUCCESS')
++                                    operation='Fuse Version', read_value=actual_devices_ver[device]['fuse_version'], result='SUCCESS')
+                         log_manager.log_browser(self.pci_to_mezz_log_format[device])
+                     except Exception as exception:
+                         log_manager.log_browser()
+@@ -3219,22 +3226,133 @@
+         log_manager.log_browser()
+         return analysis_status
+ 
+-    def get_device_component_version(self, component_name, hl_device_number):
+-        func = getattr(self.device_cli, "get_%s_version" % component_name)
+-        version = func(hl_device_number)
+-        if version is None:
+-            hlsa_logger(level='error', ident='Description', test_code='FUNCTIONAL',
+-                        operation=f'[Version Validation] Get,Unable to Get Component Version ({component_name.upper()}) Version',
+-                        result='FAIL')
+-            assert version is not None
+-        elif len(version[0]) == 0:
+-            hlsa_logger(level='warning', ident='Description', test_code='FUNCTIONAL',
+-                        operation=f'[Version Validation] Get,Unable to Get Component Version ({component_name.upper()}) Version')
+-            return 'Unspecified'
+-        hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
+-                    operation=f'[Version Validation] Get,Success to Get Component Version ({component_name.upper()}) Version',
+-                    result='SUCCESS')
+-        return version[0]
++    # def get_device_component_version(self, component_name, hl_device_number):
++    #     func = getattr(self.device_cli, "get_%s_version" % component_name)
++    #     version = func(hl_device_number)
++    #     if version is None:
++    #         hlsa_logger(level='error', ident='Description', test_code='FUNCTIONAL',
++    #                     operation=f'[Version Validation] Get,Unable to Get Component Version ({component_name.upper()}) Version',
++    #                     result='FAIL')
++    #         assert version is not None
++    #     elif len(version[0]) == 0:
++    #         hlsa_logger(level='warning', ident='Description', test_code='FUNCTIONAL',
++    #                     operation=f'[Version Validation] Get,Unable to Get Component Version ({component_name.upper()}) Version')
++    #         return 'Unspecified'
++    #     hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
++    #                 operation=f'[Version Validation] Get,Success to Get Component Version ({component_name.upper()}) Version',
++    #                 result='SUCCESS')
++    #     return version[0]
++
++    def get_actual_devices_component_version(self,actual_operational, size):
++        # size is a generic variable taken from test option data version size
++        try:
++            test_pass = True
++            device_num = len(actual_operational) - 1
++            smi_serial_num = self.smi_control.get_all_serial_number()
++            if smi_serial_num is None:
++                hlsa_logger(level='error', ident='Description', test_code='VERSION COMPARE',
++                            operation='Fail to get all devices serial number')
++                test_pass  = False
++
++            devices_serial_num = []
++            for row_str in smi_serial_num:
++                if row_str.strip() == '':
++                    continue
++                if 'Serial Number' in row_str:
++                    str_line = row_str.split(':')
++                    devices_serial_num = devices_serial_num + [str_line[1]]
++
++            hl_rev_devices =  self.device_cli.get_all_hl_revision_version()
++            if hl_rev_devices is None:
++                hlsa_logger(level='error', ident='Description', test_code='VERSION COMPARE',
++                            operation='Fail to get all devices hl revision')
++                test_pass  = False
++
++            data_out = self.device_cli.get_all_devices_component_version(device_num)
++            if data_out is None:
++                hlsa_logger(level='error', ident='Description', test_code='VERSION COMPARE',
++                            operation='Fail to get all devices component version')
++                data_out = False
++
++            sort_buff = []
++            # Remove strings from buffer:
++            lst_info = ['arcmgmt version', 'Preboot version', '0000:']
++            lst_prefix = ['0x', ':0', '00', '1.', 'Ze', 'hl']
++            fuse_prefix = ['01', '02', '03', '04']
++            ver_fuse_devices = []
++            lst_pci = []
++            dict_devices_ver = {}
++            # size is a generic variable taken from test option data version size
++            sorted_device_ver = [''] * size
++            cnt = 0
++            for row_str in data_out:
++                if row_str.strip() == '':
++                    continue
++                if row_str[:2] not in lst_prefix:
++                    if row_str[:2] in fuse_prefix:
++                        ver_fuse_devices = ver_fuse_devices + [row_str]
++                    continue
++                if lst_info[0] in row_str:
++                    continue
++                if lst_info[1] in row_str:
++                    # sort_buff = sort_buff + str.split(lst_info[1])
++                    sorted_device_ver[2] = row_str.split(lst_info[1])[0].strip()
++                    sorted_device_ver[3] = row_str.split(lst_info[1])[1].strip()
++                    cnt += 2
++                if lst_prefix[0] == row_str[:2]:
++                    if lst_prefix[1] in row_str:
++                        sorted_device_ver[4] = row_str
++                    else:
++                        sorted_device_ver[0] = row_str
++                    cnt += 1
++                if lst_prefix[3] == row_str[:2]:
++                    sorted_device_ver[1] = row_str
++                    cnt += 1
++                if row_str[:5] == lst_info[2]:  # Edit a Shorter PCie Addr
++                    row_str = row_str[5:]
++                    sorted_device_ver[5] = row_str
++                    dict_devices_ver[row_str] = {}  # Constructor of new PCie Addr dict
++                    lst_pci = lst_pci + [row_str]
++                    cnt += 1
++                if cnt == size:
++                    sort_buff = sort_buff + sorted_device_ver
++                    sorted_device_ver = [''] * size
++                    cnt = 0
++
++            # test option key's 1..6  size = 6 , Further info key's 7,8
++            dict_key_ver = {
++                '1': 'cpld',
++                '2': 'driver',
++                '3': 'zephyr',
++                '4': 'preboot',
++                '5': 'vrm',
++                '6': 'hl_revision',
++                '7': 'serial_number',
++                '8': 'fuse_version'
++                }
++
++            dict_oem = {}
++            indx, cnt = 0, 0
++            # size is generic variable taken from test option data version size
++            for pci_addr in lst_pci:
++                for i in range(size):
++                    if (i + 1) % size == 0 and i > 0:
++                        dict_oem[dict_key_ver[f'{size}']] = hl_rev_devices[indx] #'01' # store hl_revision'01'  # store hl_revision
++                        dict_oem[dict_key_ver[f'{size + 1}']] = devices_serial_num[indx]
++                        dict_oem[dict_key_ver[f'{size + 2}']] = ver_fuse_devices[indx]
++                        dict_devices_ver[pci_addr] = dict_oem
++                        dict_oem = {}
++                    else:
++                        dict_oem[dict_key_ver[f'{((cnt % size) + 1)}']] = sort_buff[cnt]
++                    cnt += 1
++                indx += 1
++
++            if test_pass:
++                return dict_devices_ver
++
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code='VERSION COMPARE',
++                        operation=f'Exception of getting devices component version: {exception}')
+ 
+     # todo : check if it triggered
+     def ft_jig_set_fans(self):

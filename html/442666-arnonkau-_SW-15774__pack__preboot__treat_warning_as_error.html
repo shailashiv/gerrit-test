@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 442666: [SW-15774] pack: preboot: treat warning as error</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 442666: [SW-15774] pack: preboot: treat warning as error</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> buildroot-external</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Arnon Kaufman &lt;akaufman@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-08-15 07:34:07.173000000</p>
+            <p><strong>Updated:</strong> 2025-04-14 13:00:07.213000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-15774] pack: preboot: treat warning as error
+
+The -Werror was missed out during the &quot;split&quot; procedure.
+Add the -Werror to the compilation flags.
+
+Change-Id: Ibaf620843f0b964dd5fa69038b6f547e1397095d
+Signed-off-by: Arnon Kaufman &lt;akaufman@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: +2 by Igor Grinberg</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>package/preboot/preboot.mk</code> (M) +1 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/package/preboot/preboot.mk</h4><pre class="diff-content"><span class="diff-hunk">@@ -63,6 +63,7 @@</span>
+<span class="diff-ctx"> PREBOOT_CONF_OPTS += -DCMAKE_EXE_LINKER_FLAGS_INIT=-Wl,-e__start</span>
+<span class="diff-ctx"> PREBOOT_CONF_OPTS += -DTARGET=$(HL_TARGET)</span>
+<span class="diff-ctx"> PREBOOT_CONF_OPTS += -DEXTRA_CFLAGS=&quot;\</span>
+<span class="diff-add">+		-Werror \</span>
+<span class="diff-ctx"> 		-Wno-misleading-indentation \</span>
+<span class="diff-ctx"> 		$(PREBOOT_CONF_APP_EXTRA_CFLAGS)&quot;</span>
+<span class="diff-ctx"> PREBOOT_CONF_OPTS += $(PREBOOT_CONF_APP_OPTS)</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-15 07:34:07.173000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:34:13.006000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19035/ (1/9)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-15 07:36:23.133000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.282000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4681/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.285000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19037/ (1/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.318000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2227/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.323000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3149/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.327000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2215/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.338000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2225/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.344000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/2983/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.349000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3037/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:36:30.353000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3934/ (9/9)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-15 07:37:05.694000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:37:13.518000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19043/ (1/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.880000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4688/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.883000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3156/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.891000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3044/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.892000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/2990/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.900000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2222/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:11.906000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3941/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:12.098000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2232/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:38:12.111000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2234/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:46:34.852000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19035/ : ABORTED
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19035/ )
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19035/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4681/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4681/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2227/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2227/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3934/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3934/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2225/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2225/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3037/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3037/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/2983/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/2983/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2215/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2215/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3149/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3149/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.474000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2245/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.502000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2234/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.546000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3167/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.588000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3952/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.609000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2243/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.667000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3055/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.703000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3001/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:48:38.712000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4699/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 07:50:06.598000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19037/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19037/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4688/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4688/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2234/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2234/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3941/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3941/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2232/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2232/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3044/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3044/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/2990/ : ABORTED
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2222/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2222/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3156/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3156/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 10:18:18.171000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3055/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/3672/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19043/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4699/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2245/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3952/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2243/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3001/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2234/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3167/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-15 13:43:44.210000000)</span><pre>Uploaded patch set 4: Patch Set 3 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:43:53.022000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19090/ (1/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.402000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3971/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.443000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3063/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.449000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3181/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.451000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4718/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.470000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2257/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.477000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2259/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.495000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2248/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 13:53:11.518000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3014/ (8/9)</pre></div><div class="message"><strong>Igor Grinberg</strong> <span class="date">(2024-08-15 15:20:53.662000000)</span><pre>Patch Set 4: Code-Review+2</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-15 15:58:01.739000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3063/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/3685/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19090/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3014/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3181/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2259/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2248/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2257/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4718/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3971/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-17 09:55:35.989000000)</span><pre>Uploaded patch set 5: Patch Set 4 was rebased.</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-17 12:57:10.867000000)</span><pre>Uploaded patch set 6: Patch Set 5 was rebased.</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-18 13:38:38.331000000)</span><pre>Patch Set 6:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:38:45.755000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19225/ (1/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.577000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2310/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.606000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3983/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.638000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2308/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.647000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4730/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.676000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3072/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.764000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2299/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.813000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3055/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 13:45:47.849000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3232/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-18 15:46:52.037000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3072/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/3707/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4730/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2310/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3983/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2308/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3055/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2299/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3232/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19225/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-08-19 09:21:22.480000000)</span><pre>Uploaded patch set 7: Patch Set 6 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:21:30.061000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19348/ (1/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.209000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2339/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.214000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4744/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.229000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2328/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.243000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3077/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.266000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2337/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.281000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3081/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.314000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3261/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 09:30:50.356000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3997/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-08-19 12:06:56.767000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/3077/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/3717/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/4744/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/2339/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/3997/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/2337/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/3081/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/2328/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/3261/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/19348/ : SUCCESS</pre></div><div class="message"><strong>Nina Gertskin</strong> <span class="date">(2025-04-14 13:00:07.213000000)</span><pre>Removed reviewer Nina Gertskin.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,584 @@
+From a20e925a245b2b033cd5b92781b5bdfb532ba8bd Mon Sep 17 00:00:00 2001
+From: John Fleck <jfleck@habana.ai>
+Date: Sat, 08 Mar 2025 14:36:41 +0200
+Subject: [PATCH] [SW-179783] g3: pldm: update sensor read rate high
+
+Update sensors for read rate high, every 2.5 seconds based on the spec.
+
+Change-Id: I2f8d1ea466b96da611bc092ab938a58f758990f1
+Signed-off-by: John Fleck <jfleck@habana.ai>
+---
+
+diff --git a/arch/gaudi3/ras/pldm/sensord_db.c b/arch/gaudi3/ras/pldm/sensord_db.c
+index eef895f..1987eff 100644
+--- a/arch/gaudi3/ras/pldm/sensord_db.c
++++ b/arch/gaudi3/ras/pldm/sensord_db.c
+@@ -9,6 +9,10 @@
+ #include "sensord_db.h"
+ #include "sensord_handlers.h"
+ 
++/* Rate value in msec */
++#define SENSOR_SAMPLE_RATE_HIGH      2500
++#define SENSOR_SAMPLE_RATE_VERY_HIGH 1000
++
+ #define SENSOR_ETHERNET_PORT_STATE(port)					\
+ 	{									\
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_ETHERNET_PORT_STATE],	\
+@@ -20,18 +24,22 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_ADC_48V_POWER],
+ 		.api.poll = sensord_poll_sensor_current_adc_48v_power,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_ADC_12V_POWER],
+ 		.api.poll = sensord_poll_sensor_current_adc_12v_power,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_ADC_3V3_POWER],
+ 		.api.poll = sensord_poll_sensor_current_adc_3v3_power,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_ON_BOARD_MAX_TEMP],
+ 		.api.poll = sensord_poll_current_on_board_max_temp,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_VRM_MAX_TEMP],
+@@ -40,6 +48,7 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HISTORICAL_ON_BOARD_MAX_TEMP],
+ 		.api.poll = sensord_poll_historical_on_board_max_temp,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HISTORICAL_VRM_MAX_TEMP],
+@@ -48,18 +57,22 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_OAM_INPUT_ADC_48V],
+ 		.api.poll = sensord_poll_oam_input_adc_48v,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_OAM_INPUT_ADC_12V],
+ 		.api.poll = sensord_poll_oam_input_adc_12v,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_OAM_INPUT_ADC_3V3],
+ 		.api.poll = sensord_poll_oam_input_adc_3v3,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_B2B_PVREF],
+ 		.api.poll = sensord_poll_b2b_pvref,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_OAM_LAST_POWER_DOWN_CAUSE_MAIN],
+@@ -109,14 +122,17 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CPLD_FW_VERSION],
+ 		.api.get = sensord_get_cpld_fw_version,
++		.api.poll_once = true,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CPLD_FW_TIMESTAMP],
+ 		.api.get = sensord_get_cpld_fw_timestamp,
++		.api.poll_once = true,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CPLD_MIN_VERSION],
+ 		.api.get = sensord_get_cpld_min_version,
++		.api.poll_once = true,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_MANAGEMENT_FIRMWARE_VERSION],
+@@ -141,6 +157,7 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_DEVICE_ACTIVITY_COUNTER],
+ 		.api.poll = sensord_poll_device_activity_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_INTERNAL_INTERCONNECT_ERRORS],
+@@ -161,12 +178,11 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_DEVICE_UTILIZATION],
+ 		.api.poll = sensord_poll_device_utilization,
+-		.api.polling_rate_ms = 1000,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_VERY_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HEALTH_STATE],
+-		.api.poll = sensord_poll_health_state,
+-		.api.polling_rate_ms = 1000,
++		.api.get = sensord_get_health_state,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_FW_STATE],
+@@ -179,10 +195,12 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_SOC_54V_POWER],
+ 		.api.poll = sensord_poll_current_soc_54v_power,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_PEAK_SOC_54V_POWER],
+ 		.api.poll = sensord_poll_peak_soc_54v_power,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_CURRENT_SOC_12V_POWER],
+@@ -195,22 +213,27 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_LAST_POWER_REDUCTION_DURATION],
+ 		.api.poll = sensord_poll_last_power_reduction_duration,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_LAST_POWER_BREAK_DURATION],
+ 		.api.poll = sensord_poll_last_power_break_duration,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_LAST_CLOCK_THROTTLING_DURATION],
+ 		.api.poll = sensord_poll_last_clock_throttling_duration,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_TOTAL_CLOCK_THROTTLING_DURATION],
+ 		.api.poll = sensord_poll_total_clock_throttling_duration,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_TOTAL_HBM_THROTTLING_DURATION],
+ 		.api.poll = sensord_poll_total_hbm_throttling_duration,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_ENERGY_CONSUMED_54V_JOULES],
+@@ -259,10 +282,12 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_075V_D2D_VDDA],
+ 		.api.poll = sensord_poll_current_075v_d2d_vdda,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_VDD_SUPPLY_075V],
+ 		.api.poll = sensord_poll_current_vdd_supply_075v,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HBM_FREQUENCY],
+@@ -287,15 +312,21 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_PCIE_CORRECTABLE_ERRORS],
+ 		.api.poll = sensord_poll_pcie_correctable_errors,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 	},
+ 	{
++		/* Sensors that have poll and a get routine: */
++		/* Poll keeps the value current. */
++		/* Get will return the value (higher precedence) and will clear the value. */
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_PCIE_REPLAY_TIMER_TIMEOUT_ERRORS],
+ 		.api.poll = sensord_poll_pcie_replay_timer_timeout_errors,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.api.get = sensord_get_pcie_replay_timer_timeout_errors,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_PCIE_REPLAY_BUFFER_NUM_ERRORS],
+ 		.api.poll = sensord_poll_pcie_replay_buffer_num_errors,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.api.get = sensord_get_pcie_replay_buffer_num_errors,
+ 	},
+ 	{
+@@ -515,144 +546,168 @@
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 0,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 1,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 2,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 3,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 4,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 5,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 6,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 7,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 8,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 9,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 10,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 11,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 12,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 13,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 14,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 15,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 16,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 17,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 18,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 19,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 20,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 21,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 22,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_UNCORRECTABLE_ERRORS_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_uncorrectable_errors_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 23,
+ 	},
+ 	{
+@@ -1235,144 +1290,168 @@
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 0,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 1,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 2,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 3,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 4,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 5,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 6,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 7,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 8,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 9,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 10,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 11,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 12,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 13,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 14,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 15,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 16,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 17,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 18,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 19,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 20,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 21,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 22,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[
+ 			PLDM_RIDX_SENSOR_ETHERNET_PORTS_LINK_TOGGLE_COUNTER],
+ 		.api.poll = sensord_poll_ethernet_ports_link_toggle_counter,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_HIGH,
+ 		.index = 23,
+ 	},
+ 	{
+@@ -1616,18 +1695,22 @@
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HBM_UTILIZATION],
+ 		.api.poll = sensord_poll_hbm_utilization,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_VERY_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HBM_TOTAL_MEMORY_SIZE],
+ 		.api.poll = sensord_poll_hbm_total_memory_size,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_VERY_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HBM_FREE_MEMORY_SIZE],
+ 		.api.poll = sensord_poll_hbm_free_memory_size,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_VERY_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_HBM_USED_MEMORY_SIZE],
+ 		.api.poll = sensord_poll_hbm_used_memory_size,
++		.api.polling_rate_ms = SENSOR_SAMPLE_RATE_VERY_HIGH,
+ 	},
+ 	{
+ 		.pdr = &pldm_pdr_records[PLDM_RIDX_SENSOR_SRAM_BIST_STATUS],
+diff --git a/arch/gaudi3/ras/pldm/sensord_handlers.c b/arch/gaudi3/ras/pldm/sensord_handlers.c
+index adbb22e..4db6367 100644
+--- a/arch/gaudi3/ras/pldm/sensord_handlers.c
++++ b/arch/gaudi3/ras/pldm/sensord_handlers.c
+@@ -694,7 +694,7 @@
+ 	return 0;
+ }
+ 
+-int sensord_poll_health_state(const struct sensord_sensor_entry *entry,
++int sensord_get_health_state(const struct sensord_sensor_entry *entry,
+ 			      struct sensord_sample *sample)
+ {
+ 	/* These map to sensors that use get callbacks, and so we cannot rely on a
+diff --git a/include/arch/gaudi3/sensord_handlers.h b/include/arch/gaudi3/sensord_handlers.h
+index bfbcd42..4639f59 100644
+--- a/include/arch/gaudi3/sensord_handlers.h
++++ b/include/arch/gaudi3/sensord_handlers.h
+@@ -76,7 +76,7 @@
+ 				    struct sensord_sample *sample);
+ int sensord_poll_device_utilization(const struct sensord_sensor_entry *entry,
+ 				    struct sensord_sample *sample);
+-int sensord_poll_health_state(const struct sensord_sensor_entry *entry,
++int sensord_get_health_state(const struct sensord_sensor_entry *entry,
+ 			      struct sensord_sample *sample);
+ int sensord_get_fw_state(const struct sensord_sensor_entry *entry,
+ 			 struct sensord_sample *sample);

@@ -1,0 +1,23 @@
+From 9e2925e8ebcf4ff4cb0debe995ab7d6db6203da0 Mon Sep 17 00:00:00 2001
+From: Michal Szymczak <mszymczak@habana.ai>
+Date: Mon, 04 Nov 2024 14:44:49 +0200
+Subject: [PATCH] [SW-204982] Globally enable SDPA with BF16 precision
+
+Change-Id: I35e2c56c1b94758d1f41c44bf3858699807d60f7
+---
+
+diff --git a/python_packages/habana_frameworks/torch/__init__.py b/python_packages/habana_frameworks/torch/__init__.py
+index dbf9293..e5e5a67 100644
+--- a/python_packages/habana_frameworks/torch/__init__.py
++++ b/python_packages/habana_frameworks/torch/__init__.py
+@@ -23,6 +23,10 @@
+ habana_frameworks.autoload.is_loaded = True
+ 
+ import torch
++
++# With PT2.5.1 SDPA with bf16 precision has to be configured explicitly via C API
++torch._C._set_math_sdp_allow_fp16_bf16_reduction(True)
++
+ from habana_frameworks.torch.utils.internal import is_lazy
+ from packaging.version import Version
+ 

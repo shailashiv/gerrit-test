@@ -1,0 +1,65 @@
+From ba091a3c403e65f26cc62145d8c6879e2f822935 Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Mon, 09 Jun 2025 11:45:16 +0300
+Subject: [PATCH] [HLS3[Tests] HIB Tests
+
+Change-Id: Ic484ccffb2f26bca3696aea87b10dd364b22b495
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/pytest.ini b/pytest.ini
+index adf5af6..df97750 100644
+--- a/pytest.ini
++++ b/pytest.ini
+@@ -104,6 +104,7 @@
+     UBB_cpld_update : 'Test UBB cpld update'
+     HLB_ft4 : 'Test ft4 production tests'
+     HIB_test: 'HIB tests'
++    HIB_HLB_test: 'HIB HLB tests'
+ 
+ addopts = --capture=tee-sys
+ 
+diff --git a/tests/HLS3/HLB/test_bmc_i2c_access.py b/tests/HLS3/HLB/test_bmc_i2c_access.py
+index 3f1b935..ade0018 100644
+--- a/tests/HLS3/HLB/test_bmc_i2c_access.py
++++ b/tests/HLS3/HLB/test_bmc_i2c_access.py
+@@ -23,6 +23,7 @@
+ from setup_manager.options import get_log_manager
+ logger_manager = get_log_manager()
+ logger = logging.getLogger(__name__)
++@pytest.mark.HIB_HLB_test
+ @pytest.mark.HLS3_HLB_pt_bmc
+ @pytest.mark.HLB_ft1_bmc
+ class TestBMCI2CAccess(TestBase):
+diff --git a/tests/HLS3/UBB/test_bmc_i2c_access.py b/tests/HLS3/UBB/test_bmc_i2c_access.py
+index 13f52ab..9c2eb4b 100644
+--- a/tests/HLS3/UBB/test_bmc_i2c_access.py
++++ b/tests/HLS3/UBB/test_bmc_i2c_access.py
+@@ -23,7 +23,6 @@
+ logger_manager = get_log_manager()
+ logger = logging.getLogger(__name__)
+ 
+-@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_pt_bmc_exp
+ @pytest.mark.HLS3_ft1_bmc
+diff --git a/tests/HLS3/test_hib_fpga_gpios.py b/tests/HLS3/test_hib_fpga_gpios.py
+index e102bc5..9fce8cd 100644
+--- a/tests/HLS3/test_hib_fpga_gpios.py
++++ b/tests/HLS3/test_hib_fpga_gpios.py
+@@ -29,6 +29,7 @@
+ log_manager = options.get_log_manager()
+ logger = logging.getLogger(__name__)
+ 
++@pytest.mark.HIB_HLB_test
+ @pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_ft1_bmc
+@@ -82,6 +83,7 @@
+                         read_value='Exception:' + str(exception), result='FAIL')
+             pytest.fail()
+ 
++    @pytest.mark.HIB_HLB_test
+     @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc

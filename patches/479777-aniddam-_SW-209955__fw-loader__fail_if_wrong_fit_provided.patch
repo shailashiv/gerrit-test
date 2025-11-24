@@ -1,0 +1,130 @@
+From d059f8ec65b4a7d3e8cdb44fab95099e044be244 Mon Sep 17 00:00:00 2001
+From: Avi Niddam <aniddam@habana.ai>
+Date: Wed, 14 May 2025 18:08:04 +0300
+Subject: [PATCH] [SW-209955] fw-loader: fail if wrong fit provided
+
+We want to fail the fw update if a wrong FIT
+(G2 instead of G3 or G3 instead of G2) is provided.
+We have to check in the fw-loader Agent and in the Preboot
+(to cover bad FW loader Agent case).
+In this current commit, we do the changes needed for the Agent part.
+Changes in Preboot part will be handled in a separate commit.
+Builds of G2 and G3 have been checked.
+Run on G3 has been checked.
+
+Change-Id: Iceb1e18938f1cc67aaacfc917f71129ff342ae18
+Signed-off-by: Avi Niddam <aniddam@habana.ai>
+---
+
+diff --git a/fw-loader/CMakeLists.txt b/fw-loader/CMakeLists.txt
+index 6d9fed3..527c40e 100644
+--- a/fw-loader/CMakeLists.txt
++++ b/fw-loader/CMakeLists.txt
+@@ -26,6 +26,8 @@
+ 
+ set(CONF_FILE src/${HL_FAMILY}/${HL_DEVICE}/prj.conf)
+ 
++add_compile_definitions(HL_DEVICE_TYPE="${HL_DEVICE}")
++
+ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(fw-loader)
+ 
+diff --git a/fw-loader/src/fit_loader.c b/fw-loader/src/fit_loader.c
+index 5585918..ae71165 100644
+--- a/fw-loader/src/fit_loader.c
++++ b/fw-loader/src/fit_loader.c
+@@ -63,6 +63,8 @@
+ 	[KAK_UNDEFINED]		= LFMXO5_KAK_UNDEFINED
+ };
+ 
++static const char *fit_required_device_name;
++
+ static int fit_conf_get_load_type(const void *fit, int conf, enum fit_load_type *load_type)
+ {
+ 	const uint32_t *cell;
+@@ -2152,6 +2154,73 @@
+ 	return res;
+ }
+ 
++typedef int (*fit_property_match_cb)(const void *fit,
++		const struct fdt_property *prop, void *data);
++
++static int fit_foreach_property(const void *fit, const char *node_path,
++		fit_property_match_cb match_cb, void *data)
++{
++	int ret, count = 0;
++	int noffset, property;
++	const struct fdt_property *prop;
++
++	noffset = fdt_path_offset(fit, node_path);
++	if (noffset < 0) {
++		LOG_ERR("Cannot find entry ");
++		return -1;
++	}
++
++	fdt_for_each_property_offset(property, fit, noffset) {
++		prop = fdt_get_property_by_offset(fit, property, NULL);
++		if (!prop)
++			continue;
++
++		ret = match_cb(fit, prop, data);
++		if (!ret)
++			count++;
++	}
++
++	return count;
++}
++
++static int match_fit_prop_device(const void *fit, const struct fdt_property *prop, void *data)
++{
++	const char *cmpstr = (const char *)data;
++	const char *prop_name = NULL;
++
++	prop_name = fdt_get_string(fit, fdt32_ld(&prop->nameoff), NULL);
++	if (strstr(prop_name, cmpstr)) {
++		LOG_INF("[FIT] %s: %s\n\r", prop_name, prop->data);
++		fit_required_device_name = prop->data;
++		return 0;
++	}
++
++	return -1;
++}
++
++static int fit_verify_device_type(const void *fit)
++{
++	int rc = 0;
++
++	fit_required_device_name = NULL;
++	fit_foreach_property(fit, "/", match_fit_prop_device, HL_FIT_DEVICE_PROP);
++	if (fit_required_device_name) {
++		if (memcmp(fit_required_device_name, HL_DEVICE_TYPE, strlen(HL_DEVICE_TYPE))) {
++			LOG_ERR("Attempt to load the FIT, that is intended for device %s",
++				fit_required_device_name);
++			rc = EINVAL;
++		} else {
++			LOG_INF("Valid device OK:FIT-Device-required:%s  Device-in-FIT:%s",
++				 fit_required_device_name, HL_DEVICE_TYPE);
++		}
++	} else {
++		LOG_ERR("Can't determine device associated with FIT");
++		rc = EINVAL;
++	}
++
++	return rc;
++}
++
+ int fit_load_verify_img(const void *fit, enum fit_load_type *load_type, int *conf,
+ 			const char **stage)
+ {
+@@ -2162,6 +2231,11 @@
+ 	if (err)
+ 		goto verify_img_err;
+ 
++	*stage = "verify_device_type";
++	err = fit_verify_device_type(fit);
++	if (err)
++		goto verify_img_err;
++
+ 	*stage = "verify chksum";
+ 	err = fit_verify_checksum(fit);
+ 	if (err)

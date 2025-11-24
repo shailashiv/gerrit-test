@@ -1,0 +1,92 @@
+From e63c7ca660abab0a0b79245402ccd011e8982d33 Mon Sep 17 00:00:00 2001
+From: Krzysztof Chrusciel <kchruscielx@habana.ai>
+Date: Wed, 23 Oct 2024 12:12:19 +0300
+Subject: [PATCH] [SW-202671] Add shared layer support: _weight_norm_interface,                                       _weight_norm_interface_backward,                                       _prelu_kernel
+
+Change-Id: Iaf3676ec28d56d9391c9690bbe6bf3e09ca05bde
+Signed-off-by: Krzysztof Chrusciel <kchruscielx@habana.ai>
+---
+
+diff --git a/hpu_ops/backend/weight_norm_gen.cpp b/hpu_ops/backend/weight_norm_gen.cpp
+index 84b1641..74109d8 100644
+--- a/hpu_ops/backend/weight_norm_gen.cpp
++++ b/hpu_ops/backend/weight_norm_gen.cpp
+@@ -42,6 +42,34 @@
+   return dims_to_norm;
+ }
+ 
++SharedMetaDataVector WeightNormSharedMeta(const at::Stack& stack) {
++  const auto metas = WeightNormMeta(stack);
++  const auto g_inType = metas[1].dtype;
++  const auto g_inDim = metas[1].shape.size();
++
++  SharedMetaDataVector weightNormSharedMeta;
++
++  SharedMetaData reduceLpMultiDimFwdSharedMeta{"reduce_Lp_multi_dim_fwd"};
++  reduceLpMultiDimFwdSharedMeta.inputs_data.emplace_back(g_inDim, g_inType);
++  reduceLpMultiDimFwdSharedMeta.outputs_data.emplace_back(g_inDim, g_inType);
++  weightNormSharedMeta.push_back(reduceLpMultiDimFwdSharedMeta);
++
++  SharedMetaData divFwdSharedMeta("div_fwd");
++  divFwdSharedMeta.inputs_data.emplace_back(g_inDim, g_inType);
++  divFwdSharedMeta.inputs_data.push_back(
++      reduceLpMultiDimFwdSharedMeta.outputs_data[0]);
++  divFwdSharedMeta.outputs_data.emplace_back(g_inDim, g_inType);
++  weightNormSharedMeta.push_back(divFwdSharedMeta);
++
++  SharedMetaData multFwdSharedMeta("mult_fwd");
++  multFwdSharedMeta.inputs_data.emplace_back(g_inDim, g_inType);
++  multFwdSharedMeta.inputs_data.push_back(divFwdSharedMeta.outputs_data[0]);
++  multFwdSharedMeta.outputs_data.emplace_back(g_inDim, g_inType);
++  weightNormSharedMeta.push_back(multFwdSharedMeta);
++
++  return weightNormSharedMeta;
++}
++
+ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
+   const torch::Tensor& v_in = stack_tensor(stack, 0);
+   const torch::Tensor& g_in = stack_tensor(stack, 1);
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 4150b92..815ae58 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -5149,22 +5149,16 @@
+ 
+ _weight_norm_interface:
+   output_meta: WeightNormMeta
+-  dtypes:
+-    Gaudi: [BFloat16, Float]
+-    Gaudi2: [BFloat16, Float, Half]
+-    Gaudi3: [BFloat16, Float, Half]
+   op_backend: WeightNormOp
+   out_ids: [0, 0]
++  op_validator: WeightNormSharedMeta
+ 
+ _weight_norm_interface_backward:
+   output_meta: WeightNormBwdMeta
+   custom_fill_params: FillWeightNormBwdParams
+   guid: weight_norm_bwd
+-  dtypes:
+-    Gaudi: [BFloat16, Float]
+-    Gaudi2: [BFloat16, Float, Half]
+-    Gaudi3: [BFloat16, Float, Half]
+   out_ids: [0, 0]
++  op_validator: check-node-with-shared-layer
+ 
+ one_hot:
+   output_meta: OneHotMeta
+@@ -5261,13 +5255,10 @@
+   op_validator: check-node-with-shared-layer
+ 
+ _prelu_kernel:
+-  dtypes:
+-    Gaudi: [BFloat16, Float]
+-    Gaudi2: [BFloat16, Float, Half]
+-    Gaudi3: [BFloat16, Float, Half]
+   out_ids: [0]
+   output_meta: PreluFwdMeta
+   guid: prelu_fwd
++  op_validator: check-node-with-shared-layer
+ 
+ _prelu_kernel_backward:
+   out_ids: [1, 2]

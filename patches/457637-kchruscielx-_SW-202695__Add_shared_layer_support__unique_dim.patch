@@ -1,0 +1,54 @@
+From ac2161b83bc7d2e82f2076d90c8e4036e23a5afb Mon Sep 17 00:00:00 2001
+From: Krzysztof Chrusciel <kchruscielx@habana.ai>
+Date: Mon, 21 Oct 2024 22:42:37 +0300
+Subject: [PATCH] [SW-202695] Add shared layer support: unique_dim
+
+Change-Id: I1ffceb2fd09ceeec497402d347def7352b5fe255
+Signed-off-by: Krzysztof Chrusciel <kchruscielx@habana.ai>
+---
+
+diff --git a/habana_kernels/index_kernels.cpp b/habana_kernels/index_kernels.cpp
+index 410ed31..69f5903 100644
+--- a/habana_kernels/index_kernels.cpp
++++ b/habana_kernels/index_kernels.cpp
+@@ -2839,6 +2839,28 @@
+   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+ }
+ 
++namespace habana {
++SharedMetaDataVector UniqueDimSharedMeta(
++    const at::Stack& stack,
++    habana_helpers::HabanaExecutionMode) {
++  const auto& self = stack.at(0).toTensor();
++  const auto selfDim = self.dim();
++  const auto selfDtype = self.scalar_type();
++
++  const int DimVector1 = 1;
++
++  SharedMetaData uniqueSharedMeta("unique_fwd");
++  uniqueSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
++  uniqueSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
++  uniqueSharedMeta.outputs_data.emplace_back(
++      DimVector1, c10::ScalarType::UInt32);
++  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
++  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
++
++  return {uniqueSharedMeta};
++}
++} // namespace habana
++
+ void UniqueDimOperator::AllocateAndAddSynapseNode(
+     synapse_helpers::graph& graph,
+     torch::jit::Stack& inputs,
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 558a1f1..4150b92 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -6578,6 +6578,7 @@
+   override_fn: unique_dim_hpu_lazy
+   fallback_check: [UniqueFallbackCheck, sorted]
+   dtypes: [BFloat16, Float, Int]
++  op_validator: UniqueDimSharedMeta
+ 
+ unsqueeze_:
+   override_fn: unsqueeze_hpu_lazy_

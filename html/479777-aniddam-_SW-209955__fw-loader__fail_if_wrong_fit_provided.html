@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 479777: [SW-209955] fw-loader: fail if wrong fit provided</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 479777: [SW-209955] fw-loader: fail if wrong fit provided</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr-plugins</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Avi Niddam &lt;aniddam@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-14 15:10:05.479000000</p>
+            <p><strong>Updated:</strong> 2025-05-19 13:30:45.177000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-209955] fw-loader: fail if wrong fit provided
+
+We want to fail the fw update if a wrong FIT
+(G2 instead of G3 or G3 instead of G2) is provided.
+We have to check in the fw-loader Agent and in the Preboot
+(to cover bad FW loader Agent case).
+In this current commit, we do the changes needed for the Agent part.
+Changes in Preboot part will be handled in a separate commit.
+Builds of G2 and G3 have been checked.
+Run on G3 has been checked.
+
+Change-Id: Iceb1e18938f1cc67aaacfc917f71129ff342ae18
+Signed-off-by: Avi Niddam &lt;aniddam@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Meron Cohen: +0, Software Jenkins: +0, Jenkins EMB Service Account: +0, Avi Niddam: -1</li><li><strong>Verified</strong>: +2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>fw-loader/CMakeLists.txt</code> (M) +2 -0</li><li><code>fw-loader/src/fit_loader.c</code> (M) +74 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/fw-loader/CMakeLists.txt</h4><pre class="diff-content"><span class="diff-hunk">@@ -26,6 +26,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> set(CONF_FILE src/${HL_FAMILY}/${HL_DEVICE}/prj.conf)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+add_compile_definitions(HL_DEVICE_TYPE=&quot;${HL_DEVICE}&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})</span>
+<span class="diff-ctx"> project(fw-loader)</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 5585918..ae71165 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/fit_loader.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -63,6 +63,8 @@</span>
+<span class="diff-ctx"> 	[KAK_UNDEFINED]		= LFMXO5_KAK_UNDEFINED</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+static const char *fit_required_device_name;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> static int fit_conf_get_load_type(const void *fit, int conf, enum fit_load_type *load_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	const uint32_t *cell;</span>
+<span class="diff-hunk">@@ -2152,6 +2154,73 @@</span>
+<span class="diff-ctx"> 	return res;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+typedef int (*fit_property_match_cb)(const void *fit,</span>
+<span class="diff-add">+		const struct fdt_property *prop, void *data);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int fit_foreach_property(const void *fit, const char *node_path,</span>
+<span class="diff-add">+		fit_property_match_cb match_cb, void *data)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret, count = 0;</span>
+<span class="diff-add">+	int noffset, property;</span>
+<span class="diff-add">+	const struct fdt_property *prop;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	noffset = fdt_path_offset(fit, node_path);</span>
+<span class="diff-add">+	if (noffset &lt; 0) {</span>
+<span class="diff-add">+		LOG_ERR(&quot;Cannot find entry &quot;);</span>
+<span class="diff-add">+		return -1;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	fdt_for_each_property_offset(property, fit, noffset) {</span>
+<span class="diff-add">+		prop = fdt_get_property_by_offset(fit, property, NULL);</span>
+<span class="diff-add">+		if (!prop)</span>
+<span class="diff-add">+			continue;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		ret = match_cb(fit, prop, data);</span>
+<span class="diff-add">+		if (!ret)</span>
+<span class="diff-add">+			count++;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return count;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int match_fit_prop_device(const void *fit, const struct fdt_property *prop, void *data)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	const char *cmpstr = (const char *)data;</span>
+<span class="diff-add">+	const char *prop_name = NULL;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	prop_name = fdt_get_string(fit, fdt32_ld(&amp;prop-&gt;nameoff), NULL);</span>
+<span class="diff-add">+	if (strstr(prop_name, cmpstr)) {</span>
+<span class="diff-add">+		LOG_INF(&quot;[FIT] %s: %s\n\r&quot;, prop_name, prop-&gt;data);</span>
+<span class="diff-add">+		fit_required_device_name = prop-&gt;data;</span>
+<span class="diff-add">+		return 0;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return -1;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int fit_verify_device_type(const void *fit)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int rc = 0;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	fit_required_device_name = NULL;</span>
+<span class="diff-add">+	fit_foreach_property(fit, &quot;/&quot;, match_fit_prop_device, HL_FIT_DEVICE_PROP);</span>
+<span class="diff-add">+	if (fit_required_device_name) {</span>
+<span class="diff-add">+		if (memcmp(fit_required_device_name, HL_DEVICE_TYPE, strlen(HL_DEVICE_TYPE))) {</span>
+<span class="diff-add">+			LOG_ERR(&quot;Attempt to load the FIT, that is intended for device %s&quot;,</span>
+<span class="diff-add">+				fit_required_device_name);</span>
+<span class="diff-add">+			rc = EINVAL;</span>
+<span class="diff-add">+		} else {</span>
+<span class="diff-add">+			LOG_INF(&quot;Valid device OK:FIT-Device-required:%s  Device-in-FIT:%s&quot;,</span>
+<span class="diff-add">+				 fit_required_device_name, HL_DEVICE_TYPE);</span>
+<span class="diff-add">+		}</span>
+<span class="diff-add">+	} else {</span>
+<span class="diff-add">+		LOG_ERR(&quot;Can&#x27;t determine device associated with FIT&quot;);</span>
+<span class="diff-add">+		rc = EINVAL;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return rc;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> int fit_load_verify_img(const void *fit, enum fit_load_type *load_type, int *conf,</span>
+<span class="diff-ctx"> 			const char **stage)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-hunk">@@ -2162,6 +2231,11 @@</span>
+<span class="diff-ctx"> 	if (err)</span>
+<span class="diff-ctx"> 		goto verify_img_err;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+	*stage = &quot;verify_device_type&quot;;</span>
+<span class="diff-add">+	err = fit_verify_device_type(fit);</span>
+<span class="diff-add">+	if (err)</span>
+<span class="diff-add">+		goto verify_img_err;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	*stage = &quot;verify chksum&quot;;</span>
+<span class="diff-ctx"> 	err = fit_verify_checksum(fit);</span>
+<span class="diff-ctx"> 	if (err)</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-14 15:10:05.479000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-14 15:10:10.745000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35633/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-14 15:10:15.760000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7624/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-14 15:12:56.027000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6911/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-14 15:12:56.044000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6275/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-14 15:15:52.805000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22063/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-14 15:15:52.809000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24500/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-14 15:50:14.769000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6275/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_checkpatch_master_next/5676/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6911/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7624/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-14 16:26:17.330000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22063/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/24758/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35633/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24500/ : SUCCESS</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-15 07:29:51.466000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-15 07:29:58.103000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7650/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-15 07:29:58.157000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35666/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-15 07:32:24.466000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6937/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-15 07:32:24.476000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6300/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-15 07:35:08.710000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22090/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-15 07:35:08.740000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24528/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-15 08:09:59.041000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6937/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6300/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7650/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-15 09:22:18.117000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35666/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22090/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24528/ : SUCCESS</pre></div><div class="message"><strong>Meron Cohen</strong> <span class="date">(2025-05-15 19:28:54.616000000)</span><pre>Patch Set 2: Code-Review-1
+
+(3 comments)</pre></div><div class="message"><strong>Meron Cohen</strong> <span class="date">(2025-05-15 20:12:49.122000000)</span><pre>Patch Set 2:
+
+(3 comments)</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-18 08:30:32.291000000)</span><pre>Patch Set 1:
+
+(3 comments)</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-18 08:37:09.359000000)</span><pre>Patch Set 2:
+
+(3 comments)</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-18 08:45:36.233000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-18 08:45:41.779000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35770/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-18 08:45:45.616000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7738/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-18 08:48:11.496000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7017/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-18 08:48:11.507000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6375/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-18 08:51:15.771000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24613/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-18 08:51:15.793000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22165/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-18 09:25:03.539000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7017/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6375/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7738/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-18 10:01:07.067000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35770/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22165/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24613/ : SUCCESS</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-19 13:29:26.397000000)</span><pre>Patch Set 3:
+
+Frozen (awaiting for SW-228856 completion)</pre></div><div class="message"><strong>Avi Niddam</strong> <span class="date">(2025-05-19 13:30:45.177000000)</span><pre>Patch Set 3: Code-Review-1</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>fw-loader/src/fit_loader.c</h4><ul><li><strong>Meron Cohen</strong> (Line 2173): indentation</li><li><strong>Avi Niddam</strong> (Line 2173): Done</li><li><strong>Meron Cohen</strong> (Line 2201): please change name to fit_verify_device_type</li><li><strong>Avi Niddam</strong> (Line 2201): Done</li><li><strong>Meron Cohen</strong> (Line 2231): forgot to set *stage, currently you&#x27;re using &quot;check fit&quot; above.</li><li><strong>Avi Niddam</strong> (Line 2231): Done</li><li><strong>Meron Cohen</strong> (Line 66): wouldn&#x27;t it be better to pass it as a parameter?</li><li><strong>Avi Niddam</strong> (Line 66): Yes.
+But I fear it will make the work of SW-228856 harder...
+Because this is some code that involves several layers of developers... Guy, Chandavath, Vitaly, Avi.
+And there is the same kind of code in other places. 
+I think when SW-228856 makes this code common and nice, maybe then the parameter way should be considered.
+I have added a remark about this in this JIRA. 
+I hope this addresses well your concern.</li><li><strong>Meron Cohen</strong> (Line 2207): if this variable equals NULL, returned rc is 0</li><li><strong>Avi Niddam</strong> (Line 2207): Done</li><li><strong>Meron Cohen</strong> (Line 2211): EPERM is not regarding permission error?</li><li><strong>Avi Niddam</strong> (Line 2211): Done</li></ul></div></div>
+    </div>
+</body>
+</html>

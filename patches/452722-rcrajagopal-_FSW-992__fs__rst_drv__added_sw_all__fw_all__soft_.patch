@@ -1,0 +1,138 @@
+From 3ac12c8568996c382c23dd4b2da49f4e90ca9cff Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Thu, 26 Sep 2024 12:21:12 +0300
+Subject: [PATCH] [FSW-992] fs: rst drv: added sw all, fw all, soft rst sequences
+
+Added code to execute the io die sw all, fw all, soft reset sequences
+
+Change-Id: I41d28da88e0d40e1507468996f9807f2ee6bb4fc
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/drivers/reset/common/reset_intel_gpu.c b/drivers/reset/common/reset_intel_gpu.c
+index 5afb71f..98d5367 100644
+--- a/drivers/reset/common/reset_intel_gpu.c
++++ b/drivers/reset/common/reset_intel_gpu.c
+@@ -114,9 +114,15 @@
+ static int reset_intel_gpu_trigger_reset(const struct device *dev, uint8_t reset_type)
+ {
+ 	switch (reset_type) {
+-	case HL_SOFT_RST:
+-	case HL_FW_ALL_RST:
+ 	case HL_SW_ALL_RST:
++		reset_intel_gpu_execute_sw_all_rst_seq(dev);
++		break;
++	case HL_FW_ALL_RST:
++		reset_intel_gpu_execute_fw_all_rst_seq(dev);
++		break;
++	case HL_SOFT_RST:
++		reset_intel_gpu_execute_soft_rst_seq(dev);
++		break;
+ 	case HL_FLR_RST:
+ 	case HL_VF_FLR_RST:
+ 		/* TODO: Add reset_intel_gpu_perform_pre_reset_cfg before performing reset */
+diff --git a/drivers/reset/common/reset_intel_gpu_drv.h b/drivers/reset/common/reset_intel_gpu_drv.h
+index b41c0e7..5945b98 100644
+--- a/drivers/reset/common/reset_intel_gpu_drv.h
++++ b/drivers/reset/common/reset_intel_gpu_drv.h
+@@ -24,6 +24,9 @@
+ void reset_intel_gpu_dev_perform_sw_all_reset(const struct device *dev);
+ void reset_intel_gpu_dev_perform_fw_all_reset(const struct device *dev);
+ void reset_intel_gpu_dev_perform_soft_reset(const struct device *dev);
++void reset_intel_gpu_execute_sw_all_rst_seq(const struct device *dev);
++void reset_intel_gpu_execute_fw_all_rst_seq(const struct device *dev);
++void reset_intel_gpu_execute_soft_rst_seq(const struct device *dev);
+ void reset_intel_gpu_dev_pcie_disable_access_cfg(const struct device *dev, uint8_t reset_type);
+ void reset_intel_gpu_dev_pcie_vf_disable_access_cfg(const struct device *dev, uint8_t reset_type);
+ void reset_intel_gpu_dev_pcie_vf_enable_access_cfg(const struct device *dev, uint8_t reset_type);
+diff --git a/drivers/reset/fs1/dev.c b/drivers/reset/fs1/dev.c
+index d840b6a..126cf0c 100644
+--- a/drivers/reset/fs1/dev.c
++++ b/drivers/reset/fs1/dev.c
+@@ -117,6 +117,21 @@
+ 	/* TODO: call the corresponding die's soft rst fn */
+ }
+ 
++__weak void reset_intel_gpu_execute_sw_all_rst_seq(const struct device *dev)
++{
++	/* TODO: call the corresponding die's sw all rst fn */
++}
++
++__weak void reset_intel_gpu_execute_fw_all_rst_seq(const struct device *dev)
++{
++	/* TODO: call the corresponding die's sw all rst fn */
++}
++
++__weak void reset_intel_gpu_execute_soft_rst_seq(const struct device *dev)
++{
++	/* TODO: call the corresponding die's sw all rst fn */
++}
++
+ __weak void reset_intel_gpu_dev_pcie_disable_access_cfg(const struct device *dev,
+ 							uint8_t reset_type)
+ {
+diff --git a/drivers/reset/fs1/io_dev.c b/drivers/reset/fs1/io_dev.c
+index 547f3d9..3ef19d3 100644
+--- a/drivers/reset/fs1/io_dev.c
++++ b/drivers/reset/fs1/io_dev.c
+@@ -313,7 +313,7 @@
+ 	struct reset_intel_gpu_driver_data *data = DEV_DATA_LOCAL(dev);
+ 
+ 	if (data->die_id == FS1_IO_DIE_0) {
+-		LOG_INF("Issuing SW ALL RESET for die id %d", data->die_id);
++		LOG_INF("Issuing SW ALL RESET for IO DIE");
+ 
+ 		CFG_WREG32(ID0_H0_PSOC_BOOT_RESET_ISO(mmH15B_PSOC_RESET_CONF_SW_ALL_RST),
+ 			H15B_PSOC_RESET_CONF_SW_ALL_RST_IND_M);
+@@ -325,7 +325,7 @@
+ 	struct reset_intel_gpu_driver_data *data = DEV_DATA_LOCAL(dev);
+ 
+ 	if (data->die_id == FS1_IO_DIE_0) {
+-		LOG_ERR("Issuing FW ALL RESET for die id %d", data->die_id);
++		LOG_INF("Issuing FW ALL RESET for IO DIE");
+ 
+ 		CFG_WREG32(IO0_H0_PSOC_BOOT_SECURITY(mmPSOC_SECURITY_FW_RST),
+ 			PSOC_SECURITY_FW_RST_VAL_M);
+@@ -337,7 +337,7 @@
+ 	struct reset_intel_gpu_driver_data *data = DEV_DATA_LOCAL(dev);
+ 
+ 	if (data->die_id == FS1_IO_DIE_0) {
+-		LOG_ERR("Issuing SOFT RESET for die id %d", data->die_id);
++		LOG_INF("Issuing SOFT RESET for IO DIE");
+ 
+ 		CFG_WREG32(ID0_H0_PSOC_BOOT_RESET_ISO(mmH15B_PSOC_RESET_CONF_SOFT_RST),
+ 			H15B_PSOC_RESET_CONF_SOFT_RST_IND_M);
+@@ -395,3 +395,33 @@
+ 			PSOC_BOOT_CONF_FLR_RST_READY_VF1_FLR_S;
+ 	CFG_WREG32(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_FLR_RST_READY), flr_mask);
+ }
++
++void reset_intel_gpu_execute_sw_all_rst_seq(const struct device *dev)
++{
++	reset_intel_gpu_dev_halt_engines_cfg(dev, HL_SW_ALL_RST);
++	reset_intel_gpu_dev_isolate_engines_cfg(dev, HL_SW_ALL_RST);
++	reset_intel_gpu_dev_pcie_disable_access_cfg(dev, HL_SW_ALL_RST);
++	reset_intel_gpu_dev_perform_sw_all_reset(dev);
++
++	while (1) {
++	}
++}
++
++void reset_intel_gpu_execute_fw_all_rst_seq(const struct device *dev)
++{
++	reset_intel_gpu_dev_pcie_disable_access_cfg(dev, HL_FW_ALL_RST);
++	reset_intel_gpu_dev_perform_fw_all_reset(dev);
++
++	while (1) {
++	}
++}
++
++void reset_intel_gpu_execute_soft_rst_seq(const struct device *dev)
++{
++	/* reset_intel_gpu_dev_halt_engines_cfg(dev, HL_SOFT_RST); */
++	reset_intel_gpu_dev_isolate_engines_cfg(dev, HL_SOFT_RST);
++	reset_intel_gpu_dev_perform_soft_reset(dev);
++	reset_intel_fs_busy_wait(10 * DELAY_1_USEC); /* TODO: Check with HW team for delay time */
++	/* TODO: Add a function to reinitialize the engines halted */
++	reset_intel_gpu_dev_restore_isolate_engines_cfg(dev, HL_SOFT_RST);
++}

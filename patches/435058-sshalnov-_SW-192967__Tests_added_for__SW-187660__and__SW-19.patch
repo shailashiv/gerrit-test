@@ -1,0 +1,239 @@
+From 69e86b6cf6d9368f7adc7375f22f4f9bb1c0a7d7 Mon Sep 17 00:00:00 2001
+From: Sergei Shalnov <sergey.shalnov@habana.ai>
+Date: Tue, 16 Jul 2024 18:29:01 +0300
+Subject: [PATCH] [SW-192967] Tests added for [SW-187660] and [SW-192172]
+
+Change-Id: Ia62e1816ed10f5394716145991841a8ba08b4c9e
+---
+
+diff --git a/.ci/scripts/build.sh b/.ci/scripts/build.sh
+index cb3223f..6b94e09 100755
+--- a/.ci/scripts/build.sh
++++ b/.ci/scripts/build.sh
+@@ -1289,6 +1289,9 @@
+             __test_status=$((__test_status | $?))
+             (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+             __test_status=$((__test_status | $?))
++            (set -x; eval HABANA_PROFILE=1 ${__pytorch_modules_tests_exe} pytest_working/lazy/test_activity_profiler.py -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest_activity_profiler.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
++            __test_status=$((__test_status | $?))
++
+         fi
+         if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
+             (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+diff --git a/tests/pytest_working/lazy/test_activity_profiler.py b/tests/pytest_working/lazy/test_activity_profiler.py
+new file mode 100644
+index 0000000..f9aafac
+--- /dev/null
++++ b/tests/pytest_working/lazy/test_activity_profiler.py
+@@ -0,0 +1,166 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++# Test for SW-192967
++
++import json
++import os
++
++# These variables are required for this test if run standalone
++# os.environ["PT_HPU_LAZY_MODE"] = "1"
++# os.environ["HABANA_PROFILE"] = "1"
++
++is_profiler_enabled = False  # temporal solution. Original: os.getenv("HABANA_PROFILE") == "1"
++
++import habana_frameworks.torch.core
++import pytest
++import torch
++import torchvision
++
++dev_list_names = [
++    "hpu",
++]
++
++dev_list = [
++    torch.device("hpu", 0),
++]
++
++act_list = [torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU]
++
++
++def read_result_files(dir_name="."):
++    """
++    Read files in given directory and decode it as JSON format
++
++    each file has keys: (['deviceProperties', 'schemaVersion', 'traceEvents', 'traceName'])
++    """
++
++    result = list()
++
++    for fname in os.listdir(dir_name):
++        path_rel = os.path.join(dir_name, fname)
++        fd = open(path_rel)
++
++        data = json.load(fd)
++        result.append(data)
++
++        fd.close()
++
++    return result
++
++
++def cleanup_result_files(dir_name="."):
++    """
++    Delete all files in given directory with suffix
++    and delete given directory if empty
++    """
++
++    suffix = ".pt.trace.json"
++    deleted_something = False
++
++    for fname in os.listdir(dir_name):
++        # TODO slow if lot of files in the directory
++        if fname.endswith(suffix):
++            path_rel = os.path.join(dir_name, fname)
++            os.remove(path_rel)
++            deleted_something = True
++
++    # clean-up logs subdirectory if empty
++    if not os.listdir(dir_name):
++        os.rmdir(dir_name)
++
++    # TODO subdir ".graph_dumps" still exists. Not sure what to do with it
++    return deleted_something
++
++
++@pytest.mark.parametrize("dev", dev_list, ids=dev_list_names)
++class Test_hpu_profiler:
++    def test_act_prof(self, dev):
++        results_dir_name = "test_act_prof"
++        inputs = torch.ones(2, 4).to(dev)
++        targets = torch.ones(2, 4).to(dev)
++
++        tb_handle = torch.profiler.tensorboard_trace_handler(results_dir_name)
++        sch_handle = torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1)
++
++        with torch.profiler.profile(
++            activities=act_list, schedule=sch_handle, on_trace_ready=tb_handle, record_shapes=True, with_stack=True
++        ) as prof:
++            loss_cls = torchvision.ops.sigmoid_focal_loss(inputs, targets, alpha=0.25, gamma=2.0, reduction="sum")
++            loss_cls.cpu()
++
++        # print(prof.key_averages())
++        any_deleted_files = cleanup_result_files(results_dir_name)
++        assert any_deleted_files
++
++    @pytest.mark.skipif(not is_profiler_enabled, reason="HABANA_PROFILE must be set.")
++    def test_act_prof_loop(self, dev, capfd):
++        """
++        https://jira.habana-labs.com/browse/SW-187660
++        The profiler API does not allow easily check errors raised in the object
++        for example, 'SynapseProfilerSource::start()' function just
++        prints warning into std::err with no exception or return status
++
++        to detect such warning I use potentially dangerous fixture 'capfd'
++        """
++
++        results_dir_name = "test_act_prof_loop"
++        err_msg = ["synProfilerQueryRequiredMemory failed", "synProfilerStart failed", "synProfilerStop failed"]
++
++        for i in range(5):
++            tb_handle = torch.profiler.tensorboard_trace_handler(results_dir_name)
++
++            with torch.profiler.profile(activities=act_list, on_trace_ready=tb_handle) as prof:
++                input_tensor = torch.tensor([[i] * 10] * 10, dtype=torch.float32, device=dev)
++                result = torch.matmul(input_tensor, input_tensor)
++                result.cpu()
++
++            # with capfd.disabled():
++            #     print(prof.key_averages())
++
++        with capfd.disabled():
++            cleanup_result_files(results_dir_name)
++            out, err = capfd.readouterr()
++            # check if any pattern exists in std:err
++            for err_str in err_msg:
++                assert err_str not in err
++
++    def test_act_prof_loop_records(self, dev):
++        """
++        https://jira.habana-labs.com/browse/SW-192172
++        Detect data acumulation in log files.
++        Log files should not grow in size with duplicated information.
++        """
++
++        results_dir_name = "test_act_prof_loop_records"
++
++        for i in range(5):
++            tb_handle = torch.profiler.tensorboard_trace_handler(results_dir_name)
++
++            with torch.profiler.profile(activities=act_list, on_trace_ready=tb_handle) as prof:
++                input_tensor = torch.tensor([[i] * 10] * 10, dtype=torch.float32, device=dev)
++                result = torch.matmul(input_tensor, input_tensor)
++                result.cpu()
++
++        db_prof = read_result_files(results_dir_name)
++        cleanup_result_files(results_dir_name)
++
++        events_size_list = list()
++        for db_record in db_prof:
++            trace_event_list = db_record["traceEvents"]
++            list_size = len(trace_event_list)
++            events_size_list.append(list_size)
++
++        min_size = min(events_size_list)
++        max_size = max(events_size_list)
++        threshold = min_size / 4  # let's assume threshold is 25%
++
++        assert abs(max_size - min_size) < threshold  # prevent accumulative log files
+diff --git a/tests/test_activity_profiler.py b/tests/test_activity_profiler.py
+deleted file mode 100644
+index b940b45..0000000
+--- a/tests/test_activity_profiler.py
++++ /dev/null
+@@ -1,39 +0,0 @@
+-import os
+-
+-import pytest
+-import torch
+-import torchvision
+-from test_utils import _is_simulator
+-
+-os.environ["PT_HPU_LAZY_MODE"] = "1"
+-device = "hpu"
+-
+-
+-@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+-def test_activity_profiler():
+-    if _is_simulator():
+-        return
+-
+-    inputs = torch.ones(2, 4).to(device)
+-    targets = torch.ones(2, 4).to(device)
+-
+-    with torch.profiler.profile(
+-        activities=(torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU),
+-        schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
+-        on_trace_ready=torch.profiler.tensorboard_trace_handler("."),
+-        record_shapes=True,
+-        with_stack=True,
+-    ) as prof:
+-        loss_cls = torchvision.ops.sigmoid_focal_loss(inputs, targets, alpha=0.25, gamma=2.0, reduction="sum")
+-        loss_cls.cpu()
+-    trace_file_gen = False
+-    for fname in os.listdir("."):
+-        if fname.endswith(".pt.trace.json"):
+-            os.remove(fname)
+-            trace_file_gen = True
+-            break
+-    assert trace_file_gen
+-
+-
+-if __name__ == "__main__":
+-    test_activity_profiler()

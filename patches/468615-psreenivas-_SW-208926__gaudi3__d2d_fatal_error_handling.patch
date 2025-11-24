@@ -1,0 +1,141 @@
+From 7a24c9388e18805d430471ed610f9d897bcf2a94 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Fri, 24 Jan 2025 05:13:37 +0200
+Subject: [PATCH] [SW-208926] gaudi3: d2d fatal error handling
+
+It is observed that even after uncorrectable
+d2d fatal errors, the setups recovered after
+watchdog reset. This patch adds support to try
+and recover the card atleast once after fatal
+error by issung hard reset, if the fatal errors
+are seen even after this the card will be marked
+for rma and booting will be halted.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I949c24e456abb3bcbb136ea92be8bc4531941a34
+---
+
+diff --git a/drivers/d2d/controller/d2d_controller.c b/drivers/d2d/controller/d2d_controller.c
+index 8e88c3d..61ec12d 100644
+--- a/drivers/d2d/controller/d2d_controller.c
++++ b/drivers/d2d/controller/d2d_controller.c
+@@ -24,6 +24,9 @@
+ #include <zephyr/drivers/misc/hl_reset/hl_reset_api.h>
+ #include <common_utils.h>
+ #include <hl_devs.h>
++#ifdef CONFIG_LIBSOC_INIT
++#include <boot_if.h>
++#endif
+ 
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_REGISTER(DT_DRV_COMPAT);
+@@ -473,7 +476,9 @@
+  */
+ static void mark_for_rma(void)
+ {
+-	/*TODO: implement*/
++#ifdef CONFIG_LIBSOC_INIT
++	cpu_boot_err_set(CPU_BOOT_ERR_DEVICE_UNUSABLE_FAIL);
++#endif
+ }
+ 
+ static struct {
+@@ -595,9 +600,14 @@
+  */
+ static void d2d_fatal_err_handler(const struct device *dev)
+ {
++	/* Try to recover by hard reset at least once */
++	hl_d2d_fatal_error_recovery();
+ 	d2d_controller_drv_traffic_en_set(dev, false);
+ 	mark_for_rma();
+ 	report_fatal_err();
++	LOG_ERR("Halting CPU and stopping bootflow!");
++	arch_irq_lock();
++	k_cpu_idle();
+ }
+ 
+ static uint32_t countBit(uint8_t mask)
+diff --git a/drivers/misc/common_utils/gaudi/gaudi3/common_utils.c b/drivers/misc/common_utils/gaudi/gaudi3/common_utils.c
+index c3e5f4c..d94144d 100644
+--- a/drivers/misc/common_utils/gaudi/gaudi3/common_utils.c
++++ b/drivers/misc/common_utils/gaudi/gaudi3/common_utils.c
+@@ -27,6 +27,11 @@
+ #include <pcie_aux_masks.h>
+ #include <pcie_aux_regs.h>
+ #include <zephyr/drivers/gpio.h>
++#include <gaudi3_reg_map.h>
++#include <gaudi3_fw_if.h>
++#include <psoc_reset_conf_regs.h>
++#include <psoc_reset_conf_masks.h>
++
+ #include <string.h>
+ #include <zephyr/drivers/misc/hl_cpld/hl_cpld.h>
+ #ifdef CONFIG_LIBEEPROM
+@@ -737,3 +742,43 @@
+ 	i2c_recovery_api->set_recovery_event_handler(hl_cpld_i2c_recovery_event_handler);
+ }
+ #endif
++#ifdef CONFIG_RESET_IN_PRE_KERN_EXCEPTION
++
++#define DELAY_1K_USEC	1000
++
++void hl_pre_kernel_hard_reset(void)
++{
++	LOG_WRN("Issuing early hard reset");
++
++	sys_mwrite32(0x0,
++		     D0_PSOC_GLOBAL_CONF_REG(mmGLOBAL_CONF_DIE_READY_IN) + HL_CFG_BASE,
++		     GLOBAL_CONF_DIE_READY_IN_IND_M);
++
++	/* Issue reset to slave die via SPI GW */
++	sys_write32(GLOBAL_CONF_DIE_READY_IN_IND_M,
++		    D1_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_SW_ALL_RST) + SPI_GW_BASE);
++
++	/* wait for slave die to reset no indication is required */
++	k_busy_wait(DELAY_1K_USEC);
++
++	/* Issue master die0 reset */
++	sys_write32(GLOBAL_CONF_DIE_READY_IN_IND_M,
++		    D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_SW_ALL_RST) + HL_CFG_BASE);
++}
++#endif
++void hl_d2d_fatal_error_recovery(void)
++{
++#ifdef CONFIG_RESET_IN_PRE_KERN_EXCEPTION
++	struct gaudi3_cold_rst_data cold_rst_data;
++
++	cold_rst_data.data = CFG_RREG32(mmCOLD_RST_DATA);
++
++	if (cold_rst_data.d2d_fatal_err) {
++		LOG_INF("Fatal error is already set, cannot recover");
++		return;
++	}
++	cold_rst_data.d2d_fatal_err = 1;
++	CFG_WREG32(mmCOLD_RST_DATA, cold_rst_data.data);
++	hl_pre_kernel_hard_reset(); /* should not return */
++#endif
++}
+diff --git a/include/zephyr/drivers/misc/common/common_utils.h b/include/zephyr/drivers/misc/common/common_utils.h
+index f727400..3b8c6c4 100644
+--- a/include/zephyr/drivers/misc/common/common_utils.h
++++ b/include/zephyr/drivers/misc/common/common_utils.h
+@@ -286,5 +286,7 @@
+ int hl_flash_is_hw_write_protected(uint8_t *wp);
+ bool hl_is_sfp_present(void);
+ int hl_extract_substring(char *str_in, char *prefix, char *postfix, char *str_out);
++void hl_pre_kernel_hard_reset(void);
++void hl_d2d_fatal_error_recovery(void);
+ 
+ #endif /* __COMMON_UTILS_H___ */
+diff --git a/soc/hl/gaudi/gaudi3/soc.c b/soc/hl/gaudi/gaudi3/soc.c
+index 1b0d48c..07ece7b 100644
+--- a/soc/hl/gaudi/gaudi3/soc.c
++++ b/soc/hl/gaudi/gaudi3/soc.c
+@@ -20,6 +20,7 @@
+ #include <psoc_reset_conf_regs.h>
+ #include <psoc_reset_conf_masks.h>
+ #include <gaudi3_fw_if.h>
++#include <zephyr/drivers/misc/common/common_utils.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>

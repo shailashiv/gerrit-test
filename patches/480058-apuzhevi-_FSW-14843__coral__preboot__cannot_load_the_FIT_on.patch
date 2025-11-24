@@ -1,0 +1,54 @@
+From 659d0cae0f410f104ab0499d75e81aab9bf3734a Mon Sep 17 00:00:00 2001
+From: Alexey Puzhevich <alexey.puzhevich@intel.com>
+Date: Tue, 20 May 2025 09:52:22 +0300
+Subject: [PATCH] [FSW-14843] coral: preboot: cannot load the FIT on Coral
+
+Should be fixed in Coral, but FS1 is no longer a priority.
+Workaround checks which environment is used - simulator or
+real to adjust the flow. Should be removed for JGS.
+
+Change-Id: Iedb83ba4331e68814075263b19b49b670df2391f
+Signed-off-by: Alexey Puzhevich <alexey.puzhevich@intel.com>
+---
+
+diff --git a/lib/module/module_lkd.c b/lib/module/module_lkd.c
+index 20d6def..ea377fd 100644
+--- a/lib/module/module_lkd.c
++++ b/lib/module/module_lkd.c
+@@ -110,6 +110,9 @@
+ k_tid_t module_lkd_setup(const char *thread_name)
+ {
+ 	lkd_dev_specific_setup();
++	/* [FSW-14843] - should be removed for JGS */
++	if (hl_is_sim_mode())
++		module_lkd_enable();
+ 	sts.thread_can_run = true;
+ 
+ 	thread_id = k_thread_create(&module_lkd_thread, module_lkd_stack, MODULE_LKD_STACKSIZE,
+@@ -658,16 +661,19 @@
+ {
+ 	enum cmd_check_res res;
+ 
+-	while (!hl_is_pci_basics_done()) {
+-		wdt_thread_create_if_ready();
++	/* [FSW-14843] - should be removed for JGS */
++	if (!hl_is_sim_mode()) {
++		while (!hl_is_pci_basics_done()) {
++			wdt_thread_create_if_ready();
+ 
+-		if (thread_desc)
+-			wdt_thread_keep_alive(thread_desc);
++			if (thread_desc)
++				wdt_thread_keep_alive(thread_desc);
+ 
+-		watchdog_yield();
++			watchdog_yield();
++		}
++
++		module_lkd_enable();
+ 	}
+-
+-	module_lkd_enable();
+ 
+ 	while (sts.thread_can_run) {
+ 		wdt_thread_create_if_ready();

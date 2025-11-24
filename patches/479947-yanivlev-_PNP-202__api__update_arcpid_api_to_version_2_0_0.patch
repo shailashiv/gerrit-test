@@ -1,0 +1,2748 @@
+From cf5eb168197bbf742aa9d7fdde0f560fb13fc6ca Mon Sep 17 00:00:00 2001
+From: Yaniv Levinsky <ylevinsky@habana.ai>
+Date: Tue, 13 May 2025 18:05:18 +0300
+Subject: [PATCH] [PNP-202] api: update arcpid api to version 2.0.0
+
+The ARCPID API provides a structured interface for monitoring and
+controlling power and thermal management functionality. The
+implementation includes both a firmware component (C-based) and a
+user-space interactive shell (Python-based).
+
+Version 2.0.0 of the ARCPID API represents a significant architectural
+redesign from the previous implementation.
+
+This upgrade was necessary for several critical reasons:
+
+* Improved Scalability: The previous API architecture lacked a scalable
+  design pattern, which created growing pains as the system expanded
+* Simplified Configuration: Each API command used to be configured both
+  in the firmware and in user shell, creating consistency issues. The
+  new API uses a centralized JSON file.
+* Enhanced Functionality: Command hierarchy, custom commands, error
+  handling and more
+* Unifying API into a single repository: API files were split between
+  the ARCPID FW repo and SiVal repo, making it difficult to maintain and
+  update. The new implementation consolidates all API files into the FW
+  repository.
+
+New FW architecture:
+* Command format: <block> <param> [<option>] <command> [<data>]
+* Define commands in a JSON file
+* Commands header is auto-generated using a Python script
+
+New User Shell architecture:
+* Python-based CLI with tab completion and command history
+* Support for new commands is added automatically (using JSON parsing)
+* Version checks: comparing FW API version to parsed JSON version
+* Multiple output formats including state, decimal, hex, and tuples
+
+Add all ARCPID API V2 related files to ARCPID repo, replacing the old
+implementation.
+
+Change-Id: I0b8a6ee0de0a553ba7380d92b6f445d3fd308381
+Signed-off-by: Yaniv Levinsky <ylevinsky@habana.ai>
+---
+
+diff --git a/api/api_commands.json b/api/api_commands.json
+new file mode 100644
+index 0000000..d2433bb
+--- /dev/null
++++ b/api/api_commands.json
+@@ -0,0 +1,329 @@
++{
++  "api_version": {
++    "major": 2,
++    "minor": 0,
++    "patch": 0
++  },
++  "blocks": {
++    "power": {
++      "id": 1,
++      "description": "Power parameters",
++      "params": {
++        "regulation": {
++          "id": 1,
++          "description": "Power regulation enable/disable",
++          "commands": ["get", "enable", "disable"],
++          "options": [],
++          "output_type": "state",
++          "output_unit": ""
++        },
++        "coeff": {
++          "id": 2,
++          "description": "Power coefficients (Kp, Ki, Kd)",
++          "commands": ["get", "set"],
++          "options": ["p", "gb"],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "tdp": {
++          "id": 3,
++          "description": "TDP (in mWatts)",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "mW"
++        },
++        "ewma": {
++          "id": 4,
++          "description": "EWMA weight",
++          "commands": ["get", "set"],
++          "options": ["power", "current", "rl"],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "pv_power": {
++          "id": 5,
++          "description": "PV power (Momentary power / Average power)",
++          "commands": ["momentary", "average"],
++          "options": [],
++          "output_type": "state",
++          "output_unit": ""
++        },
++        "violation": {
++          "id": 6,
++          "description": "Power Violation Threshold (in mWatts)",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "mW"
++        },
++        "spike_event": {
++          "id": 7,
++          "description": "Power Spike Event Threshold (in mWatts)",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "mW"
++        }
++      }
++    },
++    "thermal": {
++      "id": 2,
++      "description": "Thermal parameters",
++      "params": {
++        "regulation": {
++          "id": 1,
++          "description": "Thermal regulation enable/disable",
++          "commands": ["get", "enable", "disable"],
++          "options": [],
++          "output_type": "state",
++          "output_unit": ""
++        },
++        "coeff": {
++          "id": 2,
++          "description": "Thermal coefficients (Kp, Ki, Kd)",
++          "commands": ["get", "set"],
++          "options": ["p", "i", "d"],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "trip_point": {
++          "id": 3,
++          "description": "Thermal trip point (in mCelsius)",
++          "commands": ["get", "set"],
++          "options": ["soc", "hbm"],
++          "output_type": "decimal",
++          "output_unit": "mC"
++        },
++        "event_delay": {
++          "id": 4,
++          "description": "Thermal throttling event delay",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "ms"
++        }
++      }
++    },
++    "rate_limit": {
++      "id": 3,
++      "description": "Rate limit parameters",
++      "params": {
++        "value": {
++          "id": 1,
++          "description": "Rate limit value",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "%"
++        },
++        "min_value": {
++          "id": 2,
++          "description": "Rate limit minimum value",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "%"
++        },
++        "max_value": {
++          "id": 3,
++          "description": "Rate limit maximum value",
++          "commands": ["get", "set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": "%"
++        }
++      }
++    },
++    "edp": {
++      "id": 4,
++      "description": "Excursion power parameters",
++      "params": {
++        "segments": {
++          "id": 1,
++          "description": "EDP Number of segments",
++          "commands": ["get", "set", "enable", "disable"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "multiplier": {
++          "id": 2,
++          "description": "EDP Multiplier",
++          "commands": ["get", "set"],
++          "options": ["0", "1", "2", "3"],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "duration": {
++          "id": 3,
++          "description": "EDP duration",
++          "commands": ["get", "set"],
++          "options": ["0", "1", "2", "3"],
++          "output_type": "decimal",
++          "output_unit": "us"
++        }
++      }
++    },
++    "trace": {
++      "id": 8,
++      "description": "Tracing parameters",
++      "params": {
++        "enable": {
++          "id": 1,
++          "description": "Trace enable/disable",
++          "commands": ["enable", "disable"],
++          "options": [],
++          "output_type": "state",
++          "output_unit": ""
++        },
++        "entries": {
++          "id": 2,
++          "description": "Trace entry types",
++          "commands": ["set"],
++          "options": [],
++          "output_type": "hexadecimal",
++          "output_unit": ""
++        },
++        "offset": {
++          "id": 3,
++          "description": "Trace offset",
++          "commands": ["set"],
++          "options": [],
++          "output_type": "hexadecimal",
++          "output_unit": ""
++        },
++        "chunks": {
++          "id": 4,
++          "description": "Trace num of chunks",
++          "commands": ["set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": ""
++        },
++        "chunk_size": {
++          "id": 5,
++          "description": "Trace chunk size",
++          "commands": ["set"],
++          "options": [],
++          "output_type": "decimal",
++          "output_unit": ""
++        }
++      }
++    },
++    "api": {
++      "id": 13,
++      "description": "API parameters",
++      "params": {
++        "version": {
++          "id": 1,
++          "description": "API version",
++          "commands": ["get"],
++          "options": [],
++          "output_type": "tuple",
++          "output_unit": ""
++        },
++        "state": {
++          "id": 2,
++          "description": "API state",
++          "commands": ["get", "enable", "disable"],
++          "options": [],
++          "output_type": "state",
++          "output_unit": ""
++        }
++      }
++    }
++  },
++  "commands": {
++    "global": {
++      "get": {
++        "id": 1,
++        "description": "Get command"
++      },
++      "set": {
++        "id": 2,
++        "description": "Set command"
++      },
++      "enable": {
++        "id": 3,
++        "description": "Enable command"
++      },
++      "disable": {
++        "id": 4,
++        "description": "Disable command"
++      }
++    },
++    "pv_power": {
++      "momentary": {
++        "id": 240,
++        "description": "Regulate using momentary power"
++      },
++      "average": {
++        "id": 241,
++        "description": "Regulate using average (EWMA) power"
++      }
++    }
++  },
++  "options": {
++    "coeff": {
++      "p": {
++        "id": 1,
++        "description": "Proportional coefficient"
++      },
++      "i": {
++        "id": 2,
++        "description": "Integral coefficient"
++      },
++      "d": {
++        "id": 3,
++        "description": "Derivative coefficient"
++      },
++      "gb": {
++        "id": 4,
++        "description": "sr scaling gb coefficient"
++      }
++    },
++    "ewma_weight": {
++      "power": {
++        "id": 1,
++        "description": "EWMA weight power"
++      },
++      "current": {
++        "id": 2,
++        "description": "EWMA weight current"
++      },
++      "rl": {
++        "id": 3,
++        "description": "EWMA weight rate limit"
++      }
++    },
++    "thermal": {
++      "soc": {
++        "id": 1,
++        "description": "Thermal Device SoC"
++      },
++      "hbm": {
++        "id": 2,
++        "description": "Thermal Device HBM"
++      }
++    },
++    "edp": {
++      "0": {
++        "id": 1,
++        "description": "EDP Window 0"
++      },
++      "1": {
++        "id": 2,
++        "description": "EDP Window 1"
++      },
++      "2": {
++        "id": 3,
++        "description": "EDP Window 2"
++      },
++      "3": {
++        "id": 4,
++        "description": "EDP Window 3"
++      }
++    }
++  }
++}
+\ No newline at end of file
+diff --git a/api/arcpid_api.py b/api/arcpid_api.py
+new file mode 100644
+index 0000000..e52d3fc
+--- /dev/null
++++ b/api/arcpid_api.py
+@@ -0,0 +1,905 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: Apache-2.0
++#
++# Copyright (C) 2025 HabanaLabs Ltd.
++# All Rights Reserved.
++
++"""
++ARCPID API Interactive Shell
++
++This script parses the api_commands.json file and offers an interactive shell
++with autocompletion for API commands.
++"""
++
++import json
++import os
++import sys
++import struct
++import ctypes
++import errno
++from typing import Optional, Tuple, Dict, Any
++from pathlib import Path
++from prompt_toolkit import PromptSession
++from prompt_toolkit.completion import NestedCompleter
++from prompt_toolkit.history import FileHistory
++
++class HlthunkControl:
++    """Python wrapper class for the hlthunk library with focus on control functions"""
++
++    def __init__(self, device_id: int = 0, busid: Optional[str] = None, lib_path: str = "libhl-thunk.so"):
++        """
++        Initialize hlthunk control interface
++
++        Args:
++            device_id: The device ID number of the control device as appears in /dev/
++            busid: PCI address of the device on the host PCI bus (optional)
++            lib_path: Path to the hlthunk library
++
++        Returns:
++            0 for success, negative value for error
++        """
++        self.fd = -1  # Initialize file descriptor to invalid
++
++        # Load the library
++        try:
++            self.lib = ctypes.CDLL(lib_path)
++        except OSError as e:
++            print(f"Error: Failed to load libhl-thunk library: {e}")
++            return
++
++        # Set function argument and return types
++        self._setup_function_signatures()
++
++        # Convert busid to bytes if provided
++        busid_bytes = busid.encode('utf-8') if busid else None
++        busid_ptr = ctypes.c_char_p(busid_bytes) if busid_bytes else None
++
++        # Open control device
++        self.fd = self.lib.hlthunk_open_control(device_id, busid_ptr)
++        if self.fd < 0:
++            print(f"Error: Failed to open hlthunk device (device_id={device_id}, busid={busid}), error code: {self.fd}")
++            if self.fd == -errno.ENOENT:
++                print("Check that the device driver is loaded and operational")
++            elif self.fd == -errno.EACCES:
++                print("Check that you have permission to access the device")
++
++    def _setup_function_signatures(self):
++        """Set up C function signatures for the library functions we'll use"""
++
++        # hlthunk_close
++        self.lib.hlthunk_close.argtypes = [ctypes.c_int]
++        self.lib.hlthunk_close.restype = ctypes.c_int
++
++        # hlthunk_fw_send_generic_request
++        self.lib.hlthunk_fw_send_generic_request.argtypes = [
++            ctypes.c_int,       # fd
++            ctypes.c_void_p,    # buff
++            ctypes.c_uint32,    # buff_size
++            ctypes.c_uint32     # sub_opcode
++        ]
++        self.lib.hlthunk_fw_send_generic_request.restype = ctypes.c_int
++
++        # hlthunk_open_control (already used in __init__)
++        self.lib.hlthunk_open_control.argtypes = [ctypes.c_int, ctypes.c_char_p]
++        self.lib.hlthunk_open_control.restype = ctypes.c_int
++
++        # Add signature for hlthunk_get_pci_bus_id_from_fd
++        self.lib.hlthunk_get_pci_bus_id_from_fd.argtypes = [
++            ctypes.c_int,       # fd
++            ctypes.c_char_p,    # pci_bus_id
++            ctypes.c_int        # len
++        ]
++        self.lib.hlthunk_get_pci_bus_id_from_fd.restype = ctypes.c_int
++
++    def close(self) -> int:
++        """
++        Close the device
++
++        Returns:
++            int: Return value of the close() syscall
++                 0 for success, negative value for error
++        """
++        if hasattr(self, 'fd') and self.fd >= 0:
++            result = self.lib.hlthunk_close(self.fd)
++            self.fd = -1
++            return result
++        return 0
++
++    def fw_send_generic_request(self, buffer: int, sub_opcode: int) -> Tuple[int, int]:
++        """
++        Send a generic request to the firmware using a 64-bit integer buffer
++
++        Args:
++            buffer: 64-bit integer value to be sent to the FW, may also serve as output value
++            sub_opcode: Generic request sub-opcode
++
++        Returns:
++            Tuple[int, int]: (return code, output buffer)
++                             return code 0 for success, negative value for error
++        """
++        if not hasattr(self, 'fd') or self.fd < 0:
++            print("Error: Device is not open")
++            return -1, 0
++
++        # Create a 64-bit integer buffer
++        c_buffer = ctypes.c_uint64(buffer)
++        buff_size = ctypes.sizeof(c_buffer)
++
++        # Call the function
++        result = self.lib.hlthunk_fw_send_generic_request(
++            self.fd,
++            ctypes.byref(c_buffer),
++            buff_size,
++            sub_opcode
++        )
++
++        # Return result and possibly modified buffer value
++        if result != 0:
++            print(f"Error: fw_send_generic_request failed with error code: {result}")
++
++        return result, c_buffer.value
++
++    def get_pci_bus_id(self) -> Tuple[int, str]:
++        """
++        Get the PCI bus ID of the device
++
++        Returns:
++            Tuple[int, str]: (return code, PCI bus ID string)
++                             return code 0 for success, negative value for error
++                             PCI bus ID in format [domain]:[bus]:[device].[function]
++        """
++        if not hasattr(self, 'fd') or self.fd < 0:
++            print("Error: Device is not open")
++            return -1, ""
++
++        # PCI bus ID is typically up to 13 characters (including null terminator)
++        # Format: [domain]:[bus]:[device].[function]
++        # Example: 0000:3b:00.0
++        buf_size = 32  # Using a bigger buffer to be safe
++        pci_bus_id = ctypes.create_string_buffer(buf_size)
++
++        result = self.lib.hlthunk_get_pci_bus_id_from_fd(self.fd, pci_bus_id, buf_size)
++
++        if result != 0:
++            print(f"Error: Failed to get PCI bus ID, error code: {result}")
++            return result, ""
++
++        # Convert bytes to string and remove null characters
++        return 0, pci_bus_id.value.decode('utf-8')
++
++    def __del__(self):
++        """Destructor to ensure device is closed"""
++        self.close()
++
++
++class ApiCommandProcessor:
++    """
++    Class for processing API commands, creating nested dictionaries for completion,
++    and handling command execution.
++    """
++
++    def __init__(self, json_file_path: str):
++        """
++        Initialize the API command processor with a JSON file path.
++
++        Args:
++            json_file_path: Path to the api_commands.json file
++        """
++        self.json_data = self._load_json_file(json_file_path)
++        self.nested_dict = self._build_nested_dictionary()
++
++    def _load_json_file(self, file_path: str) -> Dict[str, Any]:
++        """Load and parse the JSON file."""
++        try:
++            with open(file_path, 'r') as file:
++                return json.load(file)
++        except Exception as e:
++            print(f"Error loading JSON file: {e}")
++            sys.exit(1)
++
++    def _process_commands_and_options(self, block_name: str, param_name: str) -> Tuple[Dict, Dict]:
++        """Process commands and options for a parameter."""
++        result = {}
++
++        # Process commands
++        commands_dict = {}
++        for cmd in self.json_data["blocks"][block_name]["params"][param_name]["commands"]:
++            # First check in command-specific section if available
++            if param_name in self.json_data["commands"]:
++                if cmd in self.json_data["commands"][param_name]:
++                    commands_dict[cmd] = {
++                        "id": self.json_data["commands"][param_name][cmd]["id"],
++                        "description": self.json_data["commands"][param_name][cmd]["description"]
++                    }
++                    continue
++
++            # Then check in global commands
++            if cmd in self.json_data["commands"]["global"]:
++                commands_dict[cmd] = {
++                    "id": self.json_data["commands"]["global"][cmd]["id"],
++                    "description": self.json_data["commands"]["global"][cmd]["description"]
++                }
++
++        # Process options
++        options_dict = {}
++        options_list = self.json_data["blocks"][block_name]["params"][param_name]["options"]
++
++        # Find the right section for options
++        for opt_section, opt_values in self.json_data["options"].items():
++            for opt in options_list:
++                if opt in opt_values:
++                    options_dict[opt] = {
++                        "id": opt_values[opt]["id"],
++                        "description": opt_values[opt]["description"]
++                    }
++
++        return commands_dict, options_dict
++
++    def _build_nested_dictionary(self) -> Dict[str, Any]:
++        """Build the nested dictionary structure from the JSON data."""
++        result = {}
++
++        # First level: blocks
++        for block_name, block_data in self.json_data["blocks"].items():
++            result[block_name] = {
++                "id": block_data["id"],
++                "description": block_data["description"],
++                "params": {}
++            }
++
++            # Second level: params
++            for param_name, param_data in block_data["params"].items():
++                commands_dict, options_dict = self._process_commands_and_options(block_name, param_name)
++
++                result[block_name]["params"][param_name] = {
++                    "id": param_data["id"],
++                    "description": param_data["description"],
++                    "commands": commands_dict,
++                    "options": options_dict
++                }
++
++        return result
++
++    def dump_nested_dict(self):
++        """
++        Dump the nested dictionary.
++        """
++        print(json.dumps(self.nested_dict, indent=2))
++
++    def create_nested_completer(self) -> NestedCompleter:
++        """
++        Create a nested completer structure for prompt_toolkit based on the parsed dictionary.
++
++        Returns:
++            NestedCompleter: A completer for use with prompt_toolkit
++        """
++        completer_dict = {}
++
++        # First level: blocks
++        for block_name, block_data in self.nested_dict.items():
++            completer_dict[block_name] = {}
++
++            # Second level: params
++            for param_name, param_data in block_data["params"].items():
++                completer_dict[block_name][param_name] = {}
++
++                # If options exist, add them as the third level
++                if param_data["options"]:
++                    for option_name in param_data["options"]:
++                        completer_dict[block_name][param_name][option_name] = {}
++
++                        # Add commands as the fourth level (for params with options)
++                        for cmd_name in param_data["commands"]:
++                            completer_dict[block_name][param_name][option_name][cmd_name] = None
++                else:
++                    # Add commands directly as the third level (for params without options)
++                    for cmd_name in param_data["commands"]:
++                        completer_dict[block_name][param_name][cmd_name] = None
++
++        return NestedCompleter.from_nested_dict(completer_dict)
++
++    def process_list_command(self) -> bool:
++        """
++        Process the 'list' command which displays information about available blocks.
++        Prints the output directly.
++
++        Returns:
++            bool: True if the command was successful
++        """
++        block_info = "Available blocks:\n"
++        for block_name, block_data in self.nested_dict.items():
++            block_info += f"  {block_name}: {block_data['description']}\n"
++        print(block_info)
++        return True
++
++    def process_info_command(self, command: str) -> bool:
++        """
++        Process the 'info' command which displays information about blocks and parameters.
++        Prints the output directly.
++
++        Args:
++            command (str): The info command to process (e.g., "info block" or "info block param")
++
++        Returns:
++            bool: True if the command was successful, False if there was an error
++        """
++        parts = command.split()
++        if len(parts) < 2:
++            print("Error: Block name required for 'info' command")
++            return False
++
++        block = parts[1]
++        if block not in self.nested_dict:
++            print(f"Error: Unknown block '{block}'")
++            return False
++
++        if len(parts) >= 3:
++            param = parts[2]
++            if param not in self.nested_dict[block]["params"]:
++                print(f"Error: Unknown parameter '{param}' for block '{block}'")
++                return False
++
++            param_data = self.nested_dict[block]["params"][param]
++
++            print(f"Parameter '{param}' of block '{block}':")
++            print(f"  ID: {param_data['id']}")
++            print(f"  Description: {param_data['description']}")
++
++            print("  Commands:")
++            for cmd_name, cmd_data in param_data["commands"].items():
++                print(f"    {cmd_name}: {cmd_data['description']}")
++
++            if param_data["options"]:
++                print("  Options:")
++                for opt_name, opt_data in param_data["options"].items():
++                    print(f"    {opt_name}: {opt_data['description']}")
++        else:
++            block_data = self.nested_dict[block]
++
++            print(f"Block '{block}':")
++            print(f"  ID: {block_data['id']}")
++            print(f"  Description: {block_data['description']}")
++            print("  Parameters:")
++
++            for param_name, param_data in block_data["params"].items():
++                print(f"    {param_name}: {param_data['description']}")
++
++        return True
++
++    def process_command(self, command: str, verbose: bool = False) -> Tuple[int, int]:
++        """
++        Process the user's command and provide feedback.
++        Prints the output only in verbose mode, but always prints error messages.
++
++        Args:
++            command (str): The command to process
++            verbose (bool): Whether to print detailed output
++
++        Returns:
++            tuple: (status, encoded_value)
++                status (int): 0 for error, 1 for success without output, 2 for success with output
++                encoded_value (int): The encoded value representing the command
++        """
++        parts = command.split()
++        if not parts:
++            print("Empty command. Type 'help' for usage information.")
++            return 0, 0
++
++        # Check if command is valid
++        if len(parts) < 2:
++            print("Incomplete command. Type 'help' for usage information.")
++            return 0, 0
++
++        block = parts[0]
++        param = parts[1]
++
++        if block not in self.nested_dict:
++            print(f"Error: Unknown block '{block}'")
++            return 0, 0
++
++        if param not in self.nested_dict[block]["params"]:
++            print(f"Error: Unknown parameter '{param}' for block '{block}'")
++            return 0, 0
++
++        param_data = self.nested_dict[block]["params"][param]
++        has_options = bool(param_data["options"])
++
++        # Initialize variables
++        option = None
++        option_info = None
++        cmd_info = None
++        command_str = None
++        data = 0  # Default data value is 0
++
++        # Initialize struct fields
++        block_id = self.nested_dict[block]["id"]
++        param_id = param_data["id"]
++        opt_id = 0  # Default option ID is 0
++        cmd_id = 0  # Will be set later
++
++        # Current position in the parts list where we expect the command
++        cmd_pos = 2
++
++        # Check for option if parameter requires it
++        if has_options:
++            if len(parts) < 3:
++                print(f"Error: Parameter '{param}' requires an option")
++                return 0, 0
++
++            option = parts[2]
++            if option not in param_data["options"]:
++                print(f"Error: Unknown option '{option}' for parameter '{param}'")
++                return 0, 0
++
++            option_info = param_data["options"][option]
++            opt_id = option_info["id"]  # Set option ID
++            cmd_pos = 3
++
++        # Check for command at the appropriate position
++        if len(parts) <= cmd_pos:
++            print("Error: Command required")
++            return 0, 0
++
++        command_str = parts[cmd_pos]
++        if command_str not in param_data["commands"]:
++            print(f"Error: Unknown command '{command_str}' for parameter '{param}'")
++            return 0, 0
++
++        cmd_info = param_data["commands"][command_str]
++        cmd_id = cmd_info["id"]  # Set command ID
++
++        # Determine the status based on the command type
++        status = 2 if command_str == "get" else 1  # get commands return data (2), others just succeed (1)
++
++        # Check if additional data is needed for 'set' command
++        if command_str == "set":
++            data_pos = cmd_pos + 1
++            if len(parts) <= data_pos:
++                print("Error: 'set' command requires a 32-bit unsigned integer data value")
++                return 0, 0
++
++            try:
++                data_val = int(parts[data_pos])
++                if data_val < 0 or data_val > 0xFFFFFFFF:  # Check 32-bit unsigned range
++                    print("Error: Data must be a 32-bit unsigned integer (0 to 4294967295)")
++                    return 0, 0
++                data = data_val
++            except ValueError:
++                print("Error: Data must be a valid integer")
++                return 0, 0
++
++        # Create the 64-bit encoded value representing arcpid_api_t struct using struct.pack
++        # struct arcpid_api_t {
++        #     uint32_t data;
++        #     uint8_t cmd;
++        #     uint8_t opt;
++        #     uint8_t param;
++        #     uint8_t block;
++        # };
++        packed_bytes = struct.pack('IBBBB', data, cmd_id, opt_id, param_id, block_id)
++
++        # Convert packed bytes to a 64-bit integer
++        encoded_value = int.from_bytes(packed_bytes, byteorder='little')
++
++        # Print command execution information only in verbose mode
++        if verbose:
++            print(f"Executing: {block} {param}", end="")
++            if option:
++                print(f" {option}", end="")
++            print(f" {command_str}", end="")
++            if data:
++                print(f" {data}", end="")
++            print()
++
++            print(f"Block ID: {block_id}, Description: {self.nested_dict[block]['description']}")
++            print(f"Param ID: {param_id}, Description: {param_data['description']}")
++
++            if option_info:
++                print(f"Option ID: {opt_id}, Description: {option_info['description']}")
++
++            print(f"Command ID: {cmd_id}, Description: {cmd_info['description']}")
++
++            if data:
++                print(f"Data: {data} (0x{data:08X})")
++
++            print(f"Encoded Command Value: 0x{encoded_value:016X}")
++
++        return status, encoded_value
++
++    def get_api_json_version(self) -> tuple:
++        """
++        Get the API version from the api_commands.json file
++
++        Returns:
++            tuple: Version as (major, minor, patch)
++        """
++        if 'api_version' not in self.json_data:
++            print("Warning: API version not found in JSON file")
++            return (0, 0, 0)
++
++        api_version = self.json_data['api_version']
++        major = api_version.get('major', 0)
++        minor = api_version.get('minor', 0)
++        patch = api_version.get('patch', 0)
++
++        return (major, minor, patch)
++
++    def get_output_info(self, command: str) -> Tuple[str, str]:
++        """
++        Get the output type and unit for a given command string.
++
++        Args:
++            command (str): Command string in the format "<block> <param> [<option>] <command> [<data>]"
++
++        Returns:
++            Tuple[str, str]: The output type (state, decimal, hexadecimal, tuple) and unit (mW, mC, %, etc.)
++                             Default values are "decimal" for type and "" for unit
++        """
++        parts = command.split()
++        if len(parts) < 2:
++            return "decimal", ""  # Not enough parts to identify block and param
++
++        block = parts[0]
++        param = parts[1]
++
++        if block not in self.json_data["blocks"]:
++            return "decimal", ""  # Default if block not found
++
++        if param not in self.json_data["blocks"][block]["params"]:
++            return "decimal", ""  # Default if param not found
++
++        # Get the param data
++        param_data = self.json_data["blocks"][block]["params"][param]
++
++        # Get output type with default
++        output_type = param_data.get("output_type", "decimal")
++
++        # Get output unit with default
++        output_unit = param_data.get("output_unit", "")
++
++        return output_type, output_unit
++
++
++class ApiApp:
++    """
++    Main application class for ARCPID API that manages command processing and firmware communication
++    """
++
++    HELP_MESSAGE = """
++    Usage: <block> <param> [<option>] <command> [<data>]
++      - <block>: The block name (e.g., power, thermal)
++      - <param>: The parameter name (e.g., regulation, coeff)
++      - <option>: Optional parameter if the param has options
++      - <command>: The command to execute (e.g., get, set)
++      - <data>: 32-bit unsigned integer data (required for 'set' commands)
++
++    Special commands:
++      - help: Show this help message
++      - list: List all available blocks
++      - info <block> [<param>]: Show detailed information about a block or parameter
++      - device <device_id>: Change to a different device ID
++      - busid: Print the PCI bus ID of the current device
++      - history: Display command history
++      - exit/quit: Exit the shell
++
++    Command history is saved to ~/.arcpid_api_history
++    """
++
++    def __init__(self, json_path: str, device_id: int = 0, verbose: bool = False):
++        """
++        Initialize the API application with command processor and hardware control
++
++        Args:
++            json_path (str): Path to the api_commands.json file
++            device_id (int): The device ID to open
++            verbose (bool): Whether to enable verbose output
++        """
++        self.verbose = verbose
++        self.device_id = device_id
++        self.json_path = json_path
++
++        # Initialize command processor
++        self.cmd_processor = ApiCommandProcessor(json_path)
++
++        # Pre-encode the API enable and disable commands
++        _, self.api_enable_cmd = self.cmd_processor.process_command("api state enable", False)
++        _, self.api_disable_cmd = self.cmd_processor.process_command("api state disable", False)
++
++        # Initialize hlthunk control
++        self.hlthunk = HlthunkControl(device_id)
++
++        # Create history file path in user's home directory
++        self.history_file = os.path.expanduser("~/.arcpid_api_history")
++
++    def change_device(self, new_device_id: int) -> bool:
++        """
++        Change the device ID by closing the current connection and reopening with a new ID
++
++        Args:
++            new_device_id (int): The new device ID to use
++
++        Returns:
++            bool: True if successful, False otherwise
++        """
++        # Close current connection
++        self.hlthunk.close()
++
++        # Reinitialize hlthunk control with new device ID
++        self.hlthunk = HlthunkControl(new_device_id)
++
++        if self.hlthunk.fd < 0:
++            # If failed, try to reopen the previous device ID
++            print(f"Reopening previous device ID {self.device_id} instead")
++            self.hlthunk = HlthunkControl(self.device_id)
++            if self.hlthunk.fd < 0:
++                print(f"Check if device driver is loaded and operational")
++                return False
++            return True
++
++        # Update device ID
++        self.device_id = new_device_id
++
++        print(f"Successfully changed to device ID {new_device_id}")
++        return True
++
++    def close(self) -> int:
++        """
++        Close the connection to the device and clean up resources
++
++        Returns:
++            int: Return code from closing the device (0 for success)
++        """
++        return self.hlthunk.close()
++
++    def send_firmware_request(self, encoded_value: int) -> Tuple[int, int]:
++        """
++        Send an encoded command to the firmware and handle the result.
++
++        Args:
++            encoded_value (int): The encoded command value
++
++        Returns:
++            int: Exit code (0 for success, non-zero for failure)
++            output: The output from the firmware request or error code in case of failure
++        """
++        # Enable API before sending command
++        res, _ = self.hlthunk.fw_send_generic_request(self.api_enable_cmd, 2)
++        if res != 0:
++            print(f"Error: Failed to enable API, error code: {res}")
++            return res, 0
++
++        # Send the command to the firmware
++        res, output = self.hlthunk.fw_send_generic_request(encoded_value, 2)
++
++        # Disable API after sending command
++        disable_res, _ = self.hlthunk.fw_send_generic_request(self.api_disable_cmd, 2)
++        if disable_res != 0:
++            print(f"Warning: Failed to disable API, error code: {disable_res}")
++
++        # Check if the original command failed at the driver level
++        if res != 0:
++            return res, 0
++
++        # Extract FW error code if present (byte 4 == 0xFF indicates error condition)
++        # In error case, bytes 0-3 contain the error code
++        # In success case, bytes 0-3 contain the output value
++        output_cmd = (output >> 32) & 0xFF
++        output_value = (output & 0xFFFFFFFF)
++        if output_cmd == 0xFF:
++            res = -1
++
++        return res, output_value
++
++    def send_command(self, command: str) -> int:
++        """
++        Send a command to the firmware and handle the result.
++
++        Args:
++            command (str): The command to send
++
++        Returns:
++            int: Exit code (0 for success, non-zero for failure)
++        """
++        res, encoded_value = self.cmd_processor.process_command(command, self.verbose)
++        if res == 0 or encoded_value == 0:
++            return res
++
++        output_flag = True if res == 2 else False
++
++        res, output = self.send_firmware_request(encoded_value)
++        if res != 0:
++            print(f"Error: Failed to send command '{command}', error code: {output}")
++            return res
++
++        if output_flag:
++            output_type, output_unit = self.cmd_processor.get_output_info(command)
++
++            if output_type == "state":
++                if output == 1:
++                    print("enabled")
++                elif output == 0:
++                    print("disabled")
++                else:
++                    print(f"{output} (Unknown state)")
++            elif output_type == "hexadecimal":
++                print(f"0x{output:X}")
++            elif output_type == "tuple":
++                # For tuple output, we need to parse it
++                # Assuming the tuple format is encoded in the 32-bit value
++                # Example: 0x01020304 -> (1, 2, 3, 4)
++                tuple_output = struct.unpack('BBBB', struct.pack('I', output))
++                print(f"({tuple_output[0]}, {tuple_output[1]}, {tuple_output[2]}, {tuple_output[3]})")
++            elif output_type == "decimal":
++                # Display with unit if available
++                if output_unit:
++                    print(f"{output} {output_unit}")
++                else:
++                    print(f"{output}")
++            else:
++                print(f"{output} (Unknown output type)")
++
++    def get_api_version(self) -> tuple:
++        """
++        Get the API version from the firmware and parse it into [MAJOR, MINOR, PATCH]
++
++        Returns:
++            tuple: (success, version)
++                success (bool): True if successful, False otherwise
++                version (list): Version as [MAJOR, MINOR, PATCH] or [] if failed
++        """
++        # Process the api version get command to get the encoded value
++        res, encoded_value = self.cmd_processor.process_command("api version get", self.verbose)
++        if res == 0 or encoded_value == 0:
++            print("Error: Failed to process API version command")
++            return False, []
++
++        # Send the command to the firmware
++        result, output = self.hlthunk.fw_send_generic_request(encoded_value, 2)
++
++        # Check if the command was successful
++        if result != 0:
++            print(f"Error: Failed to get API version, error code: {result}")
++            return False, []
++
++        # Extract the version components from the 32-bit output
++        # The output contains the version as [MAJOR, MINOR, PATCH]
++        major = (output >> 16) & 0xFF
++        minor = (output >> 8) & 0xFF
++        patch = output & 0xFF
++
++        return True, [major, minor, patch]
++
++    def run_interactive_shell(self) -> int:
++        """
++        Start and run the interactive shell with command completion
++
++        Returns:
++            int: Exit code (0 for success)
++        """
++        # Create completer for prompt_toolkit
++        completer = self.cmd_processor.create_nested_completer()
++
++        # Create FileHistory object for command history persistence
++        history = FileHistory(self.history_file)
++
++        # Create prompt session with history
++        session = PromptSession(completer=completer, history=history)
++
++        # Get and display API version
++        success, version = self.get_api_version()
++        version_str = f"{version[0]}.{version[1]}.{version[2]}" if success else "N/A"
++
++        # Get JSON file version
++        json_version = self.cmd_processor.get_api_json_version()
++        json_version_str = f"{json_version[0]}.{json_version[1]}.{json_version[2]}"
++
++        print(f"ARCPID API Interactive Shell (FW API Version {version_str}, JSON Version {json_version_str})")
++
++        print("Type 'help' for usage information, 'list' to see available blocks, or 'exit' to quit")
++        print("Press Ctrl+C to interrupt or Ctrl+D to exit")
++
++        while True:
++            try:
++                text = session.prompt(f'hl{self.device_id}> ')
++
++                # Convert and strip command for consistent comparison
++                cmd_lowercase = text.strip().lower()
++
++                # Handle exit commands
++                if cmd_lowercase in ('exit', 'quit'):
++                    break
++
++                if cmd_lowercase == 'help':
++                    print(self.HELP_MESSAGE)
++                    continue
++
++                # Handle list command
++                if cmd_lowercase == 'list':
++                    self.cmd_processor.process_list_command()
++                    continue
++
++                # Handle info command
++                if cmd_lowercase.startswith('info '):
++                    self.cmd_processor.process_info_command(text)
++                    continue
++
++                # Handle device change command
++                if cmd_lowercase.startswith('device'):
++                    parts = text.split()
++                    if len(parts) == 2 and parts[1].isdigit():
++                        new_device_id = int(parts[1])
++                        self.change_device(new_device_id)
++                    else:
++                        print("Error: Invalid device command. Usage: device <device_id>")
++                    continue
++
++                # Handle busid command
++                if cmd_lowercase == 'busid':
++                    res, bus_id = self.hlthunk.get_pci_bus_id()
++                    if res == 0:
++                        print(f"PCIe Bus ID: {bus_id}")
++                    continue
++
++                # Handle history command
++                if cmd_lowercase == 'history':
++                    for i, entry in enumerate(history.get_strings(), 1):
++                        print(f"{i}: {entry}")
++                    continue
++
++                # Process the command
++                self.send_command(text)
++
++            except KeyboardInterrupt:
++                continue
++            except EOFError:
++                break
++            except Exception as e:
++                print(f"Error: {e}")
++
++        print("Exiting shell. Goodbye!")
++        self.close()
++        return 0
++
++
++def main():
++    """Main function to run the ARCPID API interactive shell."""
++    # Parse command-line arguments
++    import argparse
++    parser = argparse.ArgumentParser(description='ARCPID API Interactive Shell')
++    parser.add_argument('--json-path', '-j', type=str,
++                        default="~/trees/npu-stack/embedded/zephyr-apps/arcpid/api/api_commands.json",
++                        help='Path to the api_commands.json file')
++    parser.add_argument('--device-id', '-d', type=int, choices=range(0, 8), default=0,
++                        help='Device ID to use (0-7)')
++    parser.add_argument('--json-dump', '-l', action='store_true',
++                        help='Dump the parsed JSON structure and exit')
++    parser.add_argument('--command', '-c', type=str,
++                        help='Execute a single command and exit')
++    parser.add_argument('--verbose', '-v', action='store_true',
++                        help='Enable verbose mode')
++    args = parser.parse_args()
++
++    # Create the API application
++    app = ApiApp(args.json_path, device_id=args.device_id, verbose=args.verbose)
++
++    # If dump flag is set, print the structure and exit
++    if args.json_dump:
++        app.cmd_processor.dump_nested_dict()
++        return 0
++
++    # Check if hlthunk initialized successfully
++    if app.hlthunk.fd < 0:
++        return 1
++
++    # If command was provided via command line, execute it and exit
++    if args.command:
++        res = app.send_command(args.command)
++        app.hlthunk.close()
++        return res
++
++    # Run the interactive shell
++    return app.run_interactive_shell()
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+\ No newline at end of file
+diff --git a/api/generate_api_commands.py b/api/generate_api_commands.py
+new file mode 100755
+index 0000000..378dc01
+--- /dev/null
++++ b/api/generate_api_commands.py
+@@ -0,0 +1,167 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: Apache-2.0
++#
++# Copyright (C) 2025 HabanaLabs Ltd.
++# All Rights Reserved.
++
++import json
++import sys
++import os
++import re
++
++def snake_to_upper_case(name):
++    # Convert snake_case to UPPER_CASE
++    return name.upper()
++
++def generate_header_file(json_data, output_file):
++    with open(output_file, 'w') as f:
++        # Write SPDX license and copyright notice
++        f.write("/* SPDX-License-Identifier: Apache-2.0\n")
++        f.write(" *\n")
++        f.write(" * Copyright 2025 HabanaLabs, Ltd.\n")
++        f.write(" * All Rights Reserved.\n")
++        f.write(" */\n\n")
++
++        # Write header guards
++        f.write("/*\n")
++        f.write(" * @file api_commands.h\n")
++        f.write(" * @brief Auto-generated enum definitions for ARCPID API\n")
++        f.write(" */\n\n")
++
++        header_guard = "API_COMMANDS_H"
++        f.write(f"#ifndef {header_guard}\n")
++        f.write(f"#define {header_guard}\n\n")
++
++        # Add API version
++        version = json_data.get("api_version", {})
++        f.write("/*\n")
++        f.write(f" * API Version: {version.get('major', 0)}.{version.get('minor', 0)}.{version.get('patch', 0)}\n")
++        f.write(" */\n")
++
++        # Define API version macros
++        f.write(f"#define ARCPID_API_VERSION_MAJOR {version.get('major', 0)}\n")
++        f.write(f"#define ARCPID_API_VERSION_MINOR {version.get('minor', 0)}\n")
++        f.write(f"#define ARCPID_API_VERSION_PATCH {version.get('patch', 0)}\n\n")
++
++        # Generate block enums
++        f.write("/*\n")
++        f.write(" * @brief ARCPID API Block IDs\n")
++        f.write(" */\n")
++        f.write("enum arcpid_api_block {\n")
++        blocks = json_data.get("blocks", {})
++        for block_name, block_data in blocks.items():
++            block_id = block_data.get("id", 0)
++            description = block_data.get("description", "")
++            enum_name = f"ARCPID_API_BLOCK_{snake_to_upper_case(block_name)}"
++            f.write(f"\t/* {description} */\n")
++            f.write(f"\t{enum_name} = 0x{block_id:x},\n")
++        f.write("};\n\n")
++
++        # Generate param enums for each block
++        for block_name, block_data in blocks.items():
++            block_upper = snake_to_upper_case(block_name)
++            f.write(f"/*\n")
++            f.write(f" * @brief ARCPID API {block_name.capitalize()} Block Parameters\n")
++            f.write(f" */\n")
++            f.write(f"enum arcpid_api_param_{block_name} {{\n")
++            params = block_data.get("params", {})
++            for param_name, param_data in params.items():
++                param_id = param_data.get("id", 0)
++                description = param_data.get("description", "")
++                enum_name = f"ARCPID_API_PARAM_{block_upper}_{snake_to_upper_case(param_name)}"
++                f.write(f"\t/* {description} */\n")
++                f.write(f"\t{enum_name} = 0x{param_id:x},\n")
++            f.write(f"}};\n\n")
++
++        # Generate global command enums
++        f.write("/*\n")
++        f.write(" * @brief ARCPID API Global Commands\n")
++        f.write(" */\n")
++        f.write("enum arcpid_api_cmd_global {\n")
++        global_commands = json_data.get("commands", {}).get("global", {})
++        for cmd_name, cmd_data in global_commands.items():
++            cmd_id = cmd_data.get("id", 0)
++            description = cmd_data.get("description", "")
++            enum_name = f"ARCPID_API_CMD_{snake_to_upper_case(cmd_name)}"
++            f.write(f"\t/* {description} */\n")
++            f.write(f"\t{enum_name} = 0x{cmd_id:x},\n")
++        f.write("};\n\n")
++
++        # Generate specific command enums
++        specific_commands = {k: v for k, v in json_data.get("commands", {}).items() if k != "global"}
++        for cmd_group, cmds in specific_commands.items():
++            cmd_group_upper = snake_to_upper_case(cmd_group)
++            f.write(f"/*\n")
++            f.write(f" * @brief ARCPID API {cmd_group.capitalize()} Commands\n")
++            f.write(f" */\n")
++            f.write(f"enum arcpid_api_cmd_{cmd_group} {{\n")
++            for cmd_name, cmd_data in cmds.items():
++                cmd_id = cmd_data.get("id", 0)
++                description = cmd_data.get("description", "")
++                enum_name = f"ARCPID_API_CMD_{cmd_group_upper}_{snake_to_upper_case(cmd_name)}"
++                f.write(f"\t/* {description} */\n")
++                f.write(f"\t{enum_name} = 0x{cmd_id:x},\n")
++            f.write(f"}};\n\n")
++
++        # Generate option enums
++        options = json_data.get("options", {})
++        for opt_group, opts in options.items():
++            opt_group_upper = snake_to_upper_case(opt_group)
++            f.write(f"/*\n")
++            f.write(f" * @brief ARCPID API {opt_group.capitalize()} Options\n")
++            f.write(f" */\n")
++            f.write(f"enum arcpid_api_opt_{opt_group} {{\n")
++            for opt_name, opt_data in opts.items():
++                opt_id = opt_data.get("id", 0)
++                description = opt_data.get("description", "")
++                # Handle numeric option names by prepending "NUM_" to avoid invalid C identifiers
++                if opt_name.isdigit():
++                    opt_enum_name = f"NUM_{opt_name}"
++                else:
++                    opt_enum_name = opt_name
++                enum_name = f"ARCPID_API_OPT_{opt_group_upper}_{snake_to_upper_case(opt_enum_name)}"
++                f.write(f"\t/* {description} */\n")
++                f.write(f"\t{enum_name} = 0x{opt_id:x},\n")
++            f.write(f"}};\n\n")
++
++        # Close header guards
++        f.write(f"#endif /* {header_guard} */\n")
++
++def main():
++    if len(sys.argv) < 2:
++        # Use default json input file if none specified
++        json_file = "api_commands.json"
++        print(f"No input file specified, using default: {json_file}")
++    else:
++        json_file = sys.argv[1]
++
++    if len(sys.argv) >= 3:
++        output_file = sys.argv[2]
++    else:
++        # Default output to the include/lib directory
++        output_file = "../include/lib/api_commands.h"
++        print(f"No output file specified, using default: {output_file}")
++
++    try:
++        with open(json_file, 'r') as f:
++            # Use regex to remove JavaScript-style comments from JSON
++            content = f.read()
++            content = re.sub(r'//.*?\n', '\n', content)
++            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
++            json_data = json.loads(content)
++
++        generate_header_file(json_data, output_file)
++        print(f"Successfully generated {output_file}")
++
++    except FileNotFoundError:
++        print(f"Error: Could not find file {json_file}")
++        sys.exit(1)
++    except json.JSONDecodeError as e:
++        print(f"Error: Invalid JSON in {json_file}: {e}")
++        sys.exit(1)
++    except Exception as e:
++        print(f"Error: {str(e)}")
++        sys.exit(1)
++
++if __name__ == "__main__":
++    main()
+\ No newline at end of file
+diff --git a/arch/gaudi3/common.c b/arch/gaudi3/common.c
+index 8d7c0cb..16e67b8 100644
+--- a/arch/gaudi3/common.c
++++ b/arch/gaudi3/common.c
+@@ -377,6 +377,7 @@
+ 
+ 	/* Set EDP */
+ 	platdata->power->excursion.num_edps = GAUDI3_NUM_EDPS;
++	platdata->power->excursion.max_edps = GAUDI3_NUM_EDPS;
+ 	platdata->power->excursion.edps = pid_edps;
+ 	platdata->power->idle_duration = GAUDI3_MAX_EDP_DURATION / POWER_HB_TIMEOUT;
+ 	update_edp_budget_max(platdata);
+@@ -728,7 +729,13 @@
+ 	int ret;
+ 
+ 	mbx_pid_api.cmd = *(uint64_t *)api_cmd;
+-	mbx_pid_api.ret = pid_api_process_cmd(platdata, mbx_pid_api.cmd, &mbx_pid_api.resp);
++	arcpid_api_process_cmd(platdata, &mbx_pid_api.cmd);
++	/*
++	 * Always return success. The actual return status is encoded in the CPUCP data payload.
++	 * Returning non-success will prevent ARCMGMT from passing the result back to the host.
++	 * A future patch should remove the ret value from mbx_pid_api.
++	 */
++	mbx_pid_api.ret = PID_API_SUCCESS;
+ 
+ 	mbx_ipm_clear(mbx->dev, mbx_msg_id);
+ 	ret = mbx_ipm_send(mbx->dev, 0, mbx_msg_id, &mbx_pid_api, sizeof(mbx_pid_api));
+diff --git a/include/lib/api.h b/include/lib/api.h
+index c4ba6c7..57ad246 100644
+--- a/include/lib/api.h
++++ b/include/lib/api.h
+@@ -5,143 +5,52 @@
+  *
+  */
+ 
+-#ifndef _ARCPID_API_H_
+-#define _ARCPID_API_H_
++#ifndef _ARCPID_API_V2_H_
++#define _ARCPID_API_V2_H_
+ 
+ #include <pid.h>
+-#include <hl_mbx_if.h>
++#include <api_commands.h>
+ 
+-#define PID_API_VERSION_MAJOR		1
+-#define PID_API_VERSION_MINOR		2
+-#define PID_API_VERSION_PATCH		0
++#define ARCPID_API_MAX_POWER		3000000		/* 3000W */
++#define ARCPID_API_MAX_THERMAL		200000		/* 200C */
++#define ARCPID_API_MAX_COEFF		UINT16_MAX
++#define ARCPID_API_MAX_MULTIPLIER	UINT16_MAX
++#define ARCPID_API_MAX_PERCENTAGE	100
+ 
+-#define PID_API_MAX_TDP			BIT(11)
+-#define PID_API_MAX_TRIP_POINT		BIT(11)
+-#define PID_API_MAX_EDP_FACTOR		100
+-#define PID_API_MAX_EDP_WINDOW		0xf
+-#define PID_API_MAX_EDP_DURATION	BIT(16)
+-#define PID_API_MAX_CALLIB		BIT(16)
+-#define PID_API_MAX_DELAY		BIT(16)
+-#define PID_API_MAX_PERCENTAGE		100
++#define ARCPID_API_CMD_FAILURE_CODE	0xFF
+ 
+-enum pid_api_cmd_id {
+-	PID_API_CMD_SETVAR = 0x1,
+-	PID_API_CMD_GETVAR = 0x2,
+-	PID_API_CMD_TRACE = 0x8,
+-	PID_API_CMD_ENABLE = 0xd,
++enum arcpid_api_state {
++	ARCPID_API_DISABLE = 0,
++	ARCPID_API_ENABLE,
+ };
+ 
+-enum pid_api_state {
+-	PID_API_DISABLE = 0,
+-	PID_API_ENABLE
++enum arcpid_api_rc {
++	ARCPID_API_SUCCESS,
++	ARCPID_API_DISABLED,
++	ARCPID_API_NOT_SUPPORTED_YET,
++	ARCPID_API_INVALID_BLOCK,
++	ARCPID_API_INVALID_PARAM,
++	ARCPID_API_INVALID_OPTION,
++	ARCPID_API_INVALID_COMMAND,
++	ARCPID_API_INVALID_DATA,
++	ARCPID_API_UNKNOWN_ERROR,
+ };
+ 
+-enum pid_api_subcmd_setvar_id {
+-	PID_API_SETVAR_DIS_REGULATION = 1,
+-	PID_API_SETVAR_LIMIT_EDP_WINDOW,
+-	PID_API_SETVAR_TDP,
+-	PID_API_SETVAR_THERMAL_TRIP_POINT,
+-	PID_API_SETVAR_EDP_FACTOR,
+-	PID_API_SETVAR_EDP_WINDOW_DURATION,
+-	PID_API_SETVAR_TH_CONTROLLER_COEFF,
+-	PID_API_SETVAR_HB_CONTROLLER_COEFF,
+-	PID_API_SETVAR_EWMA_TAU,
+-	PID_API_SETVAR_AVG_PWR_REGULTATION,
+-	PID_API_SETVAR_OFFSET_ON_R_SHUNT,
+-	PID_API_SETVAR_RATE_LIMIT,
+-	PID_API_SETVAR_VIOLATION_POWER,
+-	PID_API_SETVAR_SPIKE_POWER_EVT,
+-	PID_API_SETVAR_THERMAL_EVT_DELAY,
+-	PID_API_SETVAR_MAX
+-};
++struct arcpid_api_t {
+ 
+-enum pid_api_subcmd_getvar_id {
+-	PID_API_GETVAR_API_VERSION = 1,
+-	PID_API_GETVAR_DIS_REGULATION,
+-	PID_API_GETVAR_TDP,
+-	PID_API_GETVAR_THERMAL_TRIP_POINT,
+-	PID_API_GETVAR_THERMAL_TDP,
+-	PID_API_GETVAR_THREAD_STATUS,
+-	PID_API_GETVAR_EDP_USAGE_COUNTERS,
+-	PID_API_GETVAR_OFFSET_ON_R_SHUNT,
+-	PID_API_GETVAR_THERMAL_EVT_DELAY,
+-	PID_API_GETVAR_MAX
+-};
+-
+-enum pid_api_subcmd_trace_id {
+-	PID_API_TRACE_ENABLE = 1,
+-	PID_API_TRACE_DISABLE,
+-	PID_API_TRACE_SET_OFFSET,
+-	PID_API_TRACE_MAX
+-};
+-
+-enum pid_api_arg_regulation {
+-	PID_API_REGULATION_POWER = 1,
+-	PID_API_REGULATION_THERMAL
+-};
+-
+-enum pid_api_arg_thermal_device {
+-	PID_API_THERMAL_DEVICE_SOC = 1,
+-	PID_API_THERMAL_DEVICE_HBM
+-};
+-
+-enum pid_api_arg_thermal_coeff {
+-	PID_API_THERMAL_COEFF_P = 1,
+-	PID_API_THERMAL_COEFF_I,
+-	PID_API_THERMAL_COEFF_D
+-};
+-
+-enum pid_api_arg_power_coeff {
+-	PID_API_POWER_COEFF_P = 1,
+-	PID_API_SR_SCALING_GB_COEFF
+-};
+-
+-enum pid_api_arg_ewma_factor {
+-	PID_API_EWMA_POWER = 1,
+-	PID_API_EWMA_CURRENT,
+-	PID_API_EWMA_RL
+-};
+-
+-enum pid_api_data_pv_power {
+-	PID_API_REGULATE_USING_MOMENTARY_POWER = 0,
+-	PID_API_REGULATE_USING_EWMA_POWER
+-};
+-
+-struct pid_api_valid_data {
+-	uint8_t sub_cmd;
+-	uint32_t min;
+-	uint32_t max;
+-};
+-
+-struct pid_api_cmd {
+ 	union {
+-		uint64_t reg_value;
+-		struct {
+-			uint64_t arg0 : 8;
+-			uint64_t arg1 : 8;
+-			uint64_t subcmd : 8;
+-			uint64_t cmd : 7;
+-			uint64_t run : 1;
+-			uint64_t data_in : 32;
+-		} fields;
+-	};
++		uint32_t value_in;
++		uint32_t value_out;
++		uint16_t value_out_16[2];
++		uint8_t value_out_8[4];
++		bool flag_out;
++	};		/* Data in\out */
++	uint8_t cmd;	/* Command */
++	uint8_t opt;	/* Options */
++	uint8_t param;	/* Parameter */
++	uint8_t block;	/* Block */
+ };
+ 
+-struct pid_api_data_out {
+-	union {
+-		uint64_t reg_value;
+-		struct {
+-			uint32_t data[2];
+-		} fields_32;
+-		struct {
+-			uint16_t data[4];
+-		} fields_16;
+-		struct {
+-			uint8_t data[8];
+-		} fields_8;
+-	};
+-};
++enum arcpid_api_rc arcpid_api_process_cmd(struct pid_table *platdata, uint64_t *cmd);
+ 
+-enum pid_api_rc pid_api_process_cmd(struct pid_table *platdata, uint64_t cmd, uint64_t *output);
+-
+-#endif /* _ARCPID_API_H_ */
++#endif /* _ARCPID_API_V2_H_ */
+diff --git a/include/lib/api_commands.h b/include/lib/api_commands.h
+new file mode 100644
+index 0000000..20d3b1c
+--- /dev/null
++++ b/include/lib/api_commands.h
+@@ -0,0 +1,198 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2025 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++/*
++ * @file api_commands.h
++ * @brief Auto-generated enum definitions for ARCPID API
++ */
++
++#ifndef API_COMMANDS_H
++#define API_COMMANDS_H
++
++/*
++ * API Version: 2.0.0
++ */
++#define ARCPID_API_VERSION_MAJOR 2
++#define ARCPID_API_VERSION_MINOR 0
++#define ARCPID_API_VERSION_PATCH 0
++
++/*
++ * @brief ARCPID API Block IDs
++ */
++enum arcpid_api_block {
++	/* Power parameters */
++	ARCPID_API_BLOCK_POWER = 0x1,
++	/* Thermal parameters */
++	ARCPID_API_BLOCK_THERMAL = 0x2,
++	/* Rate limit parameters */
++	ARCPID_API_BLOCK_RATE_LIMIT = 0x3,
++	/* Excursion power parameters */
++	ARCPID_API_BLOCK_EDP = 0x4,
++	/* Tracing parameters */
++	ARCPID_API_BLOCK_TRACE = 0x8,
++	/* API parameters */
++	ARCPID_API_BLOCK_API = 0xd,
++};
++
++/*
++ * @brief ARCPID API Power Block Parameters
++ */
++enum arcpid_api_param_power {
++	/* Power regulation enable/disable */
++	ARCPID_API_PARAM_POWER_REGULATION = 0x1,
++	/* Power coefficients (Kp, Ki, Kd) */
++	ARCPID_API_PARAM_POWER_COEFF = 0x2,
++	/* TDP (in mWatts) */
++	ARCPID_API_PARAM_POWER_TDP = 0x3,
++	/* EWMA weight */
++	ARCPID_API_PARAM_POWER_EWMA = 0x4,
++	/* PV power (Momentary power / Average power) */
++	ARCPID_API_PARAM_POWER_PV_POWER = 0x5,
++	/* Power Violation Threshold (in mWatts) */
++	ARCPID_API_PARAM_POWER_VIOLATION = 0x6,
++	/* Power Spike Event Threshold (in mWatts) */
++	ARCPID_API_PARAM_POWER_SPIKE_EVENT = 0x7,
++};
++
++/*
++ * @brief ARCPID API Thermal Block Parameters
++ */
++enum arcpid_api_param_thermal {
++	/* Thermal regulation enable/disable */
++	ARCPID_API_PARAM_THERMAL_REGULATION = 0x1,
++	/* Thermal coefficients (Kp, Ki, Kd) */
++	ARCPID_API_PARAM_THERMAL_COEFF = 0x2,
++	/* Thermal trip point (in mCelsius) */
++	ARCPID_API_PARAM_THERMAL_TRIP_POINT = 0x3,
++	/* Thermal throttling event delay */
++	ARCPID_API_PARAM_THERMAL_EVENT_DELAY = 0x4,
++};
++
++/*
++ * @brief ARCPID API Rate_limit Block Parameters
++ */
++enum arcpid_api_param_rate_limit {
++	/* Rate limit value */
++	ARCPID_API_PARAM_RATE_LIMIT_VALUE = 0x1,
++	/* Rate limit minimum value */
++	ARCPID_API_PARAM_RATE_LIMIT_MIN_VALUE = 0x2,
++	/* Rate limit maximum value */
++	ARCPID_API_PARAM_RATE_LIMIT_MAX_VALUE = 0x3,
++};
++
++/*
++ * @brief ARCPID API Edp Block Parameters
++ */
++enum arcpid_api_param_edp {
++	/* EDP Number of segments */
++	ARCPID_API_PARAM_EDP_SEGMENTS = 0x1,
++	/* EDP Multiplier */
++	ARCPID_API_PARAM_EDP_MULTIPLIER = 0x2,
++	/* EDP duration */
++	ARCPID_API_PARAM_EDP_DURATION = 0x3,
++};
++
++/*
++ * @brief ARCPID API Trace Block Parameters
++ */
++enum arcpid_api_param_trace {
++	/* Trace enable/disable */
++	ARCPID_API_PARAM_TRACE_ENABLE = 0x1,
++	/* Trace entry types */
++	ARCPID_API_PARAM_TRACE_ENTRIES = 0x2,
++	/* Trace offset */
++	ARCPID_API_PARAM_TRACE_OFFSET = 0x3,
++	/* Trace num of chunks */
++	ARCPID_API_PARAM_TRACE_CHUNKS = 0x4,
++	/* Trace chunk size */
++	ARCPID_API_PARAM_TRACE_CHUNK_SIZE = 0x5,
++};
++
++/*
++ * @brief ARCPID API Api Block Parameters
++ */
++enum arcpid_api_param_api {
++	/* API version */
++	ARCPID_API_PARAM_API_VERSION = 0x1,
++	/* API state */
++	ARCPID_API_PARAM_API_STATE = 0x2,
++};
++
++/*
++ * @brief ARCPID API Global Commands
++ */
++enum arcpid_api_cmd_global {
++	/* Get command */
++	ARCPID_API_CMD_GET = 0x1,
++	/* Set command */
++	ARCPID_API_CMD_SET = 0x2,
++	/* Enable command */
++	ARCPID_API_CMD_ENABLE = 0x3,
++	/* Disable command */
++	ARCPID_API_CMD_DISABLE = 0x4,
++};
++
++/*
++ * @brief ARCPID API Pv_power Commands
++ */
++enum arcpid_api_cmd_pv_power {
++	/* Regulate using momentary power */
++	ARCPID_API_CMD_PV_POWER_MOMENTARY = 0xf0,
++	/* Regulate using average (EWMA) power */
++	ARCPID_API_CMD_PV_POWER_AVERAGE = 0xf1,
++};
++
++/*
++ * @brief ARCPID API Coeff Options
++ */
++enum arcpid_api_opt_coeff {
++	/* Proportional coefficient */
++	ARCPID_API_OPT_COEFF_P = 0x1,
++	/* Integral coefficient */
++	ARCPID_API_OPT_COEFF_I = 0x2,
++	/* Derivative coefficient */
++	ARCPID_API_OPT_COEFF_D = 0x3,
++	/* sr scaling gb coefficient */
++	ARCPID_API_OPT_COEFF_GB = 0x4,
++};
++
++/*
++ * @brief ARCPID API Ewma_weight Options
++ */
++enum arcpid_api_opt_ewma_weight {
++	/* EWMA weight power */
++	ARCPID_API_OPT_EWMA_WEIGHT_POWER = 0x1,
++	/* EWMA weight current */
++	ARCPID_API_OPT_EWMA_WEIGHT_CURRENT = 0x2,
++	/* EWMA weight rate limit */
++	ARCPID_API_OPT_EWMA_WEIGHT_RL = 0x3,
++};
++
++/*
++ * @brief ARCPID API Thermal Options
++ */
++enum arcpid_api_opt_thermal {
++	/* Thermal Device SoC */
++	ARCPID_API_OPT_THERMAL_SOC = 0x1,
++	/* Thermal Device HBM */
++	ARCPID_API_OPT_THERMAL_HBM = 0x2,
++};
++
++/*
++ * @brief ARCPID API Edp Options
++ */
++enum arcpid_api_opt_edp {
++	/* EDP Window 0 */
++	ARCPID_API_OPT_EDP_NUM_0 = 0x1,
++	/* EDP Window 1 */
++	ARCPID_API_OPT_EDP_NUM_1 = 0x2,
++	/* EDP Window 2 */
++	ARCPID_API_OPT_EDP_NUM_2 = 0x3,
++	/* EDP Window 3 */
++	ARCPID_API_OPT_EDP_NUM_3 = 0x4,
++};
++
++#endif /* API_COMMANDS_H */
+diff --git a/include/lib/trace.h b/include/lib/trace.h
+index cc9da85..fffc638 100644
+--- a/include/lib/trace.h
++++ b/include/lib/trace.h
+@@ -50,6 +50,12 @@
+ 
+ #define TRACE_NOP_FILLER_SIZE		31
+ 
++#define TRACE_DEFAULT_ENTRIES_MAP	TRACE_ENTRY_PLOT
++#define TRACE_DEFAULT_CHUNK_SIZE	KB(128)
++#define TRACE_DEFAULT_NUM_OF_CHUNKS	16
++#define TRACE_MAX_NUM_OF_CHUNKS		128
++#define TRACE_MAX_CHUNK_SIZE		128
++
+ #define TRACE_ENTRY_SIZE_ERROR_MSG	"Entry struct must be 32 bytes"
+ 
+ enum trace_entry_types {
+@@ -174,6 +180,8 @@
+ 	uint16_t current_entry;
+ 	uint32_t index;
+ 	bool thread_started;
++	bool initialized;
++	bool running;
+ };
+ 
+ struct trace_format_reg {
+@@ -188,8 +196,11 @@
+ 
+ struct pid_thread *get_trace_thread_data(void);
+ void trace_work(void *data);
+-void trace_init(uint8_t entries_bitmap, uint32_t chunk_size, uint8_t num_of_chunks);
+-void trace_stop(void);
+-void trace_set_offset(uint32_t offset);
++int trace_start(void);
++int trace_stop(void);
++int trace_set_entries(uint32_t entries_bitmap);
++int trace_set_offset(uint32_t offset);
++int trace_set_chunks(uint32_t num_of_chunks);
++int trace_set_chunk_size(uint32_t chunk_size);
+ 
+ #endif /* _TRACE_H_ */
+diff --git a/lib/common/api.c b/lib/common/api.c
+index 7a280bd..4bd1cc9 100644
+--- a/lib/common/api.c
++++ b/lib/common/api.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: Apache-2.0
+ /*
+- * Copyright (C) 2023 HabanaLabs Ltd.
++ * Copyright (C) 2025 HabanaLabs Ltd.
+  * All Rights Reserved.
+  *
+  */
+@@ -18,330 +18,387 @@
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+-LOG_MODULE_REGISTER(pid_api);
++LOG_MODULE_REGISTER(arcpid_api);
+ 
+-static enum pid_api_state api_state = PID_API_DISABLE;
++static bool api_enabled;
+ 
+-static struct pid_api_valid_data setvar_valid_data[PID_API_SETVAR_MAX] = {
+-	[PID_API_SETVAR_DIS_REGULATION] =	{ .min = PID_API_DISABLE, .max = PID_API_ENABLE },
+-	[PID_API_SETVAR_LIMIT_EDP_WINDOW] =	{ .min = 0, .max = PID_API_MAX_EDP_WINDOW },
+-	[PID_API_SETVAR_TDP] =			{ .min = 0, .max = PID_API_MAX_TDP },
+-	[PID_API_SETVAR_THERMAL_TRIP_POINT] =	{ .min = 0, .max = PID_API_MAX_TRIP_POINT },
+-	[PID_API_SETVAR_EDP_FACTOR] =		{ .min = 0, .max = PID_API_MAX_EDP_FACTOR },
+-	[PID_API_SETVAR_EDP_WINDOW_DURATION] =	{ .min = 0, .max = PID_API_MAX_EDP_DURATION },
+-	[PID_API_SETVAR_TH_CONTROLLER_COEFF] =	{ .min = 0, .max = SCALE_THERMAL },
+-	[PID_API_SETVAR_HB_CONTROLLER_COEFF] =	{ .min = 0, .max = SCALE_POWER },
+-	[PID_API_SETVAR_EWMA_TAU] =		{ .min = 0, .max = PID_AVG_POWER_SCALE },
+-	[PID_API_SETVAR_AVG_PWR_REGULTATION] =	{ .min = PID_API_DISABLE, .max = PID_API_ENABLE },
+-	[PID_API_SETVAR_OFFSET_ON_R_SHUNT] =	{ .min = 0, .max = PID_API_MAX_CALLIB },
+-	[PID_API_SETVAR_RATE_LIMIT] =		{ .min = 0, .max = PID_API_MAX_PERCENTAGE },
+-	[PID_API_SETVAR_VIOLATION_POWER] =	{ .min = 0, .max = PID_API_MAX_TDP },
+-	[PID_API_SETVAR_SPIKE_POWER_EVT] =	{ .min = 0, .max = PID_API_MAX_TDP },
+-	[PID_API_SETVAR_THERMAL_EVT_DELAY] =	{ .min = 0, .max = PID_API_MAX_DELAY },
+-};
++/*
++ * Using a macro instead of an inline function in order to support multiple variable types
++ * for the value (e.g., uint64_t, uint32_t, etc.).
++ */
++#define API_HANDLE_VAL(rc, api_cmd, value, min, max) \
++	do { \
++		switch ((api_cmd)->cmd) { \
++		case ARCPID_API_CMD_GET: \
++			(api_cmd)->value_out = (value); \
++			rc = ARCPID_API_SUCCESS; \
++			break; \
++		case ARCPID_API_CMD_SET: \
++			if ((api_cmd)->value_in < (min) || (api_cmd)->value_in > (max)) { \
++				rc = ARCPID_API_INVALID_DATA; \
++			} else { \
++				(value) = (api_cmd)->value_in; \
++				rc = ARCPID_API_SUCCESS; \
++			} \
++			break; \
++		default: \
++			rc = ARCPID_API_INVALID_COMMAND; \
++		} \
++	} while (0)
+ 
+-static int check_setvar_data(struct pid_api_cmd *cmd)
++#define API_HANDLE_FLAG(rc, api_cmd, flag) \
++	do { \
++		switch ((api_cmd)->cmd) { \
++		case ARCPID_API_CMD_GET: \
++			(api_cmd)->flag_out = (flag); \
++			rc = ARCPID_API_SUCCESS; \
++			break; \
++		case ARCPID_API_CMD_ENABLE: \
++			(flag) = true; \
++			rc = ARCPID_API_SUCCESS; \
++			break; \
++		case ARCPID_API_CMD_DISABLE: \
++			(flag) = false; \
++			rc = ARCPID_API_SUCCESS; \
++			break; \
++		default: \
++			rc = ARCPID_API_INVALID_COMMAND; \
++		} \
++	} while (0)
++
++static enum arcpid_api_rc api_block_power(struct pid_table *platdata, struct arcpid_api_t *api_cmd)
+ {
+-	uint32_t data = cmd->fields.data_in;
+-	uint32_t min = setvar_valid_data[cmd->fields.subcmd].min;
+-	uint32_t max = setvar_valid_data[cmd->fields.subcmd].max;
+-
+-	if (data < min || data > max) {
+-		LOG_ERR("PID API: data is %d but valid range is %d-%d", data, min, max);
+-		return PID_API_DATA_OUT_OF_RANGE;
+-	}
+-
+-	return PID_API_SUCCESS;
+-}
+-
+-
+-static int handle_cmd_setvar(struct pid_table *platdata, struct pid_api_cmd *cmd)
+-{
+-	uint32_t data = cmd->fields.data_in;
+-	uint8_t arg0 = cmd->fields.arg0;
+ 	struct pid_power_table *power = platdata->power;
+-	struct pid_pvt_table *pvt = &platdata->pvt;
+-	int ret;
++	enum arcpid_api_rc ret;
+ 
+-	ret = check_setvar_data(cmd);
+-	if (ret != PID_API_SUCCESS)
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_POWER_REGULATION:
++		API_HANDLE_FLAG(ret, api_cmd, power->regulation);
+ 		return ret;
+-
+-	switch (cmd->fields.subcmd) {
+-	case PID_API_SETVAR_DIS_REGULATION:
+-		switch (arg0) {
+-		case PID_API_REGULATION_POWER:
+-			power->regulation = (data != 1);
+-			break;
+-		case PID_API_REGULATION_THERMAL:
+-			pvt->regulation = (data != 1);
+-			break;
++	case ARCPID_API_PARAM_POWER_COEFF:
++		switch (api_cmd->opt) {
++		case ARCPID_API_OPT_COEFF_P:
++			API_HANDLE_VAL(ret, api_cmd, power->gain.kp, 0, ARCPID_API_MAX_COEFF);
++			return ret;
++		case ARCPID_API_OPT_COEFF_GB:
++			API_HANDLE_VAL(ret, api_cmd, power->violation.sr_scaling_gb,
++				0, ARCPID_API_MAX_COEFF);
++			return ret;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_OPTION;
+ 		}
+-		break;
+-	case PID_API_SETVAR_LIMIT_EDP_WINDOW:
+-		if (data > power->excursion.max_edps)
+-			data = power->excursion.max_edps;
+-		power->excursion.num_edps = data;
+-		break;
+-	case PID_API_SETVAR_TDP:
+-		set_max_power(platdata, data * PID_MILLI_MULTIPLIER);
+-		break;
+-	case PID_API_SETVAR_THERMAL_TRIP_POINT:
+-		switch (arg0) {
+-		case PID_API_THERMAL_DEVICE_SOC:
+-			pvt->limit_temp = data * PID_MILLI_MULTIPLIER;
+-			break;
+-		case PID_API_THERMAL_DEVICE_HBM:
+-			platdata->dram_ts.limit_temp = data * PID_MILLI_MULTIPLIER;
+-			break;
++	case ARCPID_API_PARAM_POWER_TDP:
++		/* Power TDP is set using a function, so we can't use API_HANDLE_VAL */
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_GET:
++			api_cmd->value_out = power->power.max_power;
++			return ARCPID_API_SUCCESS;
++		case ARCPID_API_CMD_SET:
++			if (api_cmd->value_in < 0 || api_cmd->value_in > ARCPID_API_MAX_POWER)
++				return ARCPID_API_INVALID_DATA;
++			set_max_power(platdata, api_cmd->value_in);
++			return ARCPID_API_SUCCESS;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_COMMAND;
+ 		}
+-		break;
+-	case PID_API_SETVAR_EDP_FACTOR:
+-		if (arg0 > power->excursion.num_edps)
+-			return PID_API_INVALID_ARGUMENT;
+-		power->excursion.edps[arg0].tdp_multiplier = data + 100;
+-		break;
+-	case PID_API_SETVAR_EDP_WINDOW_DURATION:
+-		if (arg0 > power->excursion.num_edps)
+-			return PID_API_INVALID_ARGUMENT;
+-		power->excursion.edps[arg0].duration = data * PID_MILLI_MULTIPLIER;
+-		break;
+-	case PID_API_SETVAR_TH_CONTROLLER_COEFF:
+-		switch (arg0) {
+-		case PID_API_THERMAL_COEFF_P:
+-			pvt->gain.kp = data;
+-			break;
+-		case PID_API_THERMAL_COEFF_I:
+-			pvt->gain.ki = data;
+-			break;
+-		case PID_API_THERMAL_COEFF_D:
+-			pvt->gain.kd = data;
+-			break;
++	case ARCPID_API_PARAM_POWER_EWMA:
++		switch (api_cmd->opt) {
++		case ARCPID_API_OPT_EWMA_WEIGHT_POWER:
++			API_HANDLE_VAL(ret, api_cmd, power->power.avg_weight,
++				1, PID_AVG_POWER_SCALE);
++			return ret;
++		case ARCPID_API_OPT_EWMA_WEIGHT_CURRENT:
++			API_HANDLE_VAL(ret, api_cmd, power->curr.avg_weight,
++				1, PID_AVG_CURRENT_SCALE);
++			return ret;
++		case ARCPID_API_OPT_EWMA_WEIGHT_RL:
++			API_HANDLE_VAL(ret, api_cmd, power->rl.avg_weight,
++				1, PID_AVG_RL_SCALE);
++			return ret;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_OPTION;
+ 		}
+-		break;
+-	case PID_API_SETVAR_HB_CONTROLLER_COEFF:
+-		switch (arg0) {
+-		case PID_API_POWER_COEFF_P:
+-			power->gain.kp = data;
+-			break;
+-		case PID_API_SR_SCALING_GB_COEFF:
+-			power->violation.sr_scaling_gb = data;
+-			break;
+-		default:
+-			return PID_API_INVALID_ARGUMENT;
+-		}
+-		break;
+-	case PID_API_SETVAR_EWMA_TAU:
+-		switch (arg0) {
+-		case PID_API_EWMA_POWER:
+-			power->power.avg_weight = data;
+-			break;
+-		case PID_API_EWMA_CURRENT:
+-			power->curr.avg_weight = data;
+-			break;
+-		case PID_API_EWMA_RL:
+-			power->rl.avg_weight = data;
+-			break;
+-		default:
+-			return PID_API_INVALID_ARGUMENT;
+-		}
+-		break;
+-	case PID_API_SETVAR_AVG_PWR_REGULTATION:
+-		switch (data) {
+-		case PID_API_REGULATE_USING_MOMENTARY_POWER:
++	case ARCPID_API_PARAM_POWER_PV_POWER:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_PV_POWER_MOMENTARY:
+ 			power->power.pv_power = &power->power.curr_power;
+-			break;
+-		case PID_API_REGULATE_USING_EWMA_POWER:
++			return ARCPID_API_SUCCESS;
++		case ARCPID_API_CMD_PV_POWER_AVERAGE:
+ 			power->power.pv_power = &power->power.avg_power;
+-			break;
++			return ARCPID_API_SUCCESS;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_COMMAND;
+ 		}
+-		break;
+-		return PID_API_NOT_SUPPORTED;
+-	case PID_API_SETVAR_OFFSET_ON_R_SHUNT:
+-		power->adc_params.calibration = data;
+-		break;
+-	case PID_API_SETVAR_RATE_LIMIT:
+-		power->rl.value = data;
+-		set_all_rl(platdata, power->rl.value);
+-		break;
+-	case PID_API_SETVAR_VIOLATION_POWER:
+-		power->violation.limit_power = data * PID_MILLI_MULTIPLIER;
+-		break;
+-	case PID_API_SETVAR_SPIKE_POWER_EVT:
+-		power->power.spike_power_event = data * PID_MILLI_MULTIPLIER;
+-		break;
+-	case PID_API_SETVAR_THERMAL_EVT_DELAY:
+-		platdata->event.thermal_delay_ms = data;
+-		break;
++	case ARCPID_API_PARAM_POWER_VIOLATION:
++		API_HANDLE_VAL(ret, api_cmd, power->violation.limit_power,
++			0, ARCPID_API_MAX_POWER);
++		return ret;
++	case ARCPID_API_PARAM_POWER_SPIKE_EVENT:
++		API_HANDLE_VAL(ret, api_cmd, power->power.spike_power_event,
++			0, ARCPID_API_MAX_POWER);
++		return ret;
+ 	default:
+-		return PID_API_NOT_SUPPORTED;
++		return ARCPID_API_INVALID_PARAM;
+ 	}
+ 
+-	return PID_API_SUCCESS;
++	return ARCPID_API_UNKNOWN_ERROR;
+ }
+ 
+-static int handle_cmd_getvar(struct pid_table *platdata, struct pid_api_cmd *cmd,
+-			     struct pid_api_data_out *data_out)
++static enum arcpid_api_rc api_block_thermal(struct pid_table *platdata, struct arcpid_api_t *api_cmd)
+ {
+-	struct pid_power_table *power = platdata->power;
+ 	struct pid_pvt_table *pvt = &platdata->pvt;
+-	struct pid_dram_ts_table *dram = &platdata->dram_ts;
++	struct pid_dram_ts_table *dram_ts = &platdata->dram_ts;
++	enum arcpid_api_rc ret;
+ 
+-	switch (cmd->fields.subcmd) {
+-	case PID_API_GETVAR_API_VERSION:
+-		data_out->fields_16.data[0] = PID_API_VERSION_PATCH;
+-		data_out->fields_16.data[1] = PID_API_VERSION_MINOR;
+-		data_out->fields_16.data[2] = PID_API_VERSION_MAJOR;
+-		data_out->fields_16.data[3] = 0;
+-		break;
+-	case PID_API_GETVAR_DIS_REGULATION:
+-		switch (cmd->fields.arg0) {
+-		case PID_API_REGULATION_POWER:
+-			data_out->reg_value = !power->regulation;
+-			break;
+-		case PID_API_REGULATION_THERMAL:
+-			data_out->reg_value = !pvt->regulation;
+-			break;
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_THERMAL_REGULATION:
++		API_HANDLE_FLAG(ret, api_cmd, pvt->regulation);
++		return ret;
++	case ARCPID_API_PARAM_THERMAL_COEFF:
++		switch (api_cmd->opt) {
++		case ARCPID_API_OPT_COEFF_P:
++			API_HANDLE_VAL(ret, api_cmd, pvt->gain.kp, 0, ARCPID_API_MAX_COEFF);
++			return ret;
++		case ARCPID_API_OPT_COEFF_I:
++			API_HANDLE_VAL(ret, api_cmd, pvt->gain.ki, 0, ARCPID_API_MAX_COEFF);
++			return ret;
++		case ARCPID_API_OPT_COEFF_D:
++			API_HANDLE_VAL(ret, api_cmd, pvt->gain.kd, 0, ARCPID_API_MAX_COEFF);
++			return ret;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_OPTION;
+ 		}
+-		break;
+-	case PID_API_GETVAR_TDP:
+-		data_out->reg_value = power->power.max_power / PID_MILLI_MULTIPLIER;
+-		break;
+-	case PID_API_GETVAR_THERMAL_TRIP_POINT:
+-		switch (cmd->fields.arg0) {
+-		case PID_API_THERMAL_DEVICE_SOC:
+-			data_out->reg_value = pvt->limit_temp / PID_MILLI_MULTIPLIER;
+-			break;
+-		case PID_API_THERMAL_DEVICE_HBM:
+-			data_out->reg_value = dram->limit_temp / PID_MILLI_MULTIPLIER;
+-			break;
++	case ARCPID_API_PARAM_THERMAL_TRIP_POINT:
++		switch (api_cmd->opt) {
++		case ARCPID_API_OPT_THERMAL_SOC:
++			API_HANDLE_VAL(ret, api_cmd, pvt->limit_temp,
++				0, ARCPID_API_MAX_THERMAL);
++			return ret;
++		case ARCPID_API_OPT_THERMAL_HBM:
++			API_HANDLE_VAL(ret, api_cmd, dram_ts->limit_temp,
++				0, ARCPID_API_MAX_THERMAL);
++			return ret;
+ 		default:
+-			return PID_API_INVALID_ARGUMENT;
++			return ARCPID_API_INVALID_OPTION;
+ 		}
+-		break;
+-	case PID_API_GETVAR_THERMAL_TDP:
+-		data_out->reg_value = power->power.thermal_setpoint / PID_MILLI_MULTIPLIER;
+-		break;
+-	case PID_API_GETVAR_THREAD_STATUS:
+-		data_out->reg_value = get_thread_status(platdata);
+-		break;
+-	case PID_API_GETVAR_EDP_USAGE_COUNTERS:
+-		/* not implemented yet */
+-		return PID_API_NOT_SUPPORTED;
+-	case PID_API_GETVAR_OFFSET_ON_R_SHUNT:
+-		data_out->reg_value = power->adc_params.calibration;
+-		break;
+-	case PID_API_GETVAR_THERMAL_EVT_DELAY:
+-		data_out->reg_value = platdata->event.thermal_delay_ms;
+-		break;
++	case ARCPID_API_PARAM_THERMAL_EVENT_DELAY:
++		API_HANDLE_VAL(ret, api_cmd, platdata->event.thermal_delay_ms, 0, UINT32_MAX);
++		return ret;
+ 	default:
+-		return PID_API_NOT_SUPPORTED;
++		return ARCPID_API_INVALID_PARAM;
+ 	}
+ 
+-	return PID_API_SUCCESS;
++	return ARCPID_API_SUCCESS;
+ }
+ 
+-static int handle_cmd_trace(struct pid_table *platdata, struct pid_api_cmd *cmd,
+-			     struct pid_api_data_out *data_out)
++static enum arcpid_api_rc api_block_rate_limit(struct pid_table *platdata, struct arcpid_api_t *api_cmd)
+ {
+-	switch (cmd->fields.subcmd) {
+-	case PID_API_TRACE_ENABLE:
+-		trace_init(cmd->fields.arg1, cmd->fields.data_in, cmd->fields.arg0);
+-		break;
+-	case PID_API_TRACE_DISABLE:
+-		trace_stop();
+-		break;
+-	case PID_API_TRACE_SET_OFFSET:
+-		trace_set_offset(cmd->fields.data_in);
+-		break;
++	struct pid_rl_data *rl = &platdata->power->rl;
++	enum arcpid_api_rc ret;
++
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_RATE_LIMIT_VALUE:
++		API_HANDLE_VAL(ret, api_cmd, rl->value, 0, ARCPID_API_MAX_PERCENTAGE);
++		/* Call RL driver to apply changes in the RL devices */
++		if (ret == ARCPID_API_SUCCESS && api_cmd->cmd == ARCPID_API_CMD_SET)
++			set_all_rl(platdata, rl->value);
++		return ret;
++	case ARCPID_API_PARAM_RATE_LIMIT_MIN_VALUE:
++		return ARCPID_API_NOT_SUPPORTED_YET;
++	case ARCPID_API_PARAM_RATE_LIMIT_MAX_VALUE:
++		API_HANDLE_VAL(ret, api_cmd, rl->max, 0, ARCPID_API_MAX_PERCENTAGE);
++		return ret;
+ 	default:
+-		return PID_API_NOT_SUPPORTED;
++		return ARCPID_API_INVALID_PARAM;
+ 	}
+ 
+-	return PID_API_SUCCESS;
++	return ARCPID_API_UNKNOWN_ERROR;
+ }
+ 
+-static int handle_cmd_enable(struct pid_api_cmd *cmd)
++static enum arcpid_api_rc api_get_edp_data(struct arcpid_api_t *api_cmd,
++	struct pid_excursion_data *excursion, struct pid_edp_data **edp)
+ {
+-	uint32_t data = cmd->fields.data_in;
+-
+-	if (data != PID_API_ENABLE && data != PID_API_DISABLE)
+-		return PID_API_DATA_OUT_OF_RANGE;
+-
+-	api_state = data;
+-
+-	return PID_API_SUCCESS;
+-}
+-
+-static void print_error(int ret)
+-{
+-	switch (ret) {
+-	case PID_API_INVALID_ARGUMENT:
+-		LOG_ERR("PID API: ERROR: Invalid argument");
++	switch (api_cmd->opt) {
++	case ARCPID_API_OPT_EDP_NUM_0:
++		*edp = &excursion->edps[0];
+ 		break;
+-	case PID_API_NOT_SUPPORTED:
+-		LOG_ERR("PID API: ERROR: Command not supported");
++	case ARCPID_API_OPT_EDP_NUM_1:
++		*edp = &excursion->edps[1];
+ 		break;
+-	case PID_API_DATA_OUT_OF_RANGE:
+-		LOG_ERR("PID API: ERROR: Data out of range");
++	case ARCPID_API_OPT_EDP_NUM_2:
++		*edp = &excursion->edps[2];
+ 		break;
+-	case PID_API_UNKNOWN_ERROR:
+-		LOG_ERR("PID API: ERROR: Unknown error");
++	case ARCPID_API_OPT_EDP_NUM_3:
++		*edp = &excursion->edps[3];
+ 		break;
+ 	default:
+-		break;
++		return ARCPID_API_INVALID_OPTION;
+ 	}
++	return ARCPID_API_SUCCESS;
+ }
+ 
+-
+-
+-enum pid_api_rc pid_api_process_cmd(struct pid_table *platdata, uint64_t cmd, uint64_t *output)
++static enum arcpid_api_rc api_block_edp(struct pid_table *platdata, struct arcpid_api_t *api_cmd)
+ {
+-	struct pid_api_cmd *cmd_in = (struct pid_api_cmd *)&cmd;
+-	struct pid_api_data_out *data_out = (struct pid_api_data_out *)output;
++	struct pid_excursion_data *excursion = &platdata->power->excursion;
++	struct pid_edp_data *edp = NULL;
++	enum arcpid_api_rc ret;
++
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_EDP_SEGMENTS:
++		API_HANDLE_VAL(ret, api_cmd, excursion->num_edps, 0, excursion->max_edps);
++		return ret;
++	case ARCPID_API_PARAM_EDP_MULTIPLIER:
++		if (api_get_edp_data(api_cmd, excursion, &edp))
++			return ARCPID_API_INVALID_OPTION;
++		API_HANDLE_VAL(ret, api_cmd, edp->tdp_multiplier, 0, ARCPID_API_MAX_MULTIPLIER);
++		if (ret == ARCPID_API_SUCCESS && api_cmd->cmd == ARCPID_API_CMD_SET)
++			update_edp_budget_max(platdata);
++		return ret;
++	case ARCPID_API_PARAM_EDP_DURATION:
++		if (api_get_edp_data(api_cmd, excursion, &edp))
++			return ARCPID_API_INVALID_OPTION;
++		API_HANDLE_VAL(ret, api_cmd, edp->duration, 0, UINT32_MAX);
++		if (ret == ARCPID_API_SUCCESS && api_cmd->cmd == ARCPID_API_CMD_SET)
++			update_edp_budget_max(platdata);
++		return ret;
++	default:
++		return ARCPID_API_INVALID_PARAM;
++	}
++
++	return ARCPID_API_UNKNOWN_ERROR;
++}
++
++static enum arcpid_api_rc api_block_trace(struct pid_table *platdata, struct arcpid_api_t *api_cmd)
++{
+ 	int ret;
+ 
+-	if (cmd_in->fields.run == 0)
+-		return PID_API_SUCCESS;
+-
+-	if (cmd_in->fields.cmd == PID_API_CMD_ENABLE) {
+-		ret = handle_cmd_enable(cmd_in);
+-		goto exit_api;
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_TRACE_ENABLE:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_ENABLE:
++			ret = trace_start();
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		case ARCPID_API_CMD_DISABLE:
++			ret = trace_stop();
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		default:
++			return ARCPID_API_INVALID_COMMAND;
++		}
++	case ARCPID_API_PARAM_TRACE_ENTRIES:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_SET:
++			ret = trace_set_entries(api_cmd->value_in);
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		default:
++			return ARCPID_API_INVALID_COMMAND;
++		}
++	case ARCPID_API_PARAM_TRACE_OFFSET:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_SET:
++			ret = trace_set_offset(api_cmd->value_in);
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		default:
++			return ARCPID_API_INVALID_COMMAND;
++		}
++	case ARCPID_API_PARAM_TRACE_CHUNKS:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_SET:
++			ret = trace_set_chunks(api_cmd->value_in);
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		default:
++			return ARCPID_API_INVALID_COMMAND;
++		}
++	case ARCPID_API_PARAM_TRACE_CHUNK_SIZE:
++		switch (api_cmd->cmd) {
++		case ARCPID_API_CMD_SET:
++			ret = trace_set_chunk_size(api_cmd->value_in);
++			if (ret != 0)
++				return ARCPID_API_UNKNOWN_ERROR;
++			return ARCPID_API_SUCCESS;
++		default:
++			return ARCPID_API_INVALID_COMMAND;
++		}
++	default:
++		return ARCPID_API_INVALID_PARAM;
+ 	}
+ 
+-	if (api_state == PID_API_DISABLE) {
+-		LOG_ERR("PID API: api disabled, can't process commands");
+-		return PID_API_NOT_SUPPORTED;
++	return ARCPID_API_UNKNOWN_ERROR;
++}
++
++static enum arcpid_api_rc api_block_api(struct arcpid_api_t *api_cmd)
++{
++	enum arcpid_api_rc ret;
++
++	switch (api_cmd->param) {
++	case ARCPID_API_PARAM_API_VERSION:
++		api_cmd->value_out_8[0] = ARCPID_API_VERSION_PATCH;
++		api_cmd->value_out_8[1] = ARCPID_API_VERSION_MINOR;
++		api_cmd->value_out_8[2] = ARCPID_API_VERSION_MAJOR;
++		api_cmd->value_out_8[3] = 0;
++		return ARCPID_API_SUCCESS;
++	case ARCPID_API_PARAM_API_STATE:
++		API_HANDLE_FLAG(ret, api_cmd, api_enabled);
++		return ret;
++	default:
++		return ARCPID_API_INVALID_PARAM;
+ 	}
+ 
+-	switch (cmd_in->fields.cmd) {
+-	case PID_API_CMD_SETVAR:
+-		ret = handle_cmd_setvar(platdata, cmd_in);
++	return ARCPID_API_UNKNOWN_ERROR;
++}
++
++enum arcpid_api_rc arcpid_api_process_cmd(struct pid_table *platdata, uint64_t *cmd)
++{
++	struct arcpid_api_t *api_cmd = (struct arcpid_api_t *)cmd;
++	int ret = ARCPID_API_SUCCESS;
++
++	LOG_DBG("ARCPID API: new command block %d, param %d, cmd %d, opt %d, value_in %d",
++		api_cmd->block, api_cmd->param, api_cmd->cmd, api_cmd->opt, api_cmd->value_in);
++
++	/* API Block commands are always valid, even when API is disabled */
++	if (api_cmd->block == ARCPID_API_BLOCK_API)
++		return api_block_api(api_cmd);
++
++	if (!api_enabled) {
++		LOG_ERR("ARCPID API: api disabled, can't process commands");
++		return ARCPID_API_DISABLED;
++	}
++
++	switch (api_cmd->block) {
++	case ARCPID_API_BLOCK_POWER:
++		ret = api_block_power(platdata, api_cmd);
+ 		break;
+-	case PID_API_CMD_GETVAR:
+-		ret = handle_cmd_getvar(platdata, cmd_in, data_out);
++	case ARCPID_API_BLOCK_THERMAL:
++		ret = api_block_thermal(platdata, api_cmd);
+ 		break;
+-	case PID_API_CMD_TRACE:
+-		ret = handle_cmd_trace(platdata, cmd_in, data_out);
++	case ARCPID_API_BLOCK_RATE_LIMIT:
++		ret = api_block_rate_limit(platdata, api_cmd);
++		break;
++	case ARCPID_API_BLOCK_EDP:
++		ret = api_block_edp(platdata, api_cmd);
++		break;
++	case ARCPID_API_BLOCK_TRACE:
++		ret = api_block_trace(platdata, api_cmd);
+ 		break;
+ 	default:
+-		ret = PID_API_NOT_SUPPORTED;
++		ret = ARCPID_API_INVALID_BLOCK;
+ 		break;
+ 	}
+ 
+-exit_api:
+-	if (ret != PID_API_SUCCESS)
+-		print_error(ret);
++	if (ret != ARCPID_API_SUCCESS) {
++		LOG_ERR("ARCPID API: command failed, ret %d", ret);
++		api_cmd->cmd = ARCPID_API_CMD_FAILURE_CODE;
++		api_cmd->value_out = ret;
++	}
+ 
+ 	return ret;
+ }
+diff --git a/lib/common/trace.c b/lib/common/trace.c
+index 2e55c42..a4ba540 100644
+--- a/lib/common/trace.c
++++ b/lib/common/trace.c
+@@ -10,6 +10,7 @@
+ #include <utils.h>
+ #include <common.h>
+ #include <trace.h>
++#include <errno.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+@@ -31,7 +32,11 @@
+ 	return &trace_thread;
+ }
+ 
+-static struct trace_table trace;
++static struct trace_table trace = {
++	.entries_bitmap = TRACE_DEFAULT_ENTRIES_MAP,
++	.chunk_size = TRACE_DEFAULT_CHUNK_SIZE,
++	.num_of_chunks = TRACE_DEFAULT_NUM_OF_CHUNKS,
++};
+ 
+ static inline void set_trace_timestamp(struct pid_table *platdata, volatile uint8_t *timestamp)
+ {
+@@ -414,20 +419,35 @@
+ 		send_entry(platdata, TRACE_ENTRY_DEBUG);
+ }
+ 
+-void trace_init(uint8_t entries_bitmap, uint32_t chunk_size, uint8_t num_of_chunks)
++static int trace_init(void)
+ {
+ 	struct pid_table *platdata = pid_table_get();
++	int trace_size = trace.chunk_size * trace.num_of_chunks;
+ 
+-	if (platdata->dram.trace_offset + (KB(chunk_size) * num_of_chunks) > platdata->dram.size) {
++	if ((platdata->dram.trace_offset + trace_size) > platdata->dram.size) {
+ 		LOG_ERR("PID-TRACE: Can't trace outside allocated region. check trace parameters");
+-		return;
++		return -EINVAL;
+ 	}
+ 
+ 	trace.base_addr = platdata->dram.offset + platdata->dram.trace_offset;
+-	trace.entries_bitmap = entries_bitmap;
+-	trace.chunk_size = KB(chunk_size);
+-	trace.num_of_chunks = num_of_chunks;
+ 	reset_trace(platdata);
++	trace.initialized = true;
++
++	return 0;
++}
++
++int trace_start(void)
++{
++	struct pid_table *platdata = pid_table_get();
++	int ret;
++
++	if (!trace.initialized) {
++		ret = trace_init();
++		if (ret != 0) {
++			LOG_ERR("PID-TRACE: Failed to initialize trace");
++			return ret;
++		}
++	}
+ 
+ 	if (platdata->enable_timestamp)
+ 		platdata->enable_timestamp(true);
+@@ -438,9 +458,16 @@
+ 		thread_start(platdata, TRACE_THREAD_INDEX);
+ 		trace.thread_started = true;
+ 	}
++
++	LOG_INF("PID-TRACE: Starting trace in offset 0x%x, chunk size %dKB, num of chunks %d",
++		platdata->dram.trace_offset, TO_KB(trace.chunk_size), trace.num_of_chunks);
++
++	trace.running = true;
++
++	return 0;
+ }
+ 
+-void trace_stop(void)
++int trace_stop(void)
+ {
+ 	struct pid_table *platdata = pid_table_get();
+ 
+@@ -451,16 +478,77 @@
+ 
+ 	if (platdata->enable_timestamp)
+ 		platdata->enable_timestamp(false);
++
++	trace.running = false;
++
++	return 0;
+ }
+ 
+-void trace_set_offset(uint32_t offset)
++int trace_set_entries(uint32_t entries_bitmap)
++{
++	trace.entries_bitmap = entries_bitmap;
++
++	return 0;
++}
++
++int trace_set_offset(uint32_t offset)
+ {
+ 	struct pid_table *platdata = pid_table_get();
+ 
+ 	if (offset > platdata->dram.size) {
+ 		LOG_ERR("PID-TRACE: offset is outside of allocated region");
+-		return;
++		return -EINVAL;
++	}
++
++	if (trace.running) {
++		LOG_ERR("PID-TRACE: Can't change offset while trace is running");
++		return -EPERM;
+ 	}
+ 
+ 	platdata->dram.trace_offset = offset;
++
++	/* This change requires to reinitialize the tracer on trace start */
++	trace.initialized = false;
++
++	return 0;
++}
++
++int trace_set_chunks(uint32_t num_of_chunks)
++{
++	if (num_of_chunks > TRACE_MAX_NUM_OF_CHUNKS) {
++		LOG_ERR("PID-TRACE: Num of chunks is too big");
++		return -EINVAL;
++	}
++
++	if (trace.running) {
++		LOG_ERR("PID-TRACE: Can't change num of chunks while trace is running");
++		return -EPERM;
++	}
++
++	trace.num_of_chunks = num_of_chunks;
++
++	/* This change requires to reinitialize the tracer on trace start */
++	trace.initialized = false;
++
++	return 0;
++}
++
++int trace_set_chunk_size(uint32_t chunk_size)
++{
++	if (chunk_size > TRACE_MAX_CHUNK_SIZE) {
++		LOG_ERR("PID-TRACE: Chunk size is too big");
++		return -EINVAL;
++	}
++
++	if (trace.running) {
++		LOG_ERR("PID-TRACE: Can't change chunk size while trace is running");
++		return -EPERM;
++	}
++
++	trace.chunk_size = chunk_size;
++
++	/* This change requires to reinitialize the tracer on trace start */
++	trace.initialized = false;
++
++	return 0;
+ }

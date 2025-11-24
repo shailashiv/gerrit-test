@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 474132: [SW-218143] Fix the SUSE, rhel9.4 and U22 issues</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 474132: [SW-218143] Fix the SUSE, rhel9.4 and U22 issues</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> devops/cd_release</p>
+            <p><strong>Branch:</strong> v1.19.2</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Rajesh Sanga &lt;rsanga@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-02-28 10:21:46.571000000</p>
+            <p><strong>Updated:</strong> 2025-07-31 11:17:00.275000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-218143] Fix the SUSE, rhel9.4 and U22 issues
+
+Change-Id: I6ffafe5a53d0981e2e856825b7dee94f471b6234
+Signed-off-by: Rajesh Sanga &lt;rsanga@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Alexei Nikandrov: +0, Software Jenkins: +0, Witold Netel: +0, Gennady Davidov: +0, Michal Muszynski: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>dockerfiles/base/Dockerfile.amzn2</code> (M) +1 -1</li><li><code>dockerfiles/base/Dockerfile.debian10.10</code> (M) +1 -1</li><li><code>dockerfiles/base/Dockerfile.rhel8.6</code> (M) +58 -84</li><li><code>dockerfiles/base/Dockerfile.rhel9.2</code> (M) +2 -1</li><li><code>dockerfiles/base/Dockerfile.rhel9.4</code> (M) +57 -48</li><li><code>dockerfiles/base/Dockerfile.suse15.5</code> (M) +14 -7</li><li><code>dockerfiles/base/Dockerfile.tencentos3.1</code> (M) +2 -1</li><li><code>dockerfiles/base/Dockerfile.ubuntu20.04</code> (M) +2 -1</li><li><code>dockerfiles/base/Dockerfile.ubuntu22.04</code> (M) +5 -1</li><li><code>dockerfiles/base/Dockerfile.ubuntu22.04-py311</code> (M) +5 -3</li><li><code>dockerfiles/base/Dockerfile.ubuntu24.04</code> (M) +3 -1</li><li><code>dockerfiles/pytorch/Dockerfile.rhel9.2</code> (M) +11 -19</li><li><code>dockerfiles/pytorch/Dockerfile.rhel9.4</code> (M) +10 -18</li><li><code>dockerfiles/pytorch/Dockerfile.suse15.5</code> (M) +3 -6</li><li><code>dockerfiles/triton/Dockerfile</code> (M) +1 -1</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/dockerfiles/base/Dockerfile.amzn2</h4><pre class="diff-content"><span class="diff-hunk">@@ -105,7 +105,7 @@</span>
+<span class="diff-ctx">     cd / &amp;&amp; \</span>
+<span class="diff-ctx">     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e2a5e67..22a2971 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.debian10.10</h4><pre class="diff-content"><span class="diff-hunk">@@ -150,7 +150,7 @@</span>
+<span class="diff-ctx"> RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.8 2 &amp;&amp; \</span>
+<span class="diff-ctx">     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==23.3.1 setuptools==67.3.3 wheel==0.38.4</span>
+<span class="diff-add">+RUN python3 -m pip install pip==23.3.1 setuptools==79.0.1 wheel==0.38.4</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b382a05..9f3c6f5 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.rhel8.6</h4><pre class="diff-content"><span class="diff-hunk">@@ -10,76 +10,70 @@</span>
+<span class="diff-ctx"> ARG REVISION</span>
+<span class="diff-ctx"> ARG REPO_NAME=hl-rhel-prerel</span>
+<span class="diff-ctx"> ARG PYPI_REPO_NAME=pypi-virtual</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> # for RHEL certification</span>
+<span class="diff-ctx"> LABEL vendor=&quot;Habanalabs Ltd.&quot;</span>
+<span class="diff-ctx"> LABEL release=&quot;${VERSION}-${REVISION}&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> COPY LICENSE /licenses/</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm &amp;&amp; \</span>
+<span class="diff-del">-    dnf clean all &amp;&amp; rm -rf /var/cache/yum</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN echo &quot;[rhelmirror]&quot; &gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-del">-    echo &quot;name=Habana RH8 baseos repo&quot; &gt;&gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-del">-    echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat8-mirror&quot; &gt;&gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-del">-    echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-del">-    echo &#x27;enable=1&#x27;  &gt;&gt; /etc/yum.repos.d/rhelmirror.repo</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN dnf install -y \</span>
+<span class="diff-del">-    clang \</span>
+<span class="diff-del">-    cmake3 \</span>
+<span class="diff-del">-    cpp \</span>
+<span class="diff-del">-    gcc \</span>
+<span class="diff-del">-    gcc-c++ \</span>
+<span class="diff-del">-    glibc \</span>
+<span class="diff-del">-    glibc-headers \</span>
+<span class="diff-del">-    glibc-devel \</span>
+<span class="diff-del">-    jemalloc \</span>
+<span class="diff-del">-    libarchive \</span>
+<span class="diff-del">-    libksba \</span>
+<span class="diff-del">-    unzip \</span>
+<span class="diff-del">-    llvm \</span>
+<span class="diff-del">-    lsof \</span>
+<span class="diff-del">-    python3.11-devel \</span>
+<span class="diff-del">-    python3.11-pip \</span>
+<span class="diff-del">-    bzip2 \</span>
+<span class="diff-del">-    bzip2-devel \</span>
+<span class="diff-del">-    openssh-clients \</span>
+<span class="diff-del">-    libjpeg-devel \</span>
+<span class="diff-del">-    openssh-server \</span>
+<span class="diff-del">-    redhat-lsb-core \</span>
+<span class="diff-del">-    wget \</span>
+<span class="diff-del">-    git \</span>
+<span class="diff-del">-    mesa-libGL \</span>
+<span class="diff-del">-    iproute \</span>
+<span class="diff-del">-    python3-dnf-plugin-versionlock &amp;&amp; \</span>
+<span class="diff-del">-    # update pkgs (except OS version) for resolving potentials CVEs</span>
+<span class="diff-add">+        python3-dnf-plugin-versionlock &amp;&amp; \</span>
+<span class="diff-ctx">     dnf versionlock add redhat-release* &amp;&amp; \</span>
+<span class="diff-del">-    dnf update -y &amp;&amp; \</span>
+<span class="diff-del">-    dnf clean all &amp;&amp; rm -rf /var/cache/yum &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all</span>
+<span class="diff-add">+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all</span>
+<span class="diff-add">+RUN echo &quot;[rhelmirror]&quot; &gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;name=Habana RH8 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat8-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &#x27;enable=1&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;[epel8mirror]&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;name=epel 8 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/epel8-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo</span>
+<span class="diff-add">+RUN dnf update -y &amp;&amp; dnf install -y \</span>
+<span class="diff-add">+        bzip2 \</span>
+<span class="diff-add">+        bzip2-devel \</span>
+<span class="diff-add">+        clang \</span>
+<span class="diff-add">+        cmake3 \</span>
+<span class="diff-add">+        cpp \</span>
+<span class="diff-add">+        gcc \</span>
+<span class="diff-add">+        gcc-c++ \</span>
+<span class="diff-add">+        git \</span>
+<span class="diff-add">+        glibc \</span>
+<span class="diff-add">+        glibc-devel \</span>
+<span class="diff-add">+        glibc-headers \</span>
+<span class="diff-add">+        iproute \</span>
+<span class="diff-add">+        jemalloc \</span>
+<span class="diff-add">+        libarchive \</span>
+<span class="diff-add">+        libjpeg-devel \</span>
+<span class="diff-add">+        libksba \</span>
+<span class="diff-add">+        llvm \</span>
+<span class="diff-add">+        lsof \</span>
+<span class="diff-add">+        mesa-libGL \</span>
+<span class="diff-add">+        openssh-clients \</span>
+<span class="diff-add">+        openssh-server \</span>
+<span class="diff-add">+        python3.11-devel \</span>
+<span class="diff-add">+        python3.11-pip \</span>
+<span class="diff-add">+        redhat-lsb-core \</span>
+<span class="diff-add">+        unzip \</span>
+<span class="diff-add">+        wget &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all &amp;&amp; \</span>
+<span class="diff-ctx">     rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> # CVE-2023-47038 RHSA-2024:3128</span>
+<span class="diff-del">-RUN dnf module reset perl -y &amp;&amp; \</span>
+<span class="diff-del">-    dnf module enable perl:5.32 -y  &amp;&amp; \</span>
+<span class="diff-del">-    dnf --allowerasing module install perl:5.32 -y &amp;&amp; \</span>
+<span class="diff-del">-    dnf clean all &amp;&amp; rm -rf /var/cache/yum</span>
+<span class="diff-del">-</span>
+<span class="diff-add">+RUN dnf module reset -y perl &amp;&amp; \</span>
+<span class="diff-add">+    dnf module enable -y perl:5.32 &amp;&amp; \</span>
+<span class="diff-add">+    dnf module install -y --allowerasing perl:5.32 &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all</span>
+<span class="diff-ctx"> COPY install_efa.sh .</span>
+<span class="diff-del">-RUN ./install_efa.sh &amp;&amp; rm install_efa.sh &amp;&amp; rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+<span class="diff-add">+RUN ./install_efa.sh &amp;&amp; rm install_efa.sh &amp;&amp; rm -f /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+<span class="diff-ctx"> ENV OPENMPI_VERSION=4.1.6</span>
+<span class="diff-del">-ENV LIBFABRIC_VERSION=&quot;1.20.0&quot;</span>
+<span class="diff-del">-ENV LIBFABRIC_ROOT=&quot;/opt/habanalabs/libfabric-${LIBFABRIC_VERSION}&quot;</span>
+<span class="diff-ctx"> ENV MPI_ROOT=/opt/habanalabs/openmpi</span>
+<span class="diff-del">-ENV LD_LIBRARY_PATH=$LIBFABRIC_ROOT/lib:${MPI_ROOT}/lib:/usr/lib/habanalabs:$LD_LIBRARY_PATH</span>
+<span class="diff-del">-ENV PATH=${LIBFABRIC_ROOT}/bin:${MPI_ROOT}/bin:$PATH</span>
+<span class="diff-add">+ENV LD_LIBRARY_PATH=${MPI_ROOT}/lib:/usr/lib/habanalabs:$LD_LIBRARY_PATH</span>
+<span class="diff-add">+ENV PATH=${MPI_ROOT}/bin:$PATH</span>
+<span class="diff-ctx"> ENV OPAL_PREFIX=${MPI_ROOT}</span>
+<span class="diff-ctx"> ENV MPICC=${MPI_ROOT}/bin/mpicc</span>
+<span class="diff-ctx"> ENV RDMAV_FORK_SAFE=1</span>
+<span class="diff-ctx"> ENV FI_EFA_USE_DEVICE_RDMA=0</span>
+<span class="diff-ctx"> ENV OMPI_MCA_btl=^openib</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN echo &quot;[habanalabs]&quot; &gt; /etc/yum.repos.d/habanalabs.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;name=Habana RH8 Linux repo&quot; &gt;&gt; /etc/yum.repos.d/habanalabs.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/${REPO_NAME}/8/8.6/testing&quot; &gt;&gt; /etc/yum.repos.d/habanalabs.repo &amp;&amp; \</span>
+<span class="diff-hunk">@@ -94,51 +88,32 @@</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/centos8-org-powertools-mirror&quot; &gt;&gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/rhelmirror.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;enable=1&#x27;  &gt;&gt; /etc/yum.repos.d/rhelmirror.repo</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 &amp;&amp; \</span>
+<span class="diff-ctx">     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1 &amp;&amp; \</span>
+<span class="diff-ctx">     alternatives --set python3 /usr/bin/python3.11</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN yum install -y habanalabs-rdma-core-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-del">-    habanalabs-thunk-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-del">-    habanalabs-firmware-tools-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-del">-    habanalabs-graph-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 &amp;&amp; \</span>
+<span class="diff-del">-    rm -f /etc/yum.repos.d/habanalabs.repo &amp;&amp; rm -f /etc/yum.repos.d/rhelmirror.repo &amp;&amp; rm -rf /tmp/* &amp;&amp; \</span>
+<span class="diff-del">-    dnf clean all &amp;&amp; rm -rf /var/cache/yum</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN rpm -V habanalabs-rdma-core &amp;&amp; rpm -V habanalabs-thunk &amp;&amp; rpm -V habanalabs-firmware-tools &amp;&amp; rpm -V habanalabs-graph</span>
+<span class="diff-del">-</span>
+<span class="diff-add">+RUN dnf install -y \</span>
+<span class="diff-add">+        habanalabs-rdma-core-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-add">+        habanalabs-thunk-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-add">+        habanalabs-firmware-tools-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 \</span>
+<span class="diff-add">+        habanalabs-graph-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el8 &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all &amp;&amp; \</span>
+<span class="diff-add">+    rm -f /etc/yum.repos.d/habanalabs.repo &amp;&amp; rm -f /etc/yum.repos.d/rhelmirror.repo</span>
+<span class="diff-ctx"> # There is no need to store pip installation files inside docker image</span>
+<span class="diff-ctx"> ENV PIP_NO_CACHE_DIR=on</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-ctx"> ENV RDMA_CORE_ROOT=/opt/habanalabs/rdma-core/src</span>
+<span class="diff-ctx"> ENV RDMA_CORE_LIB=${RDMA_CORE_ROOT}/build/lib</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN wget -nv -O /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 https://github.com/ofiwg/libfabric/releases/download/v${LIBFABRIC_VERSION}/libfabric-${LIBFABRIC_VERSION}.tar.bz2 &amp;&amp; \</span>
+<span class="diff-del">-    cd /tmp/ &amp;&amp; tar xf /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 &amp;&amp; \</span>
+<span class="diff-del">-    cd /tmp/libfabric-${LIBFABRIC_VERSION} &amp;&amp; \</span>
+<span class="diff-del">-    ./configure --prefix=$LIBFABRIC_ROOT --enable-psm3-verbs --enable-verbs=yes --with-synapseai=/usr &amp;&amp; \</span>
+<span class="diff-del">-    make &amp;&amp; make install &amp;&amp; cd / &amp;&amp; rm -rf /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 /tmp/libfabric-${LIBFABRIC_VERSION}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN wget -q -O /tmp/openmpi-${OPENMPI_VERSION}.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.gz &amp;&amp; \</span>
+<span class="diff-ctx">     tar -xzf /tmp/openmpi-${OPENMPI_VERSION}.tar.gz -C /tmp &amp;&amp; \</span>
+<span class="diff-ctx">     cd /tmp/openmpi-${OPENMPI_VERSION} &amp;&amp; \</span>
+<span class="diff-del">-    ./configure --prefix=${MPI_ROOT} --with-libfabric=$LIBFABRIC_ROOT --with-verbs &amp;&amp; \</span>
+<span class="diff-add">+    ./configure --prefix=${MPI_ROOT} --with-verbs &amp;&amp; \</span>
+<span class="diff-ctx">     make -j$(nproc) &amp;&amp; make install &amp;&amp; cd / &amp;&amp; rm -rf /tmp/openmpi-${OPENMPI_VERSION}.tar.gz /tmp/openmpi-${OPENMPI_VERSION}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN wget -nv -O /tmp/main.zip https://github.com/HabanaAI/hccl_ofi_wrapper/archive/refs/heads/main.zip &amp;&amp; \</span>
+<span class="diff-del">-    unzip /tmp/main.zip -d /tmp &amp;&amp; \</span>
+<span class="diff-del">-    cd /tmp/hccl_ofi_wrapper-main &amp;&amp; \</span>
+<span class="diff-del">-    make &amp;&amp; cp -f libhccl_ofi_wrapper.so /usr/lib/habanalabs/libhccl_ofi_wrapper.so &amp;&amp; \</span>
+<span class="diff-del">-    cd / &amp;&amp; \</span>
+<span class="diff-del">-    rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> # SSH configuration necessary to support mpi-operator v2</span>
+<span class="diff-ctx"> RUN mkdir -p /var/run/sshd &amp;&amp; \</span>
+<span class="diff-ctx">     sed -i &#x27;s/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g&#x27; /etc/ssh/ssh_config &amp;&amp; \</span>
+<span class="diff-hunk">@@ -146,7 +121,6 @@</span>
+<span class="diff-ctx">     echo &quot;    UserKnownHostsFile /dev/null&quot; &gt;&gt; /etc/ssh/ssh_config &amp;&amp; \</span>
+<span class="diff-ctx">     sed -i &#x27;s/#\(StrictModes \).*/\1no/g&#x27; /etc/ssh/sshd_config &amp;&amp; \</span>
+<span class="diff-ctx">     mkdir -p /var/run/sshd &amp;&amp; echo &quot;/usr/sbin/sshd -p 3022&quot; | tee -a ~/.bashrc</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> ENV GC_KERNEL_PATH=/usr/lib/habanalabs/libtpc_kernels.so</span>
+<span class="diff-ctx"> ENV HABANA_LOGS=/var/log/habana_logs/</span>
+<span class="diff-ctx"> ENV HABANA_SCAL_BIN_PATH=/opt/habanalabs/engines_fw</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b7302ec..9b4d904 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.rhel9.2</h4><pre class="diff-content"><span class="diff-hunk">@@ -126,7 +126,8 @@</span>
+<span class="diff-ctx">     cd / &amp;&amp; \</span>
+<span class="diff-ctx">     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3.10 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3.10 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3.10 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN ln -s /usr/bin/python3 /usr/bin/python</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 2fcc195..5ee32da 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.rhel9.4</h4><pre class="diff-content"><span class="diff-hunk">@@ -22,55 +22,63 @@</span>
+<span class="diff-ctx">     dnf versionlock add redhat-release* &amp;&amp; \</span>
+<span class="diff-ctx">     dnf clean all</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN dnf update -y &amp;&amp; dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm &amp;&amp; \</span>
+<span class="diff-add">+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm &amp;&amp; \</span>
+<span class="diff-ctx">     dnf clean all</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN echo &quot;[rhelmirror]&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+RUN echo &quot;[rhelmirror]&quot; &gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;name=Habana RH9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &#x27;enable=1&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;[epel9mirror]&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;name=epel 9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN dnf update -y &amp;&amp; dnf install -y \</span>
+<span class="diff-del">-    clang \</span>
+<span class="diff-del">-    cmake3 \</span>
+<span class="diff-del">-    cpp \</span>
+<span class="diff-del">-    gcc \</span>
+<span class="diff-del">-    gcc-c++ \</span>
+<span class="diff-del">-    glibc \</span>
+<span class="diff-del">-    glibc-headers \</span>
+<span class="diff-del">-    glibc-devel \</span>
+<span class="diff-del">-    jemalloc \</span>
+<span class="diff-del">-    libarchive \</span>
+<span class="diff-del">-    libksba \</span>
+<span class="diff-del">-    unzip \</span>
+<span class="diff-del">-    llvm \</span>
+<span class="diff-del">-    lsof \</span>
+<span class="diff-del">-    python3-devel \</span>
+<span class="diff-del">-    openssh-clients \</span>
+<span class="diff-del">-    openssl-1:3.0.7-28.el9_4 \</span>
+<span class="diff-del">-    openssl-devel-1:3.0.7-28.el9_4 \</span>
+<span class="diff-del">-    libjpeg-devel \</span>
+<span class="diff-del">-    openssh-server \</span>
+<span class="diff-del">-    lsb_release \</span>
+<span class="diff-del">-    wget \</span>
+<span class="diff-del">-    git \</span>
+<span class="diff-del">-    libffi-devel \</span>
+<span class="diff-del">-    bzip2 \</span>
+<span class="diff-del">-    bzip2-devel \</span>
+<span class="diff-del">-    zlib-devel \</span>
+<span class="diff-del">-    mesa-libGL \</span>
+<span class="diff-del">-    iproute \</span>
+<span class="diff-del">-    python3.11 \</span>
+<span class="diff-del">-    python3.11-pip \</span>
+<span class="diff-del">-    python3.11-devel \</span>
+<span class="diff-del">-    python3.11-rpm \</span>
+<span class="diff-del">-    ffmpeg-free \</span>
+<span class="diff-del">-    perl-Net-SSLeay-1.92-2.el9 &amp;&amp; \</span>
+<span class="diff-del">-    dnf versionlock add openssl* libcurl-minimal-7.76.1-29.el9_4.1 curl-minimal-7.76.1-29.el9_4.1 libcurl-devel-7.76.1-29.el9_4.1 ima-evm-utils python3-rpm rpm* perl-Net-SSLeay &amp;&amp; \</span>
+<span class="diff-add">+        bzip2 \</span>
+<span class="diff-add">+        bzip2-devel \</span>
+<span class="diff-add">+        clang \</span>
+<span class="diff-add">+        cmake3 \</span>
+<span class="diff-add">+        cpp \</span>
+<span class="diff-add">+        ffmpeg-free \</span>
+<span class="diff-add">+        gcc \</span>
+<span class="diff-add">+        gcc-c++ \</span>
+<span class="diff-add">+        git \</span>
+<span class="diff-add">+        glibc \</span>
+<span class="diff-add">+        glibc-devel \</span>
+<span class="diff-add">+        glibc-headers \</span>
+<span class="diff-add">+        iproute \</span>
+<span class="diff-add">+        jemalloc \</span>
+<span class="diff-add">+        libarchive \</span>
+<span class="diff-add">+        libffi-devel \</span>
+<span class="diff-add">+        libjpeg-devel \</span>
+<span class="diff-add">+        libksba \</span>
+<span class="diff-add">+        llvm \</span>
+<span class="diff-add">+        lsb_release \</span>
+<span class="diff-add">+        lsof \</span>
+<span class="diff-add">+        mesa-libGL \</span>
+<span class="diff-add">+        openssh-clients \</span>
+<span class="diff-add">+        openssh-server \</span>
+<span class="diff-add">+        openssl \</span>
+<span class="diff-add">+        openssl-devel \</span>
+<span class="diff-add">+        perl-Net-SSLeay-1.92-2.el9 \</span>
+<span class="diff-add">+        python3-devel \</span>
+<span class="diff-add">+        python3.11 \</span>
+<span class="diff-add">+        python3.11-devel \</span>
+<span class="diff-add">+        python3.11-pip \</span>
+<span class="diff-add">+        python3.11-rpm \</span>
+<span class="diff-add">+        unzip \</span>
+<span class="diff-add">+        wget \</span>
+<span class="diff-add">+        zlib-devel &amp;&amp; \</span>
+<span class="diff-add">+    dnf versionlock add \</span>
+<span class="diff-add">+        curl-minimal-7.76.1-29.el9_4.1 \</span>
+<span class="diff-add">+        ima-evm-utils \</span>
+<span class="diff-add">+        libcurl-devel-7.76.1-29.el9_4.1 \</span>
+<span class="diff-add">+        libcurl-minimal-7.76.1-29.el9_4.1 \</span>
+<span class="diff-add">+        perl-Net-SSLeay \</span>
+<span class="diff-add">+        python3-rpm \</span>
+<span class="diff-add">+        rpm* &amp;&amp; \</span>
+<span class="diff-ctx">     dnf clean all &amp;&amp; \</span>
+<span class="diff-ctx">     rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -101,20 +109,20 @@</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/${REPO_NAME}/9/9.4/testing&quot; &gt;&gt; /etc/yum.repos.d/habanalabs.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;gpgcheck=0&quot; &gt;&gt; /etc/yum.repos.d/habanalabs.repo</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN dnf install -y habanalabs-rdma-core-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-del">-    habanalabs-thunk-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-del">-    habanalabs-firmware-tools-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-del">-    habanalabs-graph-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 &amp;&amp; \</span>
+<span class="diff-add">+RUN dnf install -y \</span>
+<span class="diff-add">+        habanalabs-rdma-core-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-add">+        habanalabs-thunk-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-add">+        habanalabs-firmware-tools-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 \</span>
+<span class="diff-add">+        habanalabs-graph-&quot;$VERSION&quot;-&quot;$REVISION&quot;.el9 &amp;&amp; \</span>
+<span class="diff-add">+    dnf clean all &amp;&amp; \</span>
+<span class="diff-ctx">     chmod +t /var/log/habana_logs &amp;&amp; \</span>
+<span class="diff-del">-    rm -f /etc/yum.repos.d/habanalabs.repo &amp;&amp; rm -f /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-del">-    dnf clean all</span>
+<span class="diff-add">+    rm -f /etc/yum.repos.d/habanalabs.repo /etc/yum.repos.d/habana.repo</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN rpm -V habanalabs-rdma-core &amp;&amp; rpm -V habanalabs-thunk &amp;&amp; rpm -V habanalabs-firmware-tools &amp;&amp; rpm -V habanalabs-graph</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-# There is no need to store pip installation files inside docker image</span>
+<span class="diff-del">-ENV PIP_NO_CACHE_DIR=on</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-add">+ENV PIP_NO_CACHE_DIR=on</span>
+<span class="diff-ctx"> ENV RDMA_CORE_ROOT=/opt/habanalabs/rdma-core/src</span>
+<span class="diff-ctx"> ENV RDMA_CORE_LIB=${RDMA_CORE_ROOT}/build/lib</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -137,11 +145,12 @@</span>
+<span class="diff-ctx">     cd / &amp;&amp; \</span>
+<span class="diff-ctx">     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3.11 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN ln -s /usr/bin/python3 /usr/bin/python</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3.11 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-add">+RUN python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> # SSH configuration necessary to support mpi-operator v2</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6eecfe4..1a25fbf 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.suse15.5</h4><pre class="diff-content"><span class="diff-hunk">@@ -25,9 +25,12 @@</span>
+<span class="diff-ctx">     echo &quot;gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/OpenSUSISrc.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;repo_gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/OpenSUSISrc.repo</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-# RUN zypper addrepo -f https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/sles15-mirror/ habana-sles15-mirror &amp;&amp; \</span>
+<span class="diff-del">-#     echo &quot;gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo &amp;&amp; \</span>
+<span class="diff-del">-#     echo &quot;repo_gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo</span>
+<span class="diff-add">+RUN zypper addrepo -f https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/sles15-mirror/ habana-sles15-mirror &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo &amp;&amp; \</span>
+<span class="diff-add">+    echo &quot;repo_gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Make the priority of &#x27;SLE_BCI&#x27; equal with OPENSUSI &amp; habana-sles15-mirror</span>
+<span class="diff-add">+RUN zypper mr -p 99 SLE_BCI</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN zypper update -y &amp;&amp; zypper install -y --allow-downgrade \</span>
+<span class="diff-ctx">         clang \</span>
+<span class="diff-hunk">@@ -39,6 +42,8 @@</span>
+<span class="diff-ctx">         glibc-devel \</span>
+<span class="diff-ctx">         iproute \</span>
+<span class="diff-ctx">         jemalloc \</span>
+<span class="diff-add">+        kernel-devel \</span>
+<span class="diff-add">+        kernel-macros \</span>
+<span class="diff-ctx">         lbzip2 \</span>
+<span class="diff-ctx">         libarchive-devel \</span>
+<span class="diff-ctx">         libffi-devel \</span>
+<span class="diff-hunk">@@ -55,13 +60,11 @@</span>
+<span class="diff-ctx">         openssl-devel \</span>
+<span class="diff-ctx">         python311 \</span>
+<span class="diff-ctx">         python311-devel \</span>
+<span class="diff-del">-        python311-pip \</span>
+<span class="diff-ctx">         unzip \</span>
+<span class="diff-ctx">         wget \</span>
+<span class="diff-ctx">         zlib-devel &amp;&amp; \</span>
+<span class="diff-ctx">     zypper clean &amp;&amp; \</span>
+<span class="diff-del">-    rm -f /etc/ssh/ssh_host_*_key* &amp;&amp; \</span>
+<span class="diff-del">-    rm -f /etc/zypp/repos.d/habana-sles15-mirror.repo</span>
+<span class="diff-add">+    rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-hunk">@@ -71,7 +74,11 @@</span>
+<span class="diff-ctx">     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1 &amp;&amp; \</span>
+<span class="diff-ctx">     alternatives --set python3 /usr/bin/python3.11</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN wget https://bootstrap.pypa.io/get-pip.py &amp;&amp; \</span>
+<span class="diff-add">+    python3 get-pip.py &amp;&amp; \</span>
+<span class="diff-add">+    rm -f get-pip.py &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install setuptools wheel &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> COPY install_efa.sh .</span>
+<span class="diff-ctx"> RUN ./install_efa.sh &amp;&amp; rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 861c207..2cab050 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.tencentos3.1</h4><pre class="diff-content"><span class="diff-hunk">@@ -121,7 +121,8 @@</span>
+<span class="diff-ctx">     cd / &amp;&amp; \</span>
+<span class="diff-ctx">     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 74da3a6..a10fb53 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.ubuntu20.04</h4><pre class="diff-content"><span class="diff-hunk">@@ -58,7 +58,8 @@</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==23.3.1 setuptools==67.3.3 wheel==0.38.4</span>
+<span class="diff-add">+RUN python3 -m pip install pip==23.3.1 setuptools==79.0.1 wheel==0.38.4 &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> COPY install_efa.sh .</span>
+<span class="diff-ctx"> RUN ./install_efa.sh &amp;&amp; rm install_efa.sh &amp;&amp; rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 283bbf0..0552f8e 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.ubuntu22.04</h4><pre class="diff-content"><span class="diff-hunk">@@ -52,6 +52,9 @@</span>
+<span class="diff-ctx">     libkrb5-3 \</span>
+<span class="diff-ctx">     libgnutls30 \</span>
+<span class="diff-ctx">     wget &amp;&amp; \</span>
+<span class="diff-add">+    apt-get update &amp;&amp; \</span>
+<span class="diff-add">+    apt-get upgrade -y libtasn1-6 &amp;&amp; \</span>
+<span class="diff-add">+    apt-get install --only-upgrade libc-bin libc-dev-bin libc6 libk5crypto3 libc6-i386 libcap2 libcap2-bin libcdt5 libcgraph6 libctf-nobfd0 libctf0 vim -y &amp;&amp; \</span>
+<span class="diff-ctx">     apt-get autoremove &amp;&amp; apt-get clean &amp;&amp; \</span>
+<span class="diff-ctx">     rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -60,7 +63,8 @@</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> COPY install_efa.sh .</span>
+<span class="diff-ctx"> RUN ./install_efa.sh &amp;&amp; rm install_efa.sh &amp;&amp; rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 9c05755..1fdb5e3 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.ubuntu22.04-py311</h4><pre class="diff-content"><span class="diff-hunk">@@ -56,10 +56,12 @@</span>
+<span class="diff-ctx">     apt-get install -y software-properties-common &amp;&amp; \</span>
+<span class="diff-ctx">     add-apt-repository -y ppa:deadsnakes/ppa &amp;&amp; \</span>
+<span class="diff-ctx">     apt-get update &amp;&amp; \</span>
+<span class="diff-add">+    apt-get upgrade -y libtasn1-6 &amp;&amp; \</span>
+<span class="diff-ctx">     apt-get install -y \</span>
+<span class="diff-ctx">         python3.11 \</span>
+<span class="diff-ctx">         python3.11-dev \</span>
+<span class="diff-ctx">         python3.11-venv &amp;&amp; \</span>
+<span class="diff-add">+    apt-get install --only-upgrade libc-bin libc-dev-bin libc6 libk5crypto3 libc6-i386 libcap2 libcap2-bin libcdt5 libcgraph6 libctf-nobfd0 libctf0 vim -y &amp;&amp; \</span>
+<span class="diff-ctx">     apt-get autoremove &amp;&amp; apt-get clean &amp;&amp; \</span>
+<span class="diff-ctx">     rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -68,8 +70,8 @@</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3.10 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-del">-    python3.11 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0</span>
+<span class="diff-add">+RUN python3.10 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 &amp;&amp; \</span>
+<span class="diff-add">+    python3.11 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 &amp;&amp; \</span>
+<span class="diff-ctx">     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 &amp;&amp; \</span>
+<span class="diff-hunk">@@ -128,7 +130,7 @@</span>
+<span class="diff-ctx">     # safety scans fixes</span>
+<span class="diff-ctx">     python3 -m pip install --upgrade cryptography oauthlib PyJWT zipp &amp;&amp; \</span>
+<span class="diff-ctx">     # pygo-object dependencies</span>
+<span class="diff-del">-    python3 -m pip install --upgrade meson pycairo</span>
+<span class="diff-add">+    python3 -m pip install --upgrade meson pycairo protobuf</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> # SSH configuration necessary to support mpi-operator v2</span>
+<span class="diff-ctx"> RUN mkdir -p /var/run/sshd &amp;&amp; \</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0ebbc20..d122ae5 100644</span>
+<h4 class="diff-filename">b/dockerfiles/base/Dockerfile.ubuntu24.04</h4><pre class="diff-content"><span class="diff-hunk">@@ -52,6 +52,7 @@</span>
+<span class="diff-ctx">     libkrb5-3 \</span>
+<span class="diff-ctx">     libgnutls30 \</span>
+<span class="diff-ctx">     wget &amp;&amp; \</span>
+<span class="diff-add">+    apt-get update &amp;&amp; apt-get upgrade -y libtasn1-6 &amp;&amp; \</span>
+<span class="diff-ctx">     apt-get autoremove &amp;&amp; apt-get clean &amp;&amp; \</span>
+<span class="diff-ctx">     rm -f /etc/ssh/ssh_host_*_key*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -60,7 +61,8 @@</span>
+<span class="diff-ctx"> ENV PIP_DEFAULT_TIMEOUT=1000</span>
+<span class="diff-ctx"> ENV PIP_DISABLE_PIP_VERSION_CHECK=1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-RUN python3 -m pip install pip==24.0 setuptools==75.1.0 wheel==0.42.0 --break-system-packages</span>
+<span class="diff-add">+RUN python3 -m pip install pip==24.0 setuptools==79.0.1 wheel==0.42.0 --break-system-packages &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install --upgrade protobuf --break-system-packages</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> COPY install_efa.sh .</span>
+<span class="diff-ctx"> RUN ./install_efa.sh &amp;&amp; rm install_efa.sh &amp;&amp; rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0a07bdb..686ac2f 100644</span>
+<h4 class="diff-filename">b/dockerfiles/pytorch/Dockerfile.rhel9.2</h4><pre class="diff-content"><span class="diff-hunk">@@ -14,16 +14,12 @@</span>
+<span class="diff-ctx"> ARG ARTIFACTORY_URL</span>
+<span class="diff-ctx"> ARG PT_BUILD_REPO</span>
+<span class="diff-ctx"> ARG PYPI_REPO_NAME</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-# for RHEL certification</span>
+<span class="diff-add">+ARG TORCH_TYPE</span>
+<span class="diff-ctx"> LABEL name=&quot;PyTorch Installer&quot;</span>
+<span class="diff-ctx"> LABEL summary=&quot;Habanalabs PyTorch installer layer for RHEL9.2&quot;</span>
+<span class="diff-ctx"> LABEL description=&quot;Image with pre installed Habanalabs packages for PyTorch&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> ENV PYTHONPATH=/root:/usr/lib/habanalabs/</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-# Add own mirror repo</span>
+<span class="diff-del">-RUN echo &quot;[rhelmirror]&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+RUN echo &quot;[rhelmirror]&quot; &gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;name=Habana RH9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-hunk">@@ -31,28 +27,24 @@</span>
+<span class="diff-ctx">     echo &quot;name=epel 9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN dnf install --allowerasing -y \</span>
+<span class="diff-del">-        curl \</span>
+<span class="diff-add">+RUN dnf update -y &amp;&amp; dnf install --nobest --allowerasing -y \</span>
+<span class="diff-ctx">         cairo-devel \</span>
+<span class="diff-del">-        numactl-devel \</span>
+<span class="diff-add">+        curl \</span>
+<span class="diff-add">+        gperftools-devel \</span>
+<span class="diff-ctx">         iproute \</span>
+<span class="diff-del">-        which \</span>
+<span class="diff-del">-        zlib-devel \</span>
+<span class="diff-add">+        jq \</span>
+<span class="diff-ctx">         lapack-devel \</span>
+<span class="diff-del">-        openblas-devel \</span>
+<span class="diff-ctx">         numactl \</span>
+<span class="diff-del">-        gperftools-devel &amp;&amp; \</span>
+<span class="diff-add">+        numactl-devel \</span>
+<span class="diff-add">+        openblas-devel \</span>
+<span class="diff-add">+        which \</span>
+<span class="diff-add">+        zlib-devel &amp;&amp; \</span>
+<span class="diff-ctx">     dnf clean all</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> COPY install_packages.sh .</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN ./install_packages.sh &amp;&amp; rm -f install_packages.sh &amp;&amp; \</span>
+<span class="diff-ctx">     /sbin/ldconfig &amp;&amp; echo &quot;source /etc/profile.d/habanalabs.sh&quot; &gt;&gt; ~/.bashrc</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> # Set LD_PRELOAD after all required installations to</span>
+<span class="diff-ctx"> # avoid warnings during docker creation</span>
+<span class="diff-ctx"> ENV LD_PRELOAD=/lib64/libtcmalloc.so.4</span>
+<span class="diff-ctx"> ENV TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=7516192768</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN rm -f /etc/yum.repos.d/habana.repo</span>
+<span class="diff-add">+RUN rm -f /etc/yum.repos.d/habana.repo</span>
+<span class="diff-ctx">\ No newline at end of file</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0aec7c7..e227084 100644</span>
+<h4 class="diff-filename">b/dockerfiles/pytorch/Dockerfile.rhel9.4</h4><pre class="diff-content"><span class="diff-hunk">@@ -14,16 +14,12 @@</span>
+<span class="diff-ctx"> ARG ARTIFACTORY_URL</span>
+<span class="diff-ctx"> ARG PT_BUILD_REPO</span>
+<span class="diff-ctx"> ARG PYPI_REPO_NAME</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-# for RHEL certification</span>
+<span class="diff-add">+ARG TORCH_TYPE</span>
+<span class="diff-ctx"> LABEL name=&quot;PyTorch Installer&quot;</span>
+<span class="diff-ctx"> LABEL summary=&quot;Habanalabs PyTorch installer layer for RHEL9.4&quot;</span>
+<span class="diff-ctx"> LABEL description=&quot;Image with pre installed Habanalabs packages for PyTorch&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> ENV PYTHONPATH=/root:/usr/lib/habanalabs/</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-# Add own mirror repo</span>
+<span class="diff-del">-RUN echo &quot;[rhelmirror]&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-add">+RUN echo &quot;[rhelmirror]&quot; &gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;name=Habana RH9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-hunk">@@ -31,27 +27,23 @@</span>
+<span class="diff-ctx">     echo &quot;name=epel 9 repo&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &quot;baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror&quot; &gt;&gt; /etc/yum.repos.d/habana.repo &amp;&amp; \</span>
+<span class="diff-ctx">     echo &#x27;gpgcheck=0&#x27;  &gt;&gt; /etc/yum.repos.d/habana.repo</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN dnf update -y &amp;&amp; dnf install --nodocs --setopt=install_weak_deps=false --allowerasing -y \</span>
+<span class="diff-add">+RUN dnf update -y &amp;&amp; dnf install --nobest --nodocs --setopt=install_weak_deps=false --allowerasing -y \</span>
+<span class="diff-ctx">         cairo-devel \</span>
+<span class="diff-del">-        numactl-devel \</span>
+<span class="diff-add">+        gperftools-devel \</span>
+<span class="diff-ctx">         iproute \</span>
+<span class="diff-del">-        which \</span>
+<span class="diff-del">-        zlib-devel \</span>
+<span class="diff-add">+        jq \</span>
+<span class="diff-ctx">         lapack-devel \</span>
+<span class="diff-del">-        openblas-devel \</span>
+<span class="diff-ctx">         numactl \</span>
+<span class="diff-del">-        gperftools-devel &amp;&amp; \</span>
+<span class="diff-add">+        numactl-devel \</span>
+<span class="diff-add">+        openblas-devel \</span>
+<span class="diff-add">+        which \</span>
+<span class="diff-add">+        zlib-devel &amp;&amp; \</span>
+<span class="diff-ctx">     dnf clean all</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> COPY install_packages.sh .</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN ./install_packages.sh &amp;&amp; rm -f install_packages.sh &amp;&amp; \</span>
+<span class="diff-ctx">     /sbin/ldconfig &amp;&amp; echo &quot;source /etc/profile.d/habanalabs.sh&quot; &gt;&gt; ~/.bashrc</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> # Set LD_PRELOAD after all required installations to</span>
+<span class="diff-ctx"> # avoid warnings during docker creation</span>
+<span class="diff-ctx"> ENV LD_PRELOAD=/lib64/libtcmalloc.so.4</span>
+<span class="diff-ctx"> ENV TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=7516192768</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-RUN rm -f /etc/yum.repos.d/habana.repo</span>
+<span class="diff-add">+RUN rm -f /etc/yum.repos.d/habana.repo</span>
+<span class="diff-ctx">\ No newline at end of file</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 2c1d794..2266a16 100644</span>
+<h4 class="diff-filename">b/dockerfiles/pytorch/Dockerfile.suse15.5</h4><pre class="diff-content"><span class="diff-hunk">@@ -14,6 +14,7 @@</span>
+<span class="diff-ctx"> ARG ARTIFACTORY_URL</span>
+<span class="diff-ctx"> ARG PT_BUILD_REPO</span>
+<span class="diff-ctx"> ARG PYPI_REPO_NAME</span>
+<span class="diff-add">+ARG TORCH_TYPE</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> # for RHEL certification</span>
+<span class="diff-ctx"> LABEL name=&quot;PyTorch Installer&quot;</span>
+<span class="diff-hunk">@@ -22,17 +23,13 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> ENV PYTHONPATH=/root:/usr/lib/habanalabs/</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-# RUN zypper addrepo -f https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/sles15-mirror/ habana-sles15-mirror &amp;&amp; \</span>
+<span class="diff-del">-#     echo &quot;gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo &amp;&amp; \</span>
+<span class="diff-del">-#     echo &quot;repo_gpgcheck=0&quot; &gt;&gt; /etc/zypp/repos.d/habana-sles15-mirror.repo</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> RUN zypper update -y &amp;&amp; zypper install -y --allow-downgrade \</span>
+<span class="diff-ctx">         cairo-devel \</span>
+<span class="diff-ctx">         gperftools-devel \</span>
+<span class="diff-add">+        jq \</span>
+<span class="diff-ctx">         lapack-devel \</span>
+<span class="diff-ctx">         numactl &amp;&amp; \</span>
+<span class="diff-del">-    zypper clean &amp;&amp; \</span>
+<span class="diff-del">-    rm -f /etc/zypp/repos.d/habana-sles15-mirror.repo</span>
+<span class="diff-add">+    zypper clean</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> COPY install_packages.sh .</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e16ec64..b8b1bad 100644</span>
+<h4 class="diff-filename">b/dockerfiles/triton/Dockerfile</h4><pre class="diff-content"><span class="diff-hunk">@@ -57,7 +57,7 @@</span>
+<span class="diff-ctx">     apt-get clean &amp;&amp; rm -rf /var/lib/apt/lists/*</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> RUN python3 -m pip install pip==24.2 --disable-pip-version-check &amp;&amp; \</span>
+<span class="diff-del">-    python3 -m pip install setuptools==75.1.0 --disable-pip-version-check &amp;&amp; \</span>
+<span class="diff-add">+    python3 -m pip install setuptools==79.0.1 --disable-pip-version-check &amp;&amp; \</span>
+<span class="diff-ctx">     python3 -m pip install habana_media_loader==&quot;${VERSION}&quot;.&quot;${REVISION}&quot; \</span>
+<span class="diff-ctx">     --extra-index-url https://&quot;${ARTIFACTORY_URL}&quot;/artifactory/api/pypi/&quot;${PYPI_REPO_NAME}&quot;/simple --disable-pip-version-check</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-02-28 10:21:46.571000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 10:21:53.406000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12532/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 10:55:47.694000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12532/ : FAILURE
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2700/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-02-28 12:36:59.231000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 12:37:06.963000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12534/</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-02-28 12:41:09.387000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 12:41:17.071000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12535/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 12:42:49.445000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12534/ : ABORTED
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2314/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2702/ )
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2702/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2702/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2315/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2703/ )
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2703/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2703/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-02-28 12:55:29.795000000)</span><pre>Uploaded patch set 4.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 12:55:37.396000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12536/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 12:57:37.895000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12535/ : ABORTED
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2705/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/57/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/57/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2317/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2704/ )
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2704/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/56/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/56/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-28 13:35:21.667000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12536/ : FAILURE
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/60/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/60/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2707/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/59/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/59/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/58/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/58/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-04 10:55:53.403000000)</span><pre>Patch Set 5: Published edit on patch set 4.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-04 10:56:02.867000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12602/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-04 11:53:32.498000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12602/ : FAILURE
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/62/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/62/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2750/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/63/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/63/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/61/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/61/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-05 09:22:50.015000000)</span><pre>Patch Set 6: Published edit on patch set 5.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-05 09:22:55.578000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12625/</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-05 09:23:44.966000000)</span><pre>Patch Set 7: Published edit on patch set 6.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-05 09:23:50.618000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12627/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-05 09:24:23.227000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12625/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2364/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2365/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2366/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-05 10:27:02.782000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12627/ : FAILURE
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/27/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_next/673/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/28/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-06 08:57:53.647000000)</span><pre>Patch Set 8: Published edit on patch set 7.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-06 08:58:00.186000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12653/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-06 09:38:41.216000000)</span><pre>Patch Set 8: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12653/ : FAILURE
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/30/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/31/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-06 12:28:21.977000000)</span><pre>Patch Set 9: Published edit on patch set 8.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-06 12:28:28.776000000)</span><pre>Patch Set 9: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12655/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-06 13:06:40.939000000)</span><pre>Patch Set 9: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12655/ : FAILURE
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/35/ )
+
+script returned exit code 1, code 3  unknown exit code. etc. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/33/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-13 08:29:49.721000000)</span><pre>Patch Set 10: Patch Set 9 was rebased</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-13 08:30:01.838000000)</span><pre>Patch Set 10: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12705/</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-03-13 08:31:45.814000000)</span><pre>Patch Set 11: Published edit on patch set 10.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-13 08:31:53.108000000)</span><pre>Patch Set 11: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12706/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-13 08:33:11.377000000)</span><pre>Patch Set 10: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12705/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2401/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2402/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/2403/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-13 08:54:51.770000000)</span><pre>Patch Set 11: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12706/ : FAILURE
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/73/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/73/ )
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch/1873/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch/1873/ )
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2792/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/2792/ )
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/36/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/36/ )
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/74/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/74/ )
+
+script returned exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch/1872/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch/1872/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-04-08 09:24:33.044000000)</span><pre>Patch Set 12: Published edit on patch set 11.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-08 09:24:41.501000000)</span><pre>Patch Set 12: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12943/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-08 10:23:11.577000000)</span><pre>Patch Set 12: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12943/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/37/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/40/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-04-15 09:30:03.845000000)</span><pre>Patch Set 13: Published edit on patch set 12.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-15 09:30:09.798000000)</span><pre>Patch Set 13: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12987/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-15 10:25:41.060000000)</span><pre>Patch Set 13: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/12987/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/45/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/42/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/44/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-04-29 09:25:07.970000000)</span><pre>Patch Set 14: Published edit on patch set 13.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-29 09:25:15.488000000)</span><pre>Patch Set 14: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/13206/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-29 10:28:49.373000000)</span><pre>Patch Set 14: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/13206/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/49/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/46/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/50/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/48/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-07-09 08:06:03.268000000)</span><pre>Uploaded patch set 15.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-09 08:06:13.342000000)</span><pre>Patch Set 15: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14184/</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-07-09 08:23:40.870000000)</span><pre>Uploaded patch set 16.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-09 08:23:48.776000000)</span><pre>Patch Set 16: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14187/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-09 09:17:51.338000000)</span><pre>Patch Set 15: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14184/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3569/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/101/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/101/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3565/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/97/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/97/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3566/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/98/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/98/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3570/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/102/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/102/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3564/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/96/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/96/ )
+
+missing file, command or package [Component/s:CI-CD Support, DevOps]
+ ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3568/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3568/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/100/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/100/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3567/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/99/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/99/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-09 09:22:15.224000000)</span><pre>Patch Set 16: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14187/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3577/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/109/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/109/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3576/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/108/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/108/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3572/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/104/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/104/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3574/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/106/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/106/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3573/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3573/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/105/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/105/ )
+
+missing file, command or package [Component/s:CI-CD Support, DevOps]
+ ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3575/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3575/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/107/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/107/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3571/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/103/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/103/ )</pre></div><div class="message"><strong>Rajesh Sanga</strong> <span class="date">(2025-07-31 09:29:02.056000000)</span><pre>Uploaded patch set 17.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-31 09:29:10.245000000)</span><pre>Patch Set 17: Finished-1
+
+Build Started https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14429/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-07-31 11:17:00.275000000)</span><pre>Patch Set 17: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-pre-commit/14429/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3834/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/124/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/124/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/170/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3835/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/125/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/125/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/171/ )
+
+Sub-job was unstable ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/launcher-build-docker-images/3321/ )
+
+Error in getting the git file content: Network is unreachable ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch/2462/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_pytorch_py311/56/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/166/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3831/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/121/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/121/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/167/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3832/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3832/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/122/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/122/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/168/ )
+
+missing file, command or package [Component/s:CI-CD Support, DevOps]
+ ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3829/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3829/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/119/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/119/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/165/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base/3833/ )
+
+[Devops] ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/123/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_base_py311/123/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl07.habana-labs.com/job/cdsoftwarebuilder/job/staging_docker_build_triton/169/ )</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+From 35654e3ee8d63e6b2e6b1860da2f3285454fe388 Mon Sep 17 00:00:00 2001
+From: Bartlomiej Stemborowski <bstemborowskix@habana.ai>
+Date: Wed, 16 Oct 2024 15:04:43 +0300
+Subject: [PATCH] [SW-195672] CTCLossCustomBackward DSD - fallback in case of wrong inputs shape: Reland
+
+The size of the last dim of the log_alpha input tensor should be equal to the
+size of the input tensor target[last_dim] * 2 + 1. If this condition is not met
+during max shape inference pass, the fallback to the next policy should
+be triggered.
+
+Change-Id: I418148599efee10d0936384f75dffd4f794c524a
+---
+
+diff --git a/hpu_ops/backend/ctc_loss_custom.cpp b/hpu_ops/backend/ctc_loss_custom.cpp
+index b0ffc3f..264d792 100644
+--- a/hpu_ops/backend/ctc_loss_custom.cpp
++++ b/hpu_ops/backend/ctc_loss_custom.cpp
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "hpu_ops/ctc_loss_custom.h"
++#include "backend/kernel/hpu_shape_inference.h"
+ #include "hpu_ops/custom_op_outshape.h"
+ 
+ namespace habana {
+@@ -133,6 +134,35 @@
+ void CTCLossCustomBackward::AddNode(
+     synapse_helpers::graph& graph,
+     const at::Stack& stack) {
++  // Validate log_alpha shape in the max pass
++  if (habana::ShapeInference::GetCurrentPass() ==
++          habana::ShapeInfo::InferencePass::MAX_SHAPE &&
++      graph.is_dry_run() && graph.is_dynamic_graph()) {
++    const synapse_helpers::tensor& logAlphaTensor = ReadSynInput(6);
++    std::vector<int64_t> logAlphaCurrentMaxShape = std::get<1>(
++        habana::ShapeInference::GetMinMaxShape(logAlphaTensor.id()));
++    const auto actualLastDimSizeInLogAlphaTensor =
++        logAlphaCurrentMaxShape.back();
++
++    const synapse_helpers::tensor& targetsTensor = ReadSynInput(2);
++    std::vector<int64_t> targetsCurrentMaxShape =
++        std::get<1>(habana::ShapeInference::GetMinMaxShape(targetsTensor.id()));
++
++    const auto maxTargetSize = targetsCurrentMaxShape.size() > 1
++        ? targetsCurrentMaxShape.at(1)
++        : targetsCurrentMaxShape.at(0);
++    const auto expectedLastDimSizeInLogAlphaTensor = maxTargetSize * 2 + 1;
++
++    TORCH_CHECK(
++        (actualLastDimSizeInLogAlphaTensor <=
++         expectedLastDimSizeInLogAlphaTensor),
++        "Actual size of the last dim in LogAlpha tensor (",
++        actualLastDimSizeInLogAlphaTensor,
++        ") is greater than the expected size (",
++        expectedLastDimSizeInLogAlphaTensor,
++        ")");
++  }
++
+   auto grad = stack_tensor(stack, 0);
+   auto log_probs = stack_tensor(stack, 1);
+   auto targets = stack_tensor(stack, 2);

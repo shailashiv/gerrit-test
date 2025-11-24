@@ -1,0 +1,44 @@
+From 09f023ccb58508a9945f619bd616d6fe551f8665 Mon Sep 17 00:00:00 2001
+From: Stone Hsu <stonehsu@habana.ai>
+Date: Mon, 01 Sep 2025 07:11:07 +0300
+Subject: [PATCH] [HL338][tests] SVH_BER: Fail test in early stage, if connected device != num_of_devices; save some cycle time for LKD and other tests.
+
+Change-Id: I0975ef96a51abf6e886c45857fb9af44ba9b8de4
+Signed-off-by: Stone Hsu <stonehsu@habana.ai>
+---
+
+diff --git a/tests/HL338/test_svh_ber.py b/tests/HL338/test_svh_ber.py
+index 28cafe0..abce4d0 100644
+--- a/tests/HL338/test_svh_ber.py
++++ b/tests/HL338/test_svh_ber.py
+@@ -48,6 +48,7 @@
+     operational_devices_address = None
+     connected_pcie_devices = None
+     devices = None
++    num_of_devices = None
+ 
+     @classmethod
+     def setup_class(cls):
+@@ -56,7 +57,9 @@
+             hlsa_logger(level='debug', ident='Description', test_code='SVH BER',
+                         operation='Get Test Options')
+             cls.test_options = hw_manager.get_test_options()
++            cls.station_options = hw_manager.get_station_options()
+             cls.svh_path = cls.test_options.svh_path  # '~/SerDes/SVH'
++            cls.num_of_devices = cls.station_options.num_of_devices  # '338 in Jig, shall be 4'
+             cls.config_file_production_yaml = f'{cls.svh_path}/Tests/hl338s_config_file_production.yaml'
+             cls.path_src = f'{cls.svh_path}/Tests/hl338s_config_file_production.yaml.bak'
+             cls.path_dest = f'{cls.svh_path}/Tests/hl338s_config_file_production.yaml'
+@@ -87,6 +90,12 @@
+ 
+             # Get Connected Devices
+             cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
++            # Compare Connected Devices vs expected Devices
++            if len(cls.connected_pcie_devices)==cls.num_of_devices:
++                hlsa_logger(level='info', ident='Description', operation=f'powered on OAM number as expected')
++            else:
++                hlsa_logger(level='error', ident='Description', operation=f'Some OAM dropped during bootup, check environment')
++                pytest.exit('OAM boot error',2)
+ 
+             cls.driver_mode = cls.driver_cli.get_driver_mode()
+             assert cls.driver_mode is not None

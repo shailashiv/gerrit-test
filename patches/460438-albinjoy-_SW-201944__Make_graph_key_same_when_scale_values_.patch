@@ -1,0 +1,1159 @@
+From 08288618a4f0f875ea0d8c9a3ba69a7c63470b40 Mon Sep 17 00:00:00 2001
+From: Albin Joy <albinjoy@habana.ai>
+Date: Mon, 04 Nov 2024 06:17:36 +0200
+Subject: [PATCH] [SW-201944] Make graph key same when scale values are same.
+
+Avoid recipe cache misses due to different scale tensors
+with same scale value through:
+1. Use the scale value for graph key hash instead of const_id
+ for scale const tensor.
+2. Make same const_id for scale tensors having same value.
+
+Change-Id: I7eac8d71063e8c1fb372ae13340acc55536032ae
+---
+
+diff --git a/backend/backend_meta.cpp b/backend/backend_meta.cpp
+index e1dfe92..6f59af3 100644
+--- a/backend/backend_meta.cpp
++++ b/backend/backend_meta.cpp
+@@ -98,7 +98,7 @@
+   return const_section_data_;
+ }
+ 
+-void TensorExtraMeta::set_const_tensor(
++void TensorExtraMeta::prepare_const_tensor(
+     const at::Tensor& tensor,
+     bool is_const_tensor,
+     bool relax) {
+@@ -113,7 +113,9 @@
+       " size: ",
+       tensor.numel() * tensor.itemsize(),
+       " is_const_tensor_ : ",
+-      is_const_tensor);
++      is_const_tensor,
++      " const id:",
++      tmeta->get_const_id());
+   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
+     auto& device = HPUDeviceContext::get_device();
+     void* host_ptr{};
+diff --git a/backend/backend_meta.h b/backend/backend_meta.h
+index ba65f7b..665b2cc 100644
+--- a/backend/backend_meta.h
++++ b/backend/backend_meta.h
+@@ -210,7 +210,7 @@
+ 
+   caffe2::TypeMeta get_type_meta(const at::Tensor& t);
+ 
+-  static void set_const_tensor(
++  static void prepare_const_tensor(
+       const at::Tensor& tensor,
+       bool is_const_tensor,
+       bool relax = false);
+diff --git a/backend/habana_device/HPUAllocator.cpp b/backend/habana_device/HPUAllocator.cpp
+index 13b0a38..bba7a7d 100644
+--- a/backend/habana_device/HPUAllocator.cpp
++++ b/backend/habana_device/HPUAllocator.cpp
+@@ -128,6 +128,8 @@
+   if (!HPUDeviceContext::is_device_acquired())
+     return;
+ 
++  //std::cout<<"HPUDeviceAllocator deleter ptr:"<<ptr<<std::endl;
++  PT_BRIDGE_DEBUG("HPUDeviceAllocator deleter ptr:", ptr)
+   synStatus status;
+   auto& device = HPUDeviceContext::get_device(
+       HPUDeviceAllocator::allocator_active_device_id);
+diff --git a/backend/jit_graph_cache.cpp b/backend/jit_graph_cache.cpp
+index 636a9f4..d7a38ae 100644
+--- a/backend/jit_graph_cache.cpp
++++ b/backend/jit_graph_cache.cpp
+@@ -175,8 +175,26 @@
+       typedims_hash =
+           at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
+       if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
++        // To support HQT which add each scale as a different tensor for each
++        // layer
+         auto const_id = habana::get_tensor_const_id(pt_tensor);
+-        constid_hash = at::hash_combine(constid_hash, const_id);
++        if (pt_tensor.numel() == 1) {
++          float const_value = pt_tensor.item<float>();
++          auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
++          PT_BRIDGE_DEBUG(
++              "Albin JIT graph_key hash const_value:",
++              const_value,
++              ", const_id:",
++              const_id,
++              ", host pointer size:",
++              tmeta->get_host_size())
++          auto const_hash = c10::hash<float>()(const_value);
++          constid_hash = at::hash_combine(constid_hash, const_hash);
++          auto const_size_hash = c10::hash<size_t>()(tmeta->get_host_size());
++          constid_hash = at::hash_combine(constid_hash, const_size_hash);
++        } else {
++          constid_hash = at::hash_combine(constid_hash, const_id);
++        }
+       }
+     }
+   }
+diff --git a/backend/kernel/constant_information.cpp b/backend/kernel/constant_information.cpp
+index d40f0c3..0d6defa 100644
+--- a/backend/kernel/constant_information.cpp
++++ b/backend/kernel/constant_information.cpp
+@@ -16,7 +16,23 @@
+ #include <mutex>
+ #include <optional>
+ #include <shared_mutex>
++#include "backend/backend_meta.h"
++#include "backend/habana_device/HPUDevice.h"
+ #include "habana_helpers/logging.h"
++#include <c10/core/Allocator.h>
++#include "habana_helpers/python_utils.h"
++
++
++#include "backend/helpers/tensor_utils.h"
++#include <ATen/InferSize.h>
++#include <c10/core/ScalarType.h>
++#include "backend/habana_device/HPUStream.h"
++#include "backend/habana_device/PinnedMemoryAllocator.h"
++#include "backend/helpers/get_n_bytes.h"
++#include "backend/helpers/tensor_info.h"
++#include "backend/synapse_helpers/device_helpers.h"
++#include "common/utils.h"
++#include "habana_helpers/dtype_helpers.h"
+ 
+ namespace habana {
+ 
+@@ -39,7 +55,7 @@
+       const_checksum_iterator == const_checksum_map_.end()) {
+     const_checksum_map_.emplace(id, checksum_and_const_infos{checksum, {}});
+   } else {
+-    const_checksum_iterator->second.checksum_ = checksum;
++    const_checksum_iterator->second.device_checksum_ = checksum;
+   }
+ }
+ 
+@@ -85,7 +101,7 @@
+   std::shared_lock lock(checksum_map_mtx_);
+   // The call for this function is made only after the check that key exists
+   auto& const_checksum = const_checksum_map_.at(id);
+-  auto current_checksum_on_device = const_checksum.checksum_;
++  auto current_checksum_on_device = const_checksum.device_checksum_;
+   for (auto& info : const_checksum.infos_) {
+     for (auto recipe_key : info.recipe_key_) {
+       if (recipe_key == key) {
+@@ -105,7 +121,9 @@
+         tensor.storage().set_nbytes(info.section_size_);
+         StorePrevDataPtrImpl(
+             id, std::move(old_data_ptr), current_checksum_on_device);
++        //std::cout<<"GetConstPtrForRecipe before reset info.data_ptr_:"<<info.data_ptr_.value()<<std::endl;
+         info.data_ptr_.reset();
++        //std::cout<<"GetConstPtrForRecipe after reset info.data_ptr_:"<<info.data_ptr_.value()<<std::endl;
+         return;
+       }
+     }
+@@ -147,7 +165,8 @@
+   HABANA_ASSERT(false, "No such checksum found in the map, const_id: ", id);
+ }
+ 
+-bool ConstantInformation::DoesConstInfoExist(const id_t id, key_t key) const {
++bool ConstantInformation::IsConstInfoExistForRecipe(const id_t id, key_t key)
++    const {
+   auto checksum_iterator = const_checksum_map_.find(id);
+   if (checksum_iterator == const_checksum_map_.end()) {
+     return false;
+@@ -164,7 +183,7 @@
+ }
+ 
+ ConstantInformation::ConstantChecksums ConstantInformation::
+-    GetConstCheckSumForRecipe(const id_t id, const key_t key) const {
++    GetDeviceAndRecipeChecksums(const id_t id, const key_t key) const {
+   std::shared_lock lock(checksum_map_mtx_);
+   auto checksum_iterator = const_checksum_map_.find(id);
+   HABANA_ASSERT(
+@@ -175,16 +194,16 @@
+   for (auto& info : checksum_iterator->second.infos_) {
+     for (auto recipe_key : info.recipe_key_) {
+       if (recipe_key == key) {
+-        return {checksum_iterator->second.checksum_, info.checksum_};
++        return {checksum_iterator->second.device_checksum_, info.checksum_};
+       }
+     }
+   }
+   HABANA_ASSERT(
+       false, "No checksum found for const_id: ", id, " for recipe: ", key);
+-  return {checksum_iterator->second.checksum_, checksum_t{0ul}};
++  return {checksum_iterator->second.device_checksum_, checksum_t{0ul}};
+ }
+ 
+-bool ConstantInformation::DoesCheckSumExist(
++bool ConstantInformation::IsCheckSumExistInAnyConstInfo(
+     const id_t id,
+     const checksum_t checksum) const {
+   std::shared_lock lock(checksum_map_mtx_);
+@@ -203,18 +222,320 @@
+ }
+ 
+ std::optional<ConstantInformation::checksum_t> ConstantInformation::
+-    GetChecksumForId(const id_t id) const {
++    GetDeviceChecksum(const id_t id) const {
+   std::shared_lock lock(checksum_map_mtx_);
+   auto const_checksum_iterator = const_checksum_map_.find(id);
+   if (const_checksum_iterator == const_checksum_map_.end()) {
+     return std::nullopt;
+   }
+ 
+-  return const_checksum_iterator->second.checksum_;
++  return const_checksum_iterator->second.device_checksum_;
+ }
++
++ConstantInformation::scaleInput_t ConstantInformation::get_scale_input_key(
++    float value,
++    size_t index) {
++  std::string scaleinput_v = std::to_string(value) + "_" + std::to_string(index);
++  PT_BRIDGE_DEBUG("Scale input value:", scaleinput_v);
++  return ConstantInformation::scaleInput_t(scaleinput_v);
++}
++
++void ConstantInformation::InsertRecipeScaleConst(
++    key_t recipe_key,
++    float const_value,
++    size_t input_idx,
++    id_t const_id) {
++  PT_BRIDGE_DEBUG("Albin InsertRecipeScaleConst begin")
++  std::unique_lock lock(checksum_map_mtx_);
++  auto recipe_iterator = recipe_scale_constant_map_.find(recipe_key);
++  scaleInput_t scale_input = get_scale_input_key(const_value, input_idx);
++  if (recipe_iterator == recipe_scale_constant_map_.end()) {
++    auto recipe_value =
++        std::unordered_map<scaleInput_t, std::unordered_set<id_t>>{
++            {scale_input, std::unordered_set<id_t>{const_id}}};
++    recipe_scale_constant_map_.emplace(recipe_key, recipe_value);
++  } else {
++    auto recipe_input_iter = recipe_iterator->second.find(scale_input);
++    if (recipe_input_iter == recipe_iterator->second.end()) {
++      recipe_iterator->second.emplace(
++          scale_input, std::unordered_set<id_t>{const_id});
++    } else {
++      auto& const_id_set = recipe_input_iter->second;
++      if (const_id_set.find(const_id) == const_id_set.end()) {
++        const_id_set.insert(const_id);
++      } else {
++        PT_BRIDGE_DEBUG(
++            "Recipe ",
++            recipe_key,
++            " already contain input value:",
++            const_value,
++            " with index ",
++            input_idx,
++            " and constant id:",
++            const_id);
++      }
++    }
++  }
++  PT_BRIDGE_DEBUG("Albin InsertRecipeScaleConst end")
++}
++
++ConstantInformation::id_t ConstantInformation::GetMatchedConstIdIfScaleConstantExist(key_t recipe_key, id_t const_id, scaleInput_t scale_input) {
++  std::shared_lock lock(checksum_map_mtx_);
++  PT_BRIDGE_DEBUG("Albin GetMatchedConstIdIfScaleConstantExist starts")
++  auto recipe_iterator = recipe_scale_constant_map_.find(recipe_key);
++  auto recipe_input_iter = recipe_iterator->second.find(scale_input);
++  auto const_id_set = recipe_input_iter->second;
++  HABANA_ASSERT(
++      const_id_set.size(),
++      "Const id list is empty for recipe ",
++      recipe_key,
++      " const_id ",
++      const_id);
++  PT_BRIDGE_DEBUG("Albin GetMatchedConstIdIfScaleConstantExist const_id_set size:", const_id_set.size());
++  PT_BRIDGE_DEBUG("Albin GetMatchedConstIdIfScaleConstantExist const_id_set:", const_id_set);
++  if (const_id_set.find(const_id) == const_id_set.end()) {
++    return *(const_id_set.begin());
++  }
++
++  return ConstantInformation::id_t{INT_MAX};
++}
++
++void ConstantInformation::add_unused_ptr(id_t from_const_id, at::DataPtr ptr) {
++  id_unused_data_ptr_.emplace(from_const_id, std::move(ptr));
++}
++
++void ConstantInformation::
++CreateCopyConstInfo(id_t from_const_id, id_t to_const_id, key_t recipe_key, at::Tensor& pt_tensor) {
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin")
++  TensorExtraMeta::prepare_const_tensor(pt_tensor, true);
++  auto get_const_info = [&](ConstantInformation::id_t const_id, ConstantInformation::key_t r_key) -> const ConstantInformation::constInfo_t& {
++    std::shared_lock lock(checksum_map_mtx_);
++    auto const_checksum_iterator = const_checksum_map_.find(const_id);
++    HABANA_ASSERT(
++        const_checksum_iterator != const_checksum_map_.end(),
++        "Const id  {} not presented in const_checksum_map_",
++        const_id)
++    // TODO what is the constant id for the specific recipe
++    for (auto& info : const_checksum_iterator->second.infos_) {
++      for (auto& key : info.recipe_key_) {
++        if (key == r_key) {
++          PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo from_const_id:", from_const_id, ", to_const_id:",
++          to_const_id, ", r_key:", r_key, ", info.checksum_:", info.checksum_, ", info.section_size_:", info.section_size_)
++          return info;
++        }
++      }
++    }
++    ConstantInformation::checksum_t checksum{0};
++    ConstantInformation::key_t tmp_key{0};
++    static ConstantInformation::constInfo_t constInfo{checksum, {tmp_key}, 0, {}};
++    return constInfo;
++  };
++
++  const ConstantInformation::constInfo_t& info = get_const_info(from_const_id, recipe_key);
++  checksum_t checksum = info.checksum_;
++  uint64_t section_size = info.section_size_;
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin before allocation")
++  at::DataPtr data =
++      pt_tensor.storage().allocator()->allocate(section_size);
++  auto old_data_ptr = pt_tensor.storage().set_data_ptr(std::move(data));
++  pt_tensor.storage().set_nbytes(section_size);
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin after allocation, old_data_ptr:", old_data_ptr.get(),
++  ", new address:", pt_tensor.data_ptr())
++  // add_unused_ptr(to_const_id, std::move(old_data_ptr));
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin before backing up old_data_ptr")
++  id_unused_data_ptr_.emplace(to_const_id, std::move(old_data_ptr));
++
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin before insert")
++  Insert(to_const_id, checksum);
++  PushInfo(to_const_id, checksum, recipe_key, section_size);
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin before host copy")
++
++  if (section_size != 0) {
++    void* tmp_host_ptr{};
++    auto& device = habana::HPUDeviceContext::get_device();
++    //auto device_id = device.id();
++    if (info.data_ptr_.has_value()) {
++      PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo before host copy pt_tensor.data_ptr():",
++      pt_tensor.data_ptr(), ", info.data_ptr_.value().get():", info.data_ptr_.value().get(),
++      ", GetNBytes:", habana_helpers::GetNBytes(pt_tensor),
++      ", section_size:", section_size)
++      auto status = device.get_host_memory().malloc(&tmp_host_ptr, section_size);
++      HABANA_ASSERT(
++          status == synStatus::synSuccess,
++          Logger::synStatusToStr(status));
++      HABANA_ASSERT(section_size == habana_helpers::GetNBytes(pt_tensor))
++      std::atomic<bool> copyDone{false};
++      HPUDeviceContext::copy_data_to_host(
++          reinterpret_cast<synapse_helpers::device_ptr>(info.data_ptr_.value().get()),
++          tmp_host_ptr,
++          reinterpret_cast<synapse_helpers::device_ptr>(
++              info.data_ptr_.value().get()),
++          section_size,
++          [&copyDone]() { copyDone = true; },
++          false,
++          c10::hpu::getCurrentHPUStream());
++
++      habana_helpers::AutoNoGIL gil_release;
++      // wait for copy completion
++      while (!copyDone) {
++        std::this_thread::yield();
++      }
++    } else {
++      PT_BRIDGE_DEBUG("Albin info.data_ptr_ has No value")
++      //auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);
++      HABANA_ASSERT(section_size == habana_helpers::GetNBytes(pt_tensor))
++      auto tmeta{get_tensor_extra_meta(pt_tensor)};
++      tmp_host_ptr = tmeta->get_host_ptr();
++    }
++
++
++    PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo begin before device copy")
++    PT_BRIDGE_DEBUG("Albin tmp_host_ptr:", tmp_host_ptr, ", device data new address:", pt_tensor.data_ptr())
++    std::atomic<bool> copyDone1{false};
++    habana::HPUDeviceContext::copy_data_to_device(
++        tmp_host_ptr,
++        reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr()),
++        reinterpret_cast<synapse_helpers::device_ptr>(
++            pt_tensor.storage().data_ptr().get()),
++        habana_helpers::GetNBytes(pt_tensor),
++        [&copyDone1]() { copyDone1 = true; },
++        false,
++        true,
++        c10::hpu::getCurrentHPUStream());
++
++    // Release GIL if going to wait
++    habana_helpers::AutoNoGIL gil_release_;
++    // wait for copy completion
++    while (!copyDone1) {
++      std::this_thread::yield();
++    }
++
++    // std::atomic<bool> copyDone1{false};
++    // habana::HPUDeviceContext::copy_data_to_device(
++    //     (void*)tmp_host_ptr,
++    //     reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr()),
++    //     reinterpret_cast<synapse_helpers::device_ptr>(
++    //         pt_tensor.storage().data_ptr().get()),
++    //     section_size,
++    //     [&copyDone1]() { copyDone1 = true; },
++    //     false,
++    //     true);
++    // // wait for copy completion
++    // while (!copyDone1) {
++    //   std::this_thread::yield();
++    // }
++
++    // std::atomic<bool> copyDone{false};
++    //at::DataPtr& tmep_ptr = const_cast<c10::DataPtr&>(info.data_ptr_.value());
++    //synapse_helpers::device_ptr t_device_ptr = reinterpret_cast<synapse_helpers::device_ptr>(tmep_ptr);
++
++    // habana::HPUDeviceContext::copy_data_within_device(
++    //     reinterpret_cast<synapse_helpers::device_ptr>(info.data_ptr_.value().get()),
++    //     reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr()),
++    //     reinterpret_cast<synapse_helpers::device_ptr>(
++    //         info.data_ptr_.value().get()),
++    //     reinterpret_cast<synapse_helpers::device_ptr>(
++    //         pt_tensor.storage().data_ptr().get()),
++    //     section_size,
++    //     [&copyDone]() { copyDone = true; },
++    //     c10::hpu::getCurrentHPUStream());
++
++    // // Release GIL if going to wait
++    // habana_helpers::AutoNoGIL gil_release;
++    // // wait for copy completion
++    // while (!copyDone) {
++    //   std::this_thread::yield();
++    // }
++  } else {
++    PT_BRIDGE_DEBUG("Albin section_size is zero:", section_size)
++    auto tmeta{get_tensor_extra_meta(pt_tensor)};
++    auto old_size = tmeta->get_host_size();
++    tmeta->set_nbytes_inference(old_size);
++  }
++ 
++
++  //     checksum_if_exists.value() != checksum) {
++  //   PT_BRIDGE_DEBUG(
++  //       "For const_id: ",
++  //       const_id,
++  //       " Checksum has valid value for another recipe");
++  //   StorePrevDataPtrImpl(
++  //       const_id, std::move(old_data_ptr),
++  //       checksum_if_exists.value());
++  // }
++  PT_BRIDGE_DEBUG("Albin CreateCopyConstInfo end")
++  return;
++}
++
++void ConstantInformation::CheckAndAddScaleConstIdForRecipe(
++    key_t recipe_key,
++    at::Tensor& pt_tensor,
++    size_t input_idx,
++    id_t const_id) {
++  PT_BRIDGE_DEBUG("Albin CheckAndAddScaleConstIdForRecipe begin")
++  float const_value = pt_tensor.item<float>();
++  PT_BRIDGE_DEBUG("Albin Check for recipe ", recipe_key, " and const id ",
++   const_id, " input_idx ", input_idx, " const_value ", const_value)
++  scaleInput_t scale_input = get_scale_input_key(const_value, input_idx);
++  //std::unique_lock lock(checksum_map_mtx_);
++  auto matched_const_id = GetMatchedConstIdIfScaleConstantExist(recipe_key, const_id, scale_input);
++  PT_BRIDGE_DEBUG("Albin CheckAndAddScaleConstIdForRecipe matched_const_id:", matched_const_id)
++  if (*matched_const_id != INT_MAX) {
++    CreateCopyConstInfo(matched_const_id, const_id, recipe_key, pt_tensor);
++  }
++  for (auto it = id_unused_data_ptr_.begin(); it != id_unused_data_ptr_.end(); ++it) {
++    PT_BRIDGE_DEBUG("id_unused_data_ptr_ key:", it->first, ", value:", it->second.value().get())
++  }
++  PT_BRIDGE_DEBUG("Albin CheckAndAddScaleConstIdForRecipe end")
++}
++
++/*void ConstantInformation::DumpConstantInformations() {
++  std::shared_lock lock(checksum_map_mtx_);
++  std::stringstream ss;
++  ss << "Dump const_checksum_map_:\n";
++  for (auto& const_id_meta : const_checksum_map_) {
++    ss << "CONST ID: " << const_id_meta.first << "\n";
++    ss << "Current device checksum: " << const_id_meta.second.device_checksum_
++       << "\n";
++    // PT_BRIDGE_DEBUG("Albin DumpConstantInformations const_id_meta.second:",
++    // const_id_meta.second)
++    ss << "Available constant infos:"
++       << "\n";
++    size_t const_info_count{0};
++    for (auto& info : const_id_meta.second.infos_) {
++      const_info_count++;
++      ss << "info: " << const_info_count << "\n";
++      ss << "   checksum: " << info.checksum_ << "\n";
++      ss << "   section_size: " << info.section_size_ << "\n";
++      ss << "   recipe keys: ";
++      for (auto& key : info.recipe_key_) {
++        ss << key << ", ";
++      }
++      if (info.data_ptr_ && info.data_ptr_.has_value()) {
++        ss << "\n   data_ptr: " << info.data_ptr_.value().get() << "\n";
++      } else {
++        ss << "\n   data_ptr: "
++           << "No value"
++           << "\n";
++      }
++    }
++  }
++  std::string checksum_dump = ss.str();
++  PT_BRIDGE_DEBUG(checksum_dump);
++}*/
+ 
+ void ConstantInformation::ClearChecksumInformation() {
+   std::unique_lock lock(checksum_map_mtx_);
+   const_checksum_map_.clear();
+ }
++
++bool IsConstantScaleTensor(at::Tensor& tensor) {
++  auto tmeta{habana::get_tensor_extra_meta(tensor)};
++  if (tmeta->is_const_tensor() && (tensor.numel() == 1)) {
++    return true;
++  } else {
++    return false;
++  }
++}
++
+ } // namespace habana
+diff --git a/backend/kernel/constant_information.h b/backend/kernel/constant_information.h
+index e125e9e..1a7b061 100644
+--- a/backend/kernel/constant_information.h
++++ b/backend/kernel/constant_information.h
+@@ -22,10 +22,24 @@
+ #include <shared_mutex>
+ #include "common/strong_type.h"
+ 
++#include <torch/csrc/api/include/torch/jit.h>
++#include <torch/csrc/jit/ir/ir.h>
++#include <torch/csrc/jit/runtime/argument_spec.h>
++
++struct RecipeConstHash {
++  template <typename T1, typename T2>
++  std::size_t operator()(const std::tuple<T1, T2>& x) const {
++    auto const_value_hash = std::hash<T1>()(std::get<0>(x));
++    auto const_index_hash = std::hash<T2>()(std::get<1>(x));
++    return const_value_hash ^ const_index_hash;
++  }
++};
++
+ namespace habana {
+ /**
+  * Stores information about constant sections and it usages between recipes.
+  */
++
+ struct ConstantInformation {
+   ConstantInformation() = default;
+   ConstantInformation(const ConstantInformation&) = delete;
+@@ -34,9 +48,11 @@
+   ConstantInformation& operator=(ConstantInformation&&) = delete;
+   ~ConstantInformation() = default;
+ 
++  using scaleInput_t = common::StrongType<std::string, struct ValueTag>;
+   using id_t = common::StrongType<int, struct IdTag>;
+   using checksum_t = common::StrongType<size_t, struct ChecksumTag>;
+   using key_t = common::StrongType<size_t, struct KeyTag>;
++  using InnerMap = std::unordered_map<scaleInput_t, std::unordered_set<id_t>>;
+ 
+   /**
+    * Stores checksum for specific constant id.
+@@ -93,12 +109,12 @@
+     /**
+      * Global stored checksum for the constant
+      */
+-    checksum_t const_checksum_;
++    checksum_t device_checksum_;
+ 
+     /**
+      * Constant checksum stored specifically for given recipe
+      */
+-    checksum_t const_checksum_for_recipe_;
++    checksum_t recipe_checksum_;
+   };
+ 
+   /**
+@@ -108,18 +124,18 @@
+    * @param id Constant id
+    * @param key Recipe key
+    */
+-  ConstantChecksums GetConstCheckSumForRecipe(id_t id, key_t key) const;
++  ConstantChecksums GetDeviceAndRecipeChecksums(id_t id, key_t key) const;
+ 
+   /**
+    * Checks if given constant id is stored, and has stored specific checksum.
+    */
+-  bool DoesCheckSumExist(id_t id, checksum_t checksum) const;
++  bool IsCheckSumExistInAnyConstInfo(id_t id, checksum_t checksum) const;
+ 
+   /**
+    * Checks if given constant id is stored, and has stored specific recipe
+    * details.
+    */
+-  bool DoesConstInfoExist(id_t id, key_t key) const;
++  bool IsConstInfoExistForRecipe(id_t id, key_t key) const;
+ 
+   /**
+    * Recovers checksum for specific constant id.
+@@ -129,12 +145,38 @@
+    * @return Recovered checksum or nullopt in case constant with given id is not
+    * stored.
+    */
+-  std::optional<checksum_t> GetChecksumForId(id_t id) const;
++  std::optional<checksum_t> GetDeviceChecksum(id_t id) const;
++
++  /**
++   * Dump all constant tensor informations.
++   */
++  void DumpConstantInformations();
+ 
+   /**
+    * Removes stored constant section informations.
+    */
+   void ClearChecksumInformation();
++
++  void InsertRecipeScaleConst(
++      key_t recipe_key,
++      float const_value,
++      size_t input_idx,
++      id_t const_id);
++
++  void CheckAndAddScaleConstIdForRecipe(
++      key_t recipe_key,
++      at::Tensor& pt_tensor,
++      size_t input_idx,
++      id_t const_id);
++
++  void CreateCopyConstInfo(id_t from_const_id, id_t to_const_id, key_t recipe_key, at::Tensor& pt_tensor);
++  id_t GetMatchedConstIdIfScaleConstantExist(key_t recipe_key, id_t const_id, scaleInput_t scale_input);
++
++  scaleInput_t get_scale_input_key(float value, size_t index);
++
++
++  void add_unused_ptr(id_t from_const_id, at::DataPtr);
++  // absl::flat_hash_map<key_t, InnerMap> recipe_scale_constant_map_;
+ 
+  private:
+   /**
+@@ -170,7 +212,7 @@
+     /**
+      * Specific constant checksum.
+      */
+-    checksum_t checksum_;
++    checksum_t device_checksum_;
+ 
+     /**
+      * List of information about const section for different checksums.
+@@ -182,6 +224,27 @@
+ 
+   absl::flat_hash_map<id_t, checksum_and_const_infos> const_checksum_map_
+       ABSL_GUARDED_BY(checksum_map_mtx_);
++  absl::flat_hash_map<key_t, InnerMap> recipe_scale_constant_map_
++      ABSL_GUARDED_BY(checksum_map_mtx_);
++  absl::flat_hash_map<id_t, std::optional<at::DataPtr>> id_unused_data_ptr_
++      ABSL_GUARDED_BY(checksum_map_mtx_);
++
++  /**
++   * This is a two level of mapping.
++   * First level match each recipe id points all the constant inputes of
++   * the recipe. Constant input is differentiated with value and input index.
++   * In the second level each constant input points to all the constant id
++   * received as input for the recipe till now.
++   */
++  // std::unordered_map<size_t recipe_key,
++  //     std::unordered_map<
++  //         std::tuple<float, size_t>,
++  //         std::unordered_set<size_t const_id>>>
++  //     recipe_scale_constant_map_;
++
++  // std::unordered_map<size_t, std::unordered_map<std::tuple<float, size_t>,
++  // std::unordered_set<size_t>, RecipeConstHash>, common::has_std_hash<size_t>>
++  // recipe_scale_constant_map_;
+ 
+   /**
+    * Stores data ptr for specific constant id with specific checksum.
+@@ -205,4 +268,7 @@
+  * served with ConstantInformationPtr.
+  */
+ ConstantInformation& ConstantInformationValue();
++
++bool IsConstantScaleTensor(at::Tensor& tensor);
++
+ } // namespace habana
+\ No newline at end of file
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 10a7ed8..6a4115a 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -2169,7 +2169,7 @@
+     }
+     auto tensor = ivalue->second->toTensor();
+     if (habana::is_tensor_const(tensor)) {
+-      TensorExtraMeta::set_const_tensor(tensor, true);
++      TensorExtraMeta::prepare_const_tensor(tensor, true);
+     }
+   }
+   PT_BRIDGE_END;
+@@ -4626,16 +4626,26 @@
+ 
+   if (habana_helpers::IsInferenceMode()) {
+     ConstantInformation::checksum_t zero_checksum{0};
+-    for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
+-      auto ivpsh = pt_stack_sh_[j];
++    for (size_t input_index = 0; input_index < pt_stack_sh_.size();
++         input_index++) {
++      auto ivpsh = pt_stack_sh_[input_index];
+       if (ivpsh.get()->isTensor()) {
+-        auto pt_tensor = ivpsh.get()->toTensor();
++        auto& pt_tensor = ivpsh.get()->toTensor();
+         if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
+           ConstantInformation::id_t const_id{
+               habana::get_tensor_const_id(pt_tensor)};
+           auto& constant_information = ConstantInformationValue();
+-          auto info_exists = constant_information.DoesConstInfoExist(
++          auto is_scale_const = habana::IsConstantScaleTensor(pt_tensor);
++          if (is_scale_const) {
++            constant_information.CheckAndAddScaleConstIdForRecipe(
++                ConstantInformation::key_t{cur_rargpsh_->hashCode()},
++                pt_tensor,
++                input_index,
++                const_id);
++          }
++          auto info_exists = constant_information.IsConstInfoExistForRecipe(
+               const_id, ConstantInformation::key_t{cur_rargpsh_->hashCode()});
++          // TODO: Need to handle the Deserializing path. Skipping as of now
+           if (!info_exists) {
+             uint64_t oldAddress = reinterpret_cast<uint64_t>(
+                 pt_tensor.storage().data_ptr().get());
+@@ -4645,7 +4655,7 @@
+             update_syn_launch_info(oldAddress, newAddress);
+           }
+           auto checksum_and_recipe_checksum =
+-              constant_information.GetConstCheckSumForRecipe(
++              constant_information.GetDeviceAndRecipeChecksums(
+                   const_id,
+                   ConstantInformation::key_t{cur_rargpsh_->hashCode()});
+           PT_BRIDGE_DEBUG(
+@@ -4654,18 +4664,17 @@
+               " const_id: ",
+               const_id,
+               " checksum on device: ",
+-              checksum_and_recipe_checksum.const_checksum_,
++              checksum_and_recipe_checksum.device_checksum_,
+               " checksum for recipe: ",
+-              checksum_and_recipe_checksum.const_checksum_for_recipe_);
++              checksum_and_recipe_checksum.recipe_checksum_);
+           // If constant checksum for recipe is 0, then there will be no pointer
+           // assosciated with the constant info the constant has been folded in
+           // the recipe and we can leave how it is on the device
+-          if (checksum_and_recipe_checksum.const_checksum_for_recipe_ ==
+-              zero_checksum) {
++          if (checksum_and_recipe_checksum.recipe_checksum_ == zero_checksum) {
+             continue;
+           }
+-          if (checksum_and_recipe_checksum.const_checksum_ !=
+-              checksum_and_recipe_checksum.const_checksum_for_recipe_) {
++          if (checksum_and_recipe_checksum.device_checksum_ !=
++              checksum_and_recipe_checksum.recipe_checksum_) {
+             uint64_t oldAddress = reinterpret_cast<uint64_t>(
+                 pt_tensor.storage().data_ptr().get());
+             constant_information.GetConstPtrForRecipe(
+@@ -4673,8 +4682,7 @@
+                 ConstantInformation::key_t{cur_rargpsh_->hashCode()},
+                 pt_tensor);
+             constant_information.Insert(
+-                const_id,
+-                checksum_and_recipe_checksum.const_checksum_for_recipe_);
++                const_id, checksum_and_recipe_checksum.recipe_checksum_);
+             uint64_t newAddress = reinterpret_cast<uint64_t>(
+                 pt_tensor.storage().data_ptr().get());
+             update_syn_launch_info(oldAddress, newAddress);
+diff --git a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+index 03b823a..abbe2cd 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+@@ -361,7 +361,7 @@
+         (char*)data_ptr,
+         old_size,
+         device_id);
+-  } else if (constant_information.GetChecksumForId(const_id) == checksum) {
++  } else if (constant_information.GetDeviceChecksum(const_id) == checksum) {
+     HandleTensorWithChecksumOnDevice(
+         const_id,
+         checksum,
+@@ -382,12 +382,12 @@
+     return;
+   }
+   auto tmeta{habana::get_tensor_extra_meta(tensor)};
+-  TensorExtraMeta::set_const_tensor(tensor, true);
++  TensorExtraMeta::prepare_const_tensor(tensor, true);
+   auto const_serializer = tmeta->get_const_section_data_serializer();
+   auto file_path =
+       const_serializer->getSerializedRecipeFullPath(tmeta->get_const_id(), key);
+   std::uintmax_t file_size = fs::file_size(file_path);
+-  TensorExtraMeta::set_const_tensor(tensor, false);
++  TensorExtraMeta::prepare_const_tensor(tensor, false);
+   if (file_size == 0) {
+     HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});
+     return;
+@@ -404,7 +404,7 @@
+   ConstantInformation::id_t const_id{tmeta->get_const_id()};
+   auto& constant_information = ConstantInformationValue();
+   auto checksum_found =
+-      constant_information.DoesCheckSumExist(const_id, checksum);
++      constant_information.IsCheckSumExistInAnyConstInfo(const_id, checksum);
+   HandleChecksum(
+       tensor,
+       file_size,
+@@ -437,7 +437,7 @@
+   auto old_size = tmeta->get_host_size();
+   ConstantInformation::id_t const_id{tmeta->get_const_id()};
+   auto& constant_information = ConstantInformationValue();
+-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);
++  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);
+   tmeta->set_nbytes_inference(old_size);
+   ConstantInformation::checksum_t checksum{0};
+   constant_information.Insert(const_id, checksum);
+@@ -497,7 +497,7 @@
+   // or if old_size is same as section_size but checksum is new
+   auto& constant_information = ConstantInformationValue();
+   ConstantInformation::checksum_t host_checksum{tmeta->get_host_checksum()};
+-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);
++  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);
+ 
+   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {
+     // Reallocation is required
+@@ -589,91 +589,102 @@
+       status == synStatus::synSuccess, Logger::synStatusToStr(status));
+   auto tensorInfos =
+       getRecipeTensorInfos(recipe.syn_recipe_handle_, numOfTensors);
+-  for (auto iter = pt_to_synapse_tensors_.begin();
+-       iter != pt_to_synapse_tensors_.end();
+-       ++iter) {
+-    auto& src = iter->first->toTensor();
+-    // PT_BRIDGE_DEBUG("tensor ", src, " has_storage: ", src.has_storage());
+-    if (src.has_storage()) {
+-      auto tmeta{get_tensor_extra_meta(src)};
+-      for (synapse_helpers::tensor& tensor : *(iter->second)) {
++
++  PT_BRIDGE_DEBUG(
++      "Albin pt_to_synapse_tensors_ size:", pt_to_synapse_tensors_.size())
++  // auto& constant_information = ConstantInformationValue();
++  // constant_information.DumpConstantInformations();
++
++  for (size_t input_index = 0; input_index < pt_stack_sh_.size();
++       input_index++) {
++    auto& ivpsh = pt_stack_sh_[input_index];
++    if (ivpsh.get()->isTensor()) {
++      auto& src = ivpsh.get()->toTensor();
++      if (src.has_storage()) {
++        auto tmeta{get_tensor_extra_meta(src)};
+         if (tmeta->is_const_tensor()) {
+-          PT_BRIDGE_DEBUG(
+-              "const tensor name:: ",
+-              tensor.name(),
+-              " const id: ",
+-              tmeta->get_const_id());
+-          // habana_helpers::handle_const_section_tensor(src, tensor);
+-          // remove the const marking to avoid copy more than once
+-          TensorExtraMeta::set_const_tensor(src, false);
+-          uint64_t section_size = 0, section_data = 0;
+-          synSectionId tensorSectionId;
+-          bool isInput;
+-          getTensorSectionId(
+-              tensor.get(),
+-              tensorSectionId,
+-              tensorInfos,
+-              numOfTensors,
+-              isInput);
+-          if (!isInput) {
+-            PT_BRIDGE_DEBUG("non-input tensor section ID:  ", tensorSectionId);
+-            continue;
+-          }
+-          HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
+-          synStatus status;
+-          status = synRecipeSectionGetProp(
+-              recipe.syn_recipe_handle_,
+-              tensorSectionId,
+-              SECTION_SIZE,
+-              &section_size);
+-          HABANA_ASSERT(
+-              status == synStatus::synSuccess, Logger::synStatusToStr(status));
+-          PT_BRIDGE_DEBUG(
+-              "section ID: ",
+-              tensorSectionId,
+-              " section_size:: ",
+-              section_size,
+-              " , size (bridge) :: ",
+-              tensor.get_host_ptr_size());
+-          if (section_size) {
+-            auto device_id = tensor.device_id();
+-            HABANA_ASSERT(
+-                status == synStatus::synSuccess,
+-                Logger::synStatusToStr(status));
++          auto syn_tensor_input = pt_to_synapse_tensors_.find(ivpsh);
++          for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
++            PT_BRIDGE_DEBUG(
++                "New const tensor name:: ",
++                tensor.name(),
++                " const id: ",
++                tmeta->get_const_id());
++
++            // habana_helpers::handle_const_section_tensor(src, tensor);
++            // remove the const marking to avoid copy more than once
++            TensorExtraMeta::prepare_const_tensor(src, false);
++            uint64_t section_size = 0, section_data = 0;
++            synSectionId tensorSectionId;
++            bool isInput;
++            getTensorSectionId(
++                tensor.get(),
++                tensorSectionId,
++                tensorInfos,
++                numOfTensors,
++                isInput);
++            if (!isInput) {
++              PT_BRIDGE_DEBUG(
++                  "non-input tensor section ID:  ", tensorSectionId);
++              continue;
++            }
++            HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
++            synStatus status;
+             status = synRecipeSectionGetProp(
+                 recipe.syn_recipe_handle_,
+                 tensorSectionId,
+-                SECTION_DATA,
+-                &section_data);
+-            char* section_data_ptr = (char*)section_data;
++                SECTION_SIZE,
++                &section_size);
+             HABANA_ASSERT(
+                 status == synStatus::synSuccess,
+                 Logger::synStatusToStr(status));
+-            ConstantInformation::checksum_t checksum{
+-                GetDataChecksum(section_data_ptr, section_size)};
+-            HABANA_ASSERT(
+-                tmeta->has_valid_const_id(),
+-                "Constant tensor can not have constant id as -1");
+-            [[maybe_unused]] auto& device =
+-                HPUDeviceContext::get_device(device_id);
+-            status = synHostMap(device_id, section_size, section_data_ptr);
+-            HABANA_ASSERT(
+-                status == synStatus::synSuccess,
+-                Logger::synStatusToStr(status));
+-            ConstantInformation::id_t const_id{tmeta->get_const_id()};
+-            auto& constant_information = ConstantInformationValue();
+-            auto checksum_found =
+-                constant_information.DoesCheckSumExist(const_id, checksum);
+             PT_BRIDGE_DEBUG(
+-                "const_id: ",
+-                const_id,
+-                " checksum_found: ",
+-                checksum_found,
+-                " checksum: ",
+-                checksum);
++                "section ID: ",
++                tensorSectionId,
++                " section_size:: ",
++                section_size,
++                " , size (bridge) :: ",
++                tensor.get_host_ptr_size());
++            if (section_size) {
++              auto device_id = tensor.device_id();
++              HABANA_ASSERT(
++                  status == synStatus::synSuccess,
++                  Logger::synStatusToStr(status));
++              status = synRecipeSectionGetProp(
++                  recipe.syn_recipe_handle_,
++                  tensorSectionId,
++                  SECTION_DATA,
++                  &section_data);
++              char* section_data_ptr = (char*)section_data;
++              HABANA_ASSERT(
++                  status == synStatus::synSuccess,
++                  Logger::synStatusToStr(status));
++              ConstantInformation::checksum_t checksum{
++                  GetDataChecksum(section_data_ptr, section_size)};
++              HABANA_ASSERT(
++                  tmeta->has_valid_const_id(),
++                  "Constant tensor can not have constant id as -1");
++              [[maybe_unused]] auto& device =
++                  HPUDeviceContext::get_device(device_id);
++              status = synHostMap(device_id, section_size, section_data_ptr);
++              HABANA_ASSERT(
++                  status == synStatus::synSuccess,
++                  Logger::synStatusToStr(status));
++              ConstantInformation::id_t const_id{tmeta->get_const_id()};
++              auto& constant_information = ConstantInformationValue();
++              auto checksum_found =
++                  constant_information.IsCheckSumExistInAnyConstInfo(
++                      const_id, checksum);
++              PT_BRIDGE_DEBUG(
++                  "const_id: ",
++                  const_id,
++                  " checksum_found: ",
++                  checksum_found,
++                  " checksum: ",
++                  checksum);
+               auto old_size = tensor.get_host_ptr_size();
+               HandleChecksum(
+-                  iter->first->toTensor(),
++                  ivpsh.get()->toTensor(),
+                   section_size,
+                   checksum_found,
+                   checksum,
+@@ -682,8 +693,8 @@
+                   old_size,
+                   device_id);
+               UpdateTensorInfoMap(
+-                  iter->first,
+-                  (void*)(iter->first->toTensor().storage().data_ptr().get()));
++                  ivpsh,
++                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+ 
+               constSectionIds.emplace_back(tensorSectionId);
+               SerializeConstSection(
+@@ -696,15 +707,28 @@
+               HABANA_ASSERT(
+                   status == synStatus::synSuccess,
+                   Logger::synStatusToStr(status));
+-          } else {
+-            HandleTensorWithZeroSize(
+-                iter->first->toTensor(),
+-                ConstantInformation::key_t{cur_rargpsh_->hashCode()});
+-            SerializeConstSection(
+-                src, section_size, nullptr, cur_rargpsh_->hashCode());
+-            UpdateTensorInfoMap(
+-                iter->first,
+-                (void*)(iter->first->toTensor().storage().data_ptr().get()));
++            } else {
++              HandleTensorWithZeroSize(
++                  ivpsh.get()->toTensor(),
++                  ConstantInformation::key_t{cur_rargpsh_->hashCode()});
++              SerializeConstSection(
++                  src, section_size, nullptr, cur_rargpsh_->hashCode());
++              UpdateTensorInfoMap(
++                  ivpsh,
++                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
++            }
++
++            // Assuming all the tensors with numel=1 are scale constant tensors.
++            // TODO: Proper detection scale constant tensor must perform here
++            if (src.numel() == 1) {
++              auto& constant_information = ConstantInformationValue();
++              float const_value = src.item<float>();
++              constant_information.InsertRecipeScaleConst(
++                  ConstantInformation::key_t(cur_rargpsh_->hashCode()),
++                  const_value,
++                  input_index,
++                  ConstantInformation::id_t(tmeta->get_const_id()));
++            }
+           }
+         }
+       }
+diff --git a/backend/synapse_helpers/mem_handle.cpp b/backend/synapse_helpers/mem_handle.cpp
+index 6e13bb6..3bb0fc4 100644
+--- a/backend/synapse_helpers/mem_handle.cpp
++++ b/backend/synapse_helpers/mem_handle.cpp
+@@ -173,11 +173,15 @@
+ void HandlesMap::Erase(mem_handle::id_t id) {
+   bucket_type bucket_index = get_bucket_index(id);
+   uint64_t handle_index = get_handle_index(id);
++  PT_BRIDGE_DEBUG("Albin Erase handles_[bucket_index][handle_index].ptr_size_.ptr_:",
++  handles_[bucket_index][handle_index].ptr_size_.ptr_,
++  ", handle_index:", handle_index, ", index:", bucket_index, ", size_:", handles_[bucket_index][handle_index].ptr_size_.size_)
+   CheckId(handle_index, bucket_index);
+   handles_[bucket_index][handle_index].active_ = false;
+   handles_[bucket_index][handle_index].ptr_size_.size_ = 0;
+   handles_[bucket_index][handle_index].ptr_size_.ptr_ = nullptr;
+   free_handles_[bucket_index].push(handle_index);
++  PT_BRIDGE_DEBUG("Albin Erase handles_[bucket_index][handle_index].active_:", handles_[bucket_index][handle_index].active_)
+ }
+ 
+ void HandlesMap::MarkMemoryFixed(mem_handle::id_t id) {
+@@ -188,6 +192,10 @@
+ }
+ 
+ void HandlesMap::CheckId(uint64_t handle_index, bucket_type index) const {
++  PT_BRIDGE_DEBUG("Albin CheckId is_valid(handle_index):", mem_handle::is_valid(handle_index), ", handle_index:", handle_index,
++  ", handles_[index].size():", handles_[index].size(), ", index:", index, ", handles_[index][handle_index].active_:", handles_[index][handle_index].active_)
++  //std::cout<<"Albin handles_[index][handle_index].active_:"<<handles_[index][handle_index].active_<<std::endl;
++
+   if (!mem_handle::is_valid(handle_index) ||
+       handle_index >= handles_[index].size() ||
+       !handles_[index][handle_index].active_) {
+diff --git a/habana_eager/passes/mark_params_as_const.cpp b/habana_eager/passes/mark_params_as_const.cpp
+index f1bf1e0..b1be082 100644
+--- a/habana_eager/passes/mark_params_as_const.cpp
++++ b/habana_eager/passes/mark_params_as_const.cpp
+@@ -50,7 +50,7 @@
+           } else {
+             habana::set_tensor_const(tensor, true, set_const_id);
+           }
+-          TensorExtraMeta::set_const_tensor(tensor, true);
++          TensorExtraMeta::prepare_const_tensor(tensor, true);
+           changed = true;
+         }
+       }
+diff --git a/habana_lazy/lazy_arg_spec.cpp b/habana_lazy/lazy_arg_spec.cpp
+index a6bc714..203d28e 100644
+--- a/habana_lazy/lazy_arg_spec.cpp
++++ b/habana_lazy/lazy_arg_spec.cpp
+@@ -132,7 +132,23 @@
+           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
+       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
+         auto const_id = habana::get_tensor_const_id(in_tensor);
+-        mf_hash_code = at::hash_combine(mf_hash_code, const_id);
++        if (in_tensor.numel() == 1) {
++          float const_value = in_tensor.item<float>();
++          auto tmeta{habana::get_tensor_extra_meta(in_tensor)};
++          PT_BRIDGE_DEBUG(
++              "Albin Lazy arg spec hash const_value:",
++              const_value,
++              ", const_id:",
++              const_id,
++              ", host pointer size:",
++              tmeta->get_host_size())
++          auto const_hash = c10::hash<float>()(const_value);
++          mf_hash_code = at::hash_combine(mf_hash_code, const_hash);
++          auto const_size_hash = c10::hash<size_t>()(tmeta->get_host_size());
++          mf_hash_code = at::hash_combine(mf_hash_code, const_size_hash);
++        } else {
++          mf_hash_code = at::hash_combine(mf_hash_code, const_id);
++        }
+       }
+       if (in_tensor.has_storage()) {
+         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
+diff --git a/python_packages/habana_frameworks/torch/core/quantization.py b/python_packages/habana_frameworks/torch/core/quantization.py
+index 6a2acd7..f636b05 100644
+--- a/python_packages/habana_frameworks/torch/core/quantization.py
++++ b/python_packages/habana_frameworks/torch/core/quantization.py
+@@ -84,7 +84,7 @@
+ _const_id = -1
+ 
+ 
+-def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -> None:
++def _mark_params_as_const(model=None, only_scales=False, console_prints=True) -> None:
+     if model is None:
+         return
+     for param, param_t in model.state_dict().items():
+@@ -101,8 +101,8 @@
+                 continue
+         global _const_id
+         _const_id = _const_id + 1
+-        param_t_meta.is_const_tensor = True
+         param_t_meta.const_id = _const_id
++        param_t_meta.is_const_tensor = True
+         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
+         is_const = param_t_meta_copy.is_const_tensor
+         id = param_t_meta_copy.const_id
+diff --git a/pytorch_helpers/habana_helpers/frontend_utils.cpp b/pytorch_helpers/habana_helpers/frontend_utils.cpp
+index 735c090..ae2e355 100644
+--- a/pytorch_helpers/habana_helpers/frontend_utils.cpp
++++ b/pytorch_helpers/habana_helpers/frontend_utils.cpp
+@@ -106,6 +106,11 @@
+     c10::hpu::HPUStream hpu_stream) {
+   std::atomic<bool> copyDone{false};
+   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
++  auto tmeta{habana::get_tensor_extra_meta(src)};
++  if (tmeta->has_valid_const_id() && (tmeta->get_host_ptr() != nullptr)) {
++    std::memcpy(dst_ptr, tmeta->get_host_ptr(), size);
++    return;
++  }
+ 
+   habana::HPUDeviceContext::copy_data_to_host(
+       reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),

@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 460438: [SW-201944] Make graph key same when scale values are same.</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 460438: [SW-201944] Make graph key same when scale values are same.</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> pytorch-integration</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Albin Joy &lt;albinjoy@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-11-04 04:18:15.245000000</p>
+            <p><strong>Updated:</strong> 2024-11-07 08:52:13.625000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-201944] Make graph key same when scale values are same.
+
+Avoid recipe cache misses due to different scale tensors
+with same scale value through:
+1. Use the scale value for graph key hash instead of const_id
+ for scale const tensor.
+2. Make same const_id for scale tensors having same value.
+
+Change-Id: I7eac8d71063e8c1fb372ae13340acc55536032ae
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Mariusz Okroj: +0, Software Jenkins: +0, Piotr Papierkowski: +0, Albin Joy: -1</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>backend/backend_meta.cpp</code> (M) +4 -2</li><li><code>backend/backend_meta.h</code> (M) +1 -1</li><li><code>backend/habana_device/HPUAllocator.cpp</code> (M) +2 -0</li><li><code>backend/jit_graph_cache.cpp</code> (M) +19 -1</li><li><code>backend/kernel/constant_information.cpp</code> (M) +330 -9</li><li><code>backend/kernel/constant_information.h</code> (M) +73 -7</li><li><code>backend/kernel/hpu_habana_launch_op_pt.cpp</code> (M) +22 -14</li><li><code>backend/kernel/hpu_habana_launch_op_pt_lowering.cpp</code> (M) +116 -92</li><li><code>backend/synapse_helpers/mem_handle.cpp</code> (M) +8 -0</li><li><code>habana_eager/passes/mark_params_as_const.cpp</code> (M) +1 -1</li><li><code>habana_lazy/lazy_arg_spec.cpp</code> (M) +17 -1</li><li><code>python_packages/habana_frameworks/torch/core/quantization.py</code> (M) +2 -2</li><li><code>pytorch_helpers/habana_helpers/frontend_utils.cpp</code> (M) +5 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/backend/backend_meta.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -98,7 +98,7 @@</span>
+<span class="diff-ctx">   return const_section_data_;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-void TensorExtraMeta::set_const_tensor(</span>
+<span class="diff-add">+void TensorExtraMeta::prepare_const_tensor(</span>
+<span class="diff-ctx">     const at::Tensor&amp; tensor,</span>
+<span class="diff-ctx">     bool is_const_tensor,</span>
+<span class="diff-ctx">     bool relax) {</span>
+<span class="diff-hunk">@@ -113,7 +113,9 @@</span>
+<span class="diff-ctx">       &quot; size: &quot;,</span>
+<span class="diff-ctx">       tensor.numel() * tensor.itemsize(),</span>
+<span class="diff-ctx">       &quot; is_const_tensor_ : &quot;,</span>
+<span class="diff-del">-      is_const_tensor);</span>
+<span class="diff-add">+      is_const_tensor,</span>
+<span class="diff-add">+      &quot; const id:&quot;,</span>
+<span class="diff-add">+      tmeta-&gt;get_const_id());</span>
+<span class="diff-ctx">   if (is_const_tensor &amp;&amp; (tmeta-&gt;get_host_ptr() == nullptr)) {</span>
+<span class="diff-ctx">     auto&amp; device = HPUDeviceContext::get_device();</span>
+<span class="diff-ctx">     void* host_ptr{};</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index ba65f7b..665b2cc 100644</span>
+<h4 class="diff-filename">b/backend/backend_meta.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -210,7 +210,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   caffe2::TypeMeta get_type_meta(const at::Tensor&amp; t);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  static void set_const_tensor(</span>
+<span class="diff-add">+  static void prepare_const_tensor(</span>
+<span class="diff-ctx">       const at::Tensor&amp; tensor,</span>
+<span class="diff-ctx">       bool is_const_tensor,</span>
+<span class="diff-ctx">       bool relax = false);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 13b0a38..bba7a7d 100644</span>
+<h4 class="diff-filename">b/backend/habana_device/HPUAllocator.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -128,6 +128,8 @@</span>
+<span class="diff-ctx">   if (!HPUDeviceContext::is_device_acquired())</span>
+<span class="diff-ctx">     return;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+  //std::cout&lt;&lt;&quot;HPUDeviceAllocator deleter ptr:&quot;&lt;&lt;ptr&lt;&lt;std::endl;</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;HPUDeviceAllocator deleter ptr:&quot;, ptr)</span>
+<span class="diff-ctx">   synStatus status;</span>
+<span class="diff-ctx">   auto&amp; device = HPUDeviceContext::get_device(</span>
+<span class="diff-ctx">       HPUDeviceAllocator::allocator_active_device_id);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 636a9f4..d7a38ae 100644</span>
+<h4 class="diff-filename">b/backend/jit_graph_cache.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -175,8 +175,26 @@</span>
+<span class="diff-ctx">       typedims_hash =</span>
+<span class="diff-ctx">           at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));</span>
+<span class="diff-ctx">       if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {</span>
+<span class="diff-add">+        // To support HQT which add each scale as a different tensor for each</span>
+<span class="diff-add">+        // layer</span>
+<span class="diff-ctx">         auto const_id = habana::get_tensor_const_id(pt_tensor);</span>
+<span class="diff-del">-        constid_hash = at::hash_combine(constid_hash, const_id);</span>
+<span class="diff-add">+        if (pt_tensor.numel() == 1) {</span>
+<span class="diff-add">+          float const_value = pt_tensor.item&lt;float&gt;();</span>
+<span class="diff-add">+          auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};</span>
+<span class="diff-add">+          PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+              &quot;Albin JIT graph_key hash const_value:&quot;,</span>
+<span class="diff-add">+              const_value,</span>
+<span class="diff-add">+              &quot;, const_id:&quot;,</span>
+<span class="diff-add">+              const_id,</span>
+<span class="diff-add">+              &quot;, host pointer size:&quot;,</span>
+<span class="diff-add">+              tmeta-&gt;get_host_size())</span>
+<span class="diff-add">+          auto const_hash = c10::hash&lt;float&gt;()(const_value);</span>
+<span class="diff-add">+          constid_hash = at::hash_combine(constid_hash, const_hash);</span>
+<span class="diff-add">+          auto const_size_hash = c10::hash&lt;size_t&gt;()(tmeta-&gt;get_host_size());</span>
+<span class="diff-add">+          constid_hash = at::hash_combine(constid_hash, const_size_hash);</span>
+<span class="diff-add">+        } else {</span>
+<span class="diff-add">+          constid_hash = at::hash_combine(constid_hash, const_id);</span>
+<span class="diff-add">+        }</span>
+<span class="diff-ctx">       }</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-ctx">   }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index d40f0c3..0d6defa 100644</span>
+<h4 class="diff-filename">b/backend/kernel/constant_information.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -16,7 +16,23 @@</span>
+<span class="diff-ctx"> #include &lt;mutex&gt;</span>
+<span class="diff-ctx"> #include &lt;optional&gt;</span>
+<span class="diff-ctx"> #include &lt;shared_mutex&gt;</span>
+<span class="diff-add">+#include &quot;backend/backend_meta.h&quot;</span>
+<span class="diff-add">+#include &quot;backend/habana_device/HPUDevice.h&quot;</span>
+<span class="diff-ctx"> #include &quot;habana_helpers/logging.h&quot;</span>
+<span class="diff-add">+#include &lt;c10/core/Allocator.h&gt;</span>
+<span class="diff-add">+#include &quot;habana_helpers/python_utils.h&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &quot;backend/helpers/tensor_utils.h&quot;</span>
+<span class="diff-add">+#include &lt;ATen/InferSize.h&gt;</span>
+<span class="diff-add">+#include &lt;c10/core/ScalarType.h&gt;</span>
+<span class="diff-add">+#include &quot;backend/habana_device/HPUStream.h&quot;</span>
+<span class="diff-add">+#include &quot;backend/habana_device/PinnedMemoryAllocator.h&quot;</span>
+<span class="diff-add">+#include &quot;backend/helpers/get_n_bytes.h&quot;</span>
+<span class="diff-add">+#include &quot;backend/helpers/tensor_info.h&quot;</span>
+<span class="diff-add">+#include &quot;backend/synapse_helpers/device_helpers.h&quot;</span>
+<span class="diff-add">+#include &quot;common/utils.h&quot;</span>
+<span class="diff-add">+#include &quot;habana_helpers/dtype_helpers.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> namespace habana {</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -39,7 +55,7 @@</span>
+<span class="diff-ctx">       const_checksum_iterator == const_checksum_map_.end()) {</span>
+<span class="diff-ctx">     const_checksum_map_.emplace(id, checksum_and_const_infos{checksum, {}});</span>
+<span class="diff-ctx">   } else {</span>
+<span class="diff-del">-    const_checksum_iterator-&gt;second.checksum_ = checksum;</span>
+<span class="diff-add">+    const_checksum_iterator-&gt;second.device_checksum_ = checksum;</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -85,7 +101,7 @@</span>
+<span class="diff-ctx">   std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-ctx">   // The call for this function is made only after the check that key exists</span>
+<span class="diff-ctx">   auto&amp; const_checksum = const_checksum_map_.at(id);</span>
+<span class="diff-del">-  auto current_checksum_on_device = const_checksum.checksum_;</span>
+<span class="diff-add">+  auto current_checksum_on_device = const_checksum.device_checksum_;</span>
+<span class="diff-ctx">   for (auto&amp; info : const_checksum.infos_) {</span>
+<span class="diff-ctx">     for (auto recipe_key : info.recipe_key_) {</span>
+<span class="diff-ctx">       if (recipe_key == key) {</span>
+<span class="diff-hunk">@@ -105,7 +121,9 @@</span>
+<span class="diff-ctx">         tensor.storage().set_nbytes(info.section_size_);</span>
+<span class="diff-ctx">         StorePrevDataPtrImpl(</span>
+<span class="diff-ctx">             id, std::move(old_data_ptr), current_checksum_on_device);</span>
+<span class="diff-add">+        //std::cout&lt;&lt;&quot;GetConstPtrForRecipe before reset info.data_ptr_:&quot;&lt;&lt;info.data_ptr_.value()&lt;&lt;std::endl;</span>
+<span class="diff-ctx">         info.data_ptr_.reset();</span>
+<span class="diff-add">+        //std::cout&lt;&lt;&quot;GetConstPtrForRecipe after reset info.data_ptr_:&quot;&lt;&lt;info.data_ptr_.value()&lt;&lt;std::endl;</span>
+<span class="diff-ctx">         return;</span>
+<span class="diff-ctx">       }</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-hunk">@@ -147,7 +165,8 @@</span>
+<span class="diff-ctx">   HABANA_ASSERT(false, &quot;No such checksum found in the map, const_id: &quot;, id);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-bool ConstantInformation::DoesConstInfoExist(const id_t id, key_t key) const {</span>
+<span class="diff-add">+bool ConstantInformation::IsConstInfoExistForRecipe(const id_t id, key_t key)</span>
+<span class="diff-add">+    const {</span>
+<span class="diff-ctx">   auto checksum_iterator = const_checksum_map_.find(id);</span>
+<span class="diff-ctx">   if (checksum_iterator == const_checksum_map_.end()) {</span>
+<span class="diff-ctx">     return false;</span>
+<span class="diff-hunk">@@ -164,7 +183,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> ConstantInformation::ConstantChecksums ConstantInformation::</span>
+<span class="diff-del">-    GetConstCheckSumForRecipe(const id_t id, const key_t key) const {</span>
+<span class="diff-add">+    GetDeviceAndRecipeChecksums(const id_t id, const key_t key) const {</span>
+<span class="diff-ctx">   std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-ctx">   auto checksum_iterator = const_checksum_map_.find(id);</span>
+<span class="diff-ctx">   HABANA_ASSERT(</span>
+<span class="diff-hunk">@@ -175,16 +194,16 @@</span>
+<span class="diff-ctx">   for (auto&amp; info : checksum_iterator-&gt;second.infos_) {</span>
+<span class="diff-ctx">     for (auto recipe_key : info.recipe_key_) {</span>
+<span class="diff-ctx">       if (recipe_key == key) {</span>
+<span class="diff-del">-        return {checksum_iterator-&gt;second.checksum_, info.checksum_};</span>
+<span class="diff-add">+        return {checksum_iterator-&gt;second.device_checksum_, info.checksum_};</span>
+<span class="diff-ctx">       }</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx">   HABANA_ASSERT(</span>
+<span class="diff-ctx">       false, &quot;No checksum found for const_id: &quot;, id, &quot; for recipe: &quot;, key);</span>
+<span class="diff-del">-  return {checksum_iterator-&gt;second.checksum_, checksum_t{0ul}};</span>
+<span class="diff-add">+  return {checksum_iterator-&gt;second.device_checksum_, checksum_t{0ul}};</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-bool ConstantInformation::DoesCheckSumExist(</span>
+<span class="diff-add">+bool ConstantInformation::IsCheckSumExistInAnyConstInfo(</span>
+<span class="diff-ctx">     const id_t id,</span>
+<span class="diff-ctx">     const checksum_t checksum) const {</span>
+<span class="diff-ctx">   std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-hunk">@@ -203,18 +222,320 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> std::optional&lt;ConstantInformation::checksum_t&gt; ConstantInformation::</span>
+<span class="diff-del">-    GetChecksumForId(const id_t id) const {</span>
+<span class="diff-add">+    GetDeviceChecksum(const id_t id) const {</span>
+<span class="diff-ctx">   std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-ctx">   auto const_checksum_iterator = const_checksum_map_.find(id);</span>
+<span class="diff-ctx">   if (const_checksum_iterator == const_checksum_map_.end()) {</span>
+<span class="diff-ctx">     return std::nullopt;</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-  return const_checksum_iterator-&gt;second.checksum_;</span>
+<span class="diff-add">+  return const_checksum_iterator-&gt;second.device_checksum_;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+ConstantInformation::scaleInput_t ConstantInformation::get_scale_input_key(</span>
+<span class="diff-add">+    float value,</span>
+<span class="diff-add">+    size_t index) {</span>
+<span class="diff-add">+  std::string scaleinput_v = std::to_string(value) + &quot;_&quot; + std::to_string(index);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Scale input value:&quot;, scaleinput_v);</span>
+<span class="diff-add">+  return ConstantInformation::scaleInput_t(scaleinput_v);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void ConstantInformation::InsertRecipeScaleConst(</span>
+<span class="diff-add">+    key_t recipe_key,</span>
+<span class="diff-add">+    float const_value,</span>
+<span class="diff-add">+    size_t input_idx,</span>
+<span class="diff-add">+    id_t const_id) {</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin InsertRecipeScaleConst begin&quot;)</span>
+<span class="diff-add">+  std::unique_lock lock(checksum_map_mtx_);</span>
+<span class="diff-add">+  auto recipe_iterator = recipe_scale_constant_map_.find(recipe_key);</span>
+<span class="diff-add">+  scaleInput_t scale_input = get_scale_input_key(const_value, input_idx);</span>
+<span class="diff-add">+  if (recipe_iterator == recipe_scale_constant_map_.end()) {</span>
+<span class="diff-add">+    auto recipe_value =</span>
+<span class="diff-add">+        std::unordered_map&lt;scaleInput_t, std::unordered_set&lt;id_t&gt;&gt;{</span>
+<span class="diff-add">+            {scale_input, std::unordered_set&lt;id_t&gt;{const_id}}};</span>
+<span class="diff-add">+    recipe_scale_constant_map_.emplace(recipe_key, recipe_value);</span>
+<span class="diff-add">+  } else {</span>
+<span class="diff-add">+    auto recipe_input_iter = recipe_iterator-&gt;second.find(scale_input);</span>
+<span class="diff-add">+    if (recipe_input_iter == recipe_iterator-&gt;second.end()) {</span>
+<span class="diff-add">+      recipe_iterator-&gt;second.emplace(</span>
+<span class="diff-add">+          scale_input, std::unordered_set&lt;id_t&gt;{const_id});</span>
+<span class="diff-add">+    } else {</span>
+<span class="diff-add">+      auto&amp; const_id_set = recipe_input_iter-&gt;second;</span>
+<span class="diff-add">+      if (const_id_set.find(const_id) == const_id_set.end()) {</span>
+<span class="diff-add">+        const_id_set.insert(const_id);</span>
+<span class="diff-add">+      } else {</span>
+<span class="diff-add">+        PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+            &quot;Recipe &quot;,</span>
+<span class="diff-add">+            recipe_key,</span>
+<span class="diff-add">+            &quot; already contain input value:&quot;,</span>
+<span class="diff-add">+            const_value,</span>
+<span class="diff-add">+            &quot; with index &quot;,</span>
+<span class="diff-add">+            input_idx,</span>
+<span class="diff-add">+            &quot; and constant id:&quot;,</span>
+<span class="diff-add">+            const_id);</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin InsertRecipeScaleConst end&quot;)</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+ConstantInformation::id_t ConstantInformation::GetMatchedConstIdIfScaleConstantExist(key_t recipe_key, id_t const_id, scaleInput_t scale_input) {</span>
+<span class="diff-add">+  std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin GetMatchedConstIdIfScaleConstantExist starts&quot;)</span>
+<span class="diff-add">+  auto recipe_iterator = recipe_scale_constant_map_.find(recipe_key);</span>
+<span class="diff-add">+  auto recipe_input_iter = recipe_iterator-&gt;second.find(scale_input);</span>
+<span class="diff-add">+  auto const_id_set = recipe_input_iter-&gt;second;</span>
+<span class="diff-add">+  HABANA_ASSERT(</span>
+<span class="diff-add">+      const_id_set.size(),</span>
+<span class="diff-add">+      &quot;Const id list is empty for recipe &quot;,</span>
+<span class="diff-add">+      recipe_key,</span>
+<span class="diff-add">+      &quot; const_id &quot;,</span>
+<span class="diff-add">+      const_id);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin GetMatchedConstIdIfScaleConstantExist const_id_set size:&quot;, const_id_set.size());</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin GetMatchedConstIdIfScaleConstantExist const_id_set:&quot;, const_id_set);</span>
+<span class="diff-add">+  if (const_id_set.find(const_id) == const_id_set.end()) {</span>
+<span class="diff-add">+    return *(const_id_set.begin());</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  return ConstantInformation::id_t{INT_MAX};</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void ConstantInformation::add_unused_ptr(id_t from_const_id, at::DataPtr ptr) {</span>
+<span class="diff-add">+  id_unused_data_ptr_.emplace(from_const_id, std::move(ptr));</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void ConstantInformation::</span>
+<span class="diff-add">+CreateCopyConstInfo(id_t from_const_id, id_t to_const_id, key_t recipe_key, at::Tensor&amp; pt_tensor) {</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin&quot;)</span>
+<span class="diff-add">+  TensorExtraMeta::prepare_const_tensor(pt_tensor, true);</span>
+<span class="diff-add">+  auto get_const_info = [&amp;](ConstantInformation::id_t const_id, ConstantInformation::key_t r_key) -&gt; const ConstantInformation::constInfo_t&amp; {</span>
+<span class="diff-add">+    std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-add">+    auto const_checksum_iterator = const_checksum_map_.find(const_id);</span>
+<span class="diff-add">+    HABANA_ASSERT(</span>
+<span class="diff-add">+        const_checksum_iterator != const_checksum_map_.end(),</span>
+<span class="diff-add">+        &quot;Const id  {} not presented in const_checksum_map_&quot;,</span>
+<span class="diff-add">+        const_id)</span>
+<span class="diff-add">+    // TODO what is the constant id for the specific recipe</span>
+<span class="diff-add">+    for (auto&amp; info : const_checksum_iterator-&gt;second.infos_) {</span>
+<span class="diff-add">+      for (auto&amp; key : info.recipe_key_) {</span>
+<span class="diff-add">+        if (key == r_key) {</span>
+<span class="diff-add">+          PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo from_const_id:&quot;, from_const_id, &quot;, to_const_id:&quot;,</span>
+<span class="diff-add">+          to_const_id, &quot;, r_key:&quot;, r_key, &quot;, info.checksum_:&quot;, info.checksum_, &quot;, info.section_size_:&quot;, info.section_size_)</span>
+<span class="diff-add">+          return info;</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    ConstantInformation::checksum_t checksum{0};</span>
+<span class="diff-add">+    ConstantInformation::key_t tmp_key{0};</span>
+<span class="diff-add">+    static ConstantInformation::constInfo_t constInfo{checksum, {tmp_key}, 0, {}};</span>
+<span class="diff-add">+    return constInfo;</span>
+<span class="diff-add">+  };</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  const ConstantInformation::constInfo_t&amp; info = get_const_info(from_const_id, recipe_key);</span>
+<span class="diff-add">+  checksum_t checksum = info.checksum_;</span>
+<span class="diff-add">+  uint64_t section_size = info.section_size_;</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin before allocation&quot;)</span>
+<span class="diff-add">+  at::DataPtr data =</span>
+<span class="diff-add">+      pt_tensor.storage().allocator()-&gt;allocate(section_size);</span>
+<span class="diff-add">+  auto old_data_ptr = pt_tensor.storage().set_data_ptr(std::move(data));</span>
+<span class="diff-add">+  pt_tensor.storage().set_nbytes(section_size);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin after allocation, old_data_ptr:&quot;, old_data_ptr.get(),</span>
+<span class="diff-add">+  &quot;, new address:&quot;, pt_tensor.data_ptr())</span>
+<span class="diff-add">+  // add_unused_ptr(to_const_id, std::move(old_data_ptr));</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin before backing up old_data_ptr&quot;)</span>
+<span class="diff-add">+  id_unused_data_ptr_.emplace(to_const_id, std::move(old_data_ptr));</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin before insert&quot;)</span>
+<span class="diff-add">+  Insert(to_const_id, checksum);</span>
+<span class="diff-add">+  PushInfo(to_const_id, checksum, recipe_key, section_size);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin before host copy&quot;)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  if (section_size != 0) {</span>
+<span class="diff-add">+    void* tmp_host_ptr{};</span>
+<span class="diff-add">+    auto&amp; device = habana::HPUDeviceContext::get_device();</span>
+<span class="diff-add">+    //auto device_id = device.id();</span>
+<span class="diff-add">+    if (info.data_ptr_.has_value()) {</span>
+<span class="diff-add">+      PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo before host copy pt_tensor.data_ptr():&quot;,</span>
+<span class="diff-add">+      pt_tensor.data_ptr(), &quot;, info.data_ptr_.value().get():&quot;, info.data_ptr_.value().get(),</span>
+<span class="diff-add">+      &quot;, GetNBytes:&quot;, habana_helpers::GetNBytes(pt_tensor),</span>
+<span class="diff-add">+      &quot;, section_size:&quot;, section_size)</span>
+<span class="diff-add">+      auto status = device.get_host_memory().malloc(&amp;tmp_host_ptr, section_size);</span>
+<span class="diff-add">+      HABANA_ASSERT(</span>
+<span class="diff-add">+          status == synStatus::synSuccess,</span>
+<span class="diff-add">+          Logger::synStatusToStr(status));</span>
+<span class="diff-add">+      HABANA_ASSERT(section_size == habana_helpers::GetNBytes(pt_tensor))</span>
+<span class="diff-add">+      std::atomic&lt;bool&gt; copyDone{false};</span>
+<span class="diff-add">+      HPUDeviceContext::copy_data_to_host(</span>
+<span class="diff-add">+          reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(info.data_ptr_.value().get()),</span>
+<span class="diff-add">+          tmp_host_ptr,</span>
+<span class="diff-add">+          reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(</span>
+<span class="diff-add">+              info.data_ptr_.value().get()),</span>
+<span class="diff-add">+          section_size,</span>
+<span class="diff-add">+          [&amp;copyDone]() { copyDone = true; },</span>
+<span class="diff-add">+          false,</span>
+<span class="diff-add">+          c10::hpu::getCurrentHPUStream());</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+      habana_helpers::AutoNoGIL gil_release;</span>
+<span class="diff-add">+      // wait for copy completion</span>
+<span class="diff-add">+      while (!copyDone) {</span>
+<span class="diff-add">+        std::this_thread::yield();</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+    } else {</span>
+<span class="diff-add">+      PT_BRIDGE_DEBUG(&quot;Albin info.data_ptr_ has No value&quot;)</span>
+<span class="diff-add">+      //auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);</span>
+<span class="diff-add">+      HABANA_ASSERT(section_size == habana_helpers::GetNBytes(pt_tensor))</span>
+<span class="diff-add">+      auto tmeta{get_tensor_extra_meta(pt_tensor)};</span>
+<span class="diff-add">+      tmp_host_ptr = tmeta-&gt;get_host_ptr();</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo begin before device copy&quot;)</span>
+<span class="diff-add">+    PT_BRIDGE_DEBUG(&quot;Albin tmp_host_ptr:&quot;, tmp_host_ptr, &quot;, device data new address:&quot;, pt_tensor.data_ptr())</span>
+<span class="diff-add">+    std::atomic&lt;bool&gt; copyDone1{false};</span>
+<span class="diff-add">+    habana::HPUDeviceContext::copy_data_to_device(</span>
+<span class="diff-add">+        tmp_host_ptr,</span>
+<span class="diff-add">+        reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(pt_tensor.data_ptr()),</span>
+<span class="diff-add">+        reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(</span>
+<span class="diff-add">+            pt_tensor.storage().data_ptr().get()),</span>
+<span class="diff-add">+        habana_helpers::GetNBytes(pt_tensor),</span>
+<span class="diff-add">+        [&amp;copyDone1]() { copyDone1 = true; },</span>
+<span class="diff-add">+        false,</span>
+<span class="diff-add">+        true,</span>
+<span class="diff-add">+        c10::hpu::getCurrentHPUStream());</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // Release GIL if going to wait</span>
+<span class="diff-add">+    habana_helpers::AutoNoGIL gil_release_;</span>
+<span class="diff-add">+    // wait for copy completion</span>
+<span class="diff-add">+    while (!copyDone1) {</span>
+<span class="diff-add">+      std::this_thread::yield();</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // std::atomic&lt;bool&gt; copyDone1{false};</span>
+<span class="diff-add">+    // habana::HPUDeviceContext::copy_data_to_device(</span>
+<span class="diff-add">+    //     (void*)tmp_host_ptr,</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(pt_tensor.data_ptr()),</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(</span>
+<span class="diff-add">+    //         pt_tensor.storage().data_ptr().get()),</span>
+<span class="diff-add">+    //     section_size,</span>
+<span class="diff-add">+    //     [&amp;copyDone1]() { copyDone1 = true; },</span>
+<span class="diff-add">+    //     false,</span>
+<span class="diff-add">+    //     true);</span>
+<span class="diff-add">+    // // wait for copy completion</span>
+<span class="diff-add">+    // while (!copyDone1) {</span>
+<span class="diff-add">+    //   std::this_thread::yield();</span>
+<span class="diff-add">+    // }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // std::atomic&lt;bool&gt; copyDone{false};</span>
+<span class="diff-add">+    //at::DataPtr&amp; tmep_ptr = const_cast&lt;c10::DataPtr&amp;&gt;(info.data_ptr_.value());</span>
+<span class="diff-add">+    //synapse_helpers::device_ptr t_device_ptr = reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(tmep_ptr);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // habana::HPUDeviceContext::copy_data_within_device(</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(info.data_ptr_.value().get()),</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(pt_tensor.data_ptr()),</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(</span>
+<span class="diff-add">+    //         info.data_ptr_.value().get()),</span>
+<span class="diff-add">+    //     reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(</span>
+<span class="diff-add">+    //         pt_tensor.storage().data_ptr().get()),</span>
+<span class="diff-add">+    //     section_size,</span>
+<span class="diff-add">+    //     [&amp;copyDone]() { copyDone = true; },</span>
+<span class="diff-add">+    //     c10::hpu::getCurrentHPUStream());</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // // Release GIL if going to wait</span>
+<span class="diff-add">+    // habana_helpers::AutoNoGIL gil_release;</span>
+<span class="diff-add">+    // // wait for copy completion</span>
+<span class="diff-add">+    // while (!copyDone) {</span>
+<span class="diff-add">+    //   std::this_thread::yield();</span>
+<span class="diff-add">+    // }</span>
+<span class="diff-add">+  } else {</span>
+<span class="diff-add">+    PT_BRIDGE_DEBUG(&quot;Albin section_size is zero:&quot;, section_size)</span>
+<span class="diff-add">+    auto tmeta{get_tensor_extra_meta(pt_tensor)};</span>
+<span class="diff-add">+    auto old_size = tmeta-&gt;get_host_size();</span>
+<span class="diff-add">+    tmeta-&gt;set_nbytes_inference(old_size);</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+ </span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  //     checksum_if_exists.value() != checksum) {</span>
+<span class="diff-add">+  //   PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+  //       &quot;For const_id: &quot;,</span>
+<span class="diff-add">+  //       const_id,</span>
+<span class="diff-add">+  //       &quot; Checksum has valid value for another recipe&quot;);</span>
+<span class="diff-add">+  //   StorePrevDataPtrImpl(</span>
+<span class="diff-add">+  //       const_id, std::move(old_data_ptr),</span>
+<span class="diff-add">+  //       checksum_if_exists.value());</span>
+<span class="diff-add">+  // }</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CreateCopyConstInfo end&quot;)</span>
+<span class="diff-add">+  return;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void ConstantInformation::CheckAndAddScaleConstIdForRecipe(</span>
+<span class="diff-add">+    key_t recipe_key,</span>
+<span class="diff-add">+    at::Tensor&amp; pt_tensor,</span>
+<span class="diff-add">+    size_t input_idx,</span>
+<span class="diff-add">+    id_t const_id) {</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CheckAndAddScaleConstIdForRecipe begin&quot;)</span>
+<span class="diff-add">+  float const_value = pt_tensor.item&lt;float&gt;();</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin Check for recipe &quot;, recipe_key, &quot; and const id &quot;,</span>
+<span class="diff-add">+   const_id, &quot; input_idx &quot;, input_idx, &quot; const_value &quot;, const_value)</span>
+<span class="diff-add">+  scaleInput_t scale_input = get_scale_input_key(const_value, input_idx);</span>
+<span class="diff-add">+  //std::unique_lock lock(checksum_map_mtx_);</span>
+<span class="diff-add">+  auto matched_const_id = GetMatchedConstIdIfScaleConstantExist(recipe_key, const_id, scale_input);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CheckAndAddScaleConstIdForRecipe matched_const_id:&quot;, matched_const_id)</span>
+<span class="diff-add">+  if (*matched_const_id != INT_MAX) {</span>
+<span class="diff-add">+    CreateCopyConstInfo(matched_const_id, const_id, recipe_key, pt_tensor);</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+  for (auto it = id_unused_data_ptr_.begin(); it != id_unused_data_ptr_.end(); ++it) {</span>
+<span class="diff-add">+    PT_BRIDGE_DEBUG(&quot;id_unused_data_ptr_ key:&quot;, it-&gt;first, &quot;, value:&quot;, it-&gt;second.value().get())</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CheckAndAddScaleConstIdForRecipe end&quot;)</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+/*void ConstantInformation::DumpConstantInformations() {</span>
+<span class="diff-add">+  std::shared_lock lock(checksum_map_mtx_);</span>
+<span class="diff-add">+  std::stringstream ss;</span>
+<span class="diff-add">+  ss &lt;&lt; &quot;Dump const_checksum_map_:\n&quot;;</span>
+<span class="diff-add">+  for (auto&amp; const_id_meta : const_checksum_map_) {</span>
+<span class="diff-add">+    ss &lt;&lt; &quot;CONST ID: &quot; &lt;&lt; const_id_meta.first &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+    ss &lt;&lt; &quot;Current device checksum: &quot; &lt;&lt; const_id_meta.second.device_checksum_</span>
+<span class="diff-add">+       &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+    // PT_BRIDGE_DEBUG(&quot;Albin DumpConstantInformations const_id_meta.second:&quot;,</span>
+<span class="diff-add">+    // const_id_meta.second)</span>
+<span class="diff-add">+    ss &lt;&lt; &quot;Available constant infos:&quot;</span>
+<span class="diff-add">+       &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+    size_t const_info_count{0};</span>
+<span class="diff-add">+    for (auto&amp; info : const_id_meta.second.infos_) {</span>
+<span class="diff-add">+      const_info_count++;</span>
+<span class="diff-add">+      ss &lt;&lt; &quot;info: &quot; &lt;&lt; const_info_count &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+      ss &lt;&lt; &quot;   checksum: &quot; &lt;&lt; info.checksum_ &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+      ss &lt;&lt; &quot;   section_size: &quot; &lt;&lt; info.section_size_ &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+      ss &lt;&lt; &quot;   recipe keys: &quot;;</span>
+<span class="diff-add">+      for (auto&amp; key : info.recipe_key_) {</span>
+<span class="diff-add">+        ss &lt;&lt; key &lt;&lt; &quot;, &quot;;</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+      if (info.data_ptr_ &amp;&amp; info.data_ptr_.has_value()) {</span>
+<span class="diff-add">+        ss &lt;&lt; &quot;\n   data_ptr: &quot; &lt;&lt; info.data_ptr_.value().get() &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+      } else {</span>
+<span class="diff-add">+        ss &lt;&lt; &quot;\n   data_ptr: &quot;</span>
+<span class="diff-add">+           &lt;&lt; &quot;No value&quot;</span>
+<span class="diff-add">+           &lt;&lt; &quot;\n&quot;;</span>
+<span class="diff-add">+      }</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+  std::string checksum_dump = ss.str();</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(checksum_dump);</span>
+<span class="diff-add">+}*/</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void ConstantInformation::ClearChecksumInformation() {</span>
+<span class="diff-ctx">   std::unique_lock lock(checksum_map_mtx_);</span>
+<span class="diff-ctx">   const_checksum_map_.clear();</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool IsConstantScaleTensor(at::Tensor&amp; tensor) {</span>
+<span class="diff-add">+  auto tmeta{habana::get_tensor_extra_meta(tensor)};</span>
+<span class="diff-add">+  if (tmeta-&gt;is_const_tensor() &amp;&amp; (tensor.numel() == 1)) {</span>
+<span class="diff-add">+    return true;</span>
+<span class="diff-add">+  } else {</span>
+<span class="diff-add">+    return false;</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> } // namespace habana</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e125e9e..1a7b061 100644</span>
+<h4 class="diff-filename">b/backend/kernel/constant_information.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -22,10 +22,24 @@</span>
+<span class="diff-ctx"> #include &lt;shared_mutex&gt;</span>
+<span class="diff-ctx"> #include &quot;common/strong_type.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+#include &lt;torch/csrc/api/include/torch/jit.h&gt;</span>
+<span class="diff-add">+#include &lt;torch/csrc/jit/ir/ir.h&gt;</span>
+<span class="diff-add">+#include &lt;torch/csrc/jit/runtime/argument_spec.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct RecipeConstHash {</span>
+<span class="diff-add">+  template &lt;typename T1, typename T2&gt;</span>
+<span class="diff-add">+  std::size_t operator()(const std::tuple&lt;T1, T2&gt;&amp; x) const {</span>
+<span class="diff-add">+    auto const_value_hash = std::hash&lt;T1&gt;()(std::get&lt;0&gt;(x));</span>
+<span class="diff-add">+    auto const_index_hash = std::hash&lt;T2&gt;()(std::get&lt;1&gt;(x));</span>
+<span class="diff-add">+    return const_value_hash ^ const_index_hash;</span>
+<span class="diff-add">+  }</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> namespace habana {</span>
+<span class="diff-ctx"> /**</span>
+<span class="diff-ctx">  * Stores information about constant sections and it usages between recipes.</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> struct ConstantInformation {</span>
+<span class="diff-ctx">   ConstantInformation() = default;</span>
+<span class="diff-ctx">   ConstantInformation(const ConstantInformation&amp;) = delete;</span>
+<span class="diff-hunk">@@ -34,9 +48,11 @@</span>
+<span class="diff-ctx">   ConstantInformation&amp; operator=(ConstantInformation&amp;&amp;) = delete;</span>
+<span class="diff-ctx">   ~ConstantInformation() = default;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+  using scaleInput_t = common::StrongType&lt;std::string, struct ValueTag&gt;;</span>
+<span class="diff-ctx">   using id_t = common::StrongType&lt;int, struct IdTag&gt;;</span>
+<span class="diff-ctx">   using checksum_t = common::StrongType&lt;size_t, struct ChecksumTag&gt;;</span>
+<span class="diff-ctx">   using key_t = common::StrongType&lt;size_t, struct KeyTag&gt;;</span>
+<span class="diff-add">+  using InnerMap = std::unordered_map&lt;scaleInput_t, std::unordered_set&lt;id_t&gt;&gt;;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Stores checksum for specific constant id.</span>
+<span class="diff-hunk">@@ -93,12 +109,12 @@</span>
+<span class="diff-ctx">     /**</span>
+<span class="diff-ctx">      * Global stored checksum for the constant</span>
+<span class="diff-ctx">      */</span>
+<span class="diff-del">-    checksum_t const_checksum_;</span>
+<span class="diff-add">+    checksum_t device_checksum_;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     /**</span>
+<span class="diff-ctx">      * Constant checksum stored specifically for given recipe</span>
+<span class="diff-ctx">      */</span>
+<span class="diff-del">-    checksum_t const_checksum_for_recipe_;</span>
+<span class="diff-add">+    checksum_t recipe_checksum_;</span>
+<span class="diff-ctx">   };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-hunk">@@ -108,18 +124,18 @@</span>
+<span class="diff-ctx">    * @param id Constant id</span>
+<span class="diff-ctx">    * @param key Recipe key</span>
+<span class="diff-ctx">    */</span>
+<span class="diff-del">-  ConstantChecksums GetConstCheckSumForRecipe(id_t id, key_t key) const;</span>
+<span class="diff-add">+  ConstantChecksums GetDeviceAndRecipeChecksums(id_t id, key_t key) const;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Checks if given constant id is stored, and has stored specific checksum.</span>
+<span class="diff-ctx">    */</span>
+<span class="diff-del">-  bool DoesCheckSumExist(id_t id, checksum_t checksum) const;</span>
+<span class="diff-add">+  bool IsCheckSumExistInAnyConstInfo(id_t id, checksum_t checksum) const;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Checks if given constant id is stored, and has stored specific recipe</span>
+<span class="diff-ctx">    * details.</span>
+<span class="diff-ctx">    */</span>
+<span class="diff-del">-  bool DoesConstInfoExist(id_t id, key_t key) const;</span>
+<span class="diff-add">+  bool IsConstInfoExistForRecipe(id_t id, key_t key) const;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Recovers checksum for specific constant id.</span>
+<span class="diff-hunk">@@ -129,12 +145,38 @@</span>
+<span class="diff-ctx">    * @return Recovered checksum or nullopt in case constant with given id is not</span>
+<span class="diff-ctx">    * stored.</span>
+<span class="diff-ctx">    */</span>
+<span class="diff-del">-  std::optional&lt;checksum_t&gt; GetChecksumForId(id_t id) const;</span>
+<span class="diff-add">+  std::optional&lt;checksum_t&gt; GetDeviceChecksum(id_t id) const;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  /**</span>
+<span class="diff-add">+   * Dump all constant tensor informations.</span>
+<span class="diff-add">+   */</span>
+<span class="diff-add">+  void DumpConstantInformations();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Removes stored constant section informations.</span>
+<span class="diff-ctx">    */</span>
+<span class="diff-ctx">   void ClearChecksumInformation();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  void InsertRecipeScaleConst(</span>
+<span class="diff-add">+      key_t recipe_key,</span>
+<span class="diff-add">+      float const_value,</span>
+<span class="diff-add">+      size_t input_idx,</span>
+<span class="diff-add">+      id_t const_id);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  void CheckAndAddScaleConstIdForRecipe(</span>
+<span class="diff-add">+      key_t recipe_key,</span>
+<span class="diff-add">+      at::Tensor&amp; pt_tensor,</span>
+<span class="diff-add">+      size_t input_idx,</span>
+<span class="diff-add">+      id_t const_id);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  void CreateCopyConstInfo(id_t from_const_id, id_t to_const_id, key_t recipe_key, at::Tensor&amp; pt_tensor);</span>
+<span class="diff-add">+  id_t GetMatchedConstIdIfScaleConstantExist(key_t recipe_key, id_t const_id, scaleInput_t scale_input);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  scaleInput_t get_scale_input_key(float value, size_t index);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  void add_unused_ptr(id_t from_const_id, at::DataPtr);</span>
+<span class="diff-add">+  // absl::flat_hash_map&lt;key_t, InnerMap&gt; recipe_scale_constant_map_;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">  private:</span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-hunk">@@ -170,7 +212,7 @@</span>
+<span class="diff-ctx">     /**</span>
+<span class="diff-ctx">      * Specific constant checksum.</span>
+<span class="diff-ctx">      */</span>
+<span class="diff-del">-    checksum_t checksum_;</span>
+<span class="diff-add">+    checksum_t device_checksum_;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     /**</span>
+<span class="diff-ctx">      * List of information about const section for different checksums.</span>
+<span class="diff-hunk">@@ -182,6 +224,27 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   absl::flat_hash_map&lt;id_t, checksum_and_const_infos&gt; const_checksum_map_</span>
+<span class="diff-ctx">       ABSL_GUARDED_BY(checksum_map_mtx_);</span>
+<span class="diff-add">+  absl::flat_hash_map&lt;key_t, InnerMap&gt; recipe_scale_constant_map_</span>
+<span class="diff-add">+      ABSL_GUARDED_BY(checksum_map_mtx_);</span>
+<span class="diff-add">+  absl::flat_hash_map&lt;id_t, std::optional&lt;at::DataPtr&gt;&gt; id_unused_data_ptr_</span>
+<span class="diff-add">+      ABSL_GUARDED_BY(checksum_map_mtx_);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  /**</span>
+<span class="diff-add">+   * This is a two level of mapping.</span>
+<span class="diff-add">+   * First level match each recipe id points all the constant inputes of</span>
+<span class="diff-add">+   * the recipe. Constant input is differentiated with value and input index.</span>
+<span class="diff-add">+   * In the second level each constant input points to all the constant id</span>
+<span class="diff-add">+   * received as input for the recipe till now.</span>
+<span class="diff-add">+   */</span>
+<span class="diff-add">+  // std::unordered_map&lt;size_t recipe_key,</span>
+<span class="diff-add">+  //     std::unordered_map&lt;</span>
+<span class="diff-add">+  //         std::tuple&lt;float, size_t&gt;,</span>
+<span class="diff-add">+  //         std::unordered_set&lt;size_t const_id&gt;&gt;&gt;</span>
+<span class="diff-add">+  //     recipe_scale_constant_map_;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  // std::unordered_map&lt;size_t, std::unordered_map&lt;std::tuple&lt;float, size_t&gt;,</span>
+<span class="diff-add">+  // std::unordered_set&lt;size_t&gt;, RecipeConstHash&gt;, common::has_std_hash&lt;size_t&gt;&gt;</span>
+<span class="diff-add">+  // recipe_scale_constant_map_;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   /**</span>
+<span class="diff-ctx">    * Stores data ptr for specific constant id with specific checksum.</span>
+<span class="diff-hunk">@@ -205,4 +268,7 @@</span>
+<span class="diff-ctx">  * served with ConstantInformationPtr.</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-ctx"> ConstantInformation&amp; ConstantInformationValue();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool IsConstantScaleTensor(at::Tensor&amp; tensor);</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> } // namespace habana</span>
+<span class="diff-ctx">\ No newline at end of file</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 10a7ed8..6a4115a 100644</span>
+<h4 class="diff-filename">b/backend/kernel/hpu_habana_launch_op_pt.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -2169,7 +2169,7 @@</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-ctx">     auto tensor = ivalue-&gt;second-&gt;toTensor();</span>
+<span class="diff-ctx">     if (habana::is_tensor_const(tensor)) {</span>
+<span class="diff-del">-      TensorExtraMeta::set_const_tensor(tensor, true);</span>
+<span class="diff-add">+      TensorExtraMeta::prepare_const_tensor(tensor, true);</span>
+<span class="diff-ctx">     }</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx">   PT_BRIDGE_END;</span>
+<span class="diff-hunk">@@ -4626,16 +4626,26 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   if (habana_helpers::IsInferenceMode()) {</span>
+<span class="diff-ctx">     ConstantInformation::checksum_t zero_checksum{0};</span>
+<span class="diff-del">-    for (size_t j = 0; j &lt; pt_stack_sh_.size(); j++) {</span>
+<span class="diff-del">-      auto ivpsh = pt_stack_sh_[j];</span>
+<span class="diff-add">+    for (size_t input_index = 0; input_index &lt; pt_stack_sh_.size();</span>
+<span class="diff-add">+         input_index++) {</span>
+<span class="diff-add">+      auto ivpsh = pt_stack_sh_[input_index];</span>
+<span class="diff-ctx">       if (ivpsh.get()-&gt;isTensor()) {</span>
+<span class="diff-del">-        auto pt_tensor = ivpsh.get()-&gt;toTensor();</span>
+<span class="diff-add">+        auto&amp; pt_tensor = ivpsh.get()-&gt;toTensor();</span>
+<span class="diff-ctx">         if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {</span>
+<span class="diff-ctx">           ConstantInformation::id_t const_id{</span>
+<span class="diff-ctx">               habana::get_tensor_const_id(pt_tensor)};</span>
+<span class="diff-ctx">           auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-del">-          auto info_exists = constant_information.DoesConstInfoExist(</span>
+<span class="diff-add">+          auto is_scale_const = habana::IsConstantScaleTensor(pt_tensor);</span>
+<span class="diff-add">+          if (is_scale_const) {</span>
+<span class="diff-add">+            constant_information.CheckAndAddScaleConstIdForRecipe(</span>
+<span class="diff-add">+                ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()},</span>
+<span class="diff-add">+                pt_tensor,</span>
+<span class="diff-add">+                input_index,</span>
+<span class="diff-add">+                const_id);</span>
+<span class="diff-add">+          }</span>
+<span class="diff-add">+          auto info_exists = constant_information.IsConstInfoExistForRecipe(</span>
+<span class="diff-ctx">               const_id, ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()});</span>
+<span class="diff-add">+          // TODO: Need to handle the Deserializing path. Skipping as of now</span>
+<span class="diff-ctx">           if (!info_exists) {</span>
+<span class="diff-ctx">             uint64_t oldAddress = reinterpret_cast&lt;uint64_t&gt;(</span>
+<span class="diff-ctx">                 pt_tensor.storage().data_ptr().get());</span>
+<span class="diff-hunk">@@ -4645,7 +4655,7 @@</span>
+<span class="diff-ctx">             update_syn_launch_info(oldAddress, newAddress);</span>
+<span class="diff-ctx">           }</span>
+<span class="diff-ctx">           auto checksum_and_recipe_checksum =</span>
+<span class="diff-del">-              constant_information.GetConstCheckSumForRecipe(</span>
+<span class="diff-add">+              constant_information.GetDeviceAndRecipeChecksums(</span>
+<span class="diff-ctx">                   const_id,</span>
+<span class="diff-ctx">                   ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()});</span>
+<span class="diff-ctx">           PT_BRIDGE_DEBUG(</span>
+<span class="diff-hunk">@@ -4654,18 +4664,17 @@</span>
+<span class="diff-ctx">               &quot; const_id: &quot;,</span>
+<span class="diff-ctx">               const_id,</span>
+<span class="diff-ctx">               &quot; checksum on device: &quot;,</span>
+<span class="diff-del">-              checksum_and_recipe_checksum.const_checksum_,</span>
+<span class="diff-add">+              checksum_and_recipe_checksum.device_checksum_,</span>
+<span class="diff-ctx">               &quot; checksum for recipe: &quot;,</span>
+<span class="diff-del">-              checksum_and_recipe_checksum.const_checksum_for_recipe_);</span>
+<span class="diff-add">+              checksum_and_recipe_checksum.recipe_checksum_);</span>
+<span class="diff-ctx">           // If constant checksum for recipe is 0, then there will be no pointer</span>
+<span class="diff-ctx">           // assosciated with the constant info the constant has been folded in</span>
+<span class="diff-ctx">           // the recipe and we can leave how it is on the device</span>
+<span class="diff-del">-          if (checksum_and_recipe_checksum.const_checksum_for_recipe_ ==</span>
+<span class="diff-del">-              zero_checksum) {</span>
+<span class="diff-add">+          if (checksum_and_recipe_checksum.recipe_checksum_ == zero_checksum) {</span>
+<span class="diff-ctx">             continue;</span>
+<span class="diff-ctx">           }</span>
+<span class="diff-del">-          if (checksum_and_recipe_checksum.const_checksum_ !=</span>
+<span class="diff-del">-              checksum_and_recipe_checksum.const_checksum_for_recipe_) {</span>
+<span class="diff-add">+          if (checksum_and_recipe_checksum.device_checksum_ !=</span>
+<span class="diff-add">+              checksum_and_recipe_checksum.recipe_checksum_) {</span>
+<span class="diff-ctx">             uint64_t oldAddress = reinterpret_cast&lt;uint64_t&gt;(</span>
+<span class="diff-ctx">                 pt_tensor.storage().data_ptr().get());</span>
+<span class="diff-ctx">             constant_information.GetConstPtrForRecipe(</span>
+<span class="diff-hunk">@@ -4673,8 +4682,7 @@</span>
+<span class="diff-ctx">                 ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()},</span>
+<span class="diff-ctx">                 pt_tensor);</span>
+<span class="diff-ctx">             constant_information.Insert(</span>
+<span class="diff-del">-                const_id,</span>
+<span class="diff-del">-                checksum_and_recipe_checksum.const_checksum_for_recipe_);</span>
+<span class="diff-add">+                const_id, checksum_and_recipe_checksum.recipe_checksum_);</span>
+<span class="diff-ctx">             uint64_t newAddress = reinterpret_cast&lt;uint64_t&gt;(</span>
+<span class="diff-ctx">                 pt_tensor.storage().data_ptr().get());</span>
+<span class="diff-ctx">             update_syn_launch_info(oldAddress, newAddress);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 03b823a..abbe2cd 100644</span>
+<h4 class="diff-filename">b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -361,7 +361,7 @@</span>
+<span class="diff-ctx">         (char*)data_ptr,</span>
+<span class="diff-ctx">         old_size,</span>
+<span class="diff-ctx">         device_id);</span>
+<span class="diff-del">-  } else if (constant_information.GetChecksumForId(const_id) == checksum) {</span>
+<span class="diff-add">+  } else if (constant_information.GetDeviceChecksum(const_id) == checksum) {</span>
+<span class="diff-ctx">     HandleTensorWithChecksumOnDevice(</span>
+<span class="diff-ctx">         const_id,</span>
+<span class="diff-ctx">         checksum,</span>
+<span class="diff-hunk">@@ -382,12 +382,12 @@</span>
+<span class="diff-ctx">     return;</span>
+<span class="diff-ctx">   }</span>
+<span class="diff-ctx">   auto tmeta{habana::get_tensor_extra_meta(tensor)};</span>
+<span class="diff-del">-  TensorExtraMeta::set_const_tensor(tensor, true);</span>
+<span class="diff-add">+  TensorExtraMeta::prepare_const_tensor(tensor, true);</span>
+<span class="diff-ctx">   auto const_serializer = tmeta-&gt;get_const_section_data_serializer();</span>
+<span class="diff-ctx">   auto file_path =</span>
+<span class="diff-ctx">       const_serializer-&gt;getSerializedRecipeFullPath(tmeta-&gt;get_const_id(), key);</span>
+<span class="diff-ctx">   std::uintmax_t file_size = fs::file_size(file_path);</span>
+<span class="diff-del">-  TensorExtraMeta::set_const_tensor(tensor, false);</span>
+<span class="diff-add">+  TensorExtraMeta::prepare_const_tensor(tensor, false);</span>
+<span class="diff-ctx">   if (file_size == 0) {</span>
+<span class="diff-ctx">     HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});</span>
+<span class="diff-ctx">     return;</span>
+<span class="diff-hunk">@@ -404,7 +404,7 @@</span>
+<span class="diff-ctx">   ConstantInformation::id_t const_id{tmeta-&gt;get_const_id()};</span>
+<span class="diff-ctx">   auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-ctx">   auto checksum_found =</span>
+<span class="diff-del">-      constant_information.DoesCheckSumExist(const_id, checksum);</span>
+<span class="diff-add">+      constant_information.IsCheckSumExistInAnyConstInfo(const_id, checksum);</span>
+<span class="diff-ctx">   HandleChecksum(</span>
+<span class="diff-ctx">       tensor,</span>
+<span class="diff-ctx">       file_size,</span>
+<span class="diff-hunk">@@ -437,7 +437,7 @@</span>
+<span class="diff-ctx">   auto old_size = tmeta-&gt;get_host_size();</span>
+<span class="diff-ctx">   ConstantInformation::id_t const_id{tmeta-&gt;get_const_id()};</span>
+<span class="diff-ctx">   auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-del">-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);</span>
+<span class="diff-add">+  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);</span>
+<span class="diff-ctx">   tmeta-&gt;set_nbytes_inference(old_size);</span>
+<span class="diff-ctx">   ConstantInformation::checksum_t checksum{0};</span>
+<span class="diff-ctx">   constant_information.Insert(const_id, checksum);</span>
+<span class="diff-hunk">@@ -497,7 +497,7 @@</span>
+<span class="diff-ctx">   // or if old_size is same as section_size but checksum is new</span>
+<span class="diff-ctx">   auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-ctx">   ConstantInformation::checksum_t host_checksum{tmeta-&gt;get_host_checksum()};</span>
+<span class="diff-del">-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);</span>
+<span class="diff-add">+  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {</span>
+<span class="diff-ctx">     // Reallocation is required</span>
+<span class="diff-hunk">@@ -589,91 +589,102 @@</span>
+<span class="diff-ctx">       status == synStatus::synSuccess, Logger::synStatusToStr(status));</span>
+<span class="diff-ctx">   auto tensorInfos =</span>
+<span class="diff-ctx">       getRecipeTensorInfos(recipe.syn_recipe_handle_, numOfTensors);</span>
+<span class="diff-del">-  for (auto iter = pt_to_synapse_tensors_.begin();</span>
+<span class="diff-del">-       iter != pt_to_synapse_tensors_.end();</span>
+<span class="diff-del">-       ++iter) {</span>
+<span class="diff-del">-    auto&amp; src = iter-&gt;first-&gt;toTensor();</span>
+<span class="diff-del">-    // PT_BRIDGE_DEBUG(&quot;tensor &quot;, src, &quot; has_storage: &quot;, src.has_storage());</span>
+<span class="diff-del">-    if (src.has_storage()) {</span>
+<span class="diff-del">-      auto tmeta{get_tensor_extra_meta(src)};</span>
+<span class="diff-del">-      for (synapse_helpers::tensor&amp; tensor : *(iter-&gt;second)) {</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+      &quot;Albin pt_to_synapse_tensors_ size:&quot;, pt_to_synapse_tensors_.size())</span>
+<span class="diff-add">+  // auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-add">+  // constant_information.DumpConstantInformations();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  for (size_t input_index = 0; input_index &lt; pt_stack_sh_.size();</span>
+<span class="diff-add">+       input_index++) {</span>
+<span class="diff-add">+    auto&amp; ivpsh = pt_stack_sh_[input_index];</span>
+<span class="diff-add">+    if (ivpsh.get()-&gt;isTensor()) {</span>
+<span class="diff-add">+      auto&amp; src = ivpsh.get()-&gt;toTensor();</span>
+<span class="diff-add">+      if (src.has_storage()) {</span>
+<span class="diff-add">+        auto tmeta{get_tensor_extra_meta(src)};</span>
+<span class="diff-ctx">         if (tmeta-&gt;is_const_tensor()) {</span>
+<span class="diff-del">-          PT_BRIDGE_DEBUG(</span>
+<span class="diff-del">-              &quot;const tensor name:: &quot;,</span>
+<span class="diff-del">-              tensor.name(),</span>
+<span class="diff-del">-              &quot; const id: &quot;,</span>
+<span class="diff-del">-              tmeta-&gt;get_const_id());</span>
+<span class="diff-del">-          // habana_helpers::handle_const_section_tensor(src, tensor);</span>
+<span class="diff-del">-          // remove the const marking to avoid copy more than once</span>
+<span class="diff-del">-          TensorExtraMeta::set_const_tensor(src, false);</span>
+<span class="diff-del">-          uint64_t section_size = 0, section_data = 0;</span>
+<span class="diff-del">-          synSectionId tensorSectionId;</span>
+<span class="diff-del">-          bool isInput;</span>
+<span class="diff-del">-          getTensorSectionId(</span>
+<span class="diff-del">-              tensor.get(),</span>
+<span class="diff-del">-              tensorSectionId,</span>
+<span class="diff-del">-              tensorInfos,</span>
+<span class="diff-del">-              numOfTensors,</span>
+<span class="diff-del">-              isInput);</span>
+<span class="diff-del">-          if (!isInput) {</span>
+<span class="diff-del">-            PT_BRIDGE_DEBUG(&quot;non-input tensor section ID:  &quot;, tensorSectionId);</span>
+<span class="diff-del">-            continue;</span>
+<span class="diff-del">-          }</span>
+<span class="diff-del">-          HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);</span>
+<span class="diff-del">-          synStatus status;</span>
+<span class="diff-del">-          status = synRecipeSectionGetProp(</span>
+<span class="diff-del">-              recipe.syn_recipe_handle_,</span>
+<span class="diff-del">-              tensorSectionId,</span>
+<span class="diff-del">-              SECTION_SIZE,</span>
+<span class="diff-del">-              &amp;section_size);</span>
+<span class="diff-del">-          HABANA_ASSERT(</span>
+<span class="diff-del">-              status == synStatus::synSuccess, Logger::synStatusToStr(status));</span>
+<span class="diff-del">-          PT_BRIDGE_DEBUG(</span>
+<span class="diff-del">-              &quot;section ID: &quot;,</span>
+<span class="diff-del">-              tensorSectionId,</span>
+<span class="diff-del">-              &quot; section_size:: &quot;,</span>
+<span class="diff-del">-              section_size,</span>
+<span class="diff-del">-              &quot; , size (bridge) :: &quot;,</span>
+<span class="diff-del">-              tensor.get_host_ptr_size());</span>
+<span class="diff-del">-          if (section_size) {</span>
+<span class="diff-del">-            auto device_id = tensor.device_id();</span>
+<span class="diff-del">-            HABANA_ASSERT(</span>
+<span class="diff-del">-                status == synStatus::synSuccess,</span>
+<span class="diff-del">-                Logger::synStatusToStr(status));</span>
+<span class="diff-add">+          auto syn_tensor_input = pt_to_synapse_tensors_.find(ivpsh);</span>
+<span class="diff-add">+          for (synapse_helpers::tensor&amp; tensor : *(syn_tensor_input-&gt;second)) {</span>
+<span class="diff-add">+            PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+                &quot;New const tensor name:: &quot;,</span>
+<span class="diff-add">+                tensor.name(),</span>
+<span class="diff-add">+                &quot; const id: &quot;,</span>
+<span class="diff-add">+                tmeta-&gt;get_const_id());</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+            // habana_helpers::handle_const_section_tensor(src, tensor);</span>
+<span class="diff-add">+            // remove the const marking to avoid copy more than once</span>
+<span class="diff-add">+            TensorExtraMeta::prepare_const_tensor(src, false);</span>
+<span class="diff-add">+            uint64_t section_size = 0, section_data = 0;</span>
+<span class="diff-add">+            synSectionId tensorSectionId;</span>
+<span class="diff-add">+            bool isInput;</span>
+<span class="diff-add">+            getTensorSectionId(</span>
+<span class="diff-add">+                tensor.get(),</span>
+<span class="diff-add">+                tensorSectionId,</span>
+<span class="diff-add">+                tensorInfos,</span>
+<span class="diff-add">+                numOfTensors,</span>
+<span class="diff-add">+                isInput);</span>
+<span class="diff-add">+            if (!isInput) {</span>
+<span class="diff-add">+              PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+                  &quot;non-input tensor section ID:  &quot;, tensorSectionId);</span>
+<span class="diff-add">+              continue;</span>
+<span class="diff-add">+            }</span>
+<span class="diff-add">+            HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);</span>
+<span class="diff-add">+            synStatus status;</span>
+<span class="diff-ctx">             status = synRecipeSectionGetProp(</span>
+<span class="diff-ctx">                 recipe.syn_recipe_handle_,</span>
+<span class="diff-ctx">                 tensorSectionId,</span>
+<span class="diff-del">-                SECTION_DATA,</span>
+<span class="diff-del">-                &amp;section_data);</span>
+<span class="diff-del">-            char* section_data_ptr = (char*)section_data;</span>
+<span class="diff-add">+                SECTION_SIZE,</span>
+<span class="diff-add">+                &amp;section_size);</span>
+<span class="diff-ctx">             HABANA_ASSERT(</span>
+<span class="diff-ctx">                 status == synStatus::synSuccess,</span>
+<span class="diff-ctx">                 Logger::synStatusToStr(status));</span>
+<span class="diff-del">-            ConstantInformation::checksum_t checksum{</span>
+<span class="diff-del">-                GetDataChecksum(section_data_ptr, section_size)};</span>
+<span class="diff-del">-            HABANA_ASSERT(</span>
+<span class="diff-del">-                tmeta-&gt;has_valid_const_id(),</span>
+<span class="diff-del">-                &quot;Constant tensor can not have constant id as -1&quot;);</span>
+<span class="diff-del">-            [[maybe_unused]] auto&amp; device =</span>
+<span class="diff-del">-                HPUDeviceContext::get_device(device_id);</span>
+<span class="diff-del">-            status = synHostMap(device_id, section_size, section_data_ptr);</span>
+<span class="diff-del">-            HABANA_ASSERT(</span>
+<span class="diff-del">-                status == synStatus::synSuccess,</span>
+<span class="diff-del">-                Logger::synStatusToStr(status));</span>
+<span class="diff-del">-            ConstantInformation::id_t const_id{tmeta-&gt;get_const_id()};</span>
+<span class="diff-del">-            auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-del">-            auto checksum_found =</span>
+<span class="diff-del">-                constant_information.DoesCheckSumExist(const_id, checksum);</span>
+<span class="diff-ctx">             PT_BRIDGE_DEBUG(</span>
+<span class="diff-del">-                &quot;const_id: &quot;,</span>
+<span class="diff-del">-                const_id,</span>
+<span class="diff-del">-                &quot; checksum_found: &quot;,</span>
+<span class="diff-del">-                checksum_found,</span>
+<span class="diff-del">-                &quot; checksum: &quot;,</span>
+<span class="diff-del">-                checksum);</span>
+<span class="diff-add">+                &quot;section ID: &quot;,</span>
+<span class="diff-add">+                tensorSectionId,</span>
+<span class="diff-add">+                &quot; section_size:: &quot;,</span>
+<span class="diff-add">+                section_size,</span>
+<span class="diff-add">+                &quot; , size (bridge) :: &quot;,</span>
+<span class="diff-add">+                tensor.get_host_ptr_size());</span>
+<span class="diff-add">+            if (section_size) {</span>
+<span class="diff-add">+              auto device_id = tensor.device_id();</span>
+<span class="diff-add">+              HABANA_ASSERT(</span>
+<span class="diff-add">+                  status == synStatus::synSuccess,</span>
+<span class="diff-add">+                  Logger::synStatusToStr(status));</span>
+<span class="diff-add">+              status = synRecipeSectionGetProp(</span>
+<span class="diff-add">+                  recipe.syn_recipe_handle_,</span>
+<span class="diff-add">+                  tensorSectionId,</span>
+<span class="diff-add">+                  SECTION_DATA,</span>
+<span class="diff-add">+                  &amp;section_data);</span>
+<span class="diff-add">+              char* section_data_ptr = (char*)section_data;</span>
+<span class="diff-add">+              HABANA_ASSERT(</span>
+<span class="diff-add">+                  status == synStatus::synSuccess,</span>
+<span class="diff-add">+                  Logger::synStatusToStr(status));</span>
+<span class="diff-add">+              ConstantInformation::checksum_t checksum{</span>
+<span class="diff-add">+                  GetDataChecksum(section_data_ptr, section_size)};</span>
+<span class="diff-add">+              HABANA_ASSERT(</span>
+<span class="diff-add">+                  tmeta-&gt;has_valid_const_id(),</span>
+<span class="diff-add">+                  &quot;Constant tensor can not have constant id as -1&quot;);</span>
+<span class="diff-add">+              [[maybe_unused]] auto&amp; device =</span>
+<span class="diff-add">+                  HPUDeviceContext::get_device(device_id);</span>
+<span class="diff-add">+              status = synHostMap(device_id, section_size, section_data_ptr);</span>
+<span class="diff-add">+              HABANA_ASSERT(</span>
+<span class="diff-add">+                  status == synStatus::synSuccess,</span>
+<span class="diff-add">+                  Logger::synStatusToStr(status));</span>
+<span class="diff-add">+              ConstantInformation::id_t const_id{tmeta-&gt;get_const_id()};</span>
+<span class="diff-add">+              auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-add">+              auto checksum_found =</span>
+<span class="diff-add">+                  constant_information.IsCheckSumExistInAnyConstInfo(</span>
+<span class="diff-add">+                      const_id, checksum);</span>
+<span class="diff-add">+              PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+                  &quot;const_id: &quot;,</span>
+<span class="diff-add">+                  const_id,</span>
+<span class="diff-add">+                  &quot; checksum_found: &quot;,</span>
+<span class="diff-add">+                  checksum_found,</span>
+<span class="diff-add">+                  &quot; checksum: &quot;,</span>
+<span class="diff-add">+                  checksum);</span>
+<span class="diff-ctx">               auto old_size = tensor.get_host_ptr_size();</span>
+<span class="diff-ctx">               HandleChecksum(</span>
+<span class="diff-del">-                  iter-&gt;first-&gt;toTensor(),</span>
+<span class="diff-add">+                  ivpsh.get()-&gt;toTensor(),</span>
+<span class="diff-ctx">                   section_size,</span>
+<span class="diff-ctx">                   checksum_found,</span>
+<span class="diff-ctx">                   checksum,</span>
+<span class="diff-hunk">@@ -682,8 +693,8 @@</span>
+<span class="diff-ctx">                   old_size,</span>
+<span class="diff-ctx">                   device_id);</span>
+<span class="diff-ctx">               UpdateTensorInfoMap(</span>
+<span class="diff-del">-                  iter-&gt;first,</span>
+<span class="diff-del">-                  (void*)(iter-&gt;first-&gt;toTensor().storage().data_ptr().get()));</span>
+<span class="diff-add">+                  ivpsh,</span>
+<span class="diff-add">+                  (void*)(ivpsh.get()-&gt;toTensor().storage().data_ptr().get()));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">               constSectionIds.emplace_back(tensorSectionId);</span>
+<span class="diff-ctx">               SerializeConstSection(</span>
+<span class="diff-hunk">@@ -696,15 +707,28 @@</span>
+<span class="diff-ctx">               HABANA_ASSERT(</span>
+<span class="diff-ctx">                   status == synStatus::synSuccess,</span>
+<span class="diff-ctx">                   Logger::synStatusToStr(status));</span>
+<span class="diff-del">-          } else {</span>
+<span class="diff-del">-            HandleTensorWithZeroSize(</span>
+<span class="diff-del">-                iter-&gt;first-&gt;toTensor(),</span>
+<span class="diff-del">-                ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()});</span>
+<span class="diff-del">-            SerializeConstSection(</span>
+<span class="diff-del">-                src, section_size, nullptr, cur_rargpsh_-&gt;hashCode());</span>
+<span class="diff-del">-            UpdateTensorInfoMap(</span>
+<span class="diff-del">-                iter-&gt;first,</span>
+<span class="diff-del">-                (void*)(iter-&gt;first-&gt;toTensor().storage().data_ptr().get()));</span>
+<span class="diff-add">+            } else {</span>
+<span class="diff-add">+              HandleTensorWithZeroSize(</span>
+<span class="diff-add">+                  ivpsh.get()-&gt;toTensor(),</span>
+<span class="diff-add">+                  ConstantInformation::key_t{cur_rargpsh_-&gt;hashCode()});</span>
+<span class="diff-add">+              SerializeConstSection(</span>
+<span class="diff-add">+                  src, section_size, nullptr, cur_rargpsh_-&gt;hashCode());</span>
+<span class="diff-add">+              UpdateTensorInfoMap(</span>
+<span class="diff-add">+                  ivpsh,</span>
+<span class="diff-add">+                  (void*)(ivpsh.get()-&gt;toTensor().storage().data_ptr().get()));</span>
+<span class="diff-add">+            }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+            // Assuming all the tensors with numel=1 are scale constant tensors.</span>
+<span class="diff-add">+            // TODO: Proper detection scale constant tensor must perform here</span>
+<span class="diff-add">+            if (src.numel() == 1) {</span>
+<span class="diff-add">+              auto&amp; constant_information = ConstantInformationValue();</span>
+<span class="diff-add">+              float const_value = src.item&lt;float&gt;();</span>
+<span class="diff-add">+              constant_information.InsertRecipeScaleConst(</span>
+<span class="diff-add">+                  ConstantInformation::key_t(cur_rargpsh_-&gt;hashCode()),</span>
+<span class="diff-add">+                  const_value,</span>
+<span class="diff-add">+                  input_index,</span>
+<span class="diff-add">+                  ConstantInformation::id_t(tmeta-&gt;get_const_id()));</span>
+<span class="diff-add">+            }</span>
+<span class="diff-ctx">           }</span>
+<span class="diff-ctx">         }</span>
+<span class="diff-ctx">       }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6e13bb6..3bb0fc4 100644</span>
+<h4 class="diff-filename">b/backend/synapse_helpers/mem_handle.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -173,11 +173,15 @@</span>
+<span class="diff-ctx"> void HandlesMap::Erase(mem_handle::id_t id) {</span>
+<span class="diff-ctx">   bucket_type bucket_index = get_bucket_index(id);</span>
+<span class="diff-ctx">   uint64_t handle_index = get_handle_index(id);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin Erase handles_[bucket_index][handle_index].ptr_size_.ptr_:&quot;,</span>
+<span class="diff-add">+  handles_[bucket_index][handle_index].ptr_size_.ptr_,</span>
+<span class="diff-add">+  &quot;, handle_index:&quot;, handle_index, &quot;, index:&quot;, bucket_index, &quot;, size_:&quot;, handles_[bucket_index][handle_index].ptr_size_.size_)</span>
+<span class="diff-ctx">   CheckId(handle_index, bucket_index);</span>
+<span class="diff-ctx">   handles_[bucket_index][handle_index].active_ = false;</span>
+<span class="diff-ctx">   handles_[bucket_index][handle_index].ptr_size_.size_ = 0;</span>
+<span class="diff-ctx">   handles_[bucket_index][handle_index].ptr_size_.ptr_ = nullptr;</span>
+<span class="diff-ctx">   free_handles_[bucket_index].push(handle_index);</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin Erase handles_[bucket_index][handle_index].active_:&quot;, handles_[bucket_index][handle_index].active_)</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void HandlesMap::MarkMemoryFixed(mem_handle::id_t id) {</span>
+<span class="diff-hunk">@@ -188,6 +192,10 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void HandlesMap::CheckId(uint64_t handle_index, bucket_type index) const {</span>
+<span class="diff-add">+  PT_BRIDGE_DEBUG(&quot;Albin CheckId is_valid(handle_index):&quot;, mem_handle::is_valid(handle_index), &quot;, handle_index:&quot;, handle_index,</span>
+<span class="diff-add">+  &quot;, handles_[index].size():&quot;, handles_[index].size(), &quot;, index:&quot;, index, &quot;, handles_[index][handle_index].active_:&quot;, handles_[index][handle_index].active_)</span>
+<span class="diff-add">+  //std::cout&lt;&lt;&quot;Albin handles_[index][handle_index].active_:&quot;&lt;&lt;handles_[index][handle_index].active_&lt;&lt;std::endl;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx">   if (!mem_handle::is_valid(handle_index) ||</span>
+<span class="diff-ctx">       handle_index &gt;= handles_[index].size() ||</span>
+<span class="diff-ctx">       !handles_[index][handle_index].active_) {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index f1bf1e0..b1be082 100644</span>
+<h4 class="diff-filename">b/habana_eager/passes/mark_params_as_const.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -50,7 +50,7 @@</span>
+<span class="diff-ctx">           } else {</span>
+<span class="diff-ctx">             habana::set_tensor_const(tensor, true, set_const_id);</span>
+<span class="diff-ctx">           }</span>
+<span class="diff-del">-          TensorExtraMeta::set_const_tensor(tensor, true);</span>
+<span class="diff-add">+          TensorExtraMeta::prepare_const_tensor(tensor, true);</span>
+<span class="diff-ctx">           changed = true;</span>
+<span class="diff-ctx">         }</span>
+<span class="diff-ctx">       }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index a6bc714..203d28e 100644</span>
+<h4 class="diff-filename">b/habana_lazy/lazy_arg_spec.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -132,7 +132,23 @@</span>
+<span class="diff-ctx">           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));</span>
+<span class="diff-ctx">       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {</span>
+<span class="diff-ctx">         auto const_id = habana::get_tensor_const_id(in_tensor);</span>
+<span class="diff-del">-        mf_hash_code = at::hash_combine(mf_hash_code, const_id);</span>
+<span class="diff-add">+        if (in_tensor.numel() == 1) {</span>
+<span class="diff-add">+          float const_value = in_tensor.item&lt;float&gt;();</span>
+<span class="diff-add">+          auto tmeta{habana::get_tensor_extra_meta(in_tensor)};</span>
+<span class="diff-add">+          PT_BRIDGE_DEBUG(</span>
+<span class="diff-add">+              &quot;Albin Lazy arg spec hash const_value:&quot;,</span>
+<span class="diff-add">+              const_value,</span>
+<span class="diff-add">+              &quot;, const_id:&quot;,</span>
+<span class="diff-add">+              const_id,</span>
+<span class="diff-add">+              &quot;, host pointer size:&quot;,</span>
+<span class="diff-add">+              tmeta-&gt;get_host_size())</span>
+<span class="diff-add">+          auto const_hash = c10::hash&lt;float&gt;()(const_value);</span>
+<span class="diff-add">+          mf_hash_code = at::hash_combine(mf_hash_code, const_hash);</span>
+<span class="diff-add">+          auto const_size_hash = c10::hash&lt;size_t&gt;()(tmeta-&gt;get_host_size());</span>
+<span class="diff-add">+          mf_hash_code = at::hash_combine(mf_hash_code, const_size_hash);</span>
+<span class="diff-add">+        } else {</span>
+<span class="diff-add">+          mf_hash_code = at::hash_combine(mf_hash_code, const_id);</span>
+<span class="diff-add">+        }</span>
+<span class="diff-ctx">       }</span>
+<span class="diff-ctx">       if (in_tensor.has_storage()) {</span>
+<span class="diff-ctx">         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6a2acd7..f636b05 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/core/quantization.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -84,7 +84,7 @@</span>
+<span class="diff-ctx"> _const_id = -1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -&gt; None:</span>
+<span class="diff-add">+def _mark_params_as_const(model=None, only_scales=False, console_prints=True) -&gt; None:</span>
+<span class="diff-ctx">     if model is None:</span>
+<span class="diff-ctx">         return</span>
+<span class="diff-ctx">     for param, param_t in model.state_dict().items():</span>
+<span class="diff-hunk">@@ -101,8 +101,8 @@</span>
+<span class="diff-ctx">                 continue</span>
+<span class="diff-ctx">         global _const_id</span>
+<span class="diff-ctx">         _const_id = _const_id + 1</span>
+<span class="diff-del">-        param_t_meta.is_const_tensor = True</span>
+<span class="diff-ctx">         param_t_meta.const_id = _const_id</span>
+<span class="diff-add">+        param_t_meta.is_const_tensor = True</span>
+<span class="diff-ctx">         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)</span>
+<span class="diff-ctx">         is_const = param_t_meta_copy.is_const_tensor</span>
+<span class="diff-ctx">         id = param_t_meta_copy.const_id</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 735c090..ae2e355 100644</span>
+<h4 class="diff-filename">b/pytorch_helpers/habana_helpers/frontend_utils.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -106,6 +106,11 @@</span>
+<span class="diff-ctx">     c10::hpu::HPUStream hpu_stream) {</span>
+<span class="diff-ctx">   std::atomic&lt;bool&gt; copyDone{false};</span>
+<span class="diff-ctx">   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());</span>
+<span class="diff-add">+  auto tmeta{habana::get_tensor_extra_meta(src)};</span>
+<span class="diff-add">+  if (tmeta-&gt;has_valid_const_id() &amp;&amp; (tmeta-&gt;get_host_ptr() != nullptr)) {</span>
+<span class="diff-add">+    std::memcpy(dst_ptr, tmeta-&gt;get_host_ptr(), size);</span>
+<span class="diff-add">+    return;</span>
+<span class="diff-add">+  }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   habana::HPUDeviceContext::copy_data_to_host(</span>
+<span class="diff-ctx">       reinterpret_cast&lt;synapse_helpers::device_ptr&gt;(src.data_ptr()),</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Albin Joy</strong> <span class="date">(2024-11-04 04:18:15.245000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 04:18:21.300000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13765/ (1/33)</pre></div><div class="message"><strong>Albin Joy</strong> <span class="date">(2024-11-04 04:36:19.688000000)</span><pre>Patch Set 1: Code-Review-1</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.660000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/12989/ (2/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.669000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13106/ (3/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.718000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13092/ (4/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.735000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13121/ (7/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.768000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7030/ (5/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.777000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13055/ (9/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.778000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7249/ (8/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.779000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7145/ (6/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.783000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2678/ (10/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.787000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13105/ (11/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.811000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7437/ (12/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.860000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12750/ (13/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.869000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7291/ (14/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.886000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7151/ (15/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.937000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7136/ (16/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.937000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7184/ (17/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:50.951000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12869/ (18/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.003000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12794/ (19/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.019000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12855/ (20/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.063000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12863/ (21/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.070000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12795/ (22/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.135000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12854/ (23/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.158000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12854/ (24/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.217000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12784/ (25/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.220000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12798/ (26/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.285000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12839/ (27/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.301000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12800/ (28/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.324000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13025/ (29/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.363000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5711/ (30/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.407000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/12954/ (31/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.485000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12775/ (32/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 05:14:51.563000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12863/ (33/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-04 14:00:12.332000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7437/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7820/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7820/ )
+
+Timeout has been exceeded ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7820/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7249/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7561/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7561/ )
+
+Description...Container received warning that it was about to be terminated, then terminated ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7561/ )
+
+Timeout has been exceeded ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7561/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7145/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7402/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7402/ )
+
+Description...Container received warning that it was about to be terminated, then terminated ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7402/ )
+
+Timeout has been exceeded ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7402/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7030/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7284/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7284/ )
+
+Timeout has been exceeded ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7284/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7291/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7291/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7610/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7610/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7610/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2678/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2678/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2719/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2719/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Tests/job/Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2719/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/12954/ : UNSTABLE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/12954/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12854/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/12854/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/21797/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/21797/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/21797/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12854/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/12854/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/25302/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/25302/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/25302/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12863/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/12863/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/33334/ )
+
+Artifactory Connection Error ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/33334/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/33334/ )
+
+Reading remote site timed out ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/33334/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/33334/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12855/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/12855/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25339/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25339/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/25339/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12869/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/12869/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/22999/ )
+
+Test failures ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/22999/ )
+
+Failed return code: 1 during stage  ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_training_tests/job/Tests/job/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/22999/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13765/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/12989/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7151/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7184/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7136/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13121/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13105/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13055/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13106/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13092/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5711/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12784/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/12863/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13025/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12775/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12800/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12839/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12798/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12795/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12794/ : SUCCESS
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12750/ : SUCCESS</pre></div><div class="message"><strong>Albin Joy</strong> <span class="date">(2024-11-07 08:14:30.894000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:14:37.395000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13933/ (1/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.453000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/13010/ (3/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.462000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7308/ (2/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.467000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12940/ (4/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.482000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13027/ (5/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.495000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13013/ (6/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.538000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13019/ (7/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.553000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13299/ (8/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.591000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13255/ (10/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.593000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13244/ (9/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.652000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7593/ (11/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.666000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12931/ (12/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.771000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7302/ (13/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.795000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13113/ (14/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.887000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7343/ (15/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.887000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13013/ (17/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.897000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12954/ (16/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.920000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13277/ (18/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.952000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7188/ (20/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:10.967000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12906/ (19/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.008000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12956/ (21/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.073000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12996/ (22/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.097000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7407/ (23/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.137000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13145/ (25/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.148000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13267/ (24/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.219000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2849/ (26/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.221000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7451/ (27/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.320000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12950/ (29/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.379000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13021/ (28/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.480000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12951/ (32/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.480000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7294/ (33/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.505000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13182/ (31/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:32:11.512000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5874/ (30/33)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-11-07 08:48:28.520000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7308/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_lazy_master_next/7308/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13182/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_distributed_ci_master_next/13182/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12950/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype_master_next/12950/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12951/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_eager_master_next/12951/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5874/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_group_2_master_next/5874/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7451/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_lazy_master_next/7451/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13021/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_promote_compile_master_next/13021/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13145/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/13145/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13267/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_cpp_suite_master_next/13267/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2849/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_lazy_master_next/2849/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7407/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_eager_master_next/7407/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13277/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_cpp_suite_master_next/13277/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12996/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_master_next/12996/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12906/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_dependent_Build_pt_next_u22_master_next/12906/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12956/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_training_suite_master_next/12956/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7188/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_eager_master_next/7188/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13013/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_eager_master_next/13013/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12954/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_sim_promote_compile_master_next/12954/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13113/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_distributed_ci_master_next/13113/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12931/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi3_sim_distributed_master_next/12931/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7343/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_compile_master_next/7343/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13244/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi_asic_topology_functionality_master_next/13244/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7302/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi3_sim_py_suite_compile_master_next/7302/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13255/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_asic_topology_group_1_master_next/13255/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7593/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi2_sim_py_suite_compile_master_next/7593/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13299/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_asic_topology_functionality_master_next/13299/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12940/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi_sim_pt_small_models_test_master_next/12940/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13019/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_multinode_tests_gaudi2_sim_pt_small_models_test_master_next/13019/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/13010/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic_master_next/13010/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13013/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_promote_compile_master_next/13013/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13027/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic_master_next/13027/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7294/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Launchers/job/Launcher_Build_pytorch_modules_u22_Test_pytorch_modules_gaudi_sim_py_suite_eager_master_next/7294/ )
+
+https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13933/ : FAILURE
+
+Precommit hook has detected issues - SW-178822 ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13933/ )
+
+Seg fault failure ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13933/ )
+
+Connection timed out ( https://sw-jenkins-ctrl09.habana-labs.com/job/pytorch_modules/job/Build_pytorch_modules_u22_master_next/13933/ )</pre></div><div class="message"><strong>Albin Joy</strong> <span class="date">(2024-11-07 08:52:13.625000000)</span><pre>Patch Set 2: Code-Review-1</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,63 @@
+From bec06823b49c054fd19379ac3b48616626f077e9 Mon Sep 17 00:00:00 2001
+From: Ruth <rgoutkovitch@habana.ai>
+Date: Sat, 01 Mar 2025 23:16:14 +0200
+Subject: [PATCH] test gated check in - do not merge !!!
+
+Change-Id: Id5020fbd0e92ba6d82c4ac7cc92e8cda8e398898
+Signed-off-by: Ruth <rgoutkovitch@habana.ai>
+---
+
+diff --git a/jobs/vld/hls3_ft1_bmc_tests b/jobs/vld/hls3_ft1_bmc_tests
+index c0bd37d..c78a246 100644
+--- a/jobs/vld/hls3_ft1_bmc_tests
++++ b/jobs/vld/hls3_ft1_bmc_tests
+@@ -104,7 +104,7 @@
+                             string( name: 'TPC_VM_SLEEP_SECS', value: ""),
+                             string( name: 'OWNER', value: "${owner}"),
+                             string( name: 'BACKUP_RESULTS', value: "${backup_results}"),
+-                            string( name: 'AGENT', value: "${params.AGENT}"),
++                            string( name: 'AGENT', value: "${params.AGENT}")ת
+                             string( name: 'JENKINS_BRANCH', value: "${params.JENKINS_BRANCH}"),
+                             string( name: 'UPSTREAM_ARTIFACTS', value: pre_run_json_name),
+                             string( name: 'UPSTREAM_JOB', value: "${env.BUILD_URL}"),
+diff --git a/meta_data/hlsa/duts_mapping.json b/meta_data/hlsa/duts_mapping.json
+index 1752870..a1de68e 100644
+--- a/meta_data/hlsa/duts_mapping.json
++++ b/meta_data/hlsa/duts_mapping.json
+@@ -1,6 +1,6 @@
+ {
+   "gaudi2": {
+-    "name": "gaudi2",
++    "name": "gaudi2,
+     "dut": "hl225",
+     "num_of_usb_per_dut" : 1
+   },
+diff --git a/scripts/external/kvm_manage_device.sh b/scripts/external/kvm_manage_device.sh
+index a3f95cb..a4d8c18 100644
+--- a/scripts/external/kvm_manage_device.sh
++++ b/scripts/external/kvm_manage_device.sh
+@@ -1,5 +1,10 @@
+ #!/bin/bash
+ 
++echo "Starting script..."
++if [ "$VAR" = "test" ]  
++    echo "VAR is set to test"
++fi
++
+ vm_list=$(sudo virsh list | grep -v "Name" | awk -F ' ' '{printf $2"\n"}')
+ 
+ # Validate Parameters
+diff --git a/test.yml b/test.yml
+new file mode 100644
+index 0000000..8405ffd
+--- /dev/null
++++ b/test.yml
+@@ -0,0 +1,8 @@
++gaudi2:
++  name: "gaudi2   
++  dut hl225       
++  num_of_usb_per_dut: "1
++
++greco:
++  - name: greco
++  - dut: hl110

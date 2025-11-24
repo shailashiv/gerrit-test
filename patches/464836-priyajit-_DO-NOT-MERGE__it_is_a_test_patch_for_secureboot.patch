@@ -1,0 +1,196 @@
+From c84e176531af8b26b707492377572ab331717bd6 Mon Sep 17 00:00:00 2001
+From: Priyajit Ghosh <prghosh@habana.ai>
+Date: Wed, 04 Dec 2024 06:46:36 +0200
+Subject: [PATCH] [DO-NOT-MERGE] it is a test patch for secureboot
+
+this patch will be use for secure boot time cal.
+this time should be less than 100 ms for successfull
+pci linkup.
+
+Change-Id: I3fd043800476b8165da6616fe63204dc3603ef94
+Signed-off-by: Priyajit Ghosh <prghosh@habana.ai>
+---
+
+diff --git a/app/boot_rom.c b/app/boot_rom.c
+index 37632bf..2f21326 100644
+--- a/app/boot_rom.c
++++ b/app/boot_rom.c
+@@ -9,7 +9,9 @@
+ #include <boot_flow.h>
+ #include <recovery.h>
+ #include <common.h>
+-
++#include <global_conf_regs.h>
++#include <fs1_reg_map.h>
++#include <fs1_blocks_linux_driver.h>
+ const int fs1_die_type = DIE_TYPE;
+ 
+ struct boot_rom_global_s __attribute__((section (".rom_persistent_section")))boot_rom_global = {
+@@ -34,6 +36,8 @@
+ 
+ int boot_rom_main(void)
+ {
++	uint64_t time_st;
++	
+ 	boot_rom_init();
+ 
+ 	boot_rom_fuse();
+@@ -75,7 +79,11 @@
+ 	if (boot_rom_boot_flow_is_secondary_manifest_valid())
+ 		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT);
+ 
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_14));
+ 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_PRIMARY)) {
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_15));
+ 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_PRIMARY);
+ 		boot_rom_halt();
+ 	}
+@@ -84,8 +92,11 @@
+ 
+ 	/* If the control reaches here start prefetch of recovery image */
+ 	boot_rom_boot_flow_prefetch_img(HL_FW_IMG_RECOVERY);
+-
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_16));
+ 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_SECONDARY)) {
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_17));
+ 		boot_rom_boot_flow_boot_ppboot_sub(BOOT_ROM_SECONDARY);
+ 		boot_rom_halt();
+ 	}
+diff --git a/common/boot_flow.c b/common/boot_flow.c
+index c441acd..d29123d 100644
+--- a/common/boot_flow.c
++++ b/common/boot_flow.c
+@@ -16,6 +16,9 @@
+ #include <dev_boot_info.h>
+ #include <dev_security.h>
+ #include <secure_boot.h>
++#include <global_conf_regs.h>
++#include <fs1_reg_map.h>
++#include <fs1_blocks_linux_driver.h>
+ 
+ /* These fields will be added to proper structure later */
+ static enum hl_fw_manifest_type primary_manifest_idx = HL_FW_SPI_MANIFEST_0;
+@@ -60,6 +63,8 @@
+ 
+ uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type)
+ {
++	uint64_t time_st;
++
+ 	struct boot_desc desc = {0};
+ 	/* TODO: Image status base is complicated. Handle based on img_type */
+ 	enum boot_rom_progress img_sts_base = PROGRESS_BRINGUP_PCI_PRI;
+@@ -86,7 +91,11 @@
+ 	curr_manifest_idx = primary_manifest_idx;
+ 
+ 	if (!primary_ppboot_prefetch_started && !primary_ppboot_prefetch_failed) {
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_10));
+ 		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_11));
+ 		if (!ret) {
+ 			primary_ppboot_prefetch_started = true;
+ 			return BOOT_ROM_SUCCESS;
+@@ -99,7 +108,11 @@
+ 
+ 	if (!secondary_ppboot_prefetch_started && !secondary_ppboot_prefetch_failed) {
+ 		curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_12));
+ 		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_13));
+ 		if (!ret) {
+ 			secondary_ppboot_prefetch_started = true;
+ 			return BOOT_ROM_SUCCESS;
+@@ -178,13 +191,19 @@
+ void boot_rom_boot_flow_validate_manifests(void)
+ {
+ 	enum hl_fw_manifest_type curr_manifest_idx = HL_FW_SPI_MANIFEST_0;
++	uint64_t time_st;
+ 
+ 	if (!!boot_rom_global.fw_upd_switch_manifest)
+ 		curr_manifest_idx = HL_FW_SPI_MANIFEST_1;
+ 
+ 	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
++
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_6));
+ 		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)
+ 			primary_manifest_valid = true;
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_7));
+ 	}
+ 
+ 	if (!boot_rom_second_image_enabled())
+@@ -192,8 +211,13 @@
+ 
+ 	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+ 	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
++
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_8));
+ 		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)
+ 			secondary_manifest_valid = true;
++		time_st = boot_rom_get_ts_us();
++		regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_9));
+ 	}
+ }
+ 
+diff --git a/common/common.c b/common/common.c
+index b525a8f..21f0bed 100644
+--- a/common/common.c
++++ b/common/common.c
+@@ -19,6 +19,9 @@
+ #include <dev_security.h>
+ #include <boot_desc.h>
+ #include <boot_flow.h>
++#include <global_conf_regs.h>
++#include <fs1_reg_map.h>
++#include <fs1_blocks_linux_driver.h>
+ 
+ extern uint32_t fake_fuse_offset_array[MAX_DIE_COUNT];
+ 
+@@ -42,6 +45,8 @@
+ 
+ void boot_rom_init(void)
+ {
++	uint64_t time_st;
++
+ 	/* TODO: Change Die ID register as per SOL */
+ 	uint8_t die_id = boot_rom_get_die_id();
+ 
+@@ -70,7 +75,7 @@
+ 	if (!boot_rom_in_master_die())
+ 		return;
+ 
+-	boot_rom_iccm_init();
++	//boot_rom_iccm_init();
+ 
+ 	spi_flash_init();
+ 
+@@ -83,11 +88,20 @@
+ 	}
+ 
+ 	if (!boot_rom_global.validation_pass) {
++		
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_3));
+ 		if (boot_desc_init(HL_FW_SPI_MANIFEST_0) != BOOT_ROM_SUCCESS)
+ 			boot_rom_status_update(PROGRESS_INIT_SPI_MANIFEST_0_FAIL);
++	
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_4));
+ 
+ 		if (boot_desc_init(HL_FW_SPI_MANIFEST_1) != BOOT_ROM_SUCCESS)
+ 			boot_rom_status_update(PROGRESS_INIT_SPI_MANIFEST_1_FAIL);
++
++	time_st = boot_rom_get_ts_us();
++	regmap_writel(time_st, IO0_H0_PSOC_GLOBAL_CONF(mmGLOBAL_CONF_SCRATCHPAD_5));
+ 	}
+ 
+ 	boot_rom_tpm_next_pcr_index_init();

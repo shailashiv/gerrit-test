@@ -1,0 +1,65 @@
+From caa40a960c572a40380ea7961766799ee5e567e3 Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Sun, 17 Nov 2024 13:33:16 +0200
+Subject: [PATCH] [SW-209188] dockerfiles: rhel8.6 - move to python3.10
+
+Change-Id: Iafef292d2fcd77b1801db0d5812bd0795179498a
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/dockerfiles/base/Dockerfile.rhel8.6 b/dockerfiles/base/Dockerfile.rhel8.6
+index 0a625c5..3f09f28 100644
+--- a/dockerfiles/base/Dockerfile.rhel8.6
++++ b/dockerfiles/base/Dockerfile.rhel8.6
+@@ -59,6 +59,10 @@
+     dnf clean all && rm -rf /var/cache/yum && \
+     rm -f /etc/ssh/ssh_host_*_key*
+ 
++COPY install-python310.sh .
++RUN ./install-python310.sh rhel8.6 && rm install-python310.sh
++ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
++
+ # CVE-2023-47038 RHSA-2024:3128
+ RUN dnf module reset perl -y && \
+     dnf module enable perl:5.32 -y  && \
+diff --git a/dockerfiles/base/install-python310.sh b/dockerfiles/base/install-python310.sh
+index f59e101..281e996 100755
+--- a/dockerfiles/base/install-python310.sh
++++ b/dockerfiles/base/install-python310.sh
+@@ -60,6 +60,12 @@
+ 
+ # post install
+ case "${_BASE_NAME}" in
++    *rhel8*)
++        alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 2 && \
++        alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1 && \
++        alternatives --set python3 /usr/local/bin/python3.10
++        export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
++    ;;
+     *rhel9*)
+         alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 2 && \
+         alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 && \
+diff --git a/tests/common/hl-common.sh b/tests/common/hl-common.sh
+index 9ecb741..ebf88fc 100755
+--- a/tests/common/hl-common.sh
++++ b/tests/common/hl-common.sh
+@@ -17,15 +17,12 @@
+         __DEFAULT_HL_PIP_CMD="pip3.8"
+     ;;
+     rhel)
+-        if [ "$HL_OS_VER" == "8.6" ]; then
+-            __DEFAULT_HL_PYTHON_CMD="python3.8"
+-            __DEFAULT_HL_PIP_CMD="pip3.8"
+-        elif [ "$HL_OS_VER" == "9.2" ]; then
+-            __DEFAULT_HL_PYTHON_CMD="python3.10"
+-            __DEFAULT_HL_PIP_CMD="pip3.10"
+-        elif [ "$HL_OS_VER" == "9.4" ]; then
++        if [ "$HL_OS_VER" == "9.4" ]; then
+             __DEFAULT_HL_PYTHON_CMD="python3.11"
+             __DEFAULT_HL_PIP_CMD="pip3.11"
++        else
++            __DEFAULT_HL_PYTHON_CMD="python3.10"
++            __DEFAULT_HL_PIP_CMD="pip3.10"
+         fi
+     ;;
+     tencentos)

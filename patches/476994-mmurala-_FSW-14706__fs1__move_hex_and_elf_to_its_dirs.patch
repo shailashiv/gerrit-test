@@ -1,0 +1,63 @@
+From c8f0a71fa1e10bf1aeb13a65a9400c3ce0954ee0 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Tue, 08 Apr 2025 11:28:19 +0300
+Subject: [PATCH] [FSW-14706] fs1: move hex and elf to its dirs
+
+With this patch made correction to move palad
+bloader to hex folder and zephyr_reset elf to
+elf folder. Provided proper naming to preboot
+iccm hex files. Cleaned unused hex files which
+are generated during iccm rom to hex conversion.
+
+Change-Id: I12df92eed1420bf55234de4176127e1f0157d403
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index 4d2cab1..19b3ece 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -405,24 +405,27 @@
+ 
+ 		# convert compute die bootrom to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_compute_bootrom_hex.sh ${ARCBOOT_COMP_BINFILE} fs1-${HL_TARGET}-bootrom_comp
+-		mv boot_rom_comp_*.hex ${HEXS_DIR}
++		rm -f boot_rom_comp_*.hex
+ 		mv fs1-${HL_TARGET}-bootrom_comp_*_ecc.hex ${HEXS_DIR}
+ 
+ 		# convert io die bootloader to pallad hex image
+ 		${SCRIPTS_DIR}/palad/convert_app_to_io_bootrom_hex.sh ${BOOTLOADER_BINFILE}
++		mv palad_bloader_rom_ecc.hex ${HEXS_DIR}
+ 
+ 		# convert compute die bootloader to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_compute_bootrom_hex.sh ${COMP_BOOTLOADER_BINFILE} fs1-${HL_TARGET}-bloader_comp
++		rm -f palad_bloader_comp_*.hex
+ 		mv fs1-${HL_TARGET}-bloader*.hex ${HEXS_DIR}
+ 
+ 		# convert preboot application to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_ccm_hex.sh preboot.bin
+-		mv iccm0_*.hex ${HEXS_DIR}
++		mv iccm0_0.hex ${HEXS_DIR}/preboot_iccm0_0.hex
++		mv iccm0_1.hex ${HEXS_DIR}/preboot_iccm0_1.hex
+ 
+ 		# convert preboot comp application to palad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_ccm_hex.sh preboot_compute.bin
+-		mv iccm0_0.hex ${HEXS_DIR}/comp_iccm0_0.hex
+-		mv iccm0_1.hex ${HEXS_DIR}/comp_iccm0_1.hex
++		mv iccm0_0.hex ${HEXS_DIR}/preboot_comp_iccm0_0.hex
++		mv iccm0_1.hex ${HEXS_DIR}/preboot_comp_iccm0_1.hex
+ 	fi
+ 
+ 	if [ -f "${KEY_BASE}/spi-flash-layout-validator.sh" ]; then
+diff --git a/package/reset_compute/reset_compute.mk b/package/reset_compute/reset_compute.mk
+index bfc553b..d7145ad 100644
+--- a/package/reset_compute/reset_compute.mk
++++ b/package/reset_compute/reset_compute.mk
+@@ -88,7 +88,7 @@
+ endef
+ 
+ define RESET_COMPUTE_INSTALL_TARGET_CMDS
+-	$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(BINARIES_DIR)/zephyr_$(RESET_COMPUTE_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(RESET_COMPUTE_APP_NAME).elf
+ endef
+ 
+ reset_compute-configure: $(RESET_COMPUTE_DEPENDENCIES)

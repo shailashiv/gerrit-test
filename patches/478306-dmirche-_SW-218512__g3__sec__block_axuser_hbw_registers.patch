@@ -1,0 +1,36 @@
+From 3661acdec219705d62a4369439d8b94798f9102b Mon Sep 17 00:00:00 2001
+From: Dinesh Kumar Mirche <dmirche@habana.ai>
+Date: Fri, 25 Apr 2025 12:18:34 +0300
+Subject: [PATCH] [SW-218512] g3: sec: block axuser hbw registers
+
+This patch blocks all the axuser hbw registers of
+PARC_MSTR_IF except HB_MMU_BYPASS registers. These
+registers should not be open as this is a security
+threat.
+
+Change-Id: Ib52892ac3da4a3b14d49bd7a2fb760aafac9117e
+Signed-off-by: Dinesh Kumar Mirche <dmirche@habana.ai>
+---
+
+diff --git a/drivers/misc/hl_security/gaudi3/gaudi3_protbits_configs.h b/drivers/misc/hl_security/gaudi3/gaudi3_protbits_configs.h
+index 6f2ce3b..3455e82 100644
+--- a/drivers/misc/hl_security/gaudi3/gaudi3_protbits_configs.h
++++ b/drivers/misc/hl_security/gaudi3/gaudi3_protbits_configs.h
+@@ -89,7 +89,7 @@
+ 0x404000 }
+ 
+ #define GAUDI3_PROTBITS_DATA392 { \
+-	0xff000000, 0x7ff7 }
++	0x1000000 }
+ 
+ #define GAUDI3_PROTBITS_DATA396 { \
+ 0x1fff }
+@@ -558,7 +558,7 @@
+ 	}, \
+ 	{{ HL_BLOCK_TYPE_PSOC, 0xfc4d1000, 2, 0, 0, 0x800000, 0x0, 0x0 }, \
+ 	  .prot_map = 0x80000000, \
+-	  .data_map = 0xc00, \
++	  .data_map = 0x400, \
+ 	  .data = gaudi3_protbits_data392, \
+ 	  .data_size = ARRAY_SIZE(gaudi3_protbits_data392), \
+ 	}, \

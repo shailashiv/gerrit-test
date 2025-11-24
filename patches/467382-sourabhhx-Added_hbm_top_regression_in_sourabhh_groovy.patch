@@ -1,0 +1,46 @@
+From 94a7dc57d4e60aa3e3319624c3b0990d81bbeaaf Mon Sep 17 00:00:00 2001
+From: sourabhhx <sourabhhx@habana.ai>
+Date: Tue, 24 Dec 2024 08:12:33 +0200
+Subject: [PATCH] Added hbm top regression in sourabhh groovy
+
+Change-Id: Id65e51918b1062c9a2528ebf339ff39a9246f59d
+---
+
+diff --git a/h15a/h15a_job_params_sourabhh.groovy b/h15a/h15a_job_params_sourabhh.groovy
+index 62d982a..f209d16 100644
+--- a/h15a/h15a_job_params_sourabhh.groovy
++++ b/h15a/h15a_job_params_sourabhh.groovy
+@@ -11,7 +11,7 @@
+                 'ADDITIONAL_RUN_PARAMS': '-args_defs "USE_COMPUTE_LBW_MESH_AGENT+RAL_IS_INCLUDED" -cl -rmem_256g -af_rmem_64g -stub_defs "COMPUTE_DIE_ENV+HL_MASK_STUB_ERR+XBUF_DISABLE+MCP_BUF_DISABLE+HL_H15A_PLL_DROOP_MACRO_IS_STUB+HL_X2A_BRIDGE_TOP_IS_STUB+GT_STUB+HL_DFX_STUB+HL_EDMA_IS_STUB+HL_PDMA_IS_STUB+HL_MC_2CH_IS_STUB+HL_H15A_PSOC_TOP_IS_STUB+HL_I2A_BRIDGE_WRAPPER_IS_STUB" --rf "+WATCHDOG_TIME=70000" -lte 24',
+                 'MAILING_LIST': 'sourabhhx@habana.ai mtsechanski@habana.ai enaim@habana.ai',
+                 'CSV_FILE': 'fullchip_verif/compute_die_random_lbw_verif/tb/tests/compute_die_random_lbw_regression.csv',
+-                'BUILD_PERIODICALLY': '',
++                'BUILD_PERIODICALLY': 'H H(0-23) * * 6',
+                 'RERUN_FAILED': false,
+                 'RERUN_FAILED_PARAMS': ' -lte 4',
+                 'ADDITIONAL_COVERAGE_PARAMS': '',
+@@ -36,6 +36,24 @@
+                 'RUN_ON_REPO_UPDATE': false
+             ]
+         ]
++        'h15a_hbm_top_seqr_regression': [
++            'jobDescription': 'Regression environment for HBM_TOP_SEQR',
++            'jenkinsView': 'VLSI-H15A',
++            'jobParameters': [
++                'PROJECT_NAME': 'h15A',
++                'BRANCH_NAME': 'h15a_hbm',
++                'BLOCK_NAME': 'hbm_top',
++                'PATH_NAME': 'hbm_verif',
++                'ADDITIONAL_RUN_PARAMS': '-args_defs " HBM_16_CH" -lte 5 -rmem_16g --rf "+DISABLE_HBM_DEVICE_REPORTING +FORCE_TIMEOUT=200000"',
++                'MAILING_LIST': 'sourabhhx@habana.ai',
++                'CSV_FILE': 'hbm_verif/hbm_top_verif/tb/tests/hbm_top_sourabhh_regression.csv',
++                'BUILD_PERIODICALLY': 'H H(0-23) * * 6',
++                'RERUN_FAILED': true,
++                'RERUN_FAILED_PARAMS': '-lte 10 -verdi -v UVM_MEDIUM ',
++                'ADDITIONAL_COVERAGE_PARAMS': '',
++                'RUN_ON_REPO_UPDATE': false
++            ]
++        ],
+     ]
+ 
+     return jobsConfig

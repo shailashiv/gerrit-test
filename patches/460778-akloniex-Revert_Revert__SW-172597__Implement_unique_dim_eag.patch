@@ -1,0 +1,800 @@
+From 00472db3643c3ba2a0fd487062b7970f180d7558 Mon Sep 17 00:00:00 2001
+From: Artur Kloniecki <aklonieckix@habana.ai>
+Date: Tue, 05 Nov 2024 10:21:21 +0200
+Subject: [PATCH] Revert Revert [SW-172597] Implement unique_dim eager
+
+unique_dim eager implementation is functional. The cause of the
+revert was a dynamic shape single op test fail. This fail was caused by
+a timeout of the test. The issue was reproduced locally. The test
+execution time can be longer with certain argument combinations when
+testing dynamic shapes. A PR was created:
+https://gerrit.habana-labs.com/#/c/409376/
+to adjust the test's input and shorten the execution time.
+
+*The following was left unchanged from the initial commit*
+The implementation is based on _unique eager and _unique2 eager
+
+unique_dim is a non-inferable op. This means, that the output shape is not
+known until the kernel is executed. This requires for some operations
+(such as slicing and flipping) to be moved to frontend, as there is a
+kernel execution present there. This kernel execution in frontend
+produces an output tensor which is "back-padded" with zeros. In order
+to aqcuire the tensor of the correct shape - which can be passed further
+to backend - the zeros need to be sliced from the output tensor.
+
+There is no torch::unique_dim() method available in python. However,
+pytorch provides a universal torch.unique() method. This method is able
+to delegate the call further down to _VF::unique_dim(), based on the
+value of the provided 'dim' argument.
+Moreover, torch::unique() method does not allow for empty input tensors.
+To test an empty tensor input, a C++ test has been added, which is able
+to call torch::unique_dim() directly.
+
+Change-Id: Ib9f317f63b7a416ac1955c3ed5b4b707c1a12ac7
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0616f74..6174f27 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -292,7 +292,6 @@
+   hpu_ops/lazy/index_select_gen.cpp
+   hpu_ops/lazy/maxpool_gen.cpp
+   hpu_ops/lazy/pow_gen.cpp
+-  hpu_ops/lazy/unique_gen.cpp
+   hpu_ops/lazy/upsample_gen.cpp
+   hpu_ops/lazy/xlogy_gen.cpp
+   ${habana_pytorch2_plugin_glob_files}
+diff --git a/habana_eager/CMakeLists.txt b/habana_eager/CMakeLists.txt
+index c465596..e8de083 100644
+--- a/habana_eager/CMakeLists.txt
++++ b/habana_eager/CMakeLists.txt
+@@ -41,6 +41,7 @@
+           ops/nonzero.cpp
+           ops/unique.cpp
+           ops/unique2.cpp
++          ops/unique_dim.cpp
+           ops/set.cpp
+           ops/view.cpp
+           ops/pin_memory.cpp
+diff --git a/habana_eager/kernels_impl.cpp b/habana_eager/kernels_impl.cpp
+index b851644..b554bf8 100644
+--- a/habana_eager/kernels_impl.cpp
++++ b/habana_eager/kernels_impl.cpp
+@@ -27,6 +27,7 @@
+ #include "habana_eager/ops/set.h"
+ #include "habana_eager/ops/unique.h"
+ #include "habana_eager/ops/unique2.h"
++#include "habana_eager/ops/unique_dim.h"
+ #include "habana_eager/ops/view.h"
+ #include "habana_helpers/logging.h"
+ #include "habana_kernels/wrap_kernels_declarations.h"
+@@ -291,6 +292,16 @@
+   return habana::eager::nonzero_out_eager(self, out);
+ }
+ 
++std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
++    const at::Tensor& self,
++    int64_t dim,
++    bool sorted,
++    bool return_inverse,
++    bool return_counts) {
++  return habana::eager::unique_dim_eager(
++      self, dim, sorted, return_inverse, return_counts);
++}
++
+ at::Tensor hpu_wrap::masked_select(
+     const at::Tensor& self,
+     const at::Tensor& mask) {
+diff --git a/habana_eager/ops/unique_dim.cpp b/habana_eager/ops/unique_dim.cpp
+new file mode 100644
+index 0000000..54258fa
+--- /dev/null
++++ b/habana_eager/ops/unique_dim.cpp
+@@ -0,0 +1,113 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++#include "hpu_ops/unique_dim.h"
++#include "habana_eager/ops/eager_op.h"
++#include "habana_eager/ops/view.h"
++
++namespace habana {
++namespace eager {
++
++std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
++    const at::Tensor& self,
++    int64_t dim,
++    bool sorted,
++    bool return_inverse,
++    bool return_counts) {
++  dim = at::maybe_wrap_dim(dim, self.dim());
++  int elements = self.numel();
++  at::Tensor inverse_tensor;
++  at::Tensor counts_tensor;
++  at::Tensor result;
++  auto inputShape = self.sizes().vec();
++  auto output_shape = self.sizes().vec();
++
++  if (elements == 0) {
++    auto feature_map =
++        at::empty(output_shape, self.options(), self.suggest_memory_format());
++    inverse_tensor = at::empty(
++        at::Tensor{}.sizes().vec(),
++        self.options().dtype(c10::ScalarType::Long),
++        self.suggest_memory_format());
++    counts_tensor = at::empty(
++        at::Tensor{}.sizes().vec(),
++        self.options().dtype(c10::ScalarType::Long),
++        self.suggest_memory_format());
++    return std::make_tuple(feature_map, inverse_tensor, counts_tensor);
++  }
++  auto param_shape = std::vector<int64_t>{output_shape.at(dim)};
++  std::vector<int64_t> valid_count_shape{1};
++
++  auto dim_in = self.dim() - 1 - dim;
++  if (return_inverse && return_counts) {
++    auto hpu_op = habana::eager::EagerOp<
++        std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
++        "hpu::unique_dim_eager",
++        {self, dim_in, sorted, return_inverse, return_counts},
++        {output_shape, valid_count_shape, param_shape, param_shape},
++        0};
++
++    hpu_op.SetOutputMetaFn(UniqueDimMeta);
++    auto result_unique = hpu_op.call();
++    auto feature_map = std::get<0>(result_unique);
++    auto valid_count = std::get<1>(result_unique);
++    auto end = valid_count.item<int64_t>();
++    result = at::slice(feature_map, dim, 0, end, 1);
++
++    inverse_tensor = std::get<2>(result_unique);
++
++    counts_tensor = std::get<3>(result_unique);
++    counts_tensor = at::slice(counts_tensor, 0, 0, end, 1);
++  } else if (return_inverse != return_counts) {
++    auto hpu_op =
++        habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>>{
++            "hpu::unique_dim_eager",
++            {self, dim_in, sorted, return_inverse, return_counts},
++            {output_shape, valid_count_shape, param_shape},
++            0};
++
++    hpu_op.SetOutputMetaFn(UniqueDimMeta);
++    auto result_unique = hpu_op.call();
++    auto feature_map = std::get<0>(result_unique);
++    auto valid_count = std::get<1>(result_unique);
++    auto end = valid_count.item<int64_t>();
++    result = at::slice(feature_map, dim, 0, end, 1);
++
++    if (return_inverse) {
++      inverse_tensor = std::get<2>(result_unique);
++    } else if (return_counts) {
++      counts_tensor = std::get<2>(result_unique);
++      counts_tensor = at::slice(counts_tensor, 0, 0, end, 1);
++    }
++  } else {
++    auto hpu_op = habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>>{
++        "hpu::unique_dim_eager",
++        {self, dim_in, sorted, return_inverse, return_counts},
++        {output_shape, valid_count_shape},
++        0};
++
++    hpu_op.SetOutputMetaFn(UniqueDimMeta);
++    auto result_unique = hpu_op.call();
++    auto feature_map = std::get<0>(result_unique);
++    auto valid_count = std::get<1>(result_unique);
++    auto end = valid_count.item<int64_t>();
++    result = at::slice(feature_map, dim, 0, end, 1);
++  }
++  return std::make_tuple(result, inverse_tensor, counts_tensor);
++}
++
++TORCH_LIBRARY_FRAGMENT(hpu, m) {
++  m.def(
++      "unique_dim_eager(Tensor self, int dim, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor, Tensor)");
++}
++} // namespace eager
++} // namespace habana
+diff --git a/habana_eager/ops/unique_dim.h b/habana_eager/ops/unique_dim.h
+new file mode 100644
+index 0000000..276a214
+--- /dev/null
++++ b/habana_eager/ops/unique_dim.h
+@@ -0,0 +1,25 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#pragma once
++
++namespace habana {
++namespace eager {
++std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
++    const at::Tensor& self,
++    int64_t dim,
++    bool sorted,
++    bool return_inverse,
++    bool return_counts);
++} // namespace eager
++} // namespace habana
+diff --git a/habana_eager/unused_link_symbols.cpp b/habana_eager/unused_link_symbols.cpp
+index 59b0724..db00d25 100644
+--- a/habana_eager/unused_link_symbols.cpp
++++ b/habana_eager/unused_link_symbols.cpp
+@@ -161,6 +161,15 @@
+   EAGER_NOT_SUPPORTED;
+ }
+ 
++std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_hpu_lazy(
++    const at::Tensor&,
++    int64_t,
++    bool,
++    bool,
++    bool) {
++  EAGER_NOT_SUPPORTED;
++}
++
+ at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
+   EAGER_NOT_SUPPORTED;
+ }
+diff --git a/habana_kernels/kernels_register.cpp b/habana_kernels/kernels_register.cpp
+index 788a7ec..e306bb1 100644
+--- a/habana_kernels/kernels_register.cpp
++++ b/habana_kernels/kernels_register.cpp
+@@ -371,6 +371,15 @@
+   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
+ }
+ 
++std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
++    const at::Tensor& self,
++    int64_t dim,
++    bool sorted,
++    bool return_inverse,
++    bool return_counts) {
++  return unique_dim_hpu_lazy(self, dim, sorted, return_inverse, return_counts);
++}
++
+ Tensor& hpu_wrap::index_add_out(
+     const Tensor& self,
+     int64_t dim,
+diff --git a/hpu_ops/CMakeLists.txt b/hpu_ops/CMakeLists.txt
+index 5592ee6..99da2e2 100644
+--- a/hpu_ops/CMakeLists.txt
++++ b/hpu_ops/CMakeLists.txt
+@@ -318,6 +318,7 @@
+   backend/trace_gen.cpp
+   backend/triangular_gen.cpp
+   backend/unique2_gen.cpp
++  backend/unique_dim_gen.cpp
+   backend/unique_gen.cpp
+   backend/upsample_gen.cpp
+   backend/upsample_ops.cpp
+@@ -401,9 +402,8 @@
+           lazy/optimizer_lamb_gen.cpp
+           lazy/pow_gen.cpp
+           lazy/random_gen.cpp
+-          lazy/topk_gen.cpp
+-          lazy/unique_gen.cpp
+           lazy/upsample_gen.cpp
++          lazy/topk_gen.cpp
+           lazy/xlogy_gen.cpp
+           op_logger.cpp
+           op_validator.cpp
+diff --git a/hpu_ops/backend/unique_dim_gen.cpp b/hpu_ops/backend/unique_dim_gen.cpp
+new file mode 100644
+index 0000000..be2ff19
+--- /dev/null
++++ b/hpu_ops/backend/unique_dim_gen.cpp
+@@ -0,0 +1,89 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++#include "hpu_ops/unique_dim.h"
++
++namespace habana {
++
++UniqueDimEager::UniqueDimEager(int device_id, c10::ScalarType scalar_type)
++    : OpBackend(device_id, {}, scalar_type, {0, 0, 0, 0}, {}, {}, false) {
++  SetOutputMetaFn(UniqueDimMeta);
++}
++
++std::vector<synapse_helpers::tensor> UniqueCommon(
++    OpBackend* op,
++    synapse_helpers::graph& graph,
++    UniqueDimParams_t self_params,
++    synTensor self_synin) {
++  auto output_shape = self_params.sizes;
++  auto param_shape = std::vector<int64_t>{output_shape.at(self_params.dim)};
++  std::vector<int64_t> valid_count_shape{1};
++  ns_UniqueKernel::ParamsV2 params = {};
++  params.sorted = self_params.sorted;
++  params.returnCounts = self_params.return_counts;
++  params.returnInverse = self_params.return_inverted;
++  params.dim = self_params.dim;
++  std::vector<synTensor> inputs = {self_synin};
++  auto guid = get_guid_with_precision("unique_fwd", self_params.dtype);
++  auto shape_tensor_dtype =
++      (common::IsInt64Supported() ? c10::ScalarType::Long
++                                  : c10::ScalarType::Int);
++
++  auto outputs = std::vector<NodeAttr::NodeOutputAttr>{
++      {output_shape, self_params.dtype, 0},
++      {valid_count_shape, shape_tensor_dtype, 1},
++  };
++
++  if (self_params.return_counts && self_params.return_inverted) {
++    outputs.push_back({param_shape, c10::ScalarType::Long, 2});
++    outputs.push_back({param_shape, c10::ScalarType::Long, 3});
++  } else if (self_params.return_counts != self_params.return_inverted) {
++    outputs.push_back({param_shape, c10::ScalarType::Long, 2});
++  }
++  return OpBackend::BuildNode(
++      op, graph, {guid, inputs, outputs, &params, sizeof(params)});
++}
++
++void UniqueDimEager::AddNode(
++    synapse_helpers::graph& graph,
++    const at::Stack& stack) {
++  auto self = stack_tensor(stack, 0);
++  auto dim = stack.at(1).toInt();
++  auto sorted = stack.at(2).toBool();
++  auto inverted = stack.at(3).toBool();
++  auto counts = stack.at(4).toBool();
++
++  UniqueDimParams_t self_params;
++  self_params.dtype = self.scalar_type();
++  self_params.sizes = self.sizes().vec();
++  self_params.numel = self.numel();
++  self_params.dim = dim;
++  self_params.sorted = sorted;
++  self_params.return_inverted = inverted;
++  self_params.return_counts = counts;
++
++  auto unique = UniqueCommon(this, graph, self_params, syn_in(0));
++
++  syn_out(0) = std::move(unique.at(0));
++  syn_out(1) = std::move(unique.at(1));
++  if (inverted != counts) {
++    syn_out(2) = std::move(unique.at(2));
++  } else if (inverted && counts) {
++    syn_out(2) = std::move(unique.at(2));
++    syn_out(3) = std::move(unique.at(3));
++  }
++}
++} // namespace habana
++
++static const auto& UniqueKernelRegistry = habana::KernelRegistry().add(
++    "hpu::unique_dim_eager",
++    KERNEL_FN_GLOBAL(habana::UniqueDimEager));
+diff --git a/hpu_ops/lazy/unique_gen.cpp b/hpu_ops/lazy/unique_gen.cpp
+deleted file mode 100644
+index 8662dd5..0000000
+--- a/hpu_ops/lazy/unique_gen.cpp
++++ /dev/null
+@@ -1,21 +0,0 @@
+-/*******************************************************************************
+- * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+- * All Rights Reserved.
+- *
+- * Unauthorized copying of this file or any element(s) within it, via any medium
+- * is strictly prohibited.
+- * This file contains Habana Labs, Ltd. proprietary and confidential information
+- * and is subject to the confidentiality and license agreements under which it
+- * was provided.
+- *
+- *******************************************************************************
+- */
+-
+-#include "generated/backend/unique_dim.h"
+-
+-namespace habana {
+-
+-FALLBACK_CHECK(UniqueFallbackCheck, bool sorted) {
+-  return !sorted; // sorted=True currently not supported in HPU.
+-};
+-} // namespace habana
+diff --git a/hpu_ops/unique_dim.h b/hpu_ops/unique_dim.h
+new file mode 100644
+index 0000000..1d56505
+--- /dev/null
++++ b/hpu_ops/unique_dim.h
+@@ -0,0 +1,53 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#pragma once
++
++#include "hpu_ops/hpu_op_helper.h"
++#include "hpu_ops/op_backend.h"
++
++namespace habana {
++struct UniqueDimParams_t {
++  c10::ScalarType dtype;
++  std::vector<int64_t> sizes;
++  int64_t numel;
++  int64_t dim;
++  bool sorted;
++  bool return_inverted;
++  bool return_counts;
++};
++struct UniqueDimEager : OpBackend {
++  UniqueDimEager(int device_id, c10::ScalarType scalar_type);
++  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++};
++
++OutputMetaDataVector UniqueDimMeta(const at::Stack& stack) {
++  const auto& self = stack_tensor(stack, 0);
++  auto inputShape = self.sizes().vec();
++  auto dtype = self.scalar_type();
++  auto output_shape = self.sizes().vec();
++  int64_t dim = -stack.at(1).toInt() + self.dim() - 1;
++  auto param_shape = std::vector<int64_t>{output_shape.at(dim)};
++  std::vector<int64_t> valid_count_shape{1};
++  OutputMetaDataVector meta(4);
++  meta.at(0).shape = output_shape;
++  meta.at(0).dtype = dtype;
++  meta.at(1).shape = valid_count_shape;
++  meta.at(1).dtype = at::ScalarType::Long;
++  meta.at(2).shape = param_shape;
++  meta.at(2).dtype = at::ScalarType::Long;
++  meta.at(3).shape = param_shape;
++  meta.at(3).dtype = at::ScalarType::Long;
++  return meta;
++}
++} // namespace habana
+\ No newline at end of file
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index b907816..00b1795 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -6587,11 +6587,6 @@
+   op_validator: RandomUniformSharedMeta
+   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
+ 
+-unique_dim:
+-  override_fn: unique_dim_hpu_lazy
+-  fallback_check: [UniqueFallbackCheck, sorted]
+-  dtypes: [BFloat16, Float, Int]
+-
+ unsqueeze_:
+   override_fn: unsqueeze_hpu_lazy_
+   acc_thread: true
+@@ -7275,6 +7270,9 @@
+ _unique2:
+   hpu_wrap_all_versions: true
+ 
++unique_dim:
++  hpu_wrap_all_versions: true
++
+ repeat_interleave.Tensor:
+   hpu_wrap_all_versions: true
+ 
+diff --git a/scripts/ops_list/kr_ops.hpu b/scripts/ops_list/kr_ops.hpu
+index df4f694..f534c86 100644
+--- a/scripts/ops_list/kr_ops.hpu
++++ b/scripts/ops_list/kr_ops.hpu
+@@ -1089,6 +1089,7 @@
+ RegisterKernel::add op = hpu::_unique2
+ RegisterKernel::add op = hpu::_unique2_eager
+ RegisterKernel::add op = hpu::unique_dim
++RegisterKernel::add op = hpu::unique_dim_eager
+ RegisterKernel::add op = hpu::upsample_nearest2d_backward
+ RegisterKernel::add op = hpu::view
+ RegisterKernel::add op = hpu::view_neg
+diff --git a/tests/cpp/eager_kernel_tests.cpp b/tests/cpp/eager_kernel_tests.cpp
+index 10ca1c2..c00adef 100644
+--- a/tests/cpp/eager_kernel_tests.cpp
++++ b/tests/cpp/eager_kernel_tests.cpp
+@@ -34,6 +34,17 @@
+   }
+ };
+ 
++class UniqueDimEagerTest
++    : public ::testing::TestWithParam<std::tuple<torch::Tensor, bool, bool>>,
++      public habana_lazy_test::EnvHelper {
++  void SetUp() override {
++    SetEagerMode();
++  }
++  void TearDown() override {
++    RestoreMode();
++  }
++};
++
+ class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
+   void SetUp() override {
+     SetLazyMode(2);
+@@ -608,3 +619,29 @@
+ 
+   EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
+ }
++
++INSTANTIATE_TEST_CASE_P(
++    UniqueDim,
++    UniqueDimEagerTest,
++    ::testing::Values(
++        std::make_tuple(torch::empty({0, 4}), false, false),
++        std::make_tuple(torch::empty({0, 4}), true, false),
++        std::make_tuple(torch::empty({0, 4}), false, true),
++        std::make_tuple(torch::empty({0, 4}), true, true)));
++
++TEST_P(UniqueDimEagerTest, test) {
++  torch::Tensor input = std::get<0>(GetParam());
++  bool return_inverse = std::get<1>(GetParam());
++  bool return_counts = std::get<2>(GetParam());
++  torch::Tensor input_hpu = input.to(torch::kHPU);
++  auto output =
++      torch::unique_dim(input, 0, false, return_inverse, return_counts);
++  auto output_hpu =
++      torch::unique_dim(input_hpu, 0, false, return_inverse, return_counts);
++
++  bool equal =
++      allclose(std::get<0>(output_hpu).to(torch::kCPU), std::get<0>(output)) &&
++      allclose(std::get<1>(output_hpu).to(torch::kCPU), std::get<1>(output)) &&
++      allclose(std::get<2>(output_hpu).to(torch::kCPU), std::get<2>(output));
++  EXPECT_TRUE(equal);
++}
+diff --git a/tests/pytest_working/eager/test_eager_ops.py b/tests/pytest_working/eager/test_eager_ops.py
+index 8abfd82..c1b2299 100644
+--- a/tests/pytest_working/eager/test_eager_ops.py
++++ b/tests/pytest_working/eager/test_eager_ops.py
+@@ -851,6 +851,222 @@
+         assert isinstance(inverse, type(None))
+ 
+ 
++@pytest.mark.parametrize(
++    "tensor_in",
++    [
++        torch.tensor(
++            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[11, 33, 11]], dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor(
++            [[[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]], [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]]],
++            dtype=torch.int32,
++        ),
++        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
++        torch.randn([2, 4, 5, 7], dtype=torch.float32),
++        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
++        torch.randint(-1000, 1000, (2, 4), dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
++    ],
++)
++@pytest.mark.parametrize("return_inverse", [True, False])
++@pytest.mark.parametrize("return_counts", [True, False])
++def test_unique_dim_tensor(tensor_in, return_inverse, return_counts):
++    # Sorting works only on flattened intputs (dim == -5)
++    return_sorted = False
++    self = tensor_in
++    for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
++        unique_cpu = torch.Tensor.unique(
++            self, dim=dim_in, sorted=return_sorted, return_inverse=return_inverse, return_counts=return_counts
++        )
++
++        unique_hpu = torch.Tensor.unique(
++            self.to("hpu"),
++            dim=dim_in,
++            sorted=return_sorted,
++            return_inverse=return_inverse,
++            return_counts=return_counts,
++        )
++
++        if return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
++            feature_map, inverse, counts = unique_hpu
++        if return_counts and not return_inverse:
++            feature_map_cpu, counts_cpu = unique_cpu
++            feature_map, counts = unique_hpu
++        if not return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu = unique_cpu
++            feature_map, inverse = unique_hpu
++        if not return_counts and not return_inverse:
++            feature_map_cpu = unique_cpu
++            feature_map = unique_hpu
++
++        feature_map_cpu = feature_map_cpu.sort(dim_in)[0]
++        feature_map = feature_map.to("cpu").sort(dim_in)[0]
++        assert torch.allclose(feature_map, feature_map_cpu)
++        if return_inverse:
++            inverse_cpu = inverse_cpu.sort()[0]
++            inverse = inverse.to("cpu").sort()[0]
++            assert torch.equal(inverse, inverse_cpu)
++        if return_counts:
++            counts_cpu = counts_cpu.sort()[0]
++            counts = counts.to("cpu").sort()[0]
++            assert torch.equal(counts, counts_cpu)
++
++
++@pytest.mark.parametrize(
++    "tensor_in",
++    [
++        torch.tensor(
++            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[11, 33, 11]], dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor(
++            [[[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]], [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]]],
++            dtype=torch.int32,
++        ),
++        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
++        torch.randn([2, 4, 5, 7], dtype=torch.float32),
++        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
++        torch.randint(-1000, 1000, (2, 4), dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
++    ],
++)
++@pytest.mark.parametrize("return_inverse", [True, False])
++@pytest.mark.parametrize("return_counts", [True, False])
++def test_unique_dim(tensor_in, return_inverse, return_counts):
++    # Sorting works only on flattened intputs (dim == -5)
++    return_sorted = False
++    self = tensor_in
++    for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
++        unique_cpu = torch.unique(
++            self, dim=dim_in, sorted=return_sorted, return_inverse=return_inverse, return_counts=return_counts
++        )
++
++        unique_hpu = torch.unique(
++            self.to("hpu"),
++            dim=dim_in,
++            sorted=return_sorted,
++            return_inverse=return_inverse,
++            return_counts=return_counts,
++        )
++
++        if return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
++            feature_map, inverse, counts = unique_hpu
++        if return_counts and not return_inverse:
++            feature_map_cpu, counts_cpu = unique_cpu
++            feature_map, counts = unique_hpu
++        if not return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu = unique_cpu
++            feature_map, inverse = unique_hpu
++        if not return_counts and not return_inverse:
++            feature_map_cpu = unique_cpu
++            feature_map = unique_hpu
++
++        feature_map_cpu = feature_map_cpu.sort(dim_in)[0]
++        feature_map = feature_map.to("cpu").sort(dim_in)[0]
++        assert torch.allclose(feature_map, feature_map_cpu)
++        if return_inverse:
++            inverse_cpu = inverse_cpu.sort()[0]
++            inverse = inverse.to("cpu").sort()[0]
++            assert torch.equal(inverse, inverse_cpu)
++        if return_counts:
++            counts_cpu = counts_cpu.sort()[0]
++            counts = counts.to("cpu").sort()[0]
++            assert torch.equal(counts, counts_cpu)
++
++
++@pytest.mark.parametrize(
++    "tensor_in",
++    [
++        torch.tensor(
++            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[11, 33, 11]], dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor(
++            [[[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]], [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]]],
++            dtype=torch.int32,
++        ),
++        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
++        torch.randn([2, 4, 5, 7], dtype=torch.float32),
++        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
++        torch.randint(-1000, 1000, (2, 4), dtype=torch.int32),
++        torch.tensor(
++            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
++            dtype=torch.float32,
++        ),
++        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
++    ],
++)
++@pytest.mark.parametrize("return_inverse", [True, False])
++@pytest.mark.parametrize("return_counts", [True, False])
++def test_unique_dim_tensor(tensor_in, return_inverse, return_counts):
++    # Sorting works only on flattened intputs (dim == -5)
++    return_sorted = False
++    self = tensor_in
++    for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
++        unique_cpu = torch.Tensor.unique(
++            self, dim=dim_in, sorted=return_sorted, return_inverse=return_inverse, return_counts=return_counts
++        )
++
++        unique_hpu = torch.Tensor.unique(
++            self.to("hpu"),
++            dim=dim_in,
++            sorted=return_sorted,
++            return_inverse=return_inverse,
++            return_counts=return_counts,
++        )
++
++        if return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
++            feature_map, inverse, counts = unique_hpu
++        if return_counts and not return_inverse:
++            feature_map_cpu, counts_cpu = unique_cpu
++            feature_map, counts = unique_hpu
++        if not return_counts and return_inverse:
++            feature_map_cpu, inverse_cpu = unique_cpu
++            feature_map, inverse = unique_hpu
++        if not return_counts and not return_inverse:
++            feature_map_cpu = unique_cpu
++            feature_map = unique_hpu
++
++        feature_map_cpu = feature_map_cpu.sort(dim_in)[0]
++        feature_map = feature_map.to("cpu").sort(dim_in)[0]
++        assert torch.allclose(feature_map, feature_map_cpu)
++        if return_inverse:
++            inverse_cpu = inverse_cpu.sort()[0]
++            inverse = inverse.to("cpu").sort()[0]
++            assert torch.equal(inverse, inverse_cpu)
++        if return_counts:
++            counts_cpu = counts_cpu.sort()[0]
++            counts = counts.to("cpu").sort()[0]
++            assert torch.equal(counts, counts_cpu)
++
++
+ # For Scalars to() operator and item() are going with different paths for scalars
+ # copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
+ # both should support INT64 downcasting

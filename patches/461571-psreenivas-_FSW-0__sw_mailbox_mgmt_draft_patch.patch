@@ -1,0 +1,107 @@
+From 7db8ab61f524f86231d3b176beb4e3049734b424 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Fri, 15 Nov 2024 10:53:58 +0200
+Subject: [PATCH] [FSW-0] sw mailbox mgmt draft patch
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: Ie74e169e9fa197365986e23005b0b5553969c3b2
+---
+
+diff --git a/arch/fs1/io/device.c b/arch/fs1/io/device.c
+index 9f3f9e4..a738c91 100644
+--- a/arch/fs1/io/device.c
++++ b/arch/fs1/io/device.c
+@@ -27,7 +27,16 @@
+ #include <arc_regs.h>
+ #include <zephyr/drivers/misc/hl_cpld/hl_cpld.h>
+ 
+-#include <arc_regs.h>
++#include <hl_devs.h>
++#include <device.h>
++#include <ipm.h>
++#include <drivers/ipm/ipm_fs.h>
++
++#define MBX_TX_DEV		DT_NODELABEL(mbx_iod0mgmt_iod0pid)
++#define MBX_TX_DEV_INST		HL_DEV_GET(MBX_TX_DEV)
++
++#define MBX_RX_DEV		DT_NODELABEL(mbx_iod0pid_iod0mgmt)
++#define MBX_RX_DEV_INST		HL_DEV_GET(MBX_RX_DEV)
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+@@ -185,11 +194,75 @@
+ 	regs->dev_sts[1] = HL_CFG_BASE + mmCPU_BOOT_DEV_STS1;
+ }
+ 
++struct ipm_test {
++	uint8_t data[5];
++};
++static void fs1_mbx_callback(const struct device *dev, void *context,
++					uint32_t id, volatile void *data)
++{
++	struct ipm_fs_mbx_buffer_data *mb_data = (struct ipm_fs_mbx_buffer_data *) data;
++	
++	struct ipm_test *test = (struct ipm_test *) mb_data->buffer_info[0].addr_lo;
++	//struct ipm_test *test = (struct ipm_test *)data;
++	LOG_INF("callback in mgmt! id %x", id);
++	if (data) {
++		LOG_INF("mgmt received data %x %x %x %x %x", test->data[0], test->data[1], test->data[2], test->data[3], test->data[4]);
++	}
++}
++
++static void ipm_test_mgmt(struct hl_dev_config *dev_config)
++{
++	LOG_INF("Zephyr MGMT ARC");
++	int count =0;
++	uint8_t data[5] = {0x22, 0x33, 0x44, 0x55, 0x66};
++
++	const struct device *dev = MBX_RX_DEV_INST;
++
++	//while(!sys_read32(0xF9CA9280));
++	//ipm_set_enabled(dev, true);
++
++	dev = MBX_RX_DEV_INST;
++
++	if (!dev) {
++		LOG_ERR("failed to find mbx_iod0pid_iod0mgmt");
++	} else {
++		LOG_INF("found mbx_iod0pid_iod0mgmt");
++		ipm_register_callback(dev, fs1_mbx_callback, dev_config);
++
++		//if (ipm_send(dev, 0, 0xBB, NULL, 0)) {
++		//	LOG_ERR("failed to send message 0xBB");
++		//}
++	}
++
++	while (1) {
++		k_usleep(1000);
++		count++;
++		LOG_INF("mgmt is alive\n");
++		if (count == 5) {
++			dev = MBX_TX_DEV_INST;
++			ipm_set_enabled(dev, true);
++			k_usleep(1000);
++
++			if (!dev) {
++				LOG_ERR("failed to find mbx_iod0mgmt_iod0pid");
++			} else {
++				LOG_INF("found mbx_iod0mgmt_iod0pid");
++			}
++
++			if (ipm_send(dev, 0, 0xBB, data, sizeof(data))) {
++				LOG_ERR("failed to send message 0xBB");
++			}
++		}
++	}
++}
++
++
+ int mgmt_dev_prepare(void)
+ {
+ 	struct hl_dev_config *dev_config = hl_get_dev_cfg();
+ 	LOG_INF("fs1 device prepare called");
+ 
++	ipm_test_mgmt(dev_config);
+ 	dev_config->dev_data = &dev_data;
+ 	dev_config->queue_init = fs_init_queues;
+ 	dev_config->wait_for_arcs = fs1_wait_for_arcs;

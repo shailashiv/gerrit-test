@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 468615: [SW-208926] gaudi3: d2d fatal error handling</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 468615: [SW-208926] gaudi3: d2d fatal error handling</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Pavan Sreenivas &lt;psreenivas@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-01-06 08:00:14.401000000</p>
+            <p><strong>Updated:</strong> 2025-02-21 05:42:05.374000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-208926] gaudi3: d2d fatal error handling
+
+It is observed that even after uncorrectable
+d2d fatal errors, the setups recovered after
+watchdog reset. This patch adds support to try
+and recover the card atleast once after fatal
+error by issung hard reset, if the fatal errors
+are seen even after this the card will be marked
+for rma and booting will be halted.
+
+Signed-off-by: Pavan S &lt;psreenivas@habana.ai&gt;
+Change-Id: I949c24e456abb3bcbb136ea92be8bc4531941a34
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Sailaja Bandarupalli: +0, Software Jenkins: +0, Jenkins EMB Service Account: +0, Akshay Pradip Bharad: +0, Sanyog Kale: +0</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>drivers/d2d/controller/d2d_controller.c</code> (M) +11 -1</li><li><code>drivers/misc/common_utils/gaudi/gaudi3/common_utils.c</code> (M) +45 -0</li><li><code>include/zephyr/drivers/misc/common/common_utils.h</code> (M) +2 -0</li><li><code>soc/hl/gaudi/gaudi3/soc.c</code> (M) +1 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/drivers/d2d/controller/d2d_controller.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -24,6 +24,9 @@</span>
+<span class="diff-ctx"> #include &lt;zephyr/drivers/misc/hl_reset/hl_reset_api.h&gt;</span>
+<span class="diff-ctx"> #include &lt;common_utils.h&gt;</span>
+<span class="diff-ctx"> #include &lt;hl_devs.h&gt;</span>
+<span class="diff-add">+#ifdef CONFIG_LIBSOC_INIT</span>
+<span class="diff-add">+#include &lt;boot_if.h&gt;</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #include &lt;zephyr/logging/log.h&gt;</span>
+<span class="diff-ctx"> LOG_MODULE_REGISTER(DT_DRV_COMPAT);</span>
+<span class="diff-hunk">@@ -473,7 +476,9 @@</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-ctx"> static void mark_for_rma(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	/*TODO: implement*/</span>
+<span class="diff-add">+#ifdef CONFIG_LIBSOC_INIT</span>
+<span class="diff-add">+	cpu_boot_err_set(CPU_BOOT_ERR_DEVICE_UNUSABLE_FAIL);</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static struct {</span>
+<span class="diff-hunk">@@ -595,9 +600,14 @@</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-ctx"> static void d2d_fatal_err_handler(const struct device *dev)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-add">+	/* Try to recover by hard reset at least once */</span>
+<span class="diff-add">+	hl_d2d_fatal_error_recovery();</span>
+<span class="diff-ctx"> 	d2d_controller_drv_traffic_en_set(dev, false);</span>
+<span class="diff-ctx"> 	mark_for_rma();</span>
+<span class="diff-ctx"> 	report_fatal_err();</span>
+<span class="diff-add">+	LOG_ERR(&quot;Halting CPU and stopping bootflow!&quot;);</span>
+<span class="diff-add">+	arch_irq_lock();</span>
+<span class="diff-add">+	k_cpu_idle();</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static uint32_t countBit(uint8_t mask)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index c3e5f4c..d94144d 100644</span>
+<h4 class="diff-filename">b/drivers/misc/common_utils/gaudi/gaudi3/common_utils.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -27,6 +27,11 @@</span>
+<span class="diff-ctx"> #include &lt;pcie_aux_masks.h&gt;</span>
+<span class="diff-ctx"> #include &lt;pcie_aux_regs.h&gt;</span>
+<span class="diff-ctx"> #include &lt;zephyr/drivers/gpio.h&gt;</span>
+<span class="diff-add">+#include &lt;gaudi3_reg_map.h&gt;</span>
+<span class="diff-add">+#include &lt;gaudi3_fw_if.h&gt;</span>
+<span class="diff-add">+#include &lt;psoc_reset_conf_regs.h&gt;</span>
+<span class="diff-add">+#include &lt;psoc_reset_conf_masks.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #include &lt;string.h&gt;</span>
+<span class="diff-ctx"> #include &lt;zephyr/drivers/misc/hl_cpld/hl_cpld.h&gt;</span>
+<span class="diff-ctx"> #ifdef CONFIG_LIBEEPROM</span>
+<span class="diff-hunk">@@ -737,3 +742,43 @@</span>
+<span class="diff-ctx"> 	i2c_recovery_api-&gt;set_recovery_event_handler(hl_cpld_i2c_recovery_event_handler);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-add">+#ifdef CONFIG_RESET_IN_PRE_KERN_EXCEPTION</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define DELAY_1K_USEC	1000</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void hl_pre_kernel_hard_reset(void)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	LOG_WRN(&quot;Issuing early hard reset&quot;);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	sys_mwrite32(0x0,</span>
+<span class="diff-add">+		     D0_PSOC_GLOBAL_CONF_REG(mmGLOBAL_CONF_DIE_READY_IN) + HL_CFG_BASE,</span>
+<span class="diff-add">+		     GLOBAL_CONF_DIE_READY_IN_IND_M);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* Issue reset to slave die via SPI GW */</span>
+<span class="diff-add">+	sys_write32(GLOBAL_CONF_DIE_READY_IN_IND_M,</span>
+<span class="diff-add">+		    D1_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_SW_ALL_RST) + SPI_GW_BASE);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* wait for slave die to reset no indication is required */</span>
+<span class="diff-add">+	k_busy_wait(DELAY_1K_USEC);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* Issue master die0 reset */</span>
+<span class="diff-add">+	sys_write32(GLOBAL_CONF_DIE_READY_IN_IND_M,</span>
+<span class="diff-add">+		    D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_SW_ALL_RST) + HL_CFG_BASE);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-add">+void hl_d2d_fatal_error_recovery(void)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+#ifdef CONFIG_RESET_IN_PRE_KERN_EXCEPTION</span>
+<span class="diff-add">+	struct gaudi3_cold_rst_data cold_rst_data;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	cold_rst_data.data = CFG_RREG32(mmCOLD_RST_DATA);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (cold_rst_data.d2d_fatal_err) {</span>
+<span class="diff-add">+		LOG_INF(&quot;Fatal error is already set, cannot recover&quot;);</span>
+<span class="diff-add">+		return;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+	cold_rst_data.d2d_fatal_err = 1;</span>
+<span class="diff-add">+	CFG_WREG32(mmCOLD_RST_DATA, cold_rst_data.data);</span>
+<span class="diff-add">+	hl_pre_kernel_hard_reset(); /* should not return */</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-add">+}</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index f727400..3b8c6c4 100644</span>
+<h4 class="diff-filename">b/include/zephyr/drivers/misc/common/common_utils.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -286,5 +286,7 @@</span>
+<span class="diff-ctx"> int hl_flash_is_hw_write_protected(uint8_t *wp);</span>
+<span class="diff-ctx"> bool hl_is_sfp_present(void);</span>
+<span class="diff-ctx"> int hl_extract_substring(char *str_in, char *prefix, char *postfix, char *str_out);</span>
+<span class="diff-add">+void hl_pre_kernel_hard_reset(void);</span>
+<span class="diff-add">+void hl_d2d_fatal_error_recovery(void);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #endif /* __COMMON_UTILS_H___ */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 1b0d48c..07ece7b 100644</span>
+<h4 class="diff-filename">b/soc/hl/gaudi/gaudi3/soc.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -20,6 +20,7 @@</span>
+<span class="diff-ctx"> #include &lt;psoc_reset_conf_regs.h&gt;</span>
+<span class="diff-ctx"> #include &lt;psoc_reset_conf_masks.h&gt;</span>
+<span class="diff-ctx"> #include &lt;gaudi3_fw_if.h&gt;</span>
+<span class="diff-add">+#include &lt;zephyr/drivers/misc/common/common_utils.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;zephyr/logging/log.h&gt;</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-06 08:00:14.401000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:00:21.988000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/29717/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:00:22.767000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2520/ (1/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-06 08:00:25.615000000)</span><pre>Uploaded patch set 2: Patch Set 1 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:00:42.029000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/29726/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:00:42.871000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2528/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:00:49.177000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20080/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:00:49.199000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17928/ (3/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-06 08:01:12.332000000)</span><pre>Uploaded patch set 3: Commit message was updated.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:02:49.303000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/29717/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/29717/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20080/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20080/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17928/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17928/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:03:39.769000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2942/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:03:39.779000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/2695/ (3/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-06 08:04:31.329000000)</span><pre>Topic set to d2d_fatal_err</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:06:18.758000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/2704/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:06:18.781000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2951/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:06:30.033000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20083/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:06:30.053000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17931/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:06:42.629000000)</span><pre>Patch Set 1: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2942/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/2497/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2520/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/2695/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-06 08:27:05.447000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2951/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/2506/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2528/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/2704/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-06 08:49:04.827000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20083/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/22684/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/29726/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17931/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-13 03:32:34.377000000)</span><pre>Uploaded patch set 4.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-13 03:32:54.599000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2870/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-13 03:32:56.105000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30135/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-13 03:38:03.493000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3276/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-13 03:38:03.518000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3003/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-13 03:38:07.918000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3003/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3003/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3276/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3276/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/2870/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-13 03:38:28.716000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18237/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-13 03:38:28.764000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20417/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-13 05:40:31.376000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20417/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/22997/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/41038/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18237/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30135/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-21 10:31:39.688000000)</span><pre>Uploaded patch set 5.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 10:31:56.864000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30649/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 10:31:57.088000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3315/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 10:35:26.691000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3608/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 10:35:26.706000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3300/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 10:39:47.228000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3608/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/3086/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3315/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3300/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 10:40:10.201000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18566/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 10:40:10.215000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20791/ (3/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-21 11:47:35.223000000)</span><pre>Uploaded patch set 6: Patch Set 5 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 11:47:52.924000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3340/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 11:47:53.879000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30674/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 11:52:05.663000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20791/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20791/ )
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23333/ )
+
+Description...Container received warning that it was about to be terminated, then terminated ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23333/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23333/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18566/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/21589/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30649/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 11:52:35.309000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3625/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 11:52:35.322000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3316/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 11:54:28.760000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18582/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 11:54:28.770000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20805/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-21 11:59:33.500000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/20805/ : FAILURE
+
+Gerrit error fetching repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23347/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18582/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30674/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-21 12:18:59.004000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3625/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/3103/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3340/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3316/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-01-24 03:14:00.624000000)</span><pre>Uploaded patch set 7.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 03:14:28.717000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3634/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 03:14:29.698000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30978/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 03:17:26.408000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3862/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 03:17:26.411000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3522/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 03:21:31.491000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18795/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 03:21:31.532000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21048/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-01-24 03:23:02.467000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/3862/ : FAILURE
+
+ModuleNotFoundError: No module named [Component/s:CI-CD Support, DevOps]  ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/3345/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3522/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/3634/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-01-24 03:25:57.478000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21048/ : FAILURE
+
+Gerrit error fetching repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23573/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/18795/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/30978/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-02-17 05:43:34.268000000)</span><pre>Uploaded patch set 8.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 05:44:01.156000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32020/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 05:44:02.295000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4558/</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-17 05:48:50.747000000)</span><pre>Patch Set 8: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4558/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 05:50:05.886000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19523/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 05:50:05.918000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21853/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-17 07:35:06.106000000)</span><pre>Patch Set 8: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19523/ : FAILURE
+
+Gerrit error fetching repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19523/ )
+
+Could not read from remote repository ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19523/ )
+
+Could not resolve hostname ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19523/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21853/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/24347/ )
+
+Could not resolve hostname ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/24347/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32020/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-02-21 03:52:20.617000000)</span><pre>Uploaded patch set 9: Patch Set 8 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-21 03:52:48.778000000)</span><pre>Patch Set 9: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4742/</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-21 03:52:51.566000000)</span><pre>Patch Set 9: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32265/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-21 03:57:29.827000000)</span><pre>Patch Set 9: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4742/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-21 03:58:50.680000000)</span><pre>Patch Set 9:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/22001/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-21 03:58:50.694000000)</span><pre>Patch Set 9:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19676/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-21 05:42:05.374000000)</span><pre>Patch Set 9: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/22001/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/24485/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19676/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/22620/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/32265/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

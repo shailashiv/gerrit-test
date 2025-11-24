@@ -1,0 +1,256 @@
+From 223772c6848674e2170b61f47553dc17e3b47410 Mon Sep 17 00:00:00 2001
+From: Avi Niddam <aniddam@habana.ai>
+Date: Tue, 27 May 2025 13:11:45 +0300
+Subject: [PATCH] [SW-228856] fit: new infra wo duplicate
+
+We encountered several code duplications related to
+fit_foreach_property.
+So, we create a new fit services infrastructure to solve
+this issue in a clean way.
+The main lego pieces are the newly created:
+fit_services.c/h located (in emb_common_mod).
+This infra is ready and so far it supports the use of
+fit_foreach_property
+But potentially, it can support ANY of the
+fit related functions that we find today in fit_utils.c
+or fit.c
+Therefore, from now, please, anyone doing an infrastructure
+change related to the fit files should carefully double-check:
+Any unfied code can be and should be located in
+fit_services.c/h
+For this, please, follow the example of how it has been
+done with fit_foreach_property.
+
+Change-Id: I7a9a55d882c23da0d16353e21b63693cae5d55b6
+Signed-off-by: Avi Niddam <aniddam@habana.ai>
+---
+
+diff --git a/include/fit_services.h b/include/fit_services.h
+new file mode 100644
+index 0000000..11e0a20
+--- /dev/null
++++ b/include/fit_services.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef _EMB_CMN_MOD_FIT_SERVICES_H_
++#define _EMB_CMN_MOD_FIT_SERVICES_H_
++
++#include <stdint.h>
++#include "libfdt.h"
++#include "fdt.h"
++
++enum fit_sec_failure {
++	FIT_SEC_NONE = 0,
++	FIT_SEC_SVN_INVALID,
++	FIT_SEC_KEY_REVOKED,
++	FIT_SEC_HASH_FAILED,
++	FIT_SEC_SIGN_FAILED,
++};
++
++typedef int (*fit_property_match_cb)(const void *fit,
++		const struct fdt_property *prop, void *data);
++
++int fit_foreach_property(const void *fit, const char *node_path,
++			fit_property_match_cb match_cb, void *data);
++
++#endif
+diff --git a/include/fit_utils.h b/include/fit_utils.h
+index 4c5af25..c3ba750 100644
+--- a/include/fit_utils.h
++++ b/include/fit_utils.h
+@@ -36,14 +36,6 @@
+ 	FIT_FORMAT_BAD_SIZE,
+ };
+ 
+-enum fit_sec_failure {
+-	FIT_SEC_NONE = 0,
+-	FIT_SEC_SVN_INVALID,
+-	FIT_SEC_KEY_REVOKED,
+-	FIT_SEC_HASH_FAILED,
+-	FIT_SEC_SIGN_FAILED,
+-};
+-
+ struct fit_error {
+ 	enum fit_load_result load;
+ 	enum fit_format_result fmt;
+diff --git a/lib/common/fit_services.c b/lib/common/fit_services.c
+new file mode 100644
+index 0000000..5eeeacb
+--- /dev/null
++++ b/lib/common/fit_services.c
+@@ -0,0 +1,41 @@
++// SPDX-License-Identifier:     GPL-2.0+
++/*
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#include <stdint.h>
++#include <hl_fit_if.h>
++#include <libfdt.h>
++
++#include <fit_services.h>
++#include <emb_cmn_log.h>
++
++int fit_foreach_property(const void *fit, const char *node_path,
++			fit_property_match_cb match_cb, void *data)
++{
++	int ret, count = 0;
++	int noffset, property;
++	const struct fdt_property *prop;
++
++	noffset = fdt_path_offset(fit, node_path);
++	if (noffset < 0) {
++		EMB_LOG_RAW_ERR("Cannot find entry ");
++		EMB_LOG_RAW(node_path);
++		EMB_LOG_RAW("\n\r");
++		return -1;
++	}
++
++	fdt_for_each_property_offset(property, fit, noffset) {
++		prop = fdt_get_property_by_offset(fit, property, NULL);
++		if (!prop)
++			continue;
++
++		ret = match_cb(fit, prop, data);
++		if (!ret)
++			count++;
++	}
++
++	return count;
++}
+diff --git a/lib/common/fit_utils.c b/lib/common/fit_utils.c
+index 5dce23b..521a0d2 100644
+--- a/lib/common/fit_utils.c
++++ b/lib/common/fit_utils.c
+@@ -10,10 +10,13 @@
+ #include <libfdt.h>
+ 
+ #include <fit_utils.h>
++include "fit_services.h"
+ #include <emb_cmn_log.h>
+ 
+ #ifdef __ZEPHYR__
+ LOG_MODULE_REGISTER(fit_utils);
++#else
++#include <baremetal.h>
+ #endif
+ 
+ static bool fit_resp_node_end;
+@@ -78,38 +81,12 @@
+ 	return FIT_FORMAT_NO_PROPERTY;
+ }
+ 
+-static int fit_foreach_property(const void *fit, const char *node_path, const char *match_prop)
+-{
+-	int ret, count = 0;
+-	int noffset, property;
+-	const struct fdt_property *prop;
+-
+-	noffset = fdt_path_offset(fit, node_path);
+-	if (noffset < 0) {
+-		EMB_LOG_RAW_ERR("Cannot find entry ");
+-		EMB_LOG_RAW(node_path);
+-		EMB_LOG_RAW("\n\r");
+-		return noffset;
+-	}
+-
+-	fdt_for_each_property_offset(property, fit, noffset) {
+-		prop = fdt_get_property_by_offset(fit, property, NULL);
+-		if (!prop)
+-			continue;
+-
+-		ret = fit_match_prop_and_print(fit, prop, match_prop);
+-		if (!ret)
+-			count++;
+-	}
+-
+-	return count;
+-}
+-
+ void fit_print_versions(void *fit)
+ {
+ 	int ret;
+ 
+-	ret = fit_foreach_property(fit, "/", HL_FIT_VERSION);
++	ret = fit_foreach_property(fit, "/",  (fit_property_match_cb)fit_match_prop_and_print
++				, HL_FIT_VERSION);
+ 	if (ret <= 0)
+ 		EMB_LOG_WRN("[FIT] No version properties were found.");
+ }
+diff --git a/lib/preboot/fit.c b/lib/preboot/fit.c
+index cd7da3a..8b9a7c7 100644
+--- a/lib/preboot/fit.c
++++ b/lib/preboot/fit.c
+@@ -36,6 +36,7 @@
+ #include <lib_common.h>
+ #include <oob_if.h>
+ #include <emb_cmn_log.h>
++#include "fit_services.h"
+ 
+ #ifdef __ZEPHYR__
+ LOG_MODULE_REGISTER(fit_emb_common);
+@@ -214,34 +215,6 @@
+ 	}
+ 
+ 	return dflt_conf_node;
+-}
+-
+-int fit_foreach_property(const void *fit, const char *node_path,
+-			fit_property_match_cb match_cb, void *data)
+-{
+-	int ret, count = 0;
+-	int noffset, property;
+-	const struct fdt_property *prop;
+-
+-	noffset = fdt_path_offset(fit, node_path);
+-	if (noffset < 0) {
+-		EMB_LOG_RAW_ERR("Cannot find entry ");
+-		EMB_LOG_RAW(node_path);
+-		EMB_LOG_RAW("\n\r");
+-		return -1;
+-	}
+-
+-	fdt_for_each_property_offset(property, fit, noffset) {
+-		prop = fdt_get_property_by_offset(fit, property, NULL);
+-		if (!prop)
+-			continue;
+-
+-		ret = match_cb(fit, prop, data);
+-		if (!ret)
+-			count++;
+-	}
+-
+-	return count;
+ }
+ 
+ int match_prop_version(const void *fit, const struct fdt_property *prop, void *data)
+diff --git a/lib/preboot/fit.h b/lib/preboot/fit.h
+index b07d3be..7a55bad 100644
+--- a/lib/preboot/fit.h
++++ b/lib/preboot/fit.h
+@@ -8,6 +8,7 @@
+ 
+ #include <libfdt.h>
+ #include <hl_fit_if.h>
++#include "fit_services.h"
+ 
+ #define HL_SEC_KEY_NAME		"hl_rsa3072"
+ 
+@@ -70,9 +71,6 @@
+ 		       size_t sec_desc_size, const void *pub_key_fit,
+ 		       const u8 *sig, size_t sig_len);
+ 
+-typedef int (*fit_property_match_cb)(const void *fit, const struct fdt_property *prop, void *data);
+-int fit_foreach_property(const void *fit, const char *node_path, fit_property_match_cb match_cb,
+-						void *data);
+ void fit_print_versions(void *fit);
+ int fit_check_format(const void *fit);
+ bool is_fit_verify_supported(void);

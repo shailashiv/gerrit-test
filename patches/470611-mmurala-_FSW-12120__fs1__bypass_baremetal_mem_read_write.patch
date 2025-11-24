@@ -1,0 +1,252 @@
+From 164c6e1c31d32fbabcc443be0597fa34f79478b3 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 23 Jan 2025 11:22:04 +0200
+Subject: [PATCH] [FSW-12120] fs1: bypass baremetal mem read write
+
+With this patch, added macro to bypass memory
+read and write functions from baremetal. So
+in upcoming patches will remove this functions.
+Also include mem io header in all places.
+
+Change-Id: I12fe29e70e41df2ad4369dd0b42747409ed0cc9d
+---
+
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index ebc57dd..870b221 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -9,6 +9,7 @@
+ #include <hl_boot_if.h>
+ #include <bitops.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ #include <hl_fw_upd_if.h> /* requires baremetal.h for __packed */
+ 
+diff --git a/arch/fs1/arc/asic.c b/arch/fs1/arc/asic.c
+index 20647e9..1e02f59 100644
+--- a/arch/fs1/arc/asic.c
++++ b/arch/fs1/arc/asic.c
+@@ -7,6 +7,7 @@
+ #include <fs1_blocks_linux_driver.h>
+ 
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <pll.h>
+ #include <uart.h>
+ 
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index adab2c4..33e2797 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -39,6 +39,7 @@
+ #include <string.h>
+ 
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <bitops.h>
+ #include <device.h>
+ #include <fs1_reg_map.h>
+diff --git a/arch/fs1/arc/onix.c b/arch/fs1/arc/onix.c
+index e8fc14a..e3f5533 100644
+--- a/arch/fs1/arc/onix.c
++++ b/arch/fs1/arc/onix.c
+@@ -7,6 +7,7 @@
+ #include <fs1_blocks_linux_driver.h>
+ 
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <pll.h>
+ #include <uart.h>
+ 
+diff --git a/arch/fs1/arc/palad.c b/arch/fs1/arc/palad.c
+index 84f82ac..039de80 100644
+--- a/arch/fs1/arc/palad.c
++++ b/arch/fs1/arc/palad.c
+@@ -25,6 +25,7 @@
+ #include <efuse.h>
+ #include <hl.h>
+ #include <address_space.h>
++#include <mem_io.h>
+ #include <lib_common.h>
+ #include "auto_gen_pcie_phy_csr_locations.h"
+ 
+diff --git a/arch/fs1/arc/pll.c b/arch/fs1/arc/pll.c
+index 3e3953c..c0aba5f 100644
+--- a/arch/fs1/arc/pll.c
++++ b/arch/fs1/arc/pll.c
+@@ -10,6 +10,7 @@
+ #include <stddef.h>
+ #include <bitops.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <pll.h>
+ #include "common.h"
+ 
+diff --git a/include/baremetal.h b/include/baremetal.h
+index f6f07c4..ae5e0bb 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -115,6 +115,9 @@
+ 
+ extern u8 hl_asic_sn[FUSE_DEVID_SIZE];
+ 
++#ifndef JIRA_FSW_12120
++#define JIRA_FSW_12120
++
+ static inline u8 regmap_readb(u32 offset)
+ {
+ 	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+@@ -150,6 +153,8 @@
+ 	regmap_writel(val, addr);
+ }
+ 
++#endif /* JIRA_FSW_12120 */
++
+ #ifdef HL_SPI_GW_CFG_BASE
+ static inline void mirror_writel(u32 val, u32 offset)
+ {
+diff --git a/lib/common/boot_if.c b/lib/common/boot_if.c
+index dc6f4b5..0b780af 100644
+--- a/lib/common/boot_if.c
++++ b/lib/common/boot_if.c
+@@ -8,6 +8,7 @@
+ #include <stdint.h>
+ 
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ #include <hl_boot_if.h>			/* requires stdint.h */
+ #include <bitops.h>
+diff --git a/lib/common/efuse.c b/lib/common/efuse.c
+index a52a9f9..0e82512 100644
+--- a/lib/common/efuse.c
++++ b/lib/common/efuse.c
+@@ -12,6 +12,7 @@
+ #include "efuse.h"
+ #include "common.h"
+ #include "baremetal.h"
++#include <mem_io.h>
+ #include "uart.h"
+ #include "pll.h"
+ 
+diff --git a/lib/common/module_i2c_slave.c b/lib/common/module_i2c_slave.c
+index 156d9b6..7942729 100644
+--- a/lib/common/module_i2c_slave.c
++++ b/lib/common/module_i2c_slave.c
+@@ -8,6 +8,7 @@
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ #include <hl_fw_if.h> /* requires baremetal.h for __packed */
+ #include <preboot/thermal.h>
+diff --git a/lib/common/module_pci.c b/lib/common/module_pci.c
+index df43db0..a6d4f7f 100644
+--- a/lib/common/module_pci.c
++++ b/lib/common/module_pci.c
+@@ -7,6 +7,7 @@
+ 
+ #include <bitops.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ 
+ #include "cmd_module.h"
+diff --git a/lib/common/pll.c b/lib/common/pll.c
+index e64e64e..2523153 100644
+--- a/lib/common/pll.c
++++ b/lib/common/pll.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #include "baremetal.h"
++#include <mem_io.h>
+ #include "uart.h"
+ #include "pll.h"
+ #include "hl.h"
+diff --git a/lib/common/spi.c b/lib/common/spi.c
+index a8d9d84..e95e31e 100644
+--- a/lib/common/spi.c
++++ b/lib/common/spi.c
+@@ -9,6 +9,7 @@
+ 
+ #include <bitops.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include "common.h"
+ #include <spi.h>
+ #include "uart.h"
+diff --git a/lib/common/spi_flash.c b/lib/common/spi_flash.c
+index 718b0f5..20492067 100644
+--- a/lib/common/spi_flash.c
++++ b/lib/common/spi_flash.c
+@@ -10,6 +10,7 @@
+ 
+ #include <sizes.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include "common.h"
+ #include <spi.h>
+ #include "uart.h"
+diff --git a/lib/common/tpm2.c b/lib/common/tpm2.c
+index 60fe3d0..e8eef01 100644
+--- a/lib/common/tpm2.c
++++ b/lib/common/tpm2.c
+@@ -10,6 +10,7 @@
+ #include <tpm2.h>
+ #include <uart.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <types.h>
+ #include <string.h>
+ #include <pll.h>
+diff --git a/lib/common/uart.c b/lib/common/uart.c
+index 1672def..6e0aca4 100644
+--- a/lib/common/uart.c
++++ b/lib/common/uart.c
+@@ -7,6 +7,7 @@
+ #include <stddef.h>
+ 
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ #include <sizes.h>
+ #include "uart.h"
+diff --git a/lib/preboot/i2cslave_indirect.c b/lib/preboot/i2cslave_indirect.c
+index b3fe54a..d6d8f01 100644
+--- a/lib/preboot/i2cslave_indirect.c
++++ b/lib/preboot/i2cslave_indirect.c
+@@ -10,6 +10,7 @@
+ #include <bitops.h>
+ #include <baremetal.h>
+ #include <address_space.h>
++#include <mem_io.h>
+ #include <uart.h>
+ #include <common/module_i2c_slave.h>
+ #include <common/cmd_module.h>
+diff --git a/lib/preboot/module_fwupd.c b/lib/preboot/module_fwupd.c
+index ca26a09..ee616e2 100644
+--- a/lib/preboot/module_fwupd.c
++++ b/lib/preboot/module_fwupd.c
+@@ -11,6 +11,7 @@
+ 
+ #include <boot_if.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <device.h>
+ #include <hl_fw_if.h>
+ #include <hl_fw_upd_if.h>
+diff --git a/lib/preboot/thermal.c b/lib/preboot/thermal.c
+index 6296a8a..e297803 100644
+--- a/lib/preboot/thermal.c
++++ b/lib/preboot/thermal.c
+@@ -6,6 +6,7 @@
+  */
+ #include <stdbool.h>
+ #include <baremetal.h>
++#include <mem_io.h>
+ #include <pll.h>
+ #include <efuse.h>
+ #include <string.h>

@@ -1,0 +1,495 @@
+From 89b07526dd77ea97f27e95aa8d81cb6d3030e001 Mon Sep 17 00:00:00 2001
+From: Siju Samuel <ssamuel@habana.ai>
+Date: Tue, 29 Oct 2024 13:04:51 +0200
+Subject: [PATCH] [SW-196428]Support custom allreduce for FP8 and better pipelining
+
+Change-Id: I41a85eb8eec963ee912b829845a21d1a827a79c9
+---
+
+diff --git a/python_packages/habana_frameworks/torch/distributed/utils.py b/python_packages/habana_frameworks/torch/distributed/utils.py
+new file mode 100644
+index 0000000..e85509e
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/distributed/utils.py
+@@ -0,0 +1,109 @@
++###############################################################################
++# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++import torch
++import torch.distributed as dist
++
++
++def custom_all_reduce_sum(tensor_in, buffer_in, world_size, num_shards=1):
++    """
++    Performs a custom all-reduce operation on the input tensor by splitting it into
++    shards, distributing chunks of each shard across processes using all-to-all communication,
++    performing a local reduction on the received data, and then gathering the reduced
++    chunks back across all processes.
++
++    This function is particularly useful for scenarios where all-reduce operations are
++    required in FP8 precision on HPUs that do not allreduce FP  operations.
++    By splitting the tensor into smaller shards, this method
++    enables pipelining of the summation (reduction) operation alongside the all-gather
++    communication, which can help improve performance by overlapping computation and
++    communication.
++
++    The `num_shards` parameter controls the number of tensor splits (shards) used, allowing
++    fine-tuning to achieve optimal performance. Increasing the number of shards can improve
++    pipelining efficiency by reducing the time spent waiting for data transfers, but may
++    increase overhead if too many shards are used. Experiment with different `num_shards`
++    values to find the ideal balance between performance and overhead for your specific
++    workload.
++
++    Args:
++        tensor_in (torch.Tensor): The input tensor to be reduced across processes.
++                                  This tensor will be split into shards for distributed processing.
++        buffer_in (torch.Tensor): A buffer tensor of the same size as `tensor_in`
++                                  used to hold intermediate results during the all-to-all communication.
++        world_size (int): The total number of processes participating in the all-reduce operation.
++                          This should match the world size used when initializing the distributed
++                          process group. The world size is used to ensure that tensors are divided
++                          and distributed correctly across all processes.
++        num_shards (int): The number of shards to split `tensor_in` into for processing.
++                          Each shard will be processed independently. Changing the shard
++                          count can enable better pipelining of reduction and gathering. Default is 1(No Sharding).
++    Returns:
++        torch.Tensor: The fully reduced tensor, with contributions from all processes.
++                      The reduction is applied across all processes, and each process
++                      ends up with the same fully reduced tensor.
++
++    Example Usage:
++        >>> import torch.distributed as dist
++        >>> tensor_in = torch.ones(8)
++        >>> buffer_in = torch.zeros_like(tensor_in)
++        >>> dist.init_process_group(backend='hccl', world_size=4, rank=0)
++        >>> result = custom_all_reduce(tensor_in, buffer_in, num_shards=2)
++
++    Method:
++        - Split `tensor_in` into `num_shards` for distributed processing.
++        - For each shard:
++            - Extract a portion of `buffer_in` and `tensor_in`.
++            - Scatter the shard across all processes using `all_to_all_single`.
++            - Perform a local reduction (sum) on the received data.
++        - Gather all reduced data across processes to produce the final reduced tensor.
++
++    Note:
++        - The input tensor dimensions should be compatible with the world size (number of processes).
++        - The function performs an in-place reduction on `tensor_in`, modifying its contents.
++    """
++
++    shard_size = tensor_in.size(0) // num_shards
++    start_offset = 0
++
++    reduced_chunk_list = []  # List to store reduced chunks for all_gather later
++    tensor_list = []
++
++    # Process each shard in sequence
++    for i in range(num_shards):
++        # Determine the current shard size (handles the remainder for the last shard)
++        curr_shard_size = shard_size if i < num_shards - 1 else tensor_in.size(0) - start_offset
++        buffer = buffer_in[start_offset : start_offset + curr_shard_size]
++        tensor = tensor_in[start_offset : start_offset + shard_size]
++        tensor_list.append(tensor)
++        # Update offset for next iteration
++        start_offset += curr_shard_size
++
++        # Perform all_to_all_single communication (scatter across all processes)
++        dist.all_to_all_single(buffer, tensor)
++
++        # Reshape to prepare for local reduction (summing over each received chunk)
++        buffer = buffer.view(world_size, -1)
++
++        # Perform local reduction (sum along the first dimension)
++        reduced_chunk = buffer.sum(dim=0)
++        reduced_chunk_list.append(reduced_chunk)
++
++    # Perform all_gather to collect the reduced chunks from all processes
++    work_list = []
++    for tensor, reduced_chunk in zip(tensor_list, reduced_chunk_list):
++        w = dist.all_gather_into_tensor(tensor, reduced_chunk, async_op=True)
++        work_list.append(w)
++    for w in work_list:
++        w.wait()
++
++    return tensor_in  # The fully reduced and gathered tensor
+diff --git a/tests/distributed/test_custom_allreduce.py b/tests/distributed/test_custom_allreduce.py
+new file mode 100644
+index 0000000..f2f90b5
+--- /dev/null
++++ b/tests/distributed/test_custom_allreduce.py
+@@ -0,0 +1,366 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++# To execute the code:
++# torchrun --nproc_per_node=2 test_custom_all_reduce.py
++import os
++
++os.environ["HABANA_PROFILE"] = "profile_api_with_nics"
++import habana_frameworks.torch as htorch
++import habana_frameworks.torch.distributed.hccl as hccl
++import torch
++import torch.distributed as dist
++from torch.profiler import ProfilerActivity, profile, record_function
++
++
++def compare_tensors(tensorA, tensorB, str_comparison, rank):
++    try:
++        torch.testing.assert_close(tensorA, tensorB, rtol=0, atol=0)
++        print(f"[Rank:{rank}] Success: Tensors {str_comparison} are the same")
++    except BaseException as error:
++        print(f"[Rank:{rank}] Error: Tensors {str_comparison} are not the same")
++        print(error)
++        print(f"[Rank:{rank}] \n    tensorA: {tensorA} \n   tensorB: {tensorB}")
++        print(f"[Rank:{rank}]  SumtensorA: {tensorA.sum()} tensorB: {tensorB.sum()}")
++        print(f"[Rank:{rank}]  index11 tensorA: {tensorA[11]} tensorB: {tensorB[11]}")
++        print(f"[Rank:{rank}]  index37 tensorA: {tensorA[37]} tensorB: {tensorB[37]}")
++
++
++def init_distributed(device="hpu", backend="hccl"):
++    """Initialize the distributed environment."""
++    world_size, rank, local_rank = hccl.initialize_distributed_hpu()
++    print(f"world_size: {world_size} rank: {rank} local_rank {local_rank}")
++    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
++
++    dummy_tensor_hpu = torch.ones(1).to(device)
++    torch.distributed.all_reduce(dummy_tensor_hpu)
++    assert dummy_tensor_hpu.item() == world_size
++    return rank, world_size
++
++
++def a2a_reduce_allgather(tensor):
++    world_size = dist.get_world_size()
++    rank = dist.get_rank()
++
++    # Ensure tensor size is divisible by world_size for equal chunking
++    assert tensor.numel() % world_size == 0, "Tensor size must be divisible by world size"
++
++    chunk_size = tensor.numel() // world_size
++
++    tensor, _ = torch.ops.hpu.cast_to_fp8_v2(
++        tensor,
++        1.0,
++        stochastic_rounding=False,
++        is_amax=False,
++        dtype=torch.float8_e5m2,
++    )
++
++    # Split the tensor into chunks to send (each chunk is contiguous)
++    send_chunks = [tensor[i * chunk_size : (i + 1) * chunk_size].contiguous() for i in range(world_size)]
++
++    # Prepare receive chunks (empty tensors to receive data)
++    recv_chunks = [torch.zeros_like(send_chunks[0]) for _ in range(world_size)]
++
++    print("PYTHON calling dist.all_to_all")
++    # Perform AllToAll communication: exchange chunks between processes
++    dist.all_to_all(recv_chunks, send_chunks)
++
++    # Sum the received chunks (local reduction)
++    reduced_chunk = torch.stack(recv_chunks).sum(dim=0)
++
++    # Place the reduced chunk back into the tensor at the appropriate position
++    tensor[rank * chunk_size : (rank + 1) * chunk_size] = reduced_chunk
++
++    # Prepare the list for AllGather (slices of the tensor)
++    gathered_chunks = [tensor[i * chunk_size : (i + 1) * chunk_size] for i in range(world_size)]
++
++    # Perform AllGather to collect the reduced chunks from all processes
++    dist.all_gather(gathered_chunks, tensor[rank * chunk_size : (rank + 1) * chunk_size])
++
++    # No need to concatenate since the data is already in 'tensor'
++
++
++def a2a_single_reduce_all_gather_into_tensor(tensor, buffer):
++    world_size = dist.get_world_size()
++
++    # Prepare split sizes for all_to_all_single in terms of elements
++    # send_split_sizes = [chunk_size] * world_size
++    # recv_split_sizes = [chunk_size] * world_size
++
++    # buffer, _ = torch.ops.hpu.cast_to_fp8_v2(
++    #     buffer,
++    #     1.0,
++    #     stochastic_rounding=False,
++    #     is_amax=False,
++    #     dtype=torch.float8_e5m2,
++    # )
++    # tensor, _ = torch.ops.hpu.cast_to_fp8_v2(
++    #     tensor,
++    #     1.0,
++    #     stochastic_rounding=False,
++    #     is_amax=False,
++    #     dtype=torch.float8_e5m2,
++    # )
++    # Perform all_to_all_single communication
++    print("PYTHON calling dist.all_to_all_single")
++    dist.all_to_all_single(
++        buffer,
++        tensor,
++        # output_split_sizes=recv_split_sizes,
++        # input_split_sizes=send_split_sizes
++    )
++
++    # Reshape output_tensor to (world_size, chunk_size, D2, D3)
++    buffer = buffer.view(world_size, -1)
++
++    # Sum the received chunks (local reduction)
++    reduced_chunk = buffer.sum(dim=0)
++
++    # Perform all_gather to collect the reduced chunks from all processes
++    dist.all_gather_into_tensor(tensor, reduced_chunk)
++
++    # The tensor now contains the fully reduced data
++    # No need to concatenate since data is already in 'tensor'
++
++
++"""
++def inference_all_reduce(self, tensor, op=torch.distributed.ReduceOp.SUM, group=None, async_op=False):
++    if op == torch.distributed.ReduceOp.SUM:
++        buffer = torch.empty_like(tensor)
++        world_size = torch.distributed.get_world_size(group)
++        return custom_all_reduce_sum(tensor, buffer, world_size, num_shards=2)
++    else:
++        op = self._reduce_op(op)
++        return torch.distributed.all_reduce(tensor=tensor, op=op, group=group, async_op=async_op)
++"""
++
++
++def custom_all_reduce_sum(tensor_in, buffer_in, num_shards=1):
++    shard_size = tensor_in.size(0) // num_shards
++    world_size = dist.get_world_size()
++    start_offset = 0
++
++    reduced_chunk_list = []  # List to store reduced chunks for all_gather later
++    tensor_list = []
++    buffer_list = []
++
++    # Preprocess slices of `buffer` and `tensor`
++    for i in range(num_shards):
++        # Determine the current shard size (handles the remainder for the last shard)
++        curr_shard_size = shard_size if i < num_shards - 1 else tensor_in.size(0) - start_offset
++        buffer_slice = buffer_in[start_offset : start_offset + curr_shard_size]
++        tensor_slice = tensor_in[start_offset : start_offset + shard_size]
++
++        # Append slices to the respective lists
++        buffer_list.append(buffer_slice)
++        tensor_list.append(tensor_slice)
++
++        # Update offset for the next slice
++        start_offset += curr_shard_size
++
++    # Perform all_to_all_single communication and local reduction
++    for buffer, tensor in zip(buffer_list, tensor_list):
++        # Perform all_to_all_single communication (scatter across all processes)
++        dist.all_to_all_single(buffer, tensor)
++
++        # Reshape to prepare for local reduction (summing over each received chunk)
++        buffer = buffer.view(world_size, -1)
++
++        # Perform local reduction (sum along the first dimension)
++        reduced_chunk = buffer.sum(dim=0)
++        reduced_chunk_list.append(reduced_chunk)
++
++    # Perform all_gather to collect the reduced chunks from all processes
++    work_list = []
++    for tensor, reduced_chunk in zip(tensor_list, reduced_chunk_list):
++        w = dist.all_gather_into_tensor(tensor, reduced_chunk, async_op=True)
++        work_list.append(w)
++
++    for w in work_list:
++        w.wait()
++    return tensor_in  # The fully reduced and gathered tensor
++
++
++def custom_all_reduce_sum_fp8(tensor_in, buffer_in, num_chunks=2):
++    buffer_in, _ = torch.ops.hpu.cast_to_fp8_v2(
++        buffer_in,
++        1.0,
++        stochastic_rounding=False,
++        is_amax=False,
++        dtype=torch.float8_e5m2,
++    )
++    tensor_in, _ = torch.ops.hpu.cast_to_fp8_v2(
++        tensor_in,
++        1.0,
++        stochastic_rounding=False,
++        is_amax=False,
++        dtype=torch.float8_e5m2,
++    )
++    return custom_all_reduce_sum(tensor_in, buffer_in, num_chunks)
++
++
++# from habana_frameworks.torch.distributed import utils.custom_all_reduce_sum
++
++
++def a2a_single_reduce_all_gather_into_tensor_with_split(tensor_in, buffer_in, num_shards=2):
++    return custom_all_reduce_sum(tensor_in, buffer_in, num_shards)
++    # return custom_all_reduce_sum_fp8(tensor_in, buffer_in, num_shards)
++
++
++def profile_runs(profiler, tensor):
++    buffer = torch.empty_like(tensor)
++    buffer2 = torch.empty_like(tensor)
++    rank = os.environ["RANK"]
++    profiler.start()
++    x = None
++    for i in range(2):
++        with torch.autograd.profiler.record_function("built-in all_reduce"):
++            dist.all_reduce(tensor)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        # with torch.autograd.profiler.record_function("AllToAll -> Sum -> AllGather"):
++        #     # a2a_reduce_allgather(tensor)
++        #     torch.hpu.synchronize()
++        # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor(tensor, buffer)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("2Split->AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor_with_split(tensor, buffer2, 2)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("4Split->AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor_with_split(tensor, buffer2, 4)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("8Split->AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor_with_split(tensor, buffer2, 8)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("16plit->AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor_with_split(tensor, buffer2, 16)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++        with torch.autograd.profiler.record_function("32split->AllToAllSingle -> Sum -> AllGatherToTensor"):
++            a2a_single_reduce_all_gather_into_tensor_with_split(tensor, buffer2, 32)
++            torch.hpu.synchronize()
++            # x=tensor.to("cpu")
++
++        profiler.step()
++    profiler.stop()
++
++
++def main():
++
++    # Initialize the process group
++    rank, world_size = init_distributed()
++    torch.manual_seed(0)
++    # Initialize the profiler
++    profiler = profile(
++        activities=[ProfilerActivity.CPU, ProfilerActivity.HPU],
++        record_shapes=False,
++        with_stack=True,
++        on_trace_ready=torch.profiler.tensorboard_trace_handler("./profiler_logs", use_gzip=True),
++    )
++
++    # Each process creates its own tensor
++    # tensor = torch.ones(4) * (rank + 1)
++    multiplier = 1
++    hidden_dim = 8192 * multiplier
++    seq_len = 1024 * multiplier
++    dim = hidden_dim * seq_len
++    tensor = torch.rand([dim]) * (rank + 1)
++    # tensor.fill_(1.25) * (rank + 1)
++    print(f"Rank {rank}, input tensor: {tensor}, tensor: size", tensor.shape[0] / 1024 / 1024, "MB")
++    tensor = tensor.to("hpu").to(torch.bfloat16)
++    # tensor = tensor.to("hpu").to(torch.float8_e5m2)
++    # Prepare output tensor for receiving data
++    # Note: We must create a separate output tensor as input and output tensors cannot overlap
++    buffer = torch.empty_like(tensor)
++    buffer2 = torch.empty_like(tensor)
++    tensor_all_reduce = tensor.clone()
++    tensor_a2asrgt = tensor.clone()
++    tensor_split_a2asrgt = tensor.clone()
++
++    import time
++
++    # Perform built-in all_reduce
++    t1 = time.time()
++    dist.all_reduce(tensor_all_reduce)
++    torch.hpu.synchronize()
++
++    # Perform a2a_single_reduce_all_gather_to_tensor
++    t2 = time.time()
++    a2a_single_reduce_all_gather_into_tensor(tensor_a2asrgt, buffer)
++    torch.hpu.synchronize()
++
++    t3 = time.time()
++    a2a_single_reduce_all_gather_into_tensor_with_split(tensor_split_a2asrgt, buffer2, 16)
++    torch.hpu.synchronize()
++    t4 = time.time()
++
++    # Compare the results
++    print(f"Rank {rank}, tensor after all_reduce: {tensor_all_reduce}", "Time ", t2 - t1)
++    print(f"Rank {rank}, tensor a2a_single_reduce_all_gather_into_tensor: {tensor_a2asrgt}", "Time ", t3 - t2)
++    print(f"Rank {rank}, tensor a2a_single_reduce_all_gather_into_tensor: {tensor_split_a2asrgt}", "Time ", t4 - t3)
++    compare_tensors(tensor_all_reduce, tensor_a2asrgt, f"AllReduce and AllToAllSingle+SUM+AllGatherIntoTensor", rank)
++    compare_tensors(
++        tensor_all_reduce, tensor_split_a2asrgt, f"AllReduce and SplitAllToAllSingle+SUM+AllGatherIntoTensor", rank
++    )
++    compare_tensors(tensor_a2asrgt, tensor_split_a2asrgt, f"AllToAllSingle+SUM+AllGatherIntoTensor and Split", rank)
++
++    tensor_split_a2asrgt4 = tensor.clone()
++    tensor_split_a2asrgt8 = tensor.clone()
++    tensor_split_a2asrgt16 = tensor.clone()
++    tensor_split_a2asrgt32 = tensor.clone()
++    buffer4 = torch.empty_like(tensor)
++
++    t5 = time.time()
++    a2a_single_reduce_all_gather_into_tensor_with_split(tensor_split_a2asrgt4, buffer4, 4)
++    torch.hpu.synchronize()
++    t6 = time.time()
++
++    a2a_single_reduce_all_gather_into_tensor_with_split(tensor_split_a2asrgt8, buffer4, 8)
++    torch.hpu.synchronize()
++    t7 = time.time()
++
++    a2a_single_reduce_all_gather_into_tensor_with_split(tensor_split_a2asrgt16, buffer4, 16)
++    torch.hpu.synchronize()
++    t8 = time.time()
++
++    a2a_single_reduce_all_gather_into_tensor_with_split(tensor_split_a2asrgt32, buffer4, 32)
++    torch.hpu.synchronize()
++    t9 = time.time()
++
++    PROFILE = 0
++    if PROFILE == 1:
++        profile_runs(profiler, tensor)
++
++    if rank == 0:
++        time.sleep(1)  # to print the ranks in order
++    print(
++        f"RANK{rank}, Lazy Collective:                                               ",
++        (os.getenv("PT_HPU_ENABLE_LAZY_COLLECTIVES")),
++    )
++    print(f"RANK{rank}, Tensor Size (MB):                                              ", tensor.shape[0] / 1024 / 1024)
++    print(f"RANK{rank}, tensor after all_reduce:                                  Time ", (t2 - t1) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor:          Time ", (t3 - t2) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor split 2:  Time ", (t4 - t3) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor split 4:  Time ", (t6 - t5) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor split 8:  Time ", (t7 - t6) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor split 16: Time ", (t8 - t7) * 1000)
++    print(f"RANK{rank}, tensor a2a_single_reduce_all_gather_into_tensor split 32: Time ", (t9 - t8) * 1000)
++
++
++if __name__ == "__main__":
++    main()

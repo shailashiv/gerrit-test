@@ -1,0 +1,205 @@
+From bbcd2e6b7d174074a9048457c1bcd140f79a44c5 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Dec 2024 12:22:47 +0200
+Subject: [PATCH] [SW-210370] erom: integrate fit verify from emb cmn mods
+
+fit verify, security file is being refactored and added
+in emb common mods to verify the fit signature, image hashes
+at eROM, zephyr-plugins, zephyr-apps/preboot.
+
+Here, integrating fit verify files to eROM and remove the
+redundant functions.
+
+Change-Id: Ie8c0c820efed98757c88e927bb0389cb2a2e05b9
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/app/ext_rom/Makefile b/app/ext_rom/Makefile
+index 9cad750..faeda25 100644
+--- a/app/ext_rom/Makefile
++++ b/app/ext_rom/Makefile
+@@ -96,7 +96,10 @@
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_rsa.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_load.o \
+-	$(EMB_COMMON_MOD_DIR)/lib/common/fit_utils.o
++	$(EMB_COMMON_MOD_DIR)/lib/common/fit_utils.o \
++	$(EMB_COMMON_MOD_DIR)/lib/common/fit_verify.o \
++	$(EMB_COMMON_MOD_DIR)/lib/common/fit_error.o \
++	$(EMB_COMMON_MOD_DIR)/lib/preboot/security.o
+ 
+ include $(HL_DEV_ARCH)/Makefile
+ 
+diff --git a/arch/gaudi2/common/security.c b/arch/gaudi2/common/security.c
+index 98abe9c..0174579 100644
+--- a/arch/gaudi2/common/security.c
++++ b/arch/gaudi2/common/security.c
+@@ -615,7 +615,7 @@
+ 	const struct hl_sec_otp *otp = preboot_security_get_otp();
+ 	u8 key_props[PUB_KEY_SZ];
+ 	struct rsa_key_prop prop;
+-	const char *key_name = HL_SEC_KEY_NAME;
++	const char *key_name = HL_FIT_SEC_KEY_NAME;
+ 
+ 	if (otp == NULL || otp->magic_number != OTP_SEC_MAGIC)
+ 		return false;
+diff --git a/arch/gaudi3/common/security.c b/arch/gaudi3/common/security.c
+index 5d5bc59..2ce34cb 100644
+--- a/arch/gaudi3/common/security.c
++++ b/arch/gaudi3/common/security.c
+@@ -1168,7 +1168,7 @@
+ {
+ 	struct rsa_key_prop prop;
+ 	u8 key_props[PUB_KEY_SZ];
+-	const char *key_name = HL_SEC_KEY_NAME;
++	const char *key_name = HL_FIT_SEC_KEY_NAME;
+ 
+ 	/*
+ 	 * ROM stores hash of public key properties. The public
+diff --git a/include/baremetal.h b/include/baremetal.h
+index d44d2b6..7367328 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -12,7 +12,10 @@
+ #include <sizes.h>
+ 
+ #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
+-#define ROUND_UP4(n)		(((n) + sizeof(u32) - 1) & ~(sizeof(u32) - 1))
++
++#ifndef ROUND_UP4
++#define ROUND_UP4(n)		(((n) + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1))
++#endif
+ 
+ #ifdef __arc__
+ #define wfe()	__asm__ __volatile__("wevt\n\t" : : )
+@@ -292,6 +295,8 @@
+ void preboot_version(void);
+ void preboot_dev_spec_legacy_vers_setup(enum preboot_vers vers_type, u32 offset);
+ void ppboot_secure_arc(void);
++bool preboot_security_svn_is_valid(int sec_ver);
++void preboot_security_boot_info_write_key_idx(u32 *key_idx);
+ 
+ void hl_pif_report_err(u32 err_bit);
+ void hl_pif_report_sts(u32 status_bit);
+diff --git a/lib/common/security.c b/lib/common/security.c
+index 74c5f8b..abe93f2 100644
+--- a/lib/common/security.c
++++ b/lib/common/security.c
+@@ -14,11 +14,6 @@
+ #include <string.h>
+ #include <uart.h>
+ 
+-/* libfdt is execting pub_key_fit dtb address must be 8 byte aligned. */
+-static struct hl_fit_sec_desc fit_sec __aligned(8);
+-static u8 signature[FIT_SIGNATURE_SIZE];
+-
+-
+ bool preboot_security_svn_is_valid(int sec_ver)
+ {
+ 	int min_svn = preboot_security_get_minimal_svn();
+@@ -34,92 +29,4 @@
+ 	}
+ 
+ 	return true;
+-}
+-
+-int preboot_verify_img_sig(const void *img, size_t img_size, enum fit_sec_failure *res,
+-				u32 *key_idx)
+-{
+-	const void *fit_sec_off;
+-	const void *pub_key_fit;
+-
+-	if (!preboot_img_validation_is_enabled())
+-		return 0;
+-
+-	/* hl fit files are padded so the size is 4 bytes aligned */
+-	img_size = ROUND_UP4(img_size);
+-
+-	/* security descriptor is at the footer of the image */
+-	fit_sec_off = (const void *)((u8 *)img + img_size);
+-
+-	/* check that the calculated memory range are legal */
+-	if (!preboot_sram_is_valid_address_range((uintptr_t)fit_sec_off,
+-						 sizeof(fit_sec))) {
+-		preboot_puts("Invalid address range\n");
+-		return 1;
+-	}
+-
+-	memcpy(&fit_sec, fit_sec_off, FIT_SEC_DESC_SIZE);
+-
+-	if (fit_sec.magic_number != FIT_SEC_MAGIC) {
+-		preboot_puts("Bad magic, security descriptor not found\n");
+-		return 1;
+-	}
+-
+-	if ((fit_sec.desc_version_maj != FIT_SEC_DESC_VER_MAJOR) ||
+-	    (fit_sec.desc_version_min != FIT_SEC_DESC_VER_MINOR)) {
+-		preboot_puts("security descriptor version mismatch\n");
+-		return 1;
+-	}
+-
+-	if (fit_sec.desc_size < FIT_SEC_DESC_SIZE) {
+-		preboot_puts("security descriptor size too small\n");
+-		return 1;
+-	}
+-
+-	if (fit_sec.img_size != img_size) {
+-		preboot_puts("image size mismatch with security descriptor\n");
+-		return 1;
+-	}
+-
+-	if (!preboot_security_svn_is_valid(fit_sec.sec_version)) {
+-		preboot_puts("security descriptor svn not valid\n");
+-		*res = FIT_SEC_SVN_INVALID;
+-		return 1;
+-	}
+-
+-	fw_info.sec_curr_svn = fit_sec.sec_version;
+-
+-	if (preboot_security_key_is_revoked(fit_sec.key_num)) {
+-		preboot_puts_hex("Key revoked: ", fit_sec.key_num, false);
+-		*res = FIT_SEC_KEY_REVOKED;
+-		return 1;
+-	}
+-
+-	fw_info.sec_curr_key = fit_sec.key_num;
+-	pub_key_fit = &fit_sec.pub_key;
+-
+-	if (!preboot_security_key_is_valid(fit_sec.key_num, pub_key_fit,
+-					   FIT_PUB_KEY_SIZE, NULL, 0)) {
+-		preboot_puts("Key validation failed\n");
+-		*res = FIT_SEC_SIGN_FAILED;
+-		return 1;
+-	}
+-
+-	/*
+-	 * signature is calculated on both the fit image and the security
+-	 * descriptor with the signature field of the descriptor zeroized.
+-	 */
+-	memcpy(signature, fit_sec.signature, FIT_SIGNATURE_SIZE);
+-	memset(fit_sec.signature, 0, FIT_SIGNATURE_SIZE);
+-
+-	if (fit_verify_img_sig(img, img_size, &fit_sec, FIT_SEC_DESC_SIZE,
+-			       pub_key_fit, signature, FIT_SIGNATURE_SIZE)) {
+-		preboot_puts("image signature verification failed\n");
+-		*res = FIT_SEC_SIGN_FAILED;
+-		return 1;
+-	}
+-
+-	*key_idx = fit_sec.key_num;
+-
+-	return 0;
+ }
+diff --git a/lib/preboot/module_fwupd.c b/lib/preboot/module_fwupd.c
+index 68973e8..61c7a5c 100644
+--- a/lib/preboot/module_fwupd.c
++++ b/lib/preboot/module_fwupd.c
+@@ -26,6 +26,8 @@
+ #include "pll.h"
+ #include "fit.h"
+ #include <fit_load.h>
++#include <fit_verify.h>
++#include <fit_error.h>
+ 
+ #define WFC_TIMEOUT_MS			500
+ #define TIMEOUT_US			1000

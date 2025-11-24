@@ -1,0 +1,76 @@
+From 3807816e20be0e523035a53fa523814bbc603eff Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Tue, 10 Dec 2024 16:46:24 +0200
+Subject: [PATCH] [SW-210370] erom: integrate common fit utils
+
+Added fit_utils.c which is common among eROM, zephyr-plugins,
+zephyr-apps/preboot.
+
+Integrating fit_utils into eROM and removed the redundant
+functions.
+
+Change-Id: I49bccc7a89ebdb9d767b0f5a7d6e6db55aa88bd8
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/app/ext_rom/Makefile b/app/ext_rom/Makefile
+index 964786d..9cad750 100644
+--- a/app/ext_rom/Makefile
++++ b/app/ext_rom/Makefile
+@@ -95,7 +95,8 @@
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_regions.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_rsa.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit.o \
+-	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_load.o
++	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_load.o \
++	$(EMB_COMMON_MOD_DIR)/lib/common/fit_utils.o
+ 
+ include $(HL_DEV_ARCH)/Makefile
+ 
+diff --git a/include/baremetal.h b/include/baremetal.h
+index 41a43be..d44d2b6 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -87,13 +87,6 @@
+ 	PREBOOT_EFUSE_VER,
+ };
+ 
+-enum fit_sec_failure {
+-	FIT_SEC_NONE = 0,
+-	FIT_SEC_SVN_INVALID,
+-	FIT_SEC_KEY_REVOKED,
+-	FIT_SEC_SIGN_FAILED,
+-};
+-
+ struct hl_nic_en {
+ 	bool is_valid;
+ 	uint32_t bitmask;
+@@ -264,9 +257,6 @@
+ void preboot_finalize_fw_upd_closure(void);
+ 
+ bool preboot_is_image_sig_supported(void);
+-int preboot_verify_img_sig(const void *fit, size_t img_size,
+-			   enum fit_sec_failure *res, u32 *key_idx);
+-size_t preboot_get_img_sec_desc_size(void);
+ 
+ u32 preboot_error_read_and_clr(u32 *major, u32 *minor);
+ bool preboot_error_inform(u32 major, u32 minor);
+diff --git a/lib/preboot/i2cslave_indirect.c b/lib/preboot/i2cslave_indirect.c
+index 18d10dd..55576f9 100644
+--- a/lib/preboot/i2cslave_indirect.c
++++ b/lib/preboot/i2cslave_indirect.c
+@@ -199,6 +199,14 @@
+ 	if (fit_validate_size((void *)desc.base, fw_len))
+ 		return; /* More data is needed */
+ 
++	fit_err.fmt = fit_check_format((void *)desc.base);
++	if (fit_err.fmt) {
++		fit_err.load = FIT_LOAD_CORRUPTED;
++		req_sts.err = HL_I2CI_REQ_ERR_PROCESS;
++		preboot_puts("FIT is corrupted, fit_check_format failed\n");
++		return;
++	}
++
+ 	if (fit_load_images(((void *)desc.base), &fit_err))
+ 		req_sts.err = HL_I2CI_REQ_ERR_PROCESS;
+ 	else

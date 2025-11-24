@@ -1,0 +1,699 @@
+From 4f3c2d43f0bbc2a5532edbb6cc934e4ea536dab9 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Dec 2024 12:48:18 +0200
+Subject: [PATCH] [SW-210370] emb cmn: remove the moved verify and security code
+
+Removed the code which are moved to fit_verify and fit error and
+security files.
+
+Modified the fit rsa and fit regions to ease the integration
+of this files into zephyr-plugins code.
+
+Change-Id: Id0e092c7dfd062ecac7172b424684dba4be3b173
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/lib/preboot/fit.c b/lib/preboot/fit.c
+index 0db71a2..1dd7a86 100644
+--- a/lib/preboot/fit.c
++++ b/lib/preboot/fit.c
+@@ -36,6 +36,8 @@
+ #include <cmd_module.h>
+ #include <oob_if.h>
+ #include <emb_cmn_log.h>
++#include <fit_error.h>
++#include <fit_verify.h>
+ 
+ #ifdef __ZEPHYR__
+ LOG_MODULE_REGISTER(fit_emb_common);
+@@ -67,14 +69,7 @@
+ #define FIT_HASHED_NODES_PROP	"hashed-nodes"
+ 
+ #define FIT_MAX_PATH		200
+-#define MAX_FDT_REGIONS		20
+ #define IMAGE_MAX_HASHED_NODES	20
+-
+-#define FIT_MAX_IMAGES		9
+-
+-#define FDT_MIN_SUPPORTED_VERSION 0x11
+-#define FIT_MAX_KEY_NAME	64
+-#define PREFIX_KEY			"key-"
+ 
+ #define FIT_ARC_PID_LOADABLE_PREFIX	"zephyr-pid"
+ 
+@@ -98,8 +93,6 @@
+ };
+ 
+ struct fit_image images[FIT_MAX_IMAGES];
+-struct fdt_region fdt_regions[MAX_FDT_REGIONS];
+-struct image_region region[MAX_FDT_REGIONS];
+ struct arc_status arc_info[FIT_CORE_ID_COUNT];
+ static u32 preboot_key_idx;
+ bool fit_no_ret;
+@@ -107,8 +100,6 @@
+ void fit_clr_state(void)
+ {
+ 	memset(images, 0, sizeof(images));
+-	memset(fdt_regions, 0, sizeof(fdt_regions));
+-	memset(region, 0, sizeof(region));
+ 	memset(arc_info, 0, sizeof(arc_info));
+ 	fit_no_ret = false;
+ }
+@@ -160,95 +151,6 @@
+ 	return false;
+ }
+ 
+-/*
+- * Gaudi2 platform supports different bits in efuse for
+- * security enable and image validation. To maintain
+- * backward compatibility the default implementation
+- * redirects to the security enable check.
+- */
+-__weak bool preboot_img_validation_is_enabled(void)
+-{
+-	return preboot_security_is_enabled();
+-}
+-
+-__weak bool preboot_security_key_is_revoked(int key_idx)
+-{
+-	return false;
+-}
+-
+-__weak bool preboot_security_key_is_valid(int key_idx, const void *pub_key,
+-					  int pub_key_len,
+-					  const void *pub_key_ext,
+-					  int pub_key_ext_len)
+-{
+-	return false;
+-}
+-
+-__weak bool preboot_security_svn_is_valid(int sec_ver)
+-{
+-	return false;
+-}
+-
+-static int get_pub_key_node(const void *pub_key_fit, const char *key_name)
+-{
+-	int sig_node;
+-	char key_node_name[FIT_MAX_KEY_NAME] = PREFIX_KEY;
+-	size_t key_node_name_len = sizeof(PREFIX_KEY) - 1;
+-
+-	key_node_name[FIT_MAX_KEY_NAME - 1] = '\0';
+-
+-	strncpy(key_node_name + key_node_name_len,
+-			key_name, FIT_MAX_KEY_NAME - key_node_name_len);
+-	/*
+-	 * To avoid stack based buffer overflow
+-	 * make sure your key string length does not exceed buffer size.
+-	 */
+-	if (key_node_name[FIT_MAX_KEY_NAME - 1] != '\0')
+-		return -1;
+-
+-	sig_node = fdt_subnode_offset(pub_key_fit, 0, HL_FIT_SIGNATURE_NODENAME);
+-
+-	return fdt_subnode_offset(pub_key_fit, sig_node, key_node_name);
+-}
+-
+-int fit_get_key_prop(const void *pub_key_fit, const char *key_name,
+-			    struct rsa_key_prop *prop)
+-{
+-	int pub_key_node = 0;
+-	int length;
+-
+-	if (fdt_check_header(pub_key_fit)) {
+-		EMB_LOG_ERR("FITkey header check failed");
+-		return 1;
+-	}
+-	pub_key_node = get_pub_key_node(pub_key_fit, key_name);
+-	if (pub_key_node < 0) {
+-		EMB_LOG_ERR("Wrong FITkey format: no key node");
+-		return 1;
+-	}
+-	prop->num_bits =
+-		fit_get_int(pub_key_fit, pub_key_node, "rsa,num-bits", 0);
+-	prop->n0inv =
+-		fit_get_int(pub_key_fit, pub_key_node, "rsa,n0-inverse", 0);
+-	prop->public_exponent =
+-		fdt_getprop(pub_key_fit, pub_key_node, "rsa,exponent", &length);
+-	if (!prop->public_exponent || length < sizeof(uint64_t))
+-		prop->public_exponent = NULL;
+-	prop->modulus =
+-		fdt_getprop(pub_key_fit, pub_key_node, "rsa,modulus", NULL);
+-	prop->rr =
+-		fdt_getprop(pub_key_fit, pub_key_node, "rsa,r-squared", NULL);
+-
+-	if (!prop->num_bits || !prop->modulus) {
+-		EMB_LOG_ERR("FIT: missing RSA Key");
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+-
+-__weak void preboot_security_boot_info_write_key_idx(u32 *key_idx) {}
+-
+ __weak int fit_process_core_id(enum fit_core_id core_id, uint64_t loadaddr,
+ 				uint8_t *config)
+ {
+@@ -279,101 +181,6 @@
+ 		return false;
+ 
+ 	return ((type == FIT_LOAD_TYPE_RUN) || (type == FIT_LOAD_TYPE_RUN_N_EXTEND));
+-}
+-
+-static bool fit_load_is_secured(const void *fit, int conf)
+-{
+-	int err;
+-	u32 type;
+-	struct fit_error fit_err;
+-
+-	err = fit_get_load_type(fit, &type, &fit_err);
+-	if (err)
+-		return true;
+-
+-	switch (type) {
+-	case FIT_LOAD_TYPE_RUN:
+-	case FIT_LOAD_TYPE_RUN_N_EXTEND:
+-	case FIT_LOAD_TYPE_NIC_EN_MASK:
+-		return true;
+-	default:
+-		return false;
+-	}
+-}
+-
+-static const u8 *fit_node_get_hash(const void *fit, int node)
+-{
+-	int hash;
+-	const char *prop;
+-
+-	hash = fdt_subnode_offset(fit, node, HL_FIT_HASH_PROP);
+-	prop = (const char *)fdt_getprop(fit, hash, HL_FIT_ALGO_PROP, NULL);
+-	if (strcmp(prop, FIT_SHA))
+-		return NULL;
+-
+-	return (const u8 *)fdt_getprop(fit, hash, HL_FIT_VALUE_PROP, NULL);
+-}
+-
+-__weak void sha_csum(const unsigned char *input, unsigned int ilen,
+-		unsigned char *output)
+-{
+-}
+-
+-__weak int fit_node_check_hash(const void *fit, int node, const u8 *buf,
+-			       int len, void *hash)
+-{
+-	const u8 *node_hash = fit_node_get_hash(fit, node);
+-	u8 calc_hash[SHA_SUM_LEN];
+-
+-	if (!node_hash) {
+-		EMB_LOG_ERR(" Missing hash for loadable");
+-		return 1;
+-	}
+-
+-	sha_csum(buf, len, calc_hash);
+-	if (memcmp(node_hash, calc_hash, SHA_SUM_LEN))
+-		return 1;
+-
+-	memcpy(hash, calc_hash, SHA_SUM_LEN);
+-
+-	return 0;
+-}
+-
+-__weak int preboot_verify_img_sig(const void *fit, size_t img_size,
+-				  enum fit_sec_failure *res, u32 *key_idx)
+-{
+-	return 1;
+-}
+-
+-__weak bool is_fit_tpm_extend_required(u32 load_type)
+-{
+-	return true;
+-}
+-
+-__weak void preboot_extend_fit_tpm_pcr(const void *img, size_t img_size)
+-{
+-}
+-
+-static int fit_verify_image_security(const void *fit, size_t fit_size, int conf,
+-					struct fit_error *err)
+-{
+-	int ret;
+-	u32 load_type;
+-
+-	ret = fit_get_load_type(fit, &load_type, err);
+-	if (ret) {
+-		fit_format_print_error(ret);
+-		return 1;
+-	}
+-
+-	if (is_fit_tpm_extend_required(load_type))
+-		preboot_extend_fit_tpm_pcr(fit, fit_size);
+-
+-	return preboot_verify_img_sig(fit, fit_size, &err->sec, &preboot_key_idx);
+-}
+-
+-__weak void preboot_store_img_signature(const void *fit, int node)
+-{
+ }
+ 
+ /*
+@@ -491,15 +298,7 @@
+ 			return FIT_LOAD_CORRUPTED;
+ 		}
+ 
+-		send_keep_alive(thread_desc);
+-		if (fit_node_check_hash(fit, node, buf, len, hash)) {
+-			EMB_LOG_HEX_ERR("FIT loadable currupted: bad hash for image: ", i);
+-			return FIT_LOAD_CORRUPTED;
+-		}
+-
+-		cmpr = (const char *)fdt_getprop(fit, node,
+-						 HL_FIT_COMPRESSION_PROP,
+-						 NULL);
++		cmpr = (const char *)fdt_getprop(fit, node, HL_FIT_COMPRESSION_PROP, NULL);
+ 		if (!cmpr) {
+ 			/*
+ 			 * mkimage is adding compression, if it's missing then
+@@ -518,6 +317,19 @@
+ 			EMB_LOG_HEX_ERR("FIT: invalid load address for image: ", i);
+ 			return FIT_LOAD_BAD_LOAD_ADDR;
+ 		}
++
++		send_keep_alive(thread_desc);
++
++		/* fit_verify function would have verified the hashes of each images */
++		if (fit_is_image_hash_verified())
++			goto skip_fit_hash_verification;
++
++		if (fit_verify_image_hash(fit, node, buf, len, hash)) {
++			EMB_LOG_HEX_ERR("FIT loadable currupted: bad hash for image: ", i);
++			return FIT_LOAD_CORRUPTED;
++		}
++
++skip_fit_hash_verification:
+ 
+ 		images[i].arch = fit_get_property_string(fit, node, HL_FIT_ARCH_PROP, NULL);
+ 		if (!images[i].arch) {
+@@ -570,246 +382,6 @@
+ 	preboot_security_boot_info_write_key_idx(&preboot_key_idx);
+ 
+ 	return FIT_LOAD_SUCCESS;
+-}
+-
+-/* TODO: Once this function is ported on baremetal, remove it here*/
+-__weak void oob_set_boot_err(enum hl_fw_fit_boot_error err,
+-						bool is_linux_boot_fail)
+-{
+-}
+-
+-static void fit_report_oob_err(enum fit_load_result err,
+-			   enum fit_sec_failure sec_res)
+-{
+-	enum hl_fw_fit_boot_error boot_err = HL_FW_FIT_BOOT_ERR_NONE;
+-
+-	switch (err) {
+-	case FIT_LOAD_BAD_LOAD_ADDR:
+-		boot_err = HL_FW_FIT_BOOT_ERR_ADDRESS_VIOLATION;
+-		break;
+-	case FIT_LOAD_NOT_RUNNABLE:
+-		boot_err = HL_FW_FIT_BOOT_ERR_NOT_RUNNABLE;
+-		break;
+-	case FIT_LOAD_CORRUPTED:
+-		boot_err = HL_FW_FIT_BOOT_ERR_CORRUPTED;
+-		break;
+-	case FIT_LOAD_SEC_FAILED:
+-
+-		switch (sec_res) {
+-		case FIT_SEC_SVN_INVALID:
+-			boot_err = HL_FW_FIT_BOOT_ERR_SVN;
+-			break;
+-		case FIT_SEC_KEY_REVOKED:
+-			boot_err = HL_FW_FIT_BOOT_ERR_REVOKED_KEY;
+-			break;
+-		case FIT_SEC_SIGN_FAILED:
+-			boot_err = HL_FW_FIT_BOOT_ERR_SIGNATURE;
+-			break;
+-		default:
+-			break;
+-		}
+-
+-		break;
+-	default:
+-		break;
+-	};
+-
+-	oob_set_boot_err(boot_err, false);
+-}
+-
+-static int fwupd_sec_convert_min_error(enum fit_sec_failure err)
+-{
+-	int serr;
+-
+-	switch (err) {
+-	case FIT_SEC_KEY_REVOKED:
+-		serr = HL_SEC_ERR_KEY_REVOKED;
+-		break;
+-	case FIT_SEC_SVN_INVALID:
+-		serr = HL_SEC_ERR_SVN_INVALID;
+-		break;
+-	case FIT_SEC_SIGN_FAILED:
+-		serr = HL_SEC_ERR_SIGN_FAILED;
+-		break;
+-	default:
+-		serr = FIT_SEC_NONE;
+-	};
+-
+-	return serr;
+-}
+-
+-void fit_load_print_error(enum fit_load_result errtype)
+-{
+-	switch (errtype) {
+-	case FIT_LOAD_SUCCESS:
+-		break;
+-	case FIT_LOAD_BAD_LOAD_ADDR:
+-	case FIT_LOAD_NOT_RUNNABLE:
+-	case FIT_LOAD_CORRUPTED:
+-		EMB_LOG_ERR("FIT loading failed");
+-		break;
+-	case FIT_LOAD_SEC_FAILED:
+-		EMB_LOG_ERR("FIT security validation failed");
+-		break;
+-	default:
+-		EMB_LOG_HEX_ERR("unrecognized error value for: fit_load_result (%d)",
+-			(unsigned int)errtype);
+-		break;
+-	}
+-}
+-
+-void fit_format_print_error(enum fit_format_result errtype)
+-{
+-	switch (errtype) {
+-	case FIT_FORMAT_SUCCESS:
+-		break;
+-	case FIT_FORMAT_HEADER_CHECK_FAILED:
+-		EMB_LOG_ERR("FIT header check failed");
+-		break;
+-	case FIT_FORMAT_NO_DESCRIPTION:
+-		EMB_LOG_ERR("Wrong FIT format: no description");
+-		break;
+-	case FIT_FORMAT_NO_IMAGES_PARENT_NODE:
+-		EMB_LOG_ERR("Wrong FIT format: no images parent node");
+-		break;
+-	case FIT_FORMAT_CURRUPTED_LOAD_TYPE:
+-		EMB_LOG_ERR("Currupted load type");
+-		break;
+-	case FIT_FORMAT_UNSUPPORTED_LOAD_TYPE:
+-		EMB_LOG_ERR("Unsupported load type");
+-		break;
+-	case FIT_FORMAT_NO_LOAD_TYPE:
+-		EMB_LOG_ERR("No load type present in the conf");
+-		break;
+-	case FIT_FORMAT_NO_LOAD_ADDRESS:
+-		EMB_LOG_ERR("No load address present in the node");
+-		break;
+-	case FIT_FORMAT_NO_DATA:
+-		EMB_LOG_ERR("No data present in the node");
+-		break;
+-	case FIT_FORMAT_NO_CONF_NODE:
+-		EMB_LOG_ERR("No conf node present in the fit");
+-		break;
+-	case FIT_FORMAT_NO_PROPERTY:
+-		EMB_LOG_ERR("Given property not found in the node");
+-		break;
+-	case FIT_FORMAT_BAD_SIZE:
+-		EMB_LOG_ERR("Property doesn't contain data in proper size");
+-		break;
+-	default:
+-		EMB_LOG_HEX_ERR("unrecognized error value for: fit_format_result (%d)",
+-			(unsigned int)errtype);
+-		break;
+-	}
+-}
+-
+-bool fit_err_is_success(struct fit_error *err)
+-{
+-	return !err->load && !err->fmt && !err->sec;
+-}
+-
+-void fit_report_error(struct fit_error *err)
+-{
+-	cpu_boot_err_clrset(BIT_ULL(CPU_BOOT_ERR_FIT_CORRUPTED) |
+-			    BIT_ULL(CPU_BOOT_ERR_SECURITY_FAIL), false);
+-
+-	if (fit_err_is_success(err))
+-		return;
+-
+-	switch (err->load) {
+-	case FIT_LOAD_SEC_FAILED:
+-		cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);
+-		preboot_error_inform(HL_FW_ERR_SECURITY, fwupd_sec_convert_min_error(err->sec));
+-		break;
+-	default:
+-		cpu_boot_err_set(CPU_BOOT_ERR_FIT_CORRUPTED);
+-		preboot_error_inform(HL_FW_ERR_FIT, err->load);
+-		break;
+-	}
+-
+-	fit_report_oob_err(err->load, err->sec);
+-	fit_format_print_error(err->fmt);
+-	fit_load_print_error(err->load);
+-}
+-
+-int fit_verify(void *fit, struct fit_error *err)
+-{
+-	int node, ret;
+-	int conf, num_images, i;
+-	const u8 *buf;
+-	u8 hash[SHA_SUM_LEN];
+-	size_t fit_size = fdt_totalsize(fit);
+-	size_t len;
+-
+-	err->fmt = fit_check_format(fit);
+-	if (err->fmt) {
+-		err->load = FIT_LOAD_CORRUPTED;
+-		return 1;
+-	}
+-
+-	/* Check if image supports a minimum FDT version or newer */
+-	if (fdt_version(fit) < FDT_MIN_SUPPORTED_VERSION) {
+-		err->load = FIT_LOAD_SEC_FAILED;
+-		err->sec = FIT_SEC_NONE;
+-		return 1;
+-	}
+-
+-	/* check provided fit_size is inside the bounds */
+-	if (!preboot_is_valid_address_range((uintptr_t)fit, fit_size)) {
+-		err->load = FIT_LOAD_SEC_FAILED;
+-		err->sec = FIT_SEC_NONE;
+-		return 1;
+-	}
+-
+-	/* Get number of images in preboot configuration */
+-	ret = fit_get_conf_offset_and_num_of_loadables(fit, &conf, &num_images);
+-	if (ret || (conf < 0)) {
+-		err->load = FIT_LOAD_CORRUPTED;
+-		err->sec = FIT_SEC_NONE;
+-		return 1;
+-	}
+-
+-	if (num_images > FIT_MAX_IMAGES) {
+-		EMB_LOG_HEX_ERR("Images in fit exceeds max limit: ", FIT_MAX_IMAGES);
+-		err->load = FIT_LOAD_CORRUPTED;
+-		return 1;
+-	} else if (num_images < 0) {
+-		EMB_LOG_HEX_ERR("Cant read images from fit: ", -num_images);
+-		err->load = FIT_LOAD_CORRUPTED;
+-		return 1;
+-	}
+-
+-	if (!fit_load_is_secured(fit, conf))
+-		return 0; /* Nothing more to check */
+-
+-	if (fit_verify_image_security(fit, fit_size, conf, err)) {
+-		err->load = FIT_LOAD_SEC_FAILED;
+-		return 1;
+-	}
+-
+-	for (i = 0; i < num_images; i++) {
+-		node = fit_get_loadable_node_offset_by_index(fit, conf, i);
+-		if (node < 0) {
+-			EMB_LOG_HEX_ERR("Wrong FIT format: loadable image not found: ", i);
+-			err->load = FIT_LOAD_NOT_RUNNABLE;
+-			return 1;
+-		}
+-
+-		ret = fit_get_data_from_offset(fit, node, (const void **)&buf, &len);
+-		if (ret || (!buf)) {
+-			EMB_LOG_HEX_ERR("Wrong FIT format: data empty for image: ", i);
+-			err->load = FIT_LOAD_CORRUPTED;
+-			return 1;
+-		}
+-
+-		if (fit_node_check_hash(fit, node, buf, len, hash)) {
+-			EMB_LOG_HEX_ERR("FIT loadable currupted: bad hash for image: ", i);
+-			err->load = FIT_LOAD_CORRUPTED;
+-			return 1;
+-		}
+-	}
+-
+-	return 0;
+ }
+ 
+ int fit_load_images(void *fit, struct fit_error *err)
+@@ -886,32 +458,6 @@
+ 
+ 	if (!preboot_is_core_id_supported() || startaddr)
+ 		preboot_start_image(startaddr, valid_arc_img, core_id);
+-}
+-
+-#define HL_SEC_REGIONS_CNT	2
+-
+-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,
+-		       size_t sec_desc_size, const void *pub_key_fit,
+-		       const u8 *sig, size_t sig_len)
+-{
+-	const char *key_name = HL_SEC_KEY_NAME;
+-	struct rsa_key_prop prop;
+-	struct image_region region[HL_SEC_REGIONS_CNT];
+-
+-	if (fit_get_key_prop(pub_key_fit, key_name, &prop))
+-		return 1;
+-
+-	/*
+-	 * region 0 holds the fit image as a whole,
+-	 * region 1 holds the hl security descriptor
+-	 */
+-	region[0].data = img;
+-	region[0].size = img_size;
+-	region[1].data = sec_desc;
+-	region[1].size = sec_desc_size;
+-
+-	return rsa_verify_regions(region, HL_SEC_REGIONS_CNT, sig, sig_len,
+-				  &prop);
+ }
+ 
+ bool get_fit_no_ret(void)
+diff --git a/lib/preboot/fit.h b/lib/preboot/fit.h
+index e47b720..b3099d5 100644
+--- a/lib/preboot/fit.h
++++ b/lib/preboot/fit.h
+@@ -9,29 +9,16 @@
+ #include <hl_fit_if.h>
+ #include <fit_utils.h>
+ 
+-#define HL_SEC_KEY_NAME		"hl_rsa3072"
+ 
+-void fit_load_print_error(enum fit_load_result errtype);
+-void fit_format_print_error(enum fit_format_result errtype);
+-bool fit_err_is_success(struct fit_error *err);
+-void fit_report_error(struct fit_error *err);
+-int fit_verify(void *fit, struct fit_error *err);
+ int fit_load_images(void *fit, struct fit_error *err);
+ void fit_run_image(void);
+-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,
+-		       size_t sec_desc_size, const void *pub_key_fit,
+-		       const u8 *sig, size_t sig_len);
+ 
+-int fit_node_check_hash(const void *fit, int node, const u8 *buf,
+-						int len, void *hash);
+ void preboot_start_image(u64 startaddr, bool valid_arc_img,
+ 						enum fit_core_id core_id);
+ int fit_process_core_id(enum fit_core_id core_id, uint64_t loadaddr, uint8_t *config);
+ bool get_fit_no_ret(void);
+ void fit_clr_state(void);
+ int get_mgmt_core_id(void);
+-int preboot_verify_img_sig(const void *fit, size_t img_size,
+-			   enum fit_sec_failure *res, u32 *key_idx);
+ 
+ 
+ #endif /* _HL_FIT_H_ */
+diff --git a/lib/preboot/fit_load.c b/lib/preboot/fit_load.c
+index 0bbc702..9e40165 100644
+--- a/lib/preboot/fit_load.c
++++ b/lib/preboot/fit_load.c
+@@ -15,6 +15,7 @@
+ #include <fit.h>
+ #include <fit_load_type.h>
+ #include <cmd_module.h>
++#include <fit_error.h>
+ 
+ #include <emb_cmn_log.h>
+ 
+diff --git a/lib/preboot/fit_regions.c b/lib/preboot/fit_regions.c
+index 00e51a4..e62ecc9 100644
+--- a/lib/preboot/fit_regions.c
++++ b/lib/preboot/fit_regions.c
+@@ -4,9 +4,9 @@
+  */
+ 
+ #include <libfdt.h>
+-#include <common.h>
+-#include <fit_rsa.h>
+-#include <fit_regions.h>
++#include <preboot/fit_rsa.h>
++#include <preboot/fit_regions.h>
++#include <fit_utils.h>
+ #include <sha.h>
+ 
+ #define FDT_MAX_DEPTH	8
+diff --git a/lib/preboot/fit_rsa.c b/lib/preboot/fit_rsa.c
+index eb21c66..963f894 100644
+--- a/lib/preboot/fit_rsa.c
++++ b/lib/preboot/fit_rsa.c
+@@ -4,9 +4,8 @@
+  */
+ 
+ #include <libfdt.h>
+-#include <common.h>
+-#include <fit_rsa.h>
+-#include <fit_regions.h>
++#include <preboot/fit_rsa.h>
++#include <preboot/fit_regions.h>
+ #include <sha.h>
+ 
+ #include <emb_cmn_log.h>
+@@ -27,11 +26,22 @@
+ #define CHECKSUM_DER_LENGTH	(SHA_DER_LEN)
+ #define CHECKSUM_DER_PREFIX	(SHA_DER_PRE)
+ 
+-
++#ifndef RSA4096_BITS
+ #define RSA4096_BITS		(4096)
++#endif
++
++#ifndef RSA4096_BYTES
+ #define RSA4096_BYTES		(RSA4096_BITS / 8)
++#endif
++
++#ifndef RSA3072_BITS
+ #define RSA3072_BITS		(3072)
++#endif
++
++#ifndef RSA3072_BYTES
+ #define RSA3072_BYTES		(RSA3072_BITS / 8)
++#endif
++
+ #define CRYPTO_RSA_LENGTH	(RSA3072_BYTES)
+ #define RSA_DEFAULT_PUBEXP	(65537)
+ 
+diff --git a/lib/preboot/fit_rsa.h b/lib/preboot/fit_rsa.h
+index 340f98e..eaf7711 100644
+--- a/lib/preboot/fit_rsa.h
++++ b/lib/preboot/fit_rsa.h
+@@ -6,11 +6,10 @@
+ #ifndef COMMON_FIT_RSA_H_
+ #define COMMON_FIT_RSA_H_
+ 
+-#ifdef __ZEPHYR__
+-#include <preboot.h>
+-#else
+-#include <baremetal.h>
+-#endif
++#include <stddef.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <types.h>
+ 
+ struct rsa_key_prop {
+ 	const void *rr;			/* R^2 can be treated as byte array */

@@ -1,0 +1,43 @@
+From b5c0a9b2b62265c01e7d3682b776ebaa00d530b4 Mon Sep 17 00:00:00 2001
+From: Anupam Datta <andatta@habana.ai>
+Date: Tue, 27 May 2025 10:33:41 +0300
+Subject: [PATCH] [SW-230429]: cpucp_if: add nic pkt drop count to nic_spi_data
+
+- Extended `struct hl_eq_nic_spi_data` with a 16-bit
+  `sw_err_rxb_drop_cnt` field to report the number of packets
+  dropped due to unavailable buffers.
+- Updated documentation for `struct hl_eq_nic_spi_data` to
+  describe the new field.
+- This change enables firmware and driver to communicate
+  packet drop statistics as part of NIC SPI events,
+  improving observability and error reporting for NIC
+  software errors.
+
+Change-Id: Iba7e3fc8380e0c5ed6f3db801265be15fc25dcfc
+Signed-off-by: Anupam Datta <andatta@habana.ai>
+---
+
+diff --git a/cpucp_if.h b/cpucp_if.h
+index 8c71796..7251d52 100644
+--- a/cpucp_if.h
++++ b/cpucp_if.h
+@@ -1055,13 +1055,17 @@
+ /**
+  * struct hl_eq_nic_spi_data - NIC SPI event information
+  * @spi_type: enum hl_nic_spi_type
+- * @pad: padding bytes
++ * @pad0: padding byte
++ * @sw_err_rxb_drop_cnt: 16-bit counter for packets dropped due to no available buffers
++ * @pad1: additional padding bytes
+  * @hl_eq_nic_sw_err_data: sw error cause information
+  * @spmu_bmon_data: bmon cause information
+  */
+ struct hl_eq_nic_spi_data {
+ 	uint8_t spi_type;
+-	uint8_t pad[7];
++	uint8_t pad0;
++	uint16_t sw_err_rxb_drop_cnt;
++	uint8_t pad1[4];
+ 	union {
+ 		struct hl_eq_nic_sw_err_data sw_err_data;
+ 		struct hl_eq_spmu_bmon spmu_bmon_data;

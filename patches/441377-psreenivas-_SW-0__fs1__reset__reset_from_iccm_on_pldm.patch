@@ -1,0 +1,48 @@
+From 462199a0fc977a3345459d928c11b26e891a2a8a Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Fri, 22 Nov 2024 05:40:57 +0200
+Subject: [PATCH] [SW-0] fs1: reset: reset from iccm on pldm
+
+This patch is to generate reset firmware hex file from
+zephyr_reset.bin. This hex can be used run reset_fw as
+standalone application on PLDM.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I5709ac475f0e742cefa52711b538c987eede784d
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index e80168b..5bb1d1f 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -22,6 +22,7 @@
+ PCIE_PHY_BINFILE=${PCIE_PHY_BINFILE:-pcie_phy_fw.bin}
+ ZEPHYR_DSM_BINFILE=${ZEPHYR_DSM_BINFILE:-zephyr_dsm.bin}
+ ZEPHYR_MGMT_BINFILE=${ZEPHYR_MGMT_BINFILE:-zephyr_mgmt.bin}
++ZEPHYR_RST_BINFILE=${ZEPHYR_RST_BINFILE:-zephyr_reset.bin}
+ 
+ #SECURITY_BOOT_MODE
+ SECURE_BOOT=1
+@@ -435,4 +436,10 @@
+ 					  ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.${ENDIANNESS}
+ 
+ 	fi
++
++
++	# for zephyr_rst binary
++        swap_file ${ZEPHYR_RST_BINFILE} ${ZEPHYR_RST_BINFILE}.orig.be
++        hl_pldm_hex zephyr_reset ${ZEPHYR_RST_BINFILE}.orig.be 1 ${HEXS_DIR}
++
+ popd
+diff --git a/package/reset/reset.mk b/package/reset/reset.mk
+index 24a521d..c396c7a 100644
+--- a/package/reset/reset.mk
++++ b/package/reset/reset.mk
+@@ -121,6 +121,7 @@
+ 
+ define RESET_INSTALL_TARGET_CMDS
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(RESET_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.bin $(BINS_DIR)/zephyr_$(RESET_APP_NAME).bin
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.stat $(STATS_DIR)/zephyr_$(RESET_APP_NAME).stat
+ endef
+ 

@@ -1,0 +1,29 @@
+From fe6b09fa3e162f17558e3d149c55e330ca5a2ec9 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Mon, 16 Sep 2024 19:04:57 +0300
+Subject: [PATCH] fs1: image size should be multiples of dma min
+
+This patch add support to make sure image size
+should be multiples of min dma size, then final
+size should be added with crc size.
+
+Change-Id: I30d61593243531f724b96908b2d5fb369c5b2080
+---
+
+diff --git a/board/habanalabs/fs1_arc/post-image-spi.sh b/board/habanalabs/fs1_arc/post-image-spi.sh
+index 27e9e1d..1f5431f 100755
+--- a/board/habanalabs/fs1_arc/post-image-spi.sh
++++ b/board/habanalabs/fs1_arc/post-image-spi.sh
+@@ -460,6 +460,12 @@
+ 		fi
+ 
+ 		size_corr_fac=$((num_slices * 4))
++
++		remainder=$((img_size % 16))
++		if [ "$remainder" -gt 0 ]; then
++			to_add=$((16 - remainder))
++			img_size=$((img_size + to_add))
++		fi
+ 	fi
+ 
+ 	local img_size_final=$((img_size+size_corr_fac))

@@ -1,0 +1,51 @@
+From ea8fdc788703359569f563d7ffe5dd9edeaf7d68 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Sun, 11 May 2025 08:22:17 +0300
+Subject: [PATCH] [SW-221766] installer: add MNLX support
+
+Change-Id: I12039bc70fcd9964017bf53062caf82ee5baede2
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+---
+
+diff --git a/installer/src/lib/_vars.sh b/installer/src/lib/_vars.sh
+index 8c36426..952f449 100644
+--- a/installer/src/lib/_vars.sh
++++ b/installer/src/lib/_vars.sh
+@@ -57,7 +57,7 @@
+ HABANALABS_MLNX_DEPENDENCIES=""
+ HABANALABS_MLNX_REPO_PATH="artifactory/gaudi-installer/deps"
+ HABANALABS_MLNX_OFED_VERSION="MLNX_OFED_LINUX-5.8-3.0.7.0-rhel8.4-x86_64.tgz"
+-HABANALABS_MLNX_OFED_VERSION_42="MLNX_OFED_LINUX-24.07-0.6.1.0-rhel9.4-x86_64.tgz"
++HABANALABS_MLNX_OFED_VERSION_42="MLNX_OFED_LINUX-23.10-3.2.2.0-rhel9.4-x86_64.tgz"
+ HABANALABS_PKG_INSTALL_OPTION=""
+ HABANALABS_K8S_DEPENDENCIES=""
+ HABANALABS_K8S_OPTIONAL="habanalabs-firmware-odm"
+diff --git a/installer/src/lib/install_func.sh b/installer/src/lib/install_func.sh
+index a032d9d..de18c60 100644
+--- a/installer/src/lib/install_func.sh
++++ b/installer/src/lib/install_func.sh
+@@ -177,10 +177,20 @@
+                             $_SUDO_CMD dnf remove openmpi -y || true
+                         ;;
+                         4.2)
+-                            warn "NOTICE: MLNX OFED is not supported on TencentOS 4.2"
+-                            warn "NOTICE: Please install MLNX OFED manually"
+-                            warn "NOTICE: For more information, please refer to the installation guide"
+-                            warn "NOTICE: https://docs.nvidia.com/networking/display/mlnxofedv571020/installing+mlnx_ofed"
++                            # warn "NOTICE: MLNX OFED is not supported on TencentOS 4.2"
++                            # warn "NOTICE: Please install MLNX OFED manually"
++                            # warn "NOTICE: For more information, please refer to the installation guide"
++                            # warn "NOTICE: https://docs.nvidia.com/networking/display/mlnxofedv571020/installing+mlnx_ofed"
++                            local _ofa_kernel_dir=$(mktemp -d)
++                            wget -q -O "${_ofa_kernel_dir}/${HABANALABS_MLNX_OFED_VERSION}" "https://${HABANA_SERVER_NAME}/${HABANALABS_MLNX_REPO_PATH}/${HABANALABS_MLNX_OFED_VERSION}"
++                            tar xvzf "${_ofa_kernel_dir}/${HABANALABS_MLNX_OFED_VERSION}" -C ${_ofa_kernel_dir}
++                            pushd "${_ofa_kernel_dir}/MLNX_OFED_LINUX-23.10-3.2.2.0-rhel9.4-x86_64"
++                                sed -i '/# Check for needed packages by install.pl/a sed -i "s/rpmbuild --rebuild/rpmbuild --define '\''rhel 9'\'' --define '\''_lto_cflags -fno-lto'\'' --define '\''_hardened_cflags -fPIE'\'' --rebuild/g" ${ofed}/install.pl' mlnx_add_kernel_support.sh
++                                $_SUDO_CMD ./mlnxofedinstall --distro rhel9.4 --without-fw-update --add-kernel-support --without-mlnx-nvme --skip-repo || fatal "Installation of mlnx ofed driver failed\nPlease check pre-requirements and rerun habanalabs-installer.sh"
++                            popd
++                            $_SUDO_CMD rm -rf "${_ofa_kernel_dir}"
++                            $_SUDO_CMD dracut -f || true
++                            $_SUDO_CMD /etc/init.d/openibd restart || true
+                         ;;
+                     esac
+                 fi

@@ -1,0 +1,25 @@
+From 6a47ad0e23aac432de7453e9ad2d13abca871fbf Mon Sep 17 00:00:00 2001
+From: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+Date: Tue, 05 Nov 2024 02:32:36 +0200
+Subject: [PATCH] [SW-190074][Quantization] update model state_dict after modification
+
+This change makes sure to update model state_dict after
+its modification otherwise changes might not take effect.
+
+Change-Id: I74c5aea3491b5a84c09c3b48cc1ab811ce91f534
+Signed-off-by: Dmitry Rogozhkin <dmitry.v.rogozhkin@intel.com>
+---
+
+diff --git a/python_packages/habana_frameworks/torch/core/quantization.py b/python_packages/habana_frameworks/torch/core/quantization.py
+index 6a2acd7..452f447 100644
+--- a/python_packages/habana_frameworks/torch/core/quantization.py
++++ b/python_packages/habana_frameworks/torch/core/quantization.py
+@@ -87,7 +87,7 @@
+ def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -> None:
+     if model is None:
+         return
+-    for param, param_t in model.state_dict().items():
++    for param, param_t in model.state_dict(keep_vars=True).items():
+         if only_scales and "scale" not in param:
+             continue
+         try:

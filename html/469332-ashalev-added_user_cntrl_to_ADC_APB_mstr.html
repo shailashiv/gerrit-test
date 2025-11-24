@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 469332: added user cntrl to ADC APB mstr</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 469332: added user cntrl to ADC APB mstr</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> soconline_db_h15_project</p>
+            <p><strong>Branch:</strong> master</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Amit Shalev &lt;ashalev@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-01-13 11:06:46.110000000</p>
+            <p><strong>Updated:</strong> 2025-01-13 11:09:37.463000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>added user cntrl to ADC APB mstr
+
+Change-Id: I7d92bd2d54ab21eb7cb3d7388def5c26d782a741
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: jenkins: +0</li><li><strong>Verified</strong>: -2 by jenkins</li><li><strong>Finished</strong>: jenkins: +0</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>prototypes/global_conf.xml</code> (M) +51 -43</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/prototypes/global_conf.xml</h4><pre class="diff-content"><span class="diff-hunk">@@ -1561,7 +1561,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;81C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;UART_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for UART apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1569,7 +1569,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;820&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;UART_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for UART sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1577,7 +1577,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;824&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;TIMER_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for TIMER apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1585,7 +1585,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;828&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;TIMER_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for TIMER sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1593,7 +1593,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;82C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;WDOG_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for WDOG apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1601,7 +1601,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;830&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;WDOG_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for WDOG sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1609,7 +1609,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;834&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;TIMESTAMP_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for TIMESTAMP apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1617,7 +1617,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;838&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;TIMESTAMP_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for TIMESTAMP sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1625,7 +1625,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;83C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;DFT_APB_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for DFT_APB apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1633,7 +1633,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;840&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;DFT_APB_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for DFT_APB sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1641,7 +1641,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;844&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;I2C_M0_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for I2C_M0 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1649,7 +1649,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;848&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;I2C_M0_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for I2C_M0 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1657,7 +1657,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;84C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;I2C_M1_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for I2C_M1 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1665,7 +1665,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;850&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;I2C_M1_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for I2C_M1 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1673,7 +1673,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;854&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SPI_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for SAI apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1681,7 +1681,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;858&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SPI_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for SPI sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1689,7 +1689,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;85C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;QSPI_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for QSPI apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1697,7 +1697,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;860&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;QSPI_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for QSAI sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1705,7 +1705,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;864&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SPI_PM_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for SPI_PM apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1713,7 +1713,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;868&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SPI_PM_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for SPI_PM sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1721,7 +1721,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;86C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO0_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO0 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1729,15 +1729,15 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;870&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO0_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO0 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-ctx">   &lt;/REGISTER&gt;</span>
+<span class="diff-del">-    &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;874&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO1_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-add">+  &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;874&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO1_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO1 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1745,7 +1745,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;878&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO1_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO1 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1753,7 +1753,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;87C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO2_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO2 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1761,7 +1761,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;880&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO2_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO2 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1769,7 +1769,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;884&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO3_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO3 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1777,7 +1777,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;888&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO3_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO3 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1785,7 +1785,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;88C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO4_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO4 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1793,7 +1793,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;890&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO4_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO4 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1801,7 +1801,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;894&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO5_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for GPIO5 apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1809,7 +1809,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;898&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;GPIO5_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for GPIO5 sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1817,7 +1817,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;89C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;RST_ARC_ICCM_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for RST_ARC_ICCM apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1825,7 +1825,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8A0&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;RST_ARC_ICCM_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for RST_ARC_ICCM sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1833,7 +1833,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8A4&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;RST_ARC_DCCM_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for RST_ARC_DCCM apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1841,7 +1841,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8A8&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;RST_ARC_DCCM_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for RST_ARC_DCCM sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1849,7 +1849,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8AC&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;QSPI_MEM_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for QSPI_MEM apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1857,7 +1857,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8B0&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;QSPI_MEM_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for QSPI_MEM sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1865,7 +1865,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8B4&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;STM_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for STM_SAI apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1873,7 +1873,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8B8&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;STM_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for STM_SAI sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1881,7 +1881,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8BC&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SCRATCHPAD_SAI_PROT&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;SAI bus for SCRATCHPAD apb access&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-       &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;FFFFFFFF&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;32&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -1889,7 +1889,7 @@</span>
+<span class="diff-ctx">   &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;8C0&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;SCRATCHPAD_SAI_ERR&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-ctx">     &lt;BRIEF_DESCRIPTION&gt;error response value for SCRATCHPAD sai protection&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-del">-        &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;1&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;1&quot;&gt;</span>
+<span class="diff-ctx">       &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-hunk">@@ -2007,6 +2007,14 @@</span>
+<span class="diff-ctx">       &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-ctx">     &lt;/FIELD&gt;</span>
+<span class="diff-ctx">   &lt;/REGISTER&gt;</span>
+<span class="diff-add">+  &lt;REGISTER ACCESS_TYPE=&quot;rw&quot; ADDR_OFFSET=&quot;D3C&quot; COLD_RST=&quot;&quot; COPIES_NUM=&quot;&quot; DIS_RD_CHK=&quot;&quot; DIS_WR_CHK=&quot;&quot; EXT_REG=&quot;&quot; GEN_TRIG=&quot;&quot; NAME=&quot;ADC_APB_USER&quot; PRIVILEGE=&quot;&quot; RESET_PARAM=&quot;&quot; SECURED=&quot;&quot; VISIBLE=&quot;&quot;&gt;</span>
+<span class="diff-add">+    &lt;BRIEF_DESCRIPTION&gt;User value for ADC mstr apb&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-add">+    &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-add">+    &lt;FIELD ACCESS_TYPE=&quot;ro&quot; ASYNC_RESET=&quot;&quot; DIS_EXT_IF_WR=&quot;&quot; NAME=&quot;VAL&quot; RECONF=&quot;&quot; RESET_VAL=&quot;0001F&quot; START_BIT_OFFSET=&quot;0&quot; WIDTH=&quot;20&quot;&gt;</span>
+<span class="diff-add">+      &lt;BRIEF_DESCRIPTION&gt;&lt;/BRIEF_DESCRIPTION&gt;</span>
+<span class="diff-add">+      &lt;DESCRIPTION&gt;&lt;/DESCRIPTION&gt;</span>
+<span class="diff-add">+    &lt;/FIELD&gt;</span>
+<span class="diff-add">+  &lt;/REGISTER&gt;</span>
+<span class="diff-ctx">   &lt;SUBBLOCK ADDR=&quot;700&quot; EXTERNAL=&quot;&quot; NAME=&quot;LBW_BTM_APB_MON&quot; PROTOTYPE=&quot;APB_MONITOR&quot; RTL_PATH=&quot;&quot; /&gt;</span>
+<span class="diff-ctx">   &lt;SUBBLOCK ADDR=&quot;708&quot; EXTERNAL=&quot;&quot; NAME=&quot;LBW_DPYH_FSM_APB_MON&quot; PROTOTYPE=&quot;APB_MONITOR&quot; RTL_PATH=&quot;&quot; /&gt;</span>
+<span class="diff-ctx">   &lt;SUBBLOCK ADDR=&quot;710&quot; EXTERNAL=&quot;&quot; NAME=&quot;LBW_BTL_APB_MON&quot; PROTOTYPE=&quot;APB_MONITOR&quot; RTL_PATH=&quot;&quot; /&gt;</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Amit Shalev</strong> <span class="date">(2025-01-13 11:06:46.110000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>jenkins</strong> <span class="date">(2025-01-13 11:06:55.494000000)</span><pre>Patch Set 1:
+
+Build Started https://jenkins-vlsi-ctrl01.habana-labs.com/job/soc_h15_project_seed/3297/</pre></div><div class="message"><strong>jenkins</strong> <span class="date">(2025-01-13 11:09:37.463000000)</span><pre>Patch Set 1: Verified-1
+
+Build Failed 
+
+https://jenkins-vlsi-ctrl01.habana-labs.com/job/soc_h15_project_seed/3297/ : FAILURE</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

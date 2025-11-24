@@ -1,0 +1,110 @@
+From f7dfa03161fa52243badc2957fd808db519e0d73 Mon Sep 17 00:00:00 2001
+From: Ori Wang <hcwang@habana.ai>
+Date: Wed, 12 Nov 2025 04:56:56 +0200
+Subject: [PATCH] [HL325][tests] test_svh_ber: Improve the retry mechanism of HL325 ber test     Retry executes only failed units now     reference:     https://jira.habana-labs.com/browse/PROD-265
+
+Change-Id: I952e260f37fda275816ebad567a7016012b6b6d2
+Signed-off-by: Ori Wang <hcwang@habana.ai>
+---
+
+diff --git a/tests/HL325/test_svh_ber.py b/tests/HL325/test_svh_ber.py
+index f989550..b91e027 100644
+--- a/tests/HL325/test_svh_ber.py
++++ b/tests/HL325/test_svh_ber.py
+@@ -398,9 +398,11 @@
+         self.iteration = 0
+         max_retry_times = self.test_options.svh_iterations
+         self.is_ber_retry_mode = False #If the 1st complete test fails, enter retry mode
++        tested_device_set = set(self.connected_pcie_devices)
++        retested_device_id_set = set()
+ 
+         while self.iteration < max_retry_times:
+-            hlsa_logger(level='info', ident='Description', 
++            hlsa_logger(level='info', ident='Description',
+                         test_code=self.test_code, operation=f'Start svh iteration:{self.iteration}')
+             self.remove_old_logs('serdes_params_int*')
+             run_svh_prod_test = ["sudo -E python3 ./Hl325s_stability_test_production.py"]
+@@ -409,7 +411,7 @@
+             is_this_loop_pass = True
+ 
+             if self.is_ber_retry_mode or self.iteration > 0:
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code, 
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+                             loop=self.iteration, operation=f'Reload driver before retry')
+ 
+                 status = self.unload_reset_devices()
+@@ -422,6 +424,17 @@
+                 self.device_cli.execute_command(cmd_driver)
+                 hlsa_logger(level='info', ident='Description', operation=f'Send sleep 40s cmd')
+                 time.sleep(40)
++
++                if self.is_ber_retry_mode and not retested_device_id_set:
++                    for device in tested_device_set:
++                        retested_device_id_set.add(int(self.devices[device]["mezz"]))
++                    hlsa_logger(level='info', ident='Description', operation=('Update svh ber config for oam: %s' % \
++                        str(retested_device_id_set).strip(r'{}')))
++                    temp_command = r'sed -i ' + r'"3s/\[.*\]/\[' + ','.join(str(temp) for temp in retested_device_id_set) + \
++                        r'\]/"' + f' {self.config_file_production_yaml}'
++                    hlsa_logger(level='info', ident='Description', test_code=self.test_code, \
++                        operation=f'config yaml on tpc command:{temp_command}')
++                    subprocess.getoutput(temp_command)
+ 
+             hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+                         loop=self.iteration, operation=f'Start {run_svh_prod_test}')
+@@ -499,6 +512,11 @@
+ 
+             for device in self.connected_pcie_devices:
+                 try:
++                    if device not in tested_device_set:
++                        hlsa_logger(level='info', ident='Description', dev_address=device, mezzanine=self.devices[device]['mezz'],
++                            operation=("OAM#%d was not in tested list in Iteration #%d retry" % \
++                            (int(self.devices[device]['mezz']), self.iteration)))
++                        continue
+                     self.devices[device]['svh_results'] = data[str(self.devices[device]['mezz'])]
+                 except Exception as exception:
+                     hlsa_logger(level='warning', ident='Description', dev_address=device,
+@@ -522,6 +540,11 @@
+             for device in self.connected_pcie_devices:
+                 try:
+                     log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if device not in tested_device_set:
++                        hlsa_logger(level='info', ident='Description', dev_address=device, mezzanine=self.devices[device]['mezz'],
++                            operation=("This OAM was not in tested list in Iteration #%d retry" % self.iteration))
++                        continue
++
+                     hlsa_logger(level='info', ident='Description', dev_address=device, mezzanine=self.devices[device]['mezz'],
+                         operation=("Iteration #%d's output" % self.iteration))
+                     is_this_device_pass = True
+@@ -561,6 +584,7 @@
+                     if is_this_device_pass:
+                         if not self.is_ber_retry_mode:
+                             self.devices[device]["status"] = True
++                            tested_device_set.discard(device)
+                     else:
+                         if not self.devices[device].get("status", False):
+                             self.devices[device]["status"] = False
+@@ -578,11 +602,6 @@
+                     is_this_loop_pass = False
+ 
+             log_manager.log_browser()
+-            # Restore yaml file
+-            restore_yaml_command = f'mv {self.path_src} {self.path_dest}'
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-                        operation=f'Restore config yaml on tpc command:{restore_yaml_command}')
+-            subprocess.getoutput(restore_yaml_command)
+ 
+             # if retry mode: if test pass: whole test pass, test fail: assert fail
+             # if not retry mode: if test pass: whole test pass, test fail: retry
+@@ -606,6 +625,12 @@
+                     operation=f'Wait 30 secs and retry again because of the failed lanes...')
+                 time.sleep(30)
+ 
++        # Restore yaml file
++        restore_yaml_command = f'mv {self.path_src} {self.path_dest}'
++        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                    operation=f'Restore config yaml on tpc command:{restore_yaml_command}')
++        subprocess.getoutput(restore_yaml_command)
++
+         for device in self.connected_pcie_devices:
+             # if there is no any OAM failed in the retry loop, revise all the OAM status to pass
+             if is_this_loop_pass and self.is_ber_retry_mode:

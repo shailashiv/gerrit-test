@@ -1,0 +1,118 @@
+From e6437f4a3ff6ed2657b3a248c287885182411a81 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Wed, 26 Mar 2025 08:56:00 +0200
+Subject: [PATCH] [SW-190031] boot_desc: use boot_desc from cmn-lib
+
+Now, that we have common boot_desc implementation
+in emb_cmn_lib, we should call it, and remove
+duplicated code from application.
+
+Change-Id: I7c21e12e6c7238b923357eca646d5f99e90923e3
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/lib/common/boot_desc.c b/lib/common/boot_desc.c
+index 2615a65..56273df 100644
+--- a/lib/common/boot_desc.c
++++ b/lib/common/boot_desc.c
+@@ -24,9 +24,31 @@
+ 
+ static struct hl_fw_boot_ptrs boot_ptrs;
+ static u8 desc_buf[BOOT_DESC_MAX_IMGS * IMG_DESC_SZ];
++u32 desc_offs[BOOT_DESC_MAX_IMGS] = { 0 };
++
+ static bool desc_initialized;
+ 
+ __weak int ppboot_boot_info_get(u32 type, void *data, u32 max_size, u32 *copy_size) { return 1; }
++
++
++
++uint32_t *_alloc_desc_offset(uint32_t count)
++{
++	return (uint32_t *)desc_offs;
++}
++
++uint8_t *_alloc_image_desc(uint32_t size, uint32_t *desc_offs)
++{
++	return desc_buf;
++}
++
++void _free_desc_offs(uint32_t *desc_offs)
++{
++}
++
++void _free_image_desc(uint8_t *img_descs)
++{
++}
+ 
+ #ifdef READ_BOOT_DESC_FROM_BOOTINFO
+ 
+@@ -80,58 +102,18 @@
+ #else
+ 
+ #define LEGACY_IMAGE_DESCRIPTOR_SIZE	220
++struct boot_desc_func func = {
++	.alloc_desc_offset = _alloc_desc_offset,
++	.alloc_image_desc = _alloc_image_desc,
++	.free_desc_offs = _free_desc_offs,
++	.free_image_desc = _free_image_desc,
+ 
+-int _boot_desc_init(void)
++};
++
++int _boot_desc_init(enum boot_ptrs_type ptrs_type)
+ {
+-	unsigned int i;
+-	u32 spi_off = HL_FW_BOOT_PTRS_BASE;
+-	u32 desc_offs[BOOT_DESC_MAX_IMGS] = { 0 };
+-	u8 *buff_ptr;
+-
+-	if (desc_initialized)
+-		return boot_ptrs.count;
+-
+-	/* Read the main boot pointers structure */
+-	spi_flash_copy(&boot_ptrs, spi_off, BOOT_PTRS_SZ, "BOOT PTRS");
+-	if (boot_ptrs.version > 0) {
+-		if (boot_ptrs.boot_ptrs_sz > BOOT_PTRS_SZ)
+-			preboot_puts("Warning: boot_ptrs size is bigger than expected\n");
+-	}
+-	boot_desc_print_magic("FW boot PTRs", &boot_ptrs.magic);
+-
+-	if (boot_ptrs.magic.val != HL_FW_BOOT_MAGIC)
+-		return 0;
+-
+-	/* legacy descriptors don't have size field. so constant value is used */
+-	if (is_legacy_boot_descs(&boot_ptrs))
+-		boot_ptrs.img_desc_sz = LEGACY_IMAGE_DESCRIPTOR_SIZE;
+-
+-	if (boot_ptrs.count * boot_ptrs.img_desc_sz > sizeof(desc_buf)) {
+-		while (boot_ptrs.count * boot_ptrs.img_desc_sz > sizeof(desc_buf))
+-			boot_ptrs.count--;
+-
+-		preboot_puts_hex("Warning: Too many image descriptors, truncating to ",
+-				 boot_ptrs.count, false);
+-	}
+-
+-	/* Read all the descriptors offsets */
+-	spi_off += boot_ptrs.offset2array;
+-	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * boot_ptrs.count, "DESC OFFS");
+-
+-	/* Read all descriptors */
+-	for (i = 0; i < boot_ptrs.count; i++) {
+-		spi_off = HL_FW_BOOT_PTRS_BASE + desc_offs[i];
+-		buff_ptr = desc_buf + i * boot_ptrs.img_desc_sz;
+-		spi_flash_copy(buff_ptr, spi_off, boot_ptrs.img_desc_sz, "IMG DESC");
+-		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)buff_ptr)) {
+-			preboot_puts_hex_raw("Bad boot descriptor: ", i, false);
+-			return 0;
+-		}
+-	}
+-
+-	desc_initialized = true;
+-
+-	return boot_ptrs.count;
++	register_boot_desc(&func);
++	boot_desc_init(ptrs_type);
+ }
+ 
+ #endif /* BOOT_DESC_SRC_BOOT_INFO */

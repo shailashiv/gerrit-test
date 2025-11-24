@@ -1,0 +1,98 @@
+From 0b86fc7b4173ed5f811d70989384fe9b475eec82 Mon Sep 17 00:00:00 2001
+From: yzecharia <yzecharia@habana.ai>
+Date: Thu, 06 Mar 2025 12:49:11 +0200
+Subject: [PATCH] [HL325][tests] Log fixes in test_functional
+
+Change-Id: Iee047114be72cbd067a003c159fb2d0d6509a286
+---
+
+diff --git a/tests/HL325/test_functional.py b/tests/HL325/test_functional.py
+index a49ccf7..34aa696 100644
+--- a/tests/HL325/test_functional.py
++++ b/tests/HL325/test_functional.py
+@@ -1482,7 +1482,7 @@
+             for key, value in row.items():
+                 hlsa_logger(level='info', ident='Value', driver_number=hl_device_number, dev_address=device,
+                             mezzanine=mezz,
+-                            test_code=self.test_code, operation=key, read_value=value)
++                            test_code=self.test_code, operation=key, read_value=value, units='String')
+ 
+         log_manager.log_browser()
+         for pcie_addr, pcie_data in csv_report.items():
+@@ -1492,6 +1492,8 @@
+             hl_device_number = self.devices[short_pcie_address]["hl_num"]
+             mezz = self.smi_control.get_module_id(pcie_addr)
+             log_manager.log_browser(self.pci_to_mezz_log_format[short_pcie_address])
++
++            serdes_bw_log ={}
+ 
+             for key_, value in pcie_data.items():
+                 for key, loop in value.items():
+@@ -1512,10 +1514,45 @@
+                             sub_test_res = 'FAIL'
+                         level = 'error' if sub_test_status.lower() == 'failed' else 'info'
+ 
+-                        hlsa_logger(level=level, ident='Value', driver_number=hl_device_number,
+-                                    dev_address=short_pcie_address, mezzanine=mezz, loop=key_,
+-                                    test_code=self.test_code, operation=sub_test, read_value=sub_test_result,
+-                                    expected_value=sub_test_expected_value, result=f'{sub_test_res}')
++                        if self.test_code == 'HL-QUAL SERDES BW':
++                            if sub_test == 'PORT':
++                                serdes_bw_log[(key_,1)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,
++                                                                   sub_test_res, level)
++                            else:
++                                serdes_bw_log[(key_, 0)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,
++                                sub_test_res, level)
++
++
++
++                        if "BW" in self.test_code or "HBM" in self.test_code:
++                            unit = "Gbps"
++                        elif self.test_code == "HL-QUAL SYNAPSE PCI BW" and sub_test in ["upload PCI", "download PCI",
++                                                                                         "Bidirectional PCI"]:
++                            unit = "Gbps"
++                        elif self.test_code in ["HL-QUAL FUNCTIONAL",
++                                                "HL-QUAL RESBET50 TRAINING"] and "FPS" in sub_test:
++                            unit = "FPS"
++                        else:
++                            unit = "String"
++
++                        if self.test_code != 'HL-QUAL SERDES BW':
++                            hlsa_logger(level=level, ident='Value', driver_number=hl_device_number,
++                                        dev_address=short_pcie_address, mezzanine=mezz, loop=key_,
++                                        test_code=self.test_code, operation=sub_test, read_value=sub_test_result,
++                                        expected_value=sub_test_expected_value, result=f'{sub_test_res}', units=unit)
++
++            if self.test_code == 'HL-QUAL SERDES BW':
++                prev_num = -1
++                for res_num, _ in serdes_bw_log.keys():
++                    if res_num != prev_num:
++                        prev_num = res_num
++                        hlsa_logger(level=serdes_bw_log[(res_num, 0)][5], ident='Value', driver_number=hl_device_number,
++                                    dev_address=short_pcie_address, mezzanine=mezz, loop=res_num,
++                                    test_code=self.test_code,
++                                    operation=f"{serdes_bw_log[(res_num, 0)][0]} - Port {serdes_bw_log[(res_num, 1)][1]}",
++                                    read_value=serdes_bw_log[(res_num, 0)][1],
++                                    expected_value=serdes_bw_log[(res_num, 0)][2], result=f'{serdes_bw_log[(res_num, 0)][4]}',
++                                    units='Gbps')
+ 
+         log_manager.log_browser()
+ 
+@@ -1861,7 +1898,7 @@
+                     for device in self.operational_devices_address:
+                         hl_device_number = self.devices[device]["hl_num"]
+                         mezz = self.devices[device]['mezz']
+-                        hlsa_logger(level='info', ident='Value', loop=str(iteration), driver_number=hl_device_number,
++                        hlsa_logger(level='info', ident='Description', loop=str(iteration), driver_number=hl_device_number,
+                                     dev_address=device, mezzanine=mezz,  test_code=self.test_code,
+                                     operation=f'Connected PCIE Device', result='SUCCESS')
+                         if device not in self.actual_operational_devices_address:
+@@ -4548,7 +4585,7 @@
+     @classmethod
+     def prepare_host(cls):
+         res, output = cls.device_cli.change_folder_permission_on_host('/var/log/habana_logs/')
+-        hlsa_checker.check_status_is_true(res == 0, ident='check',
++        hlsa_checker.check_status_is_true(res == 0, ident='Description',
+                                           operation='Change folder permission /var/log/habana_logs/',
+                                           ignore_assert=True, fail_log_level='warning')
+ 

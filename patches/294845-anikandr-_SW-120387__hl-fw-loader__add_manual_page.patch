@@ -1,0 +1,102 @@
+From 656575f4967df477ff42d653929cd8346fa75d16 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Mon, 23 Jan 2023 16:43:08 +0200
+Subject: [PATCH] [SW-120387] hl-fw-loader: add manual page
+
+To include hl-fw-loader man page to habanalabs-firmware-odm package
+
+Change-Id: I783a6e0cc3ea4ad142d85aef446159d143d396cf
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+---
+
+diff --git a/hl-fw-loader.md b/hl-fw-loader.md
+new file mode 100644
+index 0000000..12d2f02
+--- /dev/null
++++ b/hl-fw-loader.md
+@@ -0,0 +1,84 @@
++% HL-FW-LOADER(1) hl-fw-loader 1.9.0
++% Alexey Nikandrov
++% Jan 2023
++
++# NAME
++hl-fw-loader - Habanalabs firmware flashing utility
++
++# SYNOPSIS
++**hl-fw-loader** [*OPTION*]
++
++# OPTIONS
++**-f**, **--file** <firewarefile|datafile>
++: Path to the firmware file (optional, the default is: <data file> /lib/firmware/habanalabs/<dev name>/<dev name>-boot-fit.itb while <dev name> is the first discovered habanalabs device).
++If '-e' option specified, then the file is 'data file', and is used as an input data to write to EEPROM.
++The EEPROM data file format is pairs of keys and values, delimited by equals ('=') sign.
++Each pair should reside on its own line. The order of pairs is not important. A key is the EEPROM field name, while value, is the data that should be written to EEPROM by the field offset. No quotes should be used (for example: Layout Version=1). Lines starting with ';' (comments) are discarded.
++
++**-d**, **--device <pci addr>**
++: The PCI address to the habanalabs device (e.g. 01:00.0). (optional, the default is to program all habanalabs devices in the system).
++
++**-r**, **--recover**
++: Recover the flash firmware by trying to flash the new one.
++
++**-c**, **--cpld**
++: Program the CPLD content. Program CPLD, with provided data file. (**note: does not work with HLS OAMs**)
++
++**--otp**
++: Flag set to indicate that the operation is associated with the OTP. For example when combining with --nvread it will read the OTP area in flash
++
++**-n**, **--nvread [[offset]:size]**
++
++: Read media raw content; such as flash. Offset and size are optional no arguments  - read the first 1M of the media into an external file.
++
++: [offset]:size - read the media from offset "offset" the amount "size" the content will be directed to an external file.
++
++: The media reading applicable only in recovery mode - must be combined with -r (recovery).
++
++: File name may be supplied by using the -f option. When no file supplied, creates default formatted file name per device such as hl-\<dev\>-\<id\>-\<media\>-dump.bin, e.g; hl-goya-0000:03:00.0-spi-flash-dump.bin.
++
++: Arguments format support: decimal, octet, and hexadecimal. e.g; "10:4000", ":400", "30:"0x10000:32" K,M and G post-fixed units are recognized as well e.g; "10K:4000",":400", "30:", "0xff00:20K"
++
++**-l**, **--load-only**
++: Load default FW binary (no programming). Cannot be used in recovery mode ('-r' switch). If used with '-f' the provided binary is then sent to U-Boot.
++
++**-p**, **--prog-only**
++: Only program the new FW, and do not reboot the device. (**note: requires '-r' switch**)
++
++**-y**, **--yes**
++: Answer 'yes' to all questions.
++
++**-T**, **--trans-force <name>**
++: Force a specific transport, recovery or normal recovery: *i2c_cpld_recovery*, *i2c_recovery*, *pci-recovery\** (\*-supported);
++                                normal: *i2c_indirect*  *pci\**  (\*-supported).
++                                Disabled in recovery mode ('-r' switch).
++
++**--burn-tb**
++: Read/write SPI flash config register. Upon user confirmation - write the OTP TB (Top/Bottom) bit of the Macronix SPI flash to switch write protection to the bottom-half of the flash.
++
++**-t**, **--timeout <secs>**
++: Timeout for waiting for the device to become ready (in seconds). Default value is 25
++
++**-R**, **--reset**
++: Reset the device
++
++**-s**, **--status**
++: Print device(s) status
++
++**-h**, **--help**
++: Print help message
++
++**-v**, **--version**
++: Print hl-fw-loader version information and exit
++
++**-V**, **--fw-version**
++: Print device running firmware version information and exit
++
++**--debug**
++: Enable debug level
++
++**--trace**
++: Enable debug trace level
++
++# COPYRIGHT
++Copyright 2023, Habana Labs.
+\ No newline at end of file

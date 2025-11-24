@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 475974: [SW-190031] boot_desc: add boot_desc_init/release</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 475974: [SW-190031] boot_desc: add boot_desc_init/release</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> emb-common-mods</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Ran Shalit &lt;rshalit@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-03-26 09:15:18.313000000</p>
+            <p><strong>Updated:</strong> 2025-05-21 07:10:18.782000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-190031] boot_desc: add boot_desc_init/release
+
+As part of moving duplicated boot_desc implementation
+and variations from the applications and unifying
+it, this patch adds the boot_desc_init/release
+code to the cmn-lib projects, so that they can be used
+as generic function for all projects.
+Also, it adds free/alloc callbacks which are used
+in the generic code.
+
+Change-Id: Id791604bc4f8b9ba83ca328a66f151f7c788f569
+Signed-off-by: Ariel Aviad &lt;aaviad@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Jenkins EMB Service Account: +0, Ariel Aviad: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>include/lib_common.h</code> (M) +20 -0</li><li><code>lib/common/boot_desc.c</code> (M) +105 -2</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/include/lib_common.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -10,6 +10,24 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define MULTI_CSUM_BOOT_VER	3</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+typedef uint32_t * (*alloc_desc_offset)(uint32_t count);</span>
+<span class="diff-add">+typedef uint8_t * (*alloc_image_desc)(uint32_t size, uint32_t *desc_offs);</span>
+<span class="diff-add">+typedef void (*free_desc_offs)(uint32_t *desc_offs);</span>
+<span class="diff-add">+typedef void (*free_image_desc)(uint8_t *img_descs);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+enum boot_ptrs_type {</span>
+<span class="diff-add">+	BOOT_PTRS_FW,</span>
+<span class="diff-add">+	BOOT_PTRS_EROM,</span>
+<span class="diff-add">+	BOOT_PTRS_MAX_NUM</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct boot_desc_func {</span>
+<span class="diff-add">+	alloc_desc_offset alloc_desc_offset;</span>
+<span class="diff-add">+	alloc_image_desc alloc_image_desc;</span>
+<span class="diff-add">+	free_desc_offs free_desc_offs;</span>
+<span class="diff-add">+	free_image_desc free_image_desc;</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> u64 get_64bit_addr_from_32bit_addr(uintptr_t base);</span>
+<span class="diff-ctx"> u32 fs1_get_arc_addr_from_64bit(u64 addr);</span>
+<span class="diff-ctx"> int hw_mem_copy(uint64_t src, uint64_t dst, uint32_t size, bool is_hbw, bool const_data);</span>
+<span class="diff-hunk">@@ -21,6 +39,8 @@</span>
+<span class="diff-ctx"> void boot_desc_print_magic(char *name, struct hl_fw_boot_magic *magic);</span>
+<span class="diff-ctx"> bool boot_desc_img_desc_is_valid(struct hl_fw_img_desc *img_desc);</span>
+<span class="diff-ctx"> bool is_legacy_boot_descs(struct hl_fw_boot_ptrs *boot_ptrs);</span>
+<span class="diff-add">+void boot_desc_release(void);</span>
+<span class="diff-add">+int boot_desc_init(enum boot_ptrs_type ptrs_type);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define EMB_NOT_IMPLEMENTED_WARN(val)\</span>
+<span class="diff-ctx"> 	{EMB_LOG_RAW_WRN(__func__);\</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e85f828..6f043d3 100644</span>
+<h4 class="diff-filename">b/lib/common/boot_desc.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -18,8 +18,6 @@</span>
+<span class="diff-ctx"> #include &lt;boot_desc.h&gt;</span>
+<span class="diff-ctx"> #include &lt;spi_flash.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define BOOT_PTRS_SZ		sizeof(struct hl_fw_boot_ptrs)</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;zephyr/logging/log.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -39,7 +37,20 @@</span>
+<span class="diff-ctx"> #include &lt;uart.h&gt;</span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+#include &lt;lib_common.h&gt;</span>
+<span class="diff-ctx"> #include &lt;emb_cmn_log.h&gt;</span>
+<span class="diff-add">+#include &lt;boot_desc.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define BOOT_PTRS_SZ		sizeof(struct hl_fw_boot_ptrs)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static struct hl_fw_boot_ptrs boot_ptrs;</span>
+<span class="diff-add">+static uint8_t *img_descs;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define LEGACY_IMAGE_DESCRIPTOR_SIZE	220</span>
+<span class="diff-add">+#define HL_EROM_BOOT_PTRS_BASE		0</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+struct boot_desc_func boot_desc_func;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void boot_desc_print_magic(char *name, struct hl_fw_boot_magic *magic)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-hunk">@@ -74,3 +85,95 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> __weak bool is_legacy_boot_descs(struct hl_fw_boot_ptrs *boot_ptrs) { return false; }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static enum boot_ptrs_type last_ptrs_initialized = BOOT_PTRS_MAX_NUM;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void register_boot_desc(struct boot_desc_func *func)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	boot_desc_func.alloc_desc_offset = func-&gt;alloc_desc_offset;</span>
+<span class="diff-add">+	boot_desc_func.alloc_image_desc = func-&gt;alloc_image_desc;</span>
+<span class="diff-add">+	boot_desc_func.free_desc_offs = func-&gt;free_desc_offs;</span>
+<span class="diff-add">+	boot_desc_func.free_image_desc = func-&gt;free_image_desc;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void boot_desc_release(void)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	if (!img_descs)</span>
+<span class="diff-add">+		return;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	boot_desc_func.free_image_desc(img_descs);</span>
+<span class="diff-add">+	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;</span>
+<span class="diff-add">+	img_descs = NULL;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+int boot_desc_init(enum boot_ptrs_type ptrs_type)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	unsigned int count, i;</span>
+<span class="diff-add">+	u32 ptr_base, spi_off;</span>
+<span class="diff-add">+	u32 *desc_offs;</span>
+<span class="diff-add">+	u8 *descs_ptr;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (ptrs_type == last_ptrs_initialized)</span>
+<span class="diff-add">+		return boot_ptrs.count;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	ptr_base = (ptrs_type == BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* Read the main boot pointers structure */</span>
+<span class="diff-add">+	spi_flash_copy(&amp;boot_ptrs, ptr_base, BOOT_PTRS_SZ, &quot;BOOT PTRS&quot;);</span>
+<span class="diff-add">+	if (boot_ptrs.version &gt; 0) {</span>
+<span class="diff-add">+		if (boot_ptrs.boot_ptrs_sz &gt; BOOT_PTRS_SZ)</span>
+<span class="diff-add">+			EMB_LOG_WRN(&quot;boot_ptrs size is bigger than expected&quot;);</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+	boot_desc_print_magic(&quot;FW boot PTRs&quot;, &amp;boot_ptrs.magic);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (boot_ptrs.magic.val != HL_FW_BOOT_MAGIC)</span>
+<span class="diff-add">+		goto err_exit;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	count = boot_ptrs.count;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	desc_offs = boot_desc_func.alloc_desc_offset(count);</span>
+<span class="diff-add">+	if (!desc_offs)</span>
+<span class="diff-add">+		goto err_exit;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (is_legacy_boot_descs(&amp;boot_ptrs)) {</span>
+<span class="diff-add">+		/*</span>
+<span class="diff-add">+		 * In legacy boot ptrs meta data structure the last member is &quot;count&quot;, the legacy</span>
+<span class="diff-add">+		 * offsets array starts where the &quot;pub_key_sz&quot; member is.</span>
+<span class="diff-add">+		 */</span>
+<span class="diff-add">+		spi_off = ptr_base + offsetof(struct hl_fw_boot_ptrs, pub_key_sz);</span>
+<span class="diff-add">+		/* legacy descriptors don&#x27;t have size field. so constant value is used */</span>
+<span class="diff-add">+		boot_ptrs.img_desc_sz = LEGACY_IMAGE_DESCRIPTOR_SIZE;</span>
+<span class="diff-add">+	} else {</span>
+<span class="diff-add">+		spi_off = ptr_base + boot_ptrs.offset2array;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * count, &quot;DESC OFFS&quot;);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	img_descs = boot_desc_func.alloc_image_desc((count * boot_ptrs.img_desc_sz), desc_offs);</span>
+<span class="diff-add">+	if (!img_descs)</span>
+<span class="diff-add">+		goto err_exit;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* Read all descriptors */</span>
+<span class="diff-add">+	for (i = 0; i &lt; count; i++) {</span>
+<span class="diff-add">+		spi_off = ptr_base + desc_offs[i];</span>
+<span class="diff-add">+		descs_ptr = img_descs + i * boot_ptrs.img_desc_sz;</span>
+<span class="diff-add">+		spi_flash_copy(descs_ptr, spi_off, boot_ptrs.img_desc_sz, &quot;IMG DESC&quot;);</span>
+<span class="diff-add">+		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)descs_ptr)) {</span>
+<span class="diff-add">+			EMB_LOG_HEX_ERR(&quot;Bad boot descriptor: %d&quot;, i);</span>
+<span class="diff-add">+			boot_desc_func.free_desc_offs(desc_offs);</span>
+<span class="diff-add">+			goto err_exit;</span>
+<span class="diff-add">+		}</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	boot_desc_func.free_desc_offs(desc_offs);</span>
+<span class="diff-add">+	last_ptrs_initialized = ptrs_type;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return count;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+err_exit:</span>
+<span class="diff-add">+	boot_desc_release();</span>
+<span class="diff-add">+	memset(&amp;boot_ptrs, 0, sizeof(boot_ptrs));</span>
+<span class="diff-add">+	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return 0;</span>
+<span class="diff-add">+}</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-03-26 09:15:18.313000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:15:25.621000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33985/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:15:27.773000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6159/ (1/3)</pre></div><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-03-26 09:17:12.106000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:17:17.784000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6160/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:19.885000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33986/ (1/3)</pre></div><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-03-26 09:17:24.361000000)</span><pre>Patch Set 3: Patch Set 2 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:30.693000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33987/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:17:32.782000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6161/ (1/3)</pre></div><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-03-26 09:17:43.546000000)</span><pre>Topic set to boot_desc_unify_1</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:45.340000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20941/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:45.343000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23256/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:49.364000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23257/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:17:49.367000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20942/ (2/3)</pre></div><div class="message"><strong>Ran Shalit</strong> <span class="date">(2025-03-26 09:17:55.597000000)</span><pre>Topic changed from boot_desc_unify_1 to boot_desc_unify_2</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:18:11.367000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5717/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:18:11.385000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5176/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:18:37.450000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20941/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20941/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23256/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23256/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33985/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33985/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:20:07.356000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5718/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:20:07.367000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5177/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:20:50.523000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5719/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:20:50.531000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5178/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:21:00.852000000)</span><pre>Patch Set 1: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5717/ : ABORTED
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/5203/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/5203/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6159/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5176/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:21:06.109000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20942/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20942/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23257/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23257/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33986/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33986/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:21:54.821000000)</span><pre>Patch Set 2: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5718/ : ABORTED
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/5204/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/5204/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6160/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5177/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:23:28.762000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23259/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:23:28.779000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20945/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-03-26 09:24:27.873000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/5719/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/5205/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6161/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/5178/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-03-26 09:50:45.579000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/23259/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/25598/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/25598/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/20945/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/33987/ : SUCCESS</pre></div><div class="message"><strong>Ariel Aviad</strong> <span class="date">(2025-03-26 10:10:47.874000000)</span><pre>Patch Set 3: Code-Review+2</pre></div><div class="message"><strong>Ariel Aviad</strong> <span class="date">(2025-05-20 12:12:17.979000000)</span><pre>Patch Set 4: Patch Set 3 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-20 12:12:25.180000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35903/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-20 12:12:25.866000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7860/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-20 12:16:53.644000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6455/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-20 12:16:53.647000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7093/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-20 12:17:58.048000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22244/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-20 12:17:58.062000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24690/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-20 12:21:20.169000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7093/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6525/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6455/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7860/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-20 12:33:33.955000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22244/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/24919/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24690/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/26858/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35903/ : SUCCESS</pre></div><div class="message"><strong>Ariel Aviad</strong> <span class="date">(2025-05-21 06:26:07.077000000)</span><pre>Uploaded patch set 5: Patch Set 4 was rebased.</pre></div><div class="message"><strong>Ariel Aviad</strong> <span class="date">(2025-05-21 06:58:19.142000000)</span><pre>Uploaded patch set 6.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 06:58:25.953000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7892/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 06:58:26.428000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35940/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:00:56.268000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7117/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:00:56.287000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6477/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:03:49.049000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22267/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:03:49.070000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24715/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:06:34.853000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7117/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6549/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7892/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6477/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:10:18.782000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24715/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/26883/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22267/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35940/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

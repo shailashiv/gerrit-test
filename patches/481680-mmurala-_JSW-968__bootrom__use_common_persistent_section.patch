@@ -1,0 +1,190 @@
+From 4bbf5420d574cea8440bead2888189f44a6004bc Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 12 Jun 2025 13:36:27 +0300
+Subject: [PATCH] [JSW-968] bootrom: use common persistent section
+
+BootROM has persistent DCCM section which is
+split into 2 parts for different usage.
+rom_persistent section and manifest section
+can share common persistent dccm section.
+There should not be any pre-init values for
+persistent section, because it was cleared by
+bootrom main and rom to dccm copy was not taken
+care in main code. Hence, Need to assign them
+after dccm clear in boot rom main, in case any
+pre-init values required.
+
+Change-Id: I29bc14b2f70d55322d0f9d88bac5027d58dac8ab
+---
+
+diff --git a/app/boot_rom.c b/app/boot_rom.c
+index 1355cea..8819a86 100644
+--- a/app/boot_rom.c
++++ b/app/boot_rom.c
+@@ -12,25 +12,9 @@
+ 
+ const int gpu_die_type = DIE_TYPE;
+ 
+-struct boot_rom_global_s __attribute__((section (".rom_persistent_section")))boot_rom_global = {
+-	.config_fuse = 0,
+-	.config2_fuse = 0,
+-	.recovery_flag = 0,
+-	.force_recovery = 0,
+-	.validation_pass = 0,
+-	.fw_upd_switch_manifest = 0,
+-	.efuse_read = 0,
+-	.curr_img = 0,
+-	.fake_fuse_en = false,
+-	.boot_info_set_done = false,
+-	.tpm_exec_stage = 0,
+-	.tpm_extend_done = 0,
+-	.tpm_next_pcr_index = 0,
+-	.tpm_spi = NULL,
+-	.sec_data = {0},
+-};
++struct boot_rom_global_s __attribute__((section (".persistent_dccm_section")))boot_rom_global;
+ 
+-struct boot_rom_manifest_s __attribute__((section (".rom_manifest_section")))boot_rom_manifest;
++struct boot_rom_manifest_s __attribute__((section (".persistent_dccm_section")))boot_rom_manifest;
+ 
+ int boot_rom_main(void)
+ {
+diff --git a/arch/fs1/arc/boot_rom.lds b/arch/fs1/arc/boot_rom.lds
+index 0215d6a..55d5fcc 100644
+--- a/arch/fs1/arc/boot_rom.lds
++++ b/arch/fs1/arc/boot_rom.lds
+@@ -31,7 +31,6 @@
+ 	_dccm_begin = ORIGIN(DCCM);
+ 	_dccm_end = ORIGIN(DCCM) + LENGTH(DCCM);
+ 	_persistent_sec_size = 3k;
+-	_rom_global_data_size = 1024;
+ 
+ 	.ivt : {
+ 		KEEP (*(.ivt));
+@@ -47,10 +46,8 @@
+ 		_data_after_persist_sec = _etext + _persistent_sec_size;
+ 		_data = .;
+ 		/* TODO: Finalize design on persistent and non-persistent section */
+-	    KEEP(*(.rom_persistent_section))
+-	    . = _data + _rom_global_data_size; /* Reserve 512 memory for persistent data section */
+-	    KEEP(*(.rom_manifest_section))
+-	    . = _data + _persistent_sec_size; /* Reserve 2560 (3K - 512) memory for persistent data section */
++	    KEEP(*(.persistent_dccm_section))
++	    . = _data + _persistent_sec_size; /* Reserve 3K memory for persistent data section */
+ 		_rom_non_persistent_dccm_start = .;
+ 		*(.data)
+ 	} > REGION_DATA
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index 8ffc607..b003955 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -82,7 +82,7 @@
+ static void boot_rom_global_pre_init_values(void)
+ {
+ 	/*
+-	 * rom_persistent_section pre-init values.
++	 * persistent_dccm_section pre-init values.
+ 	 * Only assign during cold reset.
+ 	 * Below values modified during run time and used in next non-cold reset cases.
+ 	*/
+diff --git a/arch/jgs/arc/boot_rom.lds b/arch/jgs/arc/boot_rom.lds
+index ea5a9ad..ccae71a 100644
+--- a/arch/jgs/arc/boot_rom.lds
++++ b/arch/jgs/arc/boot_rom.lds
+@@ -31,7 +31,6 @@
+ 	_dccm_begin = ORIGIN(DCCM);
+ 	_dccm_end = ORIGIN(DCCM) + LENGTH(DCCM);
+ 	_persistent_sec_size = 3k;
+-	_rom_global_data_size = 1024;
+ 
+ 	.ivt : {
+ 		KEEP (*(.ivt));
+@@ -47,10 +46,8 @@
+ 		_data_after_persist_sec = _etext + _persistent_sec_size;
+ 		_data = .;
+ 		/* TODO: Finalize design on persistent and non-persistent section */
+-	    KEEP(*(.rom_persistent_section))
+-	    . = _data + _rom_global_data_size; /* Reserve 512 memory for persistent data section */
+-	    KEEP(*(.rom_manifest_section))
+-	    . = _data + _persistent_sec_size; /* Reserve 2560 (3K - 512) memory for persistent data section */
++	    KEEP(*(.persistent_dccm_section))
++	    . = _data + _persistent_sec_size; /* Reserve 3K memory for persistent data section */
+ 		_rom_non_persistent_dccm_start = .;
+ 		*(.data)
+ 	} > REGION_DATA
+diff --git a/arch/jgs/arc/common.c b/arch/jgs/arc/common.c
+index 82e89ba..831cfe7 100644
+--- a/arch/jgs/arc/common.c
++++ b/arch/jgs/arc/common.c
+@@ -82,7 +82,7 @@
+ static void boot_rom_global_pre_init_values(void)
+ {
+ 	/*
+-	 * rom_persistent_section pre-init values.
++	 * persistent_dccm_section pre-init values.
+ 	 * Only assign during cold reset.
+ 	 * Below values modified during run time and used in next non-cold reset cases.
+ 	*/
+@@ -111,17 +111,23 @@
+ 	cold_rst_data.arc1_persist_dccm_init_done = 1;
+ 	regmap_writel(cold_rst_data.data, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_COLD_RST_REG_2));
+ 
++	/* Cold boot: Pre-init values for All DIE's */
+ 	boot_rom_global_pre_init_values();
+ 
++	/* Cold boot: Pre-init values for Master DIE */
++	if (die_id == JGS_IO_DIE_0) {
++		/* TODO: lfs_init_done should be init to false only in cold boot */
++		lfs_globals_pre_init();
++	}
++
+ non_zero_init:
+-	/* Non zero initializers only required for master(die 0) */
++	/* Cold boot/warm boot: Restore default values */
+ 	if (die_id == JGS_IO_DIE_0) {
+ 		/*
+ 		 * Assign pre-init constants which never modified during run time.
+ 		 * So, upon any reset safe to re-init them.
+ 		 * For example, manifest constants.
+ 		 */
+-		lfs_globals_pre_init();
+ 	}
+ }
+ 
+diff --git a/common/littlefs/lfs_wrapper.c b/common/littlefs/lfs_wrapper.c
+index 203279c..ac786a4 100644
+--- a/common/littlefs/lfs_wrapper.c
++++ b/common/littlefs/lfs_wrapper.c
+@@ -16,7 +16,7 @@
+ #define DST_SAFE	true
+ #define DST_UNSAFE	false
+ 
+-bool __attribute__((section (".rom_persistent_section")))lfs_init_done;
++bool __attribute__((section (".persistent_dccm_section")))lfs_init_done;
+ 
+ static void memcpy32_rev(void *dst, void *src, int size)
+ {
+@@ -118,16 +118,16 @@
+ static int ram_block_sync(const struct lfs_config *c);
+ 
+ // variables used by the filesystem
+-lfs_t __attribute__((section (".rom_persistent_section")))lfs;
+-uint8_t __attribute__((section (".rom_persistent_section")))pcache[CACHE_BUFFER_SIZE];
+-uint8_t __attribute__((section (".rom_persistent_section")))rcache[CACHE_BUFFER_SIZE];
+-uint8_t __attribute__((section (".rom_persistent_section")))fcache[CACHE_BUFFER_SIZE];
+-uint8_t __attribute__((section (".rom_persistent_section")))lookahead[CACHE_BUFFER_SIZE];
++lfs_t __attribute__((section (".persistent_dccm_section")))lfs;
++uint8_t __attribute__((section (".persistent_dccm_section")))pcache[CACHE_BUFFER_SIZE];
++uint8_t __attribute__((section (".persistent_dccm_section")))rcache[CACHE_BUFFER_SIZE];
++uint8_t __attribute__((section (".persistent_dccm_section")))fcache[CACHE_BUFFER_SIZE];
++uint8_t __attribute__((section (".persistent_dccm_section")))lookahead[CACHE_BUFFER_SIZE];
+ 
+ // configuration of the filesystem is provided by this struct
+-struct lfs_config __attribute__((section (".rom_persistent_section")))lfs_cfg;
++struct lfs_config __attribute__((section (".persistent_dccm_section")))lfs_cfg;
+ 
+-struct lfs_file_config __attribute__((section (".rom_persistent_section")))defaults;
++struct lfs_file_config __attribute__((section (".persistent_dccm_section")))defaults;
+ 
+ void lfs_globals_pre_init()
+ {

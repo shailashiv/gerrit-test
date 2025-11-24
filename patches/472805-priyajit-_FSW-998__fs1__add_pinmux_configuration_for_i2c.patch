@@ -1,0 +1,44 @@
+From 00d2acfc9af1246dc1845271463c271fd09df819 Mon Sep 17 00:00:00 2001
+From: Priyajit Ghosh <prghosh@habana.ai>
+Date: Thu, 13 Feb 2025 10:41:56 +0200
+Subject: [PATCH] [FSW-998] fs1: add pinmux configuration for i2c
+
+pinmux is configured to use GPIO as i2c SCL
+and SDA pin
+
+Change-Id: Id3cc8b67492cdea4c5e30215685861d8299c3581
+Signed-off-by: Priyajit Ghosh <prghosh@habana.ai>
+---
+
+diff --git a/boards/arc/intel_fs1/pinmux_common.c b/boards/arc/intel_fs1/pinmux_common.c
+index 572fe25..f53e8cd 100644
+--- a/boards/arc/intel_fs1/pinmux_common.c
++++ b/boards/arc/intel_fs1/pinmux_common.c
+@@ -15,6 +15,9 @@
+ 	set_gpio_pin_func(GPIO_FUNC(1), GPIO_UART0_RXD);
+ 	set_gpio_pin_func(GPIO_FUNC(1), GPIO_UART0_TXD);
+ 
++	/* I2C Master 0 */
++	set_gpio_pin_func(GPIO_FUNC(1), GPIO_I2C_M1_SCL);
++	set_gpio_pin_func(GPIO_FUNC(1), GPIO_I2C_M1_SDA);
+ 	return 0;
+ }
+ 
+diff --git a/include/drivers/misc/common/fs1/pinmux_common.h b/include/drivers/misc/common/fs1/pinmux_common.h
+index 9179512..fdf5059 100644
+--- a/include/drivers/misc/common/fs1/pinmux_common.h
++++ b/include/drivers/misc/common/fs1/pinmux_common.h
+@@ -12,6 +12,13 @@
+ #define GPIO(n)				(n)
+ #define GPIO_FUNC(n)			(n)
+ 
++#define GPIO_I2C_S_SCL                  9
++#define GPIO_I2C_S_SDA                  10
++#define GPIO_I2C_M0_SCL			11
++#define GPIO_I2C_M0_SDA			12
++#define GPIO_I2C_M1_SCL			13
++#define GPIO_I2C_M1_SDA			14
++
+ #define GPIO_UART0_RXD			49
+ #define GPIO_UART0_TXD			50
+ 

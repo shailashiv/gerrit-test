@@ -1,0 +1,25 @@
+From 85d83452e3be912feea502fb9e872ab38f357e97 Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Tue, 07 Jan 2025 15:57:54 +0200
+Subject: [PATCH] [SW-214693] base: rhel - dont create /etc/yum.repos.d/redhat.repo
+
+use artifactory-mirror.repo
+
+Change-Id: Ie6a3ce0a7dd1dfdede49784dbfbc5107e8187d53
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/templates/base/rhel/scripts/common.sh b/templates/base/rhel/scripts/common.sh
+index 28fdf20..9307caf 100644
+--- a/templates/base/rhel/scripts/common.sh
++++ b/templates/base/rhel/scripts/common.sh
+@@ -11,6 +11,9 @@
+   subscription-manager repos --disable=$repo
+ done
+ 
++#disable RHSM Management | dont create /etc/yum.repos.d/redhat.repo file
++subscription-manager config --rhsm.manage_repos=0
++
+ ${pkg_cmd} clean all
+ rm -f /etc/yum.repos.d/*.repo
+ rm -rf /var/cache/${pkg_cmd}

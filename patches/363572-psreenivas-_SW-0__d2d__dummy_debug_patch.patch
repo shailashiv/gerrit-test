@@ -1,0 +1,212 @@
+From 6696227174e37377a5bb6b90e712b4cff8383c03 Mon Sep 17 00:00:00 2001
+From: sai surya teja <sssteja@habana.ai>
+Date: Fri, 10 Nov 2023 11:14:39 +0200
+Subject: [PATCH] [SW-0] d2d: dummy debug patch
+
+----- NOT TO MERGE ----
+
+This is dummy debug patch to debug isssue in Die1 preboot FW by
+checking the progress using scratchpad register.
+
+Change-Id: I617f4c414e8c30342e1bfffba67d6117aded053d
+---
+
+diff --git a/drivers/d2d/common/common.c b/drivers/d2d/common/common.c
+index fcad0ba..ae33a28 100644
+--- a/drivers/d2d/common/common.c
++++ b/drivers/d2d/common/common.c
+@@ -127,6 +127,7 @@
+ 		val = CFG_RREG32(gpio_addr);
+ 		k_busy_wait(SYNC_SIGNAL_DELAY);
+ 		cntr--;
++
+ 	} while ((val & mask_in) != match_val);
+ }
+ 
+diff --git a/drivers/d2d/controller/d2d_controller.c b/drivers/d2d/controller/d2d_controller.c
+index dd7b58e..ea5f8f1 100644
+--- a/drivers/d2d/controller/d2d_controller.c
++++ b/drivers/d2d/controller/d2d_controller.c
+@@ -26,6 +26,20 @@
+ #include <logging/log.h>
+ LOG_MODULE_REGISTER(DT_DRV_COMPAT);
+ 
++void set_scratchpad1(const struct device *dev, uint32_t val)
++{
++	const struct d2d_controller_config *drv_cfg = DEV_CFG(dev);
++	struct d2d_controller_data *drv_data = DEV_DATA(dev);
++
++	if (val == 0) {
++		sys_write32(0, drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD1);
++	}
++	else {
++		val = val | sys_read32(drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD1);
++		sys_write32(val, drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD1);
++	}
++
++}
+ 
+ void single_die_mac_core_mw_bcast(uint32_t wval, uint32_t mac_core0_off, uint32_t mask)
+ {
+@@ -46,7 +60,9 @@
+ 	struct d2d_controller_data *drv_data = DEV_DATA(dev);
+ 	int rc;
+ 
++	set_scratchpad1(dev, BIT(14));
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad1(dev, BIT(15));
+ 
+ 	/* Sanity test will be done only in master die. Return if not master die */
+ 	if (drv_data->die_id)
+@@ -55,6 +71,7 @@
+ 	for (hdcore = NUM_HDCORES_PER_DIE;
+ 		hdcore < (drv_cfg->regs_num * NUM_HDCORES_PER_DIE); hdcore++) {
+ 		for (rtr = 0 ; rtr < NUM_RRTR_PER_HDCORE ; rtr++) {
++			LOG_ERR("hdcore:%d, rtr:%d", hdcore, rtr);
+ 			orig_id = (NUM_RRTR_PER_HDCORE + 1) - rtr;
+ 			addr = HD0_RRTR0_DTLB_UNIT_ID + hdcore * HDCORE_OFFSET +
+ 			       rtr * RRTR_OFFSET;
+@@ -73,6 +90,7 @@
+ 			}
+ 		}
+ 	}
++	set_scratchpad1(dev, BIT(16));
+ 
+ 	return 0;
+ }
+@@ -101,6 +119,7 @@
+ 	uint8_t die;
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad1(dev, BIT(10));
+ 
+ 	/* Start training on D0 */
+ 	if (drv_data->die_id == MASTER_DIE_ID) {
+@@ -110,6 +129,7 @@
+ 	}
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad1(dev, BIT(11));
+ 
+ 	for (die = drv_data->die_id; die < drv_cfg->regs_num; die++) {
+ 		for (mac_idx = 0; mac_idx < D2D_MAC_TOP_PER_DIE; mac_idx++) {
+@@ -136,6 +156,7 @@
+ 	}
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad1(dev, BIT(12));
+ 
+ 	for (die = drv_data->die_id; die < drv_cfg->regs_num; die++) {
+ 		for (mac_idx = 0; mac_idx < D2D_MAC_TOP_PER_DIE; mac_idx++) {
+@@ -154,6 +175,7 @@
+ 	}
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad1(dev, BIT(13));
+ 
+ 	return 0;
+ }
+@@ -774,6 +796,7 @@
+ 
+ 	drv_data->die_id = CFG_RREG32(CFG_DIE_ID);
+ 
++	set_scratchpad1(dev, BIT(9));
+ 	rc = d2d_read_efuse_cfgs(&drv_data->skip_d2d_link_bringup, &drv_data->spi_gw_dis);
+ 	if (rc) {
+ 		LOG_ERR("D2D_CNTRL eFuse read FAILED!");
+diff --git a/drivers/d2d/phy/d2d_phy.c b/drivers/d2d/phy/d2d_phy.c
+index cc4f6d6..bd09cfb 100644
+--- a/drivers/d2d/phy/d2d_phy.c
++++ b/drivers/d2d/phy/d2d_phy.c
+@@ -36,6 +36,19 @@
+ #endif
+ 
+ uint32_t const d2d_phy_fw_arr[D2D_PHY_FW_DW_NUM] = D2D_PHY_FW_DATA;
++void set_scratchpad(const struct device *dev, uint32_t val)
++{
++	const struct d2d_phy_config *drv_cfg = DEV_CFG(dev);
++	struct d2d_phy_data *drv_data = DEV_DATA(dev);
++
++	if (val == 0)
++		sys_write32(0, drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD);
++	else {
++		val = val | sys_read32(drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD);
++		sys_write32(val, drv_cfg->base_addr[drv_data->die_id] + DBG_SCRATCHPAD);
++	}
++
++}
+ 
+ static inline bool is_in_range(uint32_t x, uint32_t min, uint32_t max)
+ {
+@@ -1175,6 +1188,7 @@
+ 	}
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad(dev, BIT(7));
+ 
+ 	if (!drv_data->die_id) {
+ 		rc = HL_ARC_W_BARRIER();
+@@ -1203,6 +1217,7 @@
+ 		LOG_ERR("Timeout while polling for D2D PHY init");
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad(dev, BIT(8));
+ 	return rc;
+ }
+ 
+@@ -2512,6 +2527,7 @@
+ 		return rc;
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad(dev, BIT(4));
+ 
+ 	rc = d2d_phy_fw_download(dev);
+ 	if (rc) {
+@@ -2520,8 +2536,10 @@
+ 	}
+ 
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad(dev, BIT(5));
+ 	set_dphy_pll_lock_props(dev);
+ 	d2d_sync(drv_data->die_id, drv_data->spi_gw_dis);
++	set_scratchpad(dev, BIT(6));
+ 
+ 	return 0;
+ }
+@@ -2774,6 +2792,7 @@
+ 	drv_data->die_id = CFG_RREG32(CFG_DIE_ID);
+ 
+ 	LOG_INF("D2D_PHY enumeration started");
++	set_scratchpad(dev, 0);
+ 
+ 	rc = d2d_read_efuse_cfgs(&drv_data->skip_d2d_link_bringup, &drv_data->spi_gw_dis);
+ 	if (rc) {
+@@ -2785,6 +2804,7 @@
+ 		LOG_INF("Skip enablement of D2D link");
+ 		return 0;
+ 	}
++	set_scratchpad(dev, BIT(0));
+ 
+ #if defined(CONFIG_D2D_PHY_IRQS)
+ 	d2d_phy_register_isr(dev);
+diff --git a/include/drivers/d2d/gaudi3/hl_d2d_defines.h b/include/drivers/d2d/gaudi3/hl_d2d_defines.h
+index d7571f4..8bc8b77 100644
+--- a/include/drivers/d2d/gaudi3/hl_d2d_defines.h
++++ b/include/drivers/d2d/gaudi3/hl_d2d_defines.h
+@@ -14,6 +14,7 @@
+ #include <dtlb_regs.h>
+ #include <psoc_reset_conf_regs.h>
+ #include <hl_d2d_phy_defines.h>
++#include <global_conf_regs.h>
+ 
+ #define CFG_DIE_ID				(mmD0_PARC_LOCAL_CFG_BASE + mmPARC_LOCAL_CFG_DIE_ID)
+ #define	HD0_RRTR0_DTLB_UNIT_ID			(mmHD0_RRTR0_DTLB_BASE + mmDTLB_UNIT_ID)
+@@ -34,4 +35,8 @@
+ #define DIE0_GPIO_MASK				BIT(D0_D1_GPIO % 16)
+ #define DIE1_GPIO_MASK				BIT(D1_D0_GPIO % 16)
+ 
++#define PSOC_GLOBAL_CFG_REG(REG)		(mmD0_PSOC_GLOBAL_CONF_BASE + REG)
++#define DBG_SCRATCHPAD				DPHY_REG_OFFS(PSOC_GLOBAL_CFG_REG(mmGLOBAL_CONF_SCRATCHPAD_15))
++#define DBG_SCRATCHPAD1				CNTRL_REG_OFFS(PSOC_GLOBAL_CFG_REG(mmGLOBAL_CONF_SCRATCHPAD_15))
++
+ #endif /* _GAUDI3_HL_D2D_DEFINES_H_ */

@@ -1,0 +1,40 @@
+From a8632fd9b1fa47f9be97bccb0373319dc8a77801 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Wed, 22 Jan 2025 16:19:12 +0200
+Subject: [PATCH] [SW-216393] [DRAFT] gaudi3: pcie: enter compilance in pcie card
+
+Enter complicance mode in pcie card
+Not used in runtime - just for debugging
+
+Change-Id: I03e16f4296a195be68b99f23f80a4ab6a2f8be1a
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/arch/gaudi3/arc/common.c b/arch/gaudi3/arc/common.c
+index 9a3d97f..5996ad1 100644
+--- a/arch/gaudi3/arc/common.c
++++ b/arch/gaudi3/arc/common.c
+@@ -8,6 +8,8 @@
+ #include <psoc_boot_conf_regs.h>
+ #include <psoc_boot_conf_masks.h>
+ #include <psoc_security_regs.h>
++#include <pcie_dbi_regs.h>
++#include <pcie_dbi_masks.h>
+ #include <gpio_regs.h>
+ #include <qspi_regs.h>
+ #include <pcie_aux_regs.h>
+@@ -1057,6 +1059,14 @@
+ 					ENABLE_PWRBRK_CTRL_VAL, EMR_PWR_M);
+ 	}
+ 
++	if (is_card_type_pcie()) {
++		regmap_rmwritel(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_LINK_CONTROL2_LINK_STATUS2_REG),
++				1, PCIE_DBI_LINK_CONTROL2_LINK_STATUS2_REG_PCIE_CAP_ENTER_COMPLIANCE_M);
++
++		regmap_rmwritel(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_PORT_LINK_CTRL_OFF),
++				1, PCIE_DBI_PORT_LINK_CTRL_OFF_LOOPBACK_ENABLE_M);
++	}
++
+ 	/* remove Vital Product Data (VPD) reporting capability */
+ 	regmap_rmwritel(D0_PCIE_DBI_SIG_REG(mmPCIE_DBI_PCI_MSIX_CAP_ID_NEXT_CTRL_REG), 0,
+ 			PCIE_DBI_PCI_MSIX_CAP_ID_NEXT_CTRL_REG_PCI_MSIX_CAP_NEXT_OFFSET_M);

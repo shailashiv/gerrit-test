@@ -1,0 +1,510 @@
+From 46a967bf62cbca063533fa8c25a523f531408d1d Mon Sep 17 00:00:00 2001
+From: yzecharia <yzecharia@habana.ai>
+Date: Thu, 06 Mar 2025 12:49:11 +0200
+Subject: [PATCH] [HL325][tests] Log fixes in test_functional
+
+Change-Id: Iee047114be72cbd067a003c159fb2d0d6509a286
+---
+
+diff --git a/tests/HL325/test_functional.py b/tests/HL325/test_functional.py
+index 2a197d5..38a1eb9 100644
+--- a/tests/HL325/test_functional.py
++++ b/tests/HL325/test_functional.py
+@@ -1602,6 +1602,8 @@
+         if self.stress_mode:
+             self.num_of_loops = self.test_parameters.num_of_loops
+             self.ignore_assert = True
++            self.device_prepare = None
++
+         self.running_mode = self.test_parameters.mode
+         self.save_hl_qual_output_file = False
+         self.execute_non_operational_devices = True
+@@ -1635,7 +1637,7 @@
+             for key, value in row.items():
+                 hlsa_logger(level='info', ident='Value', driver_number=hl_device_number, dev_address=device,
+                             mezzanine=mezz,
+-                            test_code=self.test_code, operation=key, read_value=value)
++                            test_code=self.test_code, operation=key, read_value=value, units='String')
+ 
+         log_manager.log_browser()
+         for pcie_addr, pcie_data in csv_report.items():
+@@ -1645,6 +1647,8 @@
+             hl_device_number = self.devices[short_pcie_address]["hl_num"]
+             mezz = self.smi_control.get_module_id(pcie_addr)
+             log_manager.log_browser(self.pci_to_mezz_log_format[short_pcie_address])
++
++            serdes_bw_log ={}
+ 
+             for key_, value in pcie_data.items():
+                 for key, loop in value.items():
+@@ -1665,10 +1669,43 @@
+                             sub_test_res = 'FAIL'
+                         level = 'error' if sub_test_status.lower() == 'failed' else 'info'
+ 
+-                        hlsa_logger(level=level, ident='Value', driver_number=hl_device_number,
+-                                    dev_address=short_pcie_address, mezzanine=mezz, loop=key_,
+-                                    test_code=self.test_code, operation=sub_test, read_value=sub_test_result,
+-                                    expected_value=sub_test_expected_value, result=f'{sub_test_res}')
++                        if self.test_code == 'HL-QUAL SERDES BW':
++                            if sub_test == 'PORT':
++                                serdes_bw_log[(key_,1)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,
++                                                                   sub_test_res, level)
++                            else:
++                                serdes_bw_log[(key_, 0)] = (sub_test, sub_test_result, sub_test_expected_value, sub_test_status,
++                                sub_test_res, level)
++
++                        if "BW" in self.test_code or "HBM" in self.test_code:
++                            unit = "Gbps"
++                        elif self.test_code == "HL-QUAL SYNAPSE PCI BW" and sub_test in ["upload PCI", "download PCI",
++                                                                                         "Bidirectional PCI"]:
++                            unit = "Gbps"
++                        elif self.test_code in ["HL-QUAL FUNCTIONAL",
++                                                "HL-QUAL RESBET50 TRAINING"] and "FPS" in sub_test:
++                            unit = "FPS"
++                        else:
++                            unit = "String"
++
++                        if self.test_code != 'HL-QUAL SERDES BW':
++                            hlsa_logger(level=level, ident='Value', driver_number=hl_device_number,
++                                        dev_address=short_pcie_address, mezzanine=mezz, loop=key_,
++                                        test_code=self.test_code, operation=sub_test, read_value=sub_test_result,
++                                        expected_value=sub_test_expected_value, result=f'{sub_test_res}', units=unit)
++
++            if self.test_code == 'HL-QUAL SERDES BW':
++                prev_num = -1
++                for res_num, _ in serdes_bw_log.keys():
++                    if res_num != prev_num:
++                        prev_num = res_num
++                        hlsa_logger(level=serdes_bw_log[(res_num, 0)][5], ident='Value', driver_number=hl_device_number,
++                                    dev_address=short_pcie_address, mezzanine=mezz, loop=res_num,
++                                    test_code=self.test_code,
++                                    operation=f"{serdes_bw_log[(res_num, 0)][0]} - Port {serdes_bw_log[(res_num, 1)][1]}",
++                                    read_value=serdes_bw_log[(res_num, 0)][1],
++                                    expected_value=serdes_bw_log[(res_num, 0)][2], result=f'{serdes_bw_log[(res_num, 0)][4]}',
++                                    units='Gbps')
+ 
+         log_manager.log_browser()
+ 
+@@ -2029,7 +2066,7 @@
+                     for device in self.operational_devices_address:
+                         hl_device_number = self.devices[device]["hl_num"]
+                         mezz = self.devices[device]['mezz']
+-                        hlsa_logger(level='info', ident='Value', loop=str(iteration), driver_number=hl_device_number,
++                        hlsa_logger(level='info', ident='Description', loop=str(iteration), driver_number=hl_device_number,
+                                     dev_address=device, mezzanine=mezz,  test_code=self.test_code,
+                                     operation=f'Connected PCIE Device', result='SUCCESS')
+                         if device not in self.actual_operational_devices_address:
+@@ -3579,41 +3616,6 @@
+                     result='SUCCESS')
+         return version[0]
+ 
+-    # todo : check if it triggered
+-    def ft_jig_set_fans(self):
+-        scale = self.test_options['jig_fan_rpm_scale_percentage']
+-        # Get Init Fans Speed
+-        self.jig_fan_init_value = self.ft_jig_control.get_fan_speed()
+-        if not self.jig_fan_init_value:
+-            hlsa_logger(level='error', ident='Description', test_code='FUNCTIONAL',
+-                        operation=f'Get FT JIG Fans', result='FAIL')
+-            pytest.xfail('Functional - Setup FAIL [FT JIG Controller]')
+-        else:
+-            hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
+-                        operation='Get FT JIG Fans Init Value', read_value=f'{str(self.jig_fan_init_value)}',
+-                        result='SUCCESS')
+-        # Set Fans Speed
+-        for idx, scale_per_idx in enumerate(scale):
+-            fan_set_to_value = self.ft_jig_control.set_fan_speed(fan_speed=int(scale_per_idx), fan_index=idx + 1)
+-            if not fan_set_to_value:
+-                hlsa_logger(level='error', ident='Description', test_code='FUNCTIONAL',
+-                            operation=f'Setup Set FT JIG Fans', result='FAIL')
+-                pytest.xfail('Functional - Setup FAIL [FT JIG Controller]')
+-            else:
+-                hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
+-                            operation=f'Setup Set FT JIG Fans', result='SUCCESS')
+-        time.sleep(15)
+-        # Get Init Fans Speed
+-        self.jig_fan_test_value = self.ft_jig_control.get_fan_speed()
+-        if not self.jig_fan_test_value:
+-            hlsa_logger(level='error', ident='Description', test_code='FUNCTIONAL',
+-                        operation=f'Get FT JIG Fans', result='FAIL')
+-            pytest.xfail('Functional - Setup FAIL [FT JIG Controller]')
+-        else:
+-            hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
+-                        operation='Get FT JIG Fans Init Value', read_value=f'{str(self.jig_fan_test_value)}',
+-                        result='SUCCESS')
+-
+     def _print_serr_derr(self, result, message, hl_num, mezz, con_dev, operation):
+         if hl_num in list(map(int, result["hl_num"])):
+             hlsa_logger(level='error', ident='Description', test_code=self.test_code,
+@@ -4255,120 +4257,120 @@
+                 self.check_port_speed_nrz(device)
+         return test_status
+ 
+-    def print_fec_status_per_pci(self, pci, log_level='error', final_check=False):
+-        hl_device_number = self.devices[pci]["hl_num"]
+-        device_status = True
+-        status_post = False
+-        status_pre = False
+-        final_check_prefix = 'Final ' if final_check else ''
+-        stdout = self.driver_cli.device_print_fec_status(hl_num=hl_device_number)
+-        for line in stdout:
+-            hlsa_logger(level='info', ident='Description', operation=f'nic_print_fec_stats: {line}')
+-        parser = RegexParser.RegexParser()
+-        try:
+-            res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.Functional_test.fec_status)
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                        operation='parser results', read_value=res)
+-            for value in res['fec'].values():
+-                if self.ports_status[pci]['previous_status'][int(value["Port"][0])]:
+-                    continue
+-                # pci = self.device_cli.get_pcie_address(hl_num)
+-                hl_num = self.device_cli.get_hl_number(pci)
+-                mezz = self.smi_control.get_module_id(f'0000:{pci}')
+-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])
+-                max_limit_pre = float(self.functional_threshold[
+-                                          self.functional_tests[self.test_name]["functional_threshold_criteria"]][
+-                                          "SERDES FEC"]["pre_fec_SER"]["max"])
+-                min_limit_pre = float(self.functional_threshold[
+-                                          self.functional_tests[self.test_name]["functional_threshold_criteria"]][
+-                                          "SERDES FEC"]["pre_fec_SER"]["min"])
+-                max_limit_post = float(self.functional_threshold[
+-                                           self.functional_tests[self.test_name]["functional_threshold_criteria"]][
+-                                           "SERDES FEC"]["post_fec_SER"]["max"])
+-                min_limit_post = float(self.functional_threshold[
+-                                           self.functional_tests[self.test_name]["functional_threshold_criteria"]][
+-                                           "SERDES FEC"]["post_fec_SER"]["min"])
+-                if value["down"][0] != "":
+-                    status = False
+-                    device_status = False
+-                    hlsa_checker.check_status_is_true(status, ident='Value', test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {value["Port"][0]} pre_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value='N/A',
+-                                                      expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                    hlsa_checker.check_status_is_true(status, ident='Value', test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {value["Port"][0]} post_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value='N/A',
+-                                                      expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                else:
+-                    pre_fec_value = float(value["pre_fec_SER"][0])
+-                    status_pre = pre_fec_value <= max_limit_pre
+-                    post_fec_value = float(value["post_fec_SER"][0])
+-                    status_post = post_fec_value <= max_limit_post
+-                    passed_status_prefix = 'Final ' if status_post and status_pre else ''
+-                    if final_check_prefix:
+-                        passed_status_prefix = ''
+-                    hlsa_checker.check_status_is_true(status_pre, ident='Value', test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {value["Port"][0]} {passed_status_prefix}{final_check_prefix}pre_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value=value["pre_fec_SER"][0],
+-                                                      expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                    hlsa_checker.check_status_is_true(status_post, ident='Value', test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {value["Port"][0]} {passed_status_prefix}{final_check_prefix}post_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value=value["post_fec_SER"][0],
+-                                                      expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                    status = status_pre and status_post
+-                    device_status = status and device_status
+-                # if update_ports_status:
+-                if status and not self.ports_status[pci]['current_status'][int(value["Port"][0])]:
+-                    # passed fec but failed on changes_counter
+-                    hlsa_logger(level='warning', ident='Description', test_code=self.test_code.upper(), dev_address=pci,
+-                                operation=f'Port {int(value["Port"][0])} '
+-                                          f'failed on previous changes_counter and passed fec check')
+-                    hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
+-                                operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                                dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                read_value=f'{value["post_fec_SER"][0]}',
+-                                expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}')
+-                if not status:
+-                    self.ports_status[pci]['current_status'][int(value["Port"][0])] = False
+-                    if not status_post:
+-                        hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
+-                                    operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                    read_value=f'{value["post_fec_SER"][0]}',
+-                                    expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                    elif not status_pre:
+-                        hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
+-                                    operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
+-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                    read_value=f'{value["pre_fec_SER"][0]}',
+-                                    expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                    else:
+-                        hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
+-                                    operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                    read_value=f'{value["post_fec_SER"][0]}',
+-                                    expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                        hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
+-                                    operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
+-                                    dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                    read_value=f'{value["pre_fec_SER"][0]}',
+-                                    expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                log_manager.log_browser()
+-        except Exception as exception:
+-            hlsa_logger(level='warning', ident='Description',
+-                        operation=f'Exception during parsing fec_stats: {str(exception)}')
+-            log_manager.log_browser()
+-            device_status = False
+-
+-        return device_status
++    # def print_fec_status_per_pci(self, pci, log_level='error', final_check=False):
++    #     hl_device_number = self.devices[pci]["hl_num"]
++    #     device_status = True
++    #     status_post = False
++    #     status_pre = False
++    #     final_check_prefix = 'Final ' if final_check else ''
++    #     stdout = self.driver_cli.device_print_fec_status(hl_num=hl_device_number)
++    #     for line in stdout:
++    #         hlsa_logger(level='info', ident='Description', operation=f'nic_print_fec_stats: {line}')
++    #     parser = RegexParser.RegexParser()
++    #     try:
++    #         res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.Functional_test.fec_status)
++    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
++    #                     operation='parser results', read_value=res)
++    #         for value in res['fec'].values():
++    #             if self.ports_status[pci]['previous_status'][int(value["Port"][0])]:
++    #                 continue
++    #             # pci = self.device_cli.get_pcie_address(hl_num)
++    #             hl_num = self.device_cli.get_hl_number(pci)
++    #             mezz = self.smi_control.get_module_id(f'0000:{pci}')
++    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])
++    #             max_limit_pre = float(self.functional_threshold[
++    #                                       self.functional_tests[self.test_name]["functional_threshold_criteria"]][
++    #                                       "SERDES FEC"]["pre_fec_SER"]["max"])
++    #             min_limit_pre = float(self.functional_threshold[
++    #                                       self.functional_tests[self.test_name]["functional_threshold_criteria"]][
++    #                                       "SERDES FEC"]["pre_fec_SER"]["min"])
++    #             max_limit_post = float(self.functional_threshold[
++    #                                        self.functional_tests[self.test_name]["functional_threshold_criteria"]][
++    #                                        "SERDES FEC"]["post_fec_SER"]["max"])
++    #             min_limit_post = float(self.functional_threshold[
++    #                                        self.functional_tests[self.test_name]["functional_threshold_criteria"]][
++    #                                        "SERDES FEC"]["post_fec_SER"]["min"])
++    #             if value["down"][0] != "":
++    #                 status = False
++    #                 device_status = False
++    #                 hlsa_checker.check_status_is_true(status, ident='Value', test_code=self.test_code.upper(),
++    #                                                   operation=f'Check Port {value["Port"][0]} pre_fec_SER',
++    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                                   read_value='N/A',
++    #                                                   expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
++    #                                                   ignore_assert=True, fail_log_level=log_level)
++    #                 hlsa_checker.check_status_is_true(status, ident='Value', test_code=self.test_code.upper(),
++    #                                                   operation=f'Check Port {value["Port"][0]} post_fec_SER',
++    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                                   read_value='N/A',
++    #                                                   expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
++    #                                                   ignore_assert=True, fail_log_level=log_level)
++    #             else:
++    #                 pre_fec_value = float(value["pre_fec_SER"][0])
++    #                 status_pre = pre_fec_value <= max_limit_pre
++    #                 post_fec_value = float(value["post_fec_SER"][0])
++    #                 status_post = post_fec_value <= max_limit_post
++    #                 passed_status_prefix = 'Final ' if status_post and status_pre else ''
++    #                 if final_check_prefix:
++    #                     passed_status_prefix = ''
++    #                 hlsa_checker.check_status_is_true(status_pre, ident='Value', test_code=self.test_code.upper(),
++    #                                                   operation=f'Check Port {value["Port"][0]} {passed_status_prefix}{final_check_prefix}pre_fec_SER',
++    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                                   read_value=value["pre_fec_SER"][0],
++    #                                                   expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
++    #                                                   ignore_assert=True, fail_log_level=log_level)
++    #                 hlsa_checker.check_status_is_true(status_post, ident='Value', test_code=self.test_code.upper(),
++    #                                                   operation=f'Check Port {value["Port"][0]} {passed_status_prefix}{final_check_prefix}post_fec_SER',
++    #                                                   dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                                   read_value=value["post_fec_SER"][0],
++    #                                                   expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
++    #                                                   ignore_assert=True, fail_log_level=log_level)
++    #                 status = status_pre and status_post
++    #                 device_status = status and device_status
++    #             # if update_ports_status:
++    #             if status and not self.ports_status[pci]['current_status'][int(value["Port"][0])]:
++    #                 # passed fec but failed on changes_counter
++    #                 hlsa_logger(level='warning', ident='Description', test_code=self.test_code.upper(), dev_address=pci,
++    #                             operation=f'Port {int(value["Port"][0])} '
++    #                                       f'failed on previous changes_counter and passed fec check')
++    #                 hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
++    #                             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
++    #                             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                             read_value=f'{value["post_fec_SER"][0]}',
++    #                             expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}')
++    #             if not status:
++    #                 self.ports_status[pci]['current_status'][int(value["Port"][0])] = False
++    #                 if not status_post:
++    #                     hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
++    #                                 operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
++    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                 read_value=f'{value["post_fec_SER"][0]}',
++    #                                 expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
++    #                 elif not status_pre:
++    #                     hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
++    #                                 operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
++    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                 read_value=f'{value["pre_fec_SER"][0]}',
++    #                                 expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
++    #                 else:
++    #                     hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
++    #                                 operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
++    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                 read_value=f'{value["post_fec_SER"][0]}',
++    #                                 expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
++    #                     hlsa_logger(level=log_level, ident='Description', test_code=self.test_code.upper(),
++    #                                 operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
++    #                                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
++    #                                 read_value=f'{value["pre_fec_SER"][0]}',
++    #                                 expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
++    #             log_manager.log_browser()
++    #     except Exception as exception:
++    #         hlsa_logger(level='warning', ident='Description',
++    #                     operation=f'Exception during parsing fec_stats: {str(exception)}')
++    #         log_manager.log_browser()
++    #         device_status = False
++    #
++    #     return device_status
+ 
+     def update_operational_devices_info(self):
+         self.operational_devices_address = self.driver_cli.get_operational_devices()
+@@ -4420,67 +4422,67 @@
+                 time.sleep(20)
+         return toggle_status
+ 
+-    def calculate_ports_changes_counter(self, retries=3, log_level='error'):
+-        log_manager.log_browser()
+-        all_devices_status = True
+-        for run_idx in range(retries):
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                        operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}')
+-            # self.changes_counter_calc = {}
+-            for pci in self.operational_devices_address:
+-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                            operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
+-                # self.changes_counter_calc[pci] = {}
+-                self.changes_counter_calc[pci]['start'] = self.check_ports_changes_counter_per_pci(pci)
+-            log_manager.log_browser()
+-            time.sleep(self.functional_tests[self.test_name]["port_changes_counter_duration"])
+-            for pci in self.operational_devices_address:
+-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])
+-                self.changes_counter_calc[pci]['end'] = self.check_ports_changes_counter_per_pci(pci)
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                            operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
+-            log_manager.log_browser()
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                        operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}')
+-            for pci in self.operational_devices_address:
+-                self.changes_counter_calc[pci]['calc'] = {}
+-                # self.changes_counter_calc[pci]['status'] = {}
+-                log_manager.log_browser(self.pci_to_mezz_log_format[pci])
+-                device_status = True
+-                for port in self.changes_counter_calc[pci]['start'].keys():
+-                    if self.ports_status[pci]['previous_status'][port]:
+-                        continue
+-                    self.changes_counter_calc[pci]['calc'][port] = int(
+-                        self.changes_counter_calc[pci]['end'][port]) - int(
+-                        self.changes_counter_calc[pci]['start'][port])
+-                    limit_check = int(self.changes_counter_calc[pci]['calc'][port]) <= \
+-                                  self.functional_tests[self.test_name][
+-                                      "port_changes_counter_max"]
+-                    hlsa_checker.check_status_is_true(limit_check, ident='Description', dev_address=pci,
+-                                                      test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {port} Changes Counter try:{run_idx + 1}/{retries}',
+-                                                      read_value=f'{self.changes_counter_calc[pci]["calc"][port]}',
+-                                                      expected_value=f'Min: {0} | Max: {self.functional_tests[self.test_name]["port_changes_counter_max"]}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                    if not limit_check:
+-                        self.ports_status[pci]['current_status'][port] = False
+-                        device_status = False
+-                    else:
+-                        self.ports_status[pci]['current_status'][port] = True
+-                hlsa_checker.check_status_is_true(device_status, ident='Description', dev_address=pci,
+-                                                  operation=f'Check device port up/down changes counter try:{run_idx + 1}/{retries}',
+-                                                  ignore_assert=True, fail_log_level=log_level)
+-                all_devices_status = device_status and all_devices_status
+-            log_manager.log_browser()
+-            time.sleep(30)
+-        return all_devices_status
++    # def calculate_ports_changes_counter(self, retries=3, log_level='error'):
++    #     log_manager.log_browser()
++    #     all_devices_status = True
++    #     for run_idx in range(retries):
++    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
++    #                     operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}')
++    #         # self.changes_counter_calc = {}
++    #         for pci in self.operational_devices_address:
++    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])
++    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
++    #                         operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
++    #             # self.changes_counter_calc[pci] = {}
++    #             self.changes_counter_calc[pci]['start'] = self.check_ports_changes_counter_per_pci(pci)
++    #         log_manager.log_browser()
++    #         time.sleep(self.functional_tests[self.test_name]["port_changes_counter_duration"])
++    #         for pci in self.operational_devices_address:
++    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])
++    #             self.changes_counter_calc[pci]['end'] = self.check_ports_changes_counter_per_pci(pci)
++    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
++    #                         operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
++    #         log_manager.log_browser()
++    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
++    #                     operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}')
++    #         for pci in self.operational_devices_address:
++    #             self.changes_counter_calc[pci]['calc'] = {}
++    #             # self.changes_counter_calc[pci]['status'] = {}
++    #             log_manager.log_browser(self.pci_to_mezz_log_format[pci])
++    #             device_status = True
++    #             for port in self.changes_counter_calc[pci]['start'].keys():
++    #                 if self.ports_status[pci]['previous_status'][port]:
++    #                     continue
++    #                 self.changes_counter_calc[pci]['calc'][port] = int(
++    #                     self.changes_counter_calc[pci]['end'][port]) - int(
++    #                     self.changes_counter_calc[pci]['start'][port])
++    #                 limit_check = int(self.changes_counter_calc[pci]['calc'][port]) <= \
++    #                               self.functional_tests[self.test_name][
++    #                                   "port_changes_counter_max"]
++    #                 hlsa_checker.check_status_is_true(limit_check, ident='Description', dev_address=pci,
++    #                                                   test_code=self.test_code.upper(),
++    #                                                   operation=f'Check Port {port} Changes Counter try:{run_idx + 1}/{retries}',
++    #                                                   read_value=f'{self.changes_counter_calc[pci]["calc"][port]}',
++    #                                                   expected_value=f'Min: {0} | Max: {self.functional_tests[self.test_name]["port_changes_counter_max"]}',
++    #                                                   ignore_assert=True, fail_log_level=log_level)
++    #                 if not limit_check:
++    #                     self.ports_status[pci]['current_status'][port] = False
++    #                     device_status = False
++    #                 else:
++    #                     self.ports_status[pci]['current_status'][port] = True
++    #             hlsa_checker.check_status_is_true(device_status, ident='Description', dev_address=pci,
++    #                                               operation=f'Check device port up/down changes counter try:{run_idx + 1}/{retries}',
++    #                                               ignore_assert=True, fail_log_level=log_level)
++    #             all_devices_status = device_status and all_devices_status
++    #         log_manager.log_browser()
++    #         time.sleep(30)
++    #     return all_devices_status
+ 
+-    def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):
+-        ports_status_list = [0] * num_of_ports_per_device
+-        for failed_port_idx in failed_ports_idx:
+-            ports_status_list[int(failed_port_idx)] = 1
+-        return ports_status_list
++    # def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):
++    #     ports_status_list = [0] * num_of_ports_per_device
++    #     for failed_port_idx in failed_ports_idx:
++    #         ports_status_list[int(failed_port_idx)] = 1
++    #     return ports_status_list
+ 
+     def print_uart_for_failed_devices(self):
+         try:
+@@ -4787,7 +4789,7 @@
+     @classmethod
+     def prepare_host(cls):
+         res, output = cls.device_cli.change_folder_permission_on_host('/var/log/habana_logs/')
+-        hlsa_checker.check_status_is_true(res == 0, ident='check',
++        hlsa_checker.check_status_is_true(res == 0, ident='Description',
+                                           operation='Change folder permission /var/log/habana_logs/',
+                                           ignore_assert=True, fail_log_level='warning')
+ 

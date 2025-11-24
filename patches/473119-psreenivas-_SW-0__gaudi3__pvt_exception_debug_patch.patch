@@ -1,0 +1,146 @@
+From ee7357d91df655a21cf945a54fe7abc3639a5475 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Mon, 17 Feb 2025 12:28:13 +0200
+Subject: [PATCH] [SW-0] gaudi3: pvt exception debug patch
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I9d6ef0449f0a4e939b8e0fb7218ef2f5c9cc1a5d
+---
+
+diff --git a/drivers/sensor/hl_pvt/hl_pvt.c b/drivers/sensor/hl_pvt/hl_pvt.c
+index 16950b1..774c284 100644
+--- a/drivers/sensor/hl_pvt/hl_pvt.c
++++ b/drivers/sensor/hl_pvt/hl_pvt.c
+@@ -17,6 +17,7 @@
+ 
+ #include <string.h>
+ #include <zephyr/drivers/clock_control/hl_pll.h>
++#include <zephyr/drivers/d2d/d2d_phy.h>
+ #include <zephyr/drivers/sensor/hl_pvt.h>
+ #include <zephyr/drivers/efuse.h>
+ #include <common_utils.h>
+@@ -47,6 +48,9 @@
+ 	mem_addr_t reg_base = (mem_addr_t)DEV_CFG(dev)->base;
+ 	uint32_t regval;
+ 
++	HL_PVT_INF("Accessing pvt via SPI GW");
++	regval = sys_read32((reg_base  & 0xEFFFFFFF) + HL_PVT_COMP_ID_OFF);
++	HL_PVT_ERR("PVT comp ID 0x%x", regval);
+ 	regval = sys_read32(reg_base + HL_PVT_COMP_ID_OFF);
+ 	if (regval !=  HL_PVT_COMP_ID_VALUE) {
+ 		HL_PVT_ERR("PVT comp ID doesn't match!");
+@@ -974,11 +978,24 @@
+ 	}
+ }
+ 
++static int d2d_check;
+ static int hl_pvt_init(const struct device *dev)
+ {
+ 	struct hl_pvt_drv_data *const data = DEV_DATA(dev);
+-	int ret;
++	int ret, rc;
+ 
++	const struct device *d2d_phy_dev = device_get_binding("D2D_PHY");
++	if (d2d_phy_dev == NULL) {
++		LOG_ERR("Unable to get D2D_PHY dev");
++	} else if (!d2d_check) {
++		rc = d2d_phy_chk_ltssm_state(d2d_phy_dev, LTSSM_L0);
++		if (rc) {
++			LOG_ERR("D2D ltssm state check failed");
++		} else {
++			LOG_INF("D2D ltssm check passed");
++		}
++		d2d_check = 1;
++	}
+ 	data->dev = dev;
+ 
+ 	HL_PVT_INF("PVT device enumeration started dev name = %s clock = %s",
+diff --git a/dts/arc/hl_gaudi3.dtsi b/dts/arc/hl_gaudi3.dtsi
+index 397d351..3338900 100644
+--- a/dts/arc/hl_gaudi3.dtsi
++++ b/dts/arc/hl_gaudi3.dtsi
+@@ -1119,7 +1119,7 @@
+ 			status = "disabled";
+ 		};
+ 
+-		pvt_hdcore0: pvt-0@fe0f0000 {
++		pvt_hdcore0: pvt-000@fe0f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1143,7 +1143,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore1: pvt-1@fe4f0000 {
++		pvt_hdcore1: pvt-001@fe4f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1168,7 +1168,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore2: pvt-2@fe8f0000 {
++		pvt_hdcore2: pvt-002@fe8f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1192,7 +1192,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore3: pvt-3@fecf0000 {
++		pvt_hdcore3: pvt-003@fecf0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1217,7 +1217,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore4: pvt-4@ff0f0000 {
++		pvt_hdcore4: pvt-004@ff0f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1241,7 +1241,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore5: pvt-5@ff4f0000 {
++		pvt_hdcore5: pvt-005@ff4f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1266,7 +1266,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore6: pvt-6@ff8f0000 {
++		pvt_hdcore6: pvt-006@ff8f0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+@@ -1290,7 +1290,7 @@
+ 			coeff_a_b_int_format;
+ 		};
+ 
+-		pvt_hdcore7: pvt-7@ffcf0000 {
++		pvt_hdcore7: pvt-007@ffcf0000 {
+ 			status = "disabled";
+ 			compatible = "hl,pvt";
+ 			clocks = <&clk_mme 3>;
+diff --git a/include/zephyr/drivers/d2d/d2d_phy.h b/include/zephyr/drivers/d2d/d2d_phy.h
+index a6041bc..49aeaee 100644
+--- a/include/zephyr/drivers/d2d/d2d_phy.h
++++ b/include/zephyr/drivers/d2d/d2d_phy.h
+@@ -13,7 +13,7 @@
+ #include <zephyr/types.h>
+ #include <zephyr/device.h>
+ #include "d2d_common.h"
+-#include "hl_d2d_phy_defines.h"
++#include "gaudi3/hl_d2d_phy_defines.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {

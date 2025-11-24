@@ -1,0 +1,124 @@
+From 19bb3f8190d075b90d02ddbd916ce33a7577b24f Mon Sep 17 00:00:00 2001
+From: Shivani Raval <sraval@habana.ai>
+Date: Tue, 03 Sep 2024 14:30:30 +0300
+Subject: [PATCH] [FSW-9509] scripts: include compute die 0 mgmt arc
+
+Modified script files to include compute die 0 mgmt arc images
+as part of fs1 boot fit file. preboot will load the same image
+in all compute dies mgmt arc memories.
+
+Change-Id: I1ee7541e7e452d9abeeb78177baa2a1bf7760683
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-fit-arc.sh b/board/habanalabs/fs1_arc/fs1-post-image-fit-arc.sh
+index a73d0aa..3077315 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-fit-arc.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-fit-arc.sh
+@@ -47,10 +47,15 @@
+ ITS_SED_PARAMS+="s/@ARC_MGMT_DCCM_LO@/${ARC_MGMT_DCCM_LO}/g;"
+ ITS_SED_PARAMS+="s/@ARC_MGMT_ICCM_HI@/${ARC_MGMT_ICCM_HI}/g;"
+ ITS_SED_PARAMS+="s/@ARC_MGMT_ICCM_LO@/${ARC_MGMT_ICCM_LO}/g;"
++ITS_SED_PARAMS+="s/@ARC_MGMT_COMPUTE_0_DCCM_HI@/${ARC_MGMT_COMPUTE_0_DCCM_HI}/g;"
++ITS_SED_PARAMS+="s/@ARC_MGMT_COMPUTE_0_DCCM_LO@/${ARC_MGMT_COMPUTE_0_DCCM_LO}/g;"
++ITS_SED_PARAMS+="s/@ARC_MGMT_COMPUTE_0_ICCM_HI@/${ARC_MGMT_COMPUTE_0_ICCM_HI}/g;"
++ITS_SED_PARAMS+="s/@ARC_MGMT_COMPUTE_0_ICCM_LO@/${ARC_MGMT_COMPUTE_0_ICCM_LO}/g;"
+ 
+ # Replace ARC core IDs
+ ITS_SED_PARAMS+="s/@FIT_CORE_ID_IO0_PID@/${FIT_CORE_ID_IO0_PID}/g;"
+ ITS_SED_PARAMS+="s/@FIT_CORE_ID_IO0_MGMT@/${FIT_CORE_ID_IO0_MGMT}/g;"
++ITS_SED_PARAMS+="s/@FIT_CORE_ID_COMPUTE0_MNG@/${FIT_CORE_ID_COMPUTE0_MNG}/g;"
+ 
+ pushd ${STAGE_DIR}
+ 	hl_copy_keys ${BINS_DIR}
+diff --git a/board/habanalabs/fs1_arc/fs1-zephyr.its b/board/habanalabs/fs1_arc/fs1-zephyr.its
+index 779218b..130c239 100644
+--- a/board/habanalabs/fs1_arc/fs1-zephyr.its
++++ b/board/habanalabs/fs1_arc/fs1-zephyr.its
+@@ -65,6 +65,33 @@
+ 				algo = "@SHA_VERSION@";
+ 			};
+ 		};
++
++		zephyr-mgmt_compute-iccm {
++			description = "Zephyr mgmt compute ICCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_compute-iccm.bin.le");
++			type = "standalone";
++			arch = "arc";
++			core-id = <@FIT_CORE_ID_COMPUTE0_MNG@>;
++			compression = "none";
++			loadaddr = <@ARC_MGMT_COMPUTE_0_ICCM_HI@ @ARC_MGMT_COMPUTE_0_ICCM_LO@>;
++			startaddr = <@MGMT_COMPUTE_STARTADDR_HI@ @MGMT_COMPUTE_STARTADDR_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
++
++		zephyr-mgmt_compute-dccm {
++			description = "Zephyr mgmt compute DCCM";
++			data = /incbin/("@BINS_DIR_PATH@@DEV_NAME@-zephyr-mgmt_compute-dccm.bin.le");
++			type = "standalone";
++			arch = "arc";
++			core-id = <@FIT_CORE_ID_COMPUTE0_MNG@>;
++			compression = "none";
++			loadaddr = <@ARC_MGMT_COMPUTE_0_DCCM_HI@ @ARC_MGMT_COMPUTE_0_DCCM_LO@>;
++			hash {
++				algo = "@SHA_VERSION@";
++			};
++		};
+ 	};
+ 
+ 	configurations {
+@@ -74,7 +101,7 @@
+ 			load-type = <0>; /* FIT_LOAD_TYPE_RUN */
+ 			description = "Habanalabs device preboot";
+ 			loadables = /* "zephyr-pid-iccm", "zephyr-pid-dccm", */ "zephyr-mgmt-iccm",
+-				    "zephyr-mgmt-dccm";
++				    "zephyr-mgmt-dccm", "zephyr-mgmt_compute-iccm", "zephyr-mgmt_compute-dccm";
+ 		};
+ 	};
+ };
+diff --git a/board/habanalabs/fs1_arc/post-image-fit.sh b/board/habanalabs/fs1_arc/post-image-fit.sh
+index 34524d4..c573199 100755
+--- a/board/habanalabs/fs1_arc/post-image-fit.sh
++++ b/board/habanalabs/fs1_arc/post-image-fit.sh
+@@ -24,6 +24,9 @@
+ 	#cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-pid-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-pid-dccm.bin.le
+ 	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt-iccm.bin.le
+ 	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt-dccm.bin.le
++	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt_compute-iccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt_compute-iccm.bin.le
++	cp ${BR2_EXTERNAL}/output/${DEV_NAME}_arc/images/${DEV_PREFIX}-zephyr-mgmt_compute-dccm.bin ${FILEPATH}/${DEV_PREFIX}-zephyr-mgmt_compute-dccm.bin.le
++
+ 
+ 	return
+ }
+@@ -34,12 +37,17 @@
+ popd
+ 
+ MGMT_STAT=${STATS_DIR}/zephyr_mgmt.stat
++MGMT_COMPUTE_STAT=${STATS_DIR}/zephyr_mgmt_compute.stat
+ # TEMPORARY: arcpid isn't ready yet, so comment-out the following line. Otherwise, the script fails.
+ #PID_STAT=${STATS_DIR}/zephyr_pid.stat
+ 
+ # Extract the start address from stat file
+ ENTRY_ADDRESS=$(cat $MGMT_STAT | grep "Entry point address" | head -1)
+ MGMT_STARTADDR=$(echo $ENTRY_ADDRESS | awk -F: '{ print $2 }' | xargs)
++
++COMPUTE_ENTRY_ADDRESS=$(cat $MGMT_COMPUTE_STAT | grep "Entry point address" | head -1)
++MGMT_COMPUTE_STARTADDR=$(echo $COMPUTE_ENTRY_ADDRESS | awk -F: '{ print $2 }' | xargs)
++
+ # TEMPORARY: arcpid isn't ready yet, so comment-out the following line. Otherwise, the script fails.
+ #ENTRY_ADDRESS=$(cat $PID_STAT | grep "Entry point address" | head -1)
+ PID_STARTADDR=$(echo $ENTRY_ADDRESS | awk -F: '{ print $2 }' | xargs)
+@@ -49,8 +57,12 @@
+ # is same as ARC_XX_ICCM_HI.
+ PID_STARTADDR_LO=$((ARC_PID_ICCM_LO | PID_STARTADDR))
+ MGMT_STARTADDR_LO=$((ARC_MGMT_ICCM_LO | MGMT_STARTADDR))
++MGMT_COMPUTE_STARTADDR_LO=$((ARC_MGMT_COMPUTE_0_ICCM_LO | MGMT_COMPUTE_STARTADDR))
+ 
+ ITS_SED_PARAMS+="s/@PID_STARTADDR_HI@/${ARC_PID_ICCM_HI}/g;"
+ ITS_SED_PARAMS+="s/@PID_STARTADDR_LO@/${PID_STARTADDR_LO}/g;"
+ ITS_SED_PARAMS+="s/@MGMT_STARTADDR_HI@/${ARC_MGMT_ICCM_HI}/g;"
+ ITS_SED_PARAMS+="s/@MGMT_STARTADDR_LO@/${MGMT_STARTADDR_LO}/g;"
++ITS_SED_PARAMS+="s/@MGMT_COMPUTE_STARTADDR_HI@/${ARC_MGMT_COMPUTE_0_ICCM_HI}/g;"
++ITS_SED_PARAMS+="s/@MGMT_COMPUTE_STARTADDR_LO@/${MGMT_COMPUTE_STARTADDR_LO}/g;"
++

@@ -1,0 +1,64 @@
+From ca3782158b55261c1f1deab71ada1954161e31f2 Mon Sep 17 00:00:00 2001
+From: Jeeja <jeejakp@habana.ai>
+Date: Fri, 01 Nov 2024 18:42:38 +0200
+Subject: [PATCH] [SW-206964] Fix pin memory issue with HPUHooks
+
+pin_memory can be called before creating hpu device. since
+device is not initialized it fails with "expected
+device_context.device_", So initialize the device before
+calling getPinnedMemoryAllocator.
+
+Example:
+import torch
+import habana_frameworks.torch.hpu
+ifm = torch.tensor([[1,2,3, 4], [4,5,6, 8]], dtype=torch.float32)
+ifm = ifm.pin_memory()
+ifm.is_pinned()
+
+Change-Id: I3312350c1ac8af014f3fad5457218f3cfee6bbbb
+Signed-off-by: Jeeja <jeejakp@habana.ai>
+---
+
+diff --git a/backend/habana_device/HPUHooksInterface.cpp b/backend/habana_device/HPUHooksInterface.cpp
+index 8d77144..c52e577 100644
+--- a/backend/habana_device/HPUHooksInterface.cpp
++++ b/backend/habana_device/HPUHooksInterface.cpp
+@@ -42,10 +42,14 @@
+ }
+ 
+ bool HPUHooks::isPinnedPtr(const void* data) const {
++  habana::HABANAGuardImpl device_guard;
++  device_guard.getDevice();
+   return PinnedMemoryAllocator_is_pinned(data);
+ }
+ 
+ at::Allocator* HPUHooks::getPinnedMemoryAllocator() const {
++  habana::HABANAGuardImpl device_guard;
++  device_guard.getDevice();
+   return PinnedMemoryAllocator_get();
+ }
+ 
+diff --git a/tests/pytest_working/any_mode/test_hpu_pin_memory.py b/tests/pytest_working/any_mode/test_hpu_pin_memory.py
+new file mode 100644
+index 0000000..530823b
+--- /dev/null
++++ b/tests/pytest_working/any_mode/test_hpu_pin_memory.py
+@@ -0,0 +1,18 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++import habana_frameworks.torch.hpu
++import torch
++
++ifm = torch.tensor([[1, 2, 3, 4], [4, 5, 6, 8]], dtype=torch.float32)
++ifm = ifm.pin_memory()
++ifm.is_pinned()

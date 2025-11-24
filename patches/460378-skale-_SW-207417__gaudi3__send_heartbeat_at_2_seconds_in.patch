@@ -1,0 +1,25 @@
+From f66b5b29294eb29906820aebc76016b4f20d0c91 Mon Sep 17 00:00:00 2001
+From: Sanyog Kale <skale@habana.ai>
+Date: Sun, 03 Nov 2024 18:14:28 +0200
+Subject: [PATCH] [SW-207417] gaudi3: send heartbeat at 2 seconds interval
+
+In order to make sure, arcevent sends heartbeat to arcmgmt even
+when it is processing flood of interrupts, this patch changes
+heartbeat interval to 2 seconds.
+
+Change-Id: I444f9a0b8f55a62793a7953010b00eaa4e8d886b
+---
+
+diff --git a/src/gaudi3/dev.c b/src/gaudi3/dev.c
+index b773c69..95751db 100644
+--- a/src/gaudi3/dev.c
++++ b/src/gaudi3/dev.c
+@@ -396,7 +396,7 @@
+ }
+ 
+ /* TODO: SW-149885 move this to common place */
+-#define HEARTBEAT_TIMEOUT	3000
++#define HEARTBEAT_TIMEOUT	2000
+ void hl_event_send_heartbeat(struct hl_event_config *config)
+ {
+ 	int key = arch_irq_lock();

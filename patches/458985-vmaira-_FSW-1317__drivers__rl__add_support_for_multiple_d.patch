@@ -1,0 +1,250 @@
+From 2b1232b762ea161c9ba2c6a86cfbeeb7a2fc4fe4 Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Mon, 28 Oct 2024 12:11:25 +0200
+Subject: [PATCH] [FSW-1317] drivers: rl: add support for multiple dup group usage
+
+In FS1, we need to configure 160 instances of CU_RRTR rate limiters on
+the compute die. Since FS1 dup groups support broadcasting to only 32
+addresses, multiple dup groups are required.
+
+This patch updates the rate limiter driver to use multiple dup groups
+for rate limiter programming when the number of configurations needed
+for an engine exceeds the number of addresses supported by an
+individual dup group.
+
+Change-Id: I03b6109f4af029a885bb2722953ad25268fe336a
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/drivers/clock_control/clock_control_hl_rl_v2.c b/drivers/clock_control/clock_control_hl_rl_v2.c
+index ddf32ce..b03e661 100644
+--- a/drivers/clock_control/clock_control_hl_rl_v2.c
++++ b/drivers/clock_control/clock_control_hl_rl_v2.c
+@@ -116,31 +116,93 @@
+ }
+ 
+ #ifdef CONFIG_HL_DUP_ENG_DRIVER
+-static int hl_rl_prepare_dup_eng(const struct hl_rl_drv_cfg_info *const config,
+-				struct hl_rl_drv_data * const data)
++static int hl_rl_prepare_dup_eng_group(const struct hl_rl_drv_cfg_info *const config,
++				uint8_t group, uint32_t *base_addr, uint32_t num_base)
+ {
+-	int ret;
+-	int num_base = 0, idx;
+-	uint32_t base_addr[DUP_GRP_MAX_ADDR] = {0};
++	int ret = 0;
+ 
+-	for (idx = 0; idx < config->regs_num; idx++) {
+-		if (!(config->valid_units & BIT(idx)))
+-			continue;
+-
+-		base_addr[idx] = (mem_addr_t)config->base[idx];
+-		num_base++;
+-	}
+-
+-	ret = dup_program_address(config->dup_eng_dev, DUP_MULTICAST, config->dup_grp_id,
+-				     (uint32_t *)base_addr, num_base);
++	ret = dup_program_address(config->dup_eng_dev, DUP_MULTICAST, group, base_addr, num_base);
+ 	if (ret) {
+-		LOG_ERR("%s: Failed to program address in dup engine ret = %d", __func__, ret);
++		LOG_ERR("%s: Failed to program addr in dup engine ret = %d", __func__, ret);
+ 		return ret;
+ 	}
+ 
+-	ret = dup_program_mask(config->dup_eng_dev, config->dup_grp_id, GEN_BIT_MASK(num_base));
+-	if (ret)
++	ret = dup_program_mask(config->dup_eng_dev, group, GEN_BIT_MASK(num_base));
++	if (ret) {
+ 		LOG_ERR("%s: Failed to program mask in dup engine ret = %d", __func__, ret);
++		return ret;
++	}
++
++	return ret;
++}
++
++static int hl_rl_prepare_dup_eng_master_group(const struct hl_rl_drv_cfg_info *const config,
++				uint8_t master_group, uint32_t *dup_grp_id_list, uint32_t num_grps)
++{
++	int ret = 0;
++
++	ret = dup_master_program_address(config->dup_eng_dev, master_group, dup_grp_id_list,
++		num_grps);
++	if (ret) {
++		LOG_ERR("%s: Failed to program addr in master dup group ret = %d", __func__, ret);
++		return ret;
++	}
++
++	ret = dup_program_mask(config->dup_eng_dev, master_group, GEN_BIT_MASK(num_grps));
++	if (ret) {
++		LOG_ERR("%s: Failed to program mask in master dup group ret = %d", __func__, ret);
++		return ret;
++	}
++
++	return ret;
++}
++
++static int hl_rl_prepare_dup_eng(const struct hl_rl_drv_cfg_info *const config,
++				struct hl_rl_drv_data * const data)
++{
++	int ret = 0;
++	uint32_t num_base = 0, grp_list_idx, reg_idx, remaining_addr;
++	uint32_t base_addr[DUP_GRP_MAX_ADDR];
++	uint8_t num_required_grps;
++
++	num_required_grps = config->regs_num / DUP_GRP_MAX_ADDR +
++			((config->regs_num % DUP_GRP_MAX_ADDR) > 0) ? 1 : 0;
++
++	if (config->dup_grp_num < num_required_grps) {
++		LOG_ERR("%s: Insufficient group count for rl config", __func__);
++		return -1;
++	}
++
++	for (grp_list_idx = 0; grp_list_idx < num_required_grps; grp_list_idx++) {
++		num_base = 0;
++		memset(base_addr, 0, sizeof(base_addr));
++		remaining_addr = config->regs_num - grp_list_idx * DUP_GRP_MAX_ADDR;
++
++		for (reg_idx = 0; reg_idx <  MIN(DUP_GRP_MAX_ADDR, remaining_addr) ; reg_idx++) {
++			if (!(config->valid_units & BIT(reg_idx)))
++				continue;
++
++			base_addr[reg_idx] = (mem_addr_t)config->base[reg_idx +
++				grp_list_idx * DUP_GRP_MAX_ADDR];
++			num_base++;
++		}
++
++		ret = hl_rl_prepare_dup_eng_group(config, config->dup_grp_id_list[grp_list_idx],
++					(uint32_t *)base_addr, num_base);
++		if (ret)
++			return ret;
++	}
++
++	if (num_required_grps > 1) {
++		ret = hl_rl_prepare_dup_eng_master_group(config, config->dup_master_grp_id,
++					(uint32_t *)config->dup_grp_id_list, num_required_grps);
++		if (ret)
++			return ret;
++	}
++
++	data->dup_grp_id = (num_required_grps > 1) ?
++			config->dup_master_grp_id :
++			config->dup_grp_id_list[0];
+ 
+ 	return ret;
+ }
+@@ -175,7 +237,7 @@
+ 	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+ 	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+ 	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, config->dup_grp_id, offset, cfg);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -184,7 +246,7 @@
+ 	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+ 	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+ 	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, config->dup_grp_id, offset, cfg);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+ 	return ret;
+ }
+ #else
+@@ -238,7 +300,7 @@
+ 	cfg |= (data->reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
+ 	cfg |= (data->max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
+ 
+-	return hl_rl_dup_program_data(config->dup_eng_dev, config->dup_grp_id, offset, cfg);
++	return hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+ }
+ #else
+ static int hl_ctrl_lo_rl_on(const struct device *dev)
+@@ -280,7 +342,7 @@
+ 	int ret;
+ 
+ 	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_rst_token);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, config->dup_grp_id, offset,
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
+ 		data->reset_val);
+ 	if (ret < 0)
+ 		return ret;
+@@ -290,7 +352,7 @@
+ 		return ret;
+ 
+ 	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_timeout);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, config->dup_grp_id, offset,
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
+ 		data->max_timeout);
+ 	if (ret == 0)
+ 		data->last_max_timeout = data->max_timeout;
+@@ -706,10 +768,15 @@
+ #define DEV_INIT_LEVEL PRE_KERNEL_1
+ #endif
+ 
++#define DUP_GRP_ID_BY_IDX(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx),
++
+ #define CREATE_HL_RL_DEVICE(inst)					\
+ 	const uint32_t regs_##inst##_base[] = { DT_FOREACH_PROP_ELEM(		\
+ 			DT_INST(inst, DT_DRV_COMPAT), reg_names,	\
+ 			REG_ADDR_BY_IDX) };				\
++	const uint32_t hl_rl_##inst##_dup_grp_id[] = {DT_FOREACH_PROP_ELEM(	\
++			DT_INST(inst, DT_DRV_COMPAT), dup_grp_id,		\
++			DUP_GRP_ID_BY_IDX)};				\
+ 									\
+ 	static const struct hl_rl_drv_cfg_info hl_rl_##inst##_config = {	\
+ 		.base = regs_##inst##_base,				\
+@@ -721,7 +788,9 @@
+ 		.id = inst,						\
+ 		.regs_num = DT_NUM_REGS(DT_DRV_INST(inst)),		\
+ 		.block_type = DT_INST_PROP(inst, block_type),		\
+-		.dup_grp_id = DT_INST_PROP(inst, dup_grp_id),		\
++		.dup_grp_id_list =  hl_rl_##inst##_dup_grp_id,		\
++		.dup_grp_num = DT_PROP_LEN(DT_DRV_INST(inst), dup_grp_id),		\
++		.dup_master_grp_id = DT_INST_PROP(inst, dup_master_grp_id),		\
+ 		.valid_units = HL_RL_DEFAULT_VALID_UNITS,		\
+ 		.dup_eng_dev = DUP_ENGINE_DEV(inst),			\
+ 	};								\
+diff --git a/dts/bindings/clock/hl,rl.yaml b/dts/bindings/clock/hl,rl.yaml
+index 9e39bd9..4a9a65b 100644
+--- a/dts/bindings/clock/hl,rl.yaml
++++ b/dts/bindings/clock/hl,rl.yaml
+@@ -37,10 +37,15 @@
+       required: false
+       description: phandle to dup engine instance node
+     dup_grp_id:
++      type: array
++      required: false
++      default: [0]
++      description: list of group ids of dup engines used to broadcast to register addresses
++    dup_master_grp_id:
+       type: int
+       required: false
+       default: 0
+-      description: group id to be used for dup engine
++      description: group id of dup engine used to broadcast to dup groups
+     init_reset:
+       type: int
+       required: false
+diff --git a/include/drivers/clock_control/hl_rl.h b/include/drivers/clock_control/hl_rl.h
+index fb513e6..e7fb67c 100644
+--- a/include/drivers/clock_control/hl_rl.h
++++ b/include/drivers/clock_control/hl_rl.h
+@@ -42,6 +42,7 @@
+ 	uint32_t last_max_timeout;
+ 	const uint32_t *pu_config;
+ 	uint8_t block_conf;
++	uint8_t dup_grp_id;
+ #ifdef CONFIG_HL_DUP_ENG_DRIVER
+ 	uint32_t eu_rl_cfg_val;
+ 	uint32_t mstr_if_hbw_rl_wr;
+@@ -58,7 +59,9 @@
+ 	uint8_t regs_num;
+ 	uint8_t *block_type;
+ 	uint8_t max_rate;
+-	uint8_t dup_grp_id;
++	uint8_t dup_master_grp_id;
++	uint8_t dup_grp_num;
++	const uint32_t *dup_grp_id_list;
+ 	uint32_t valid_units;
+ 	uint32_t init_reset;
+ 	const struct device *dup_eng_dev;

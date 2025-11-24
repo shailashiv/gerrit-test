@@ -1,0 +1,46 @@
+From e5a5aa5df9e1b003186675afefd9eb9526f65f67 Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Thu, 15 May 2025 16:47:12 +0300
+Subject: [PATCH] [HL325][Tests] On TestFunction update power stress serdes test
+
+Change-Id: Ib1c36a3c8598b6b41360ca402e6cbab203dba903
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/json/regex_parsing/HL325/regex_definitions.json b/json/regex_parsing/HL325/regex_definitions.json
+index 5321949..d0a8a82 100644
+--- a/json/regex_parsing/HL325/regex_definitions.json
++++ b/json/regex_parsing/HL325/regex_definitions.json
+@@ -359,7 +359,7 @@
+       }
+     },
+     "ports_bw": {
+-      "Reg": "Module (\\d+) NIC (\\d+) .*? BW (\\d+\\.\\d+)",
++      "Reg": "Module (\\d+) NIC (\\d+) BW (\\d+\\.\\d+",
+       "Key": 0,
+       "Requested_values": {
+         "port_id": 1,
+diff --git a/tests/HL325/test_functional.py b/tests/HL325/test_functional.py
+index 81adcb5..7bbb37d 100644
+--- a/tests/HL325/test_functional.py
++++ b/tests/HL325/test_functional.py
+@@ -750,6 +750,9 @@
+             self.test_code = 'HL-QUAL POWER STRESS SERDES'
+ 
+             path_src = self.functional_tests.concurrency_qual_test_scal_src + ".json"
++            status = self.driver_cli.execute_command('test -f %s && echo true || echo false' % path_src)
++            hlsa_checker.check_status_is_true(status[1][0] == 'true', ident='Description', test_code=self.test_name.upper(),
++                                              operation=f'Verify {path_src} does exist')
+             path_dest = self.functional_tests.hl_qual_path[self.driver_mode]["source"] + path_src.split("/")[-1]
+ 
+             status = self.driver_cli.execute_command(f'sudo chmod a+w {path_dest}')
+@@ -761,6 +764,9 @@
+                                               operation=f'copy {path_src} to {path_dest} on HOST PC')
+ 
+             path_src = self.functional_tests.modified_scalout_file + ".json"
++            status = self.driver_cli.execute_command('test -f %s && echo true || echo false' % path_src)
++            hlsa_checker.check_status_is_true(status[1][0] == 'true', ident='Description', test_code=self.test_name.upper(),
++                                              operation=f'Verify {path_src} does exist')
+             path_dest = self.functional_tests.hl_qual_path[self.driver_mode]["source"] + path_src.split("/")[-1]
+ 
+             status = self.driver_cli.execute_command(f'sudo chmod a+w {path_dest}')

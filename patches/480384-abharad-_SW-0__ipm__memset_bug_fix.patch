@@ -1,0 +1,58 @@
+From f217dc82ae5dc8ba6d36d6eb921c9693e979fa65 Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Thu, 24 Apr 2025 18:28:36 +0000
+Subject: [PATCH] [SW-0] ipm: memset bug fix
+
+While memset, cfg base was used with mbx(data) size. This could cause
+last few bytes to not get cleared.
+
+clear cfg space and data space seperately
+
+Change-Id: Ibe89a9f9031ef55798964fd16970fb8d467e8a24
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/drivers/ipm/ipm_hl.c b/drivers/ipm/ipm_hl.c
+index fa93e7b..61f6de6 100644
+--- a/drivers/ipm/ipm_hl.c
++++ b/drivers/ipm/ipm_hl.c
+@@ -310,7 +310,8 @@
+ 		data->rx_ctrl->ready = false;
+ 		data->rx_ctrl->ci = 0;
+ 		/* Clear RX mailbox */
+-		memset((void *)config->rx.mbx_cfg_base, 0x0, config->rx.size);
++		memset((void *)config->rx.mbx_cfg_base, 0x0, config->rx.mbx_cfg_size);
++		memset((void *)config->rx.mbx_base, 0x0, config->rx.size);
+ 	}
+ 
+ 	LOG_INF("IPM HL dev %p enumeration end", dev);
+diff --git a/drivers/ipm/ipm_hl_bi.c b/drivers/ipm/ipm_hl_bi.c
+index d6bc79f..3d46e73 100644
+--- a/drivers/ipm/ipm_hl_bi.c
++++ b/drivers/ipm/ipm_hl_bi.c
+@@ -52,11 +52,13 @@
+ 		.tx.mbx_cfg_base = DT_REG_ADDR_BY_NAME(DT_INST(inst, hl_mbx), mbx_tx_cfg),	\
+ 		.tx.irq_num = DT_INST_IRQ_BY_IDX(inst, 0, irq),					\
+ 		.tx.size = DT_REG_SIZE_BY_NAME(DT_INST(inst, hl_mbx), mbx_tx),			\
++		.tx.mbx_cfg_size = DT_REG_SIZE_BY_NAME(DT_INST(inst, hl_mbx), mbx_tx_cfg),	\
+ 		.tx.data_chunk_size = DT_INST_PROP(inst, size_of_tx_data_chunk),		\
+ 		.tx.num_non_data_chunks = DT_INST_PROP(inst, num_of_tx_ndata_chunks),		\
+ 		.rx.mbx_base = DT_REG_ADDR_BY_NAME(DT_INST(inst, hl_mbx), mbx_rx),		\
+ 		.rx.mbx_cfg_base = DT_REG_ADDR_BY_NAME(DT_INST(inst, hl_mbx), mbx_rx_cfg),	\
+ 		.rx.size = DT_REG_SIZE_BY_NAME(DT_INST(inst, hl_mbx), mbx_rx),			\
++		.rx.mbx_cfg_size = DT_REG_SIZE_BY_NAME(DT_INST(inst, hl_mbx), mbx_rx_cfg),	\
+ 		.rx.data_chunk_size = DT_INST_PROP(inst, size_of_rx_data_chunk),		\
+ 		.rx.num_non_data_chunks = DT_INST_PROP(inst, num_of_rx_ndata_chunks),		\
+ 		.rx.irq_num = DT_INST_IRQ_BY_IDX(inst, 1, irq),					\
+diff --git a/drivers/ipm/ipm_hl_common.h b/drivers/ipm/ipm_hl_common.h
+index 754573d..ac2d712 100644
+--- a/drivers/ipm/ipm_hl_common.h
++++ b/drivers/ipm/ipm_hl_common.h
+@@ -44,6 +44,7 @@
+ 	uint32_t data_chunk_size;
+ 	uint32_t irq_num;
+ 	uint32_t size;
++	uint32_t mbx_cfg_size;
+ };
+ 
+ enum ipm_hl_mbx_type {

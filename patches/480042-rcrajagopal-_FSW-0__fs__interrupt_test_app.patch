@@ -1,0 +1,541 @@
+From 58e099d7b4fb51e1c2b344305aeee2b012735b59 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Tue, 20 May 2025 08:35:19 +0300
+Subject: [PATCH] [FSW-0] fs: interrupt test app
+
+Initial commit of interrupt test app for Falcon
+shore.
+
+Change-Id: I0af734da47d836fbc1da2da73b6509698205dc7f
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/samples/application_development/fs_interrupt_test/CMakeLists.txt b/samples/application_development/fs_interrupt_test/CMakeLists.txt
+new file mode 100644
+index 0000000..acdc6f5
+--- /dev/null
++++ b/samples/application_development/fs_interrupt_test/CMakeLists.txt
+@@ -0,0 +1,8 @@
++# SPDX-License-Identifier: Apache-2.0
++
++cmake_minimum_required(VERSION 3.20.0)
++
++find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
++project(fs_interrupt_test)
++
++target_sources(app PRIVATE src/main.c)
+\ No newline at end of file
+diff --git a/samples/application_development/fs_interrupt_test/include/cpu_intr_info.h b/samples/application_development/fs_interrupt_test/include/cpu_intr_info.h
+new file mode 100644
+index 0000000..2deb0ce
+--- /dev/null
++++ b/samples/application_development/fs_interrupt_test/include/cpu_intr_info.h
+@@ -0,0 +1,180 @@
++#include "interrupt_structure.h"
++
++static intr_info_t cpu_rei_serr_intr_info[] = {
++	{
++		.arc_index = 82, .aggr_index = 36,
++		.injection = {
++			.inj = {
++				.address = 0x0,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++};
++
++static intr_info_t cpu_rei_derr_intr_info[] = {
++	{
++		.arc_index = 83, .aggr_index = 100,
++		.injection = {
++			.inj = {
++				.address = 0x0,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++};
++
++static intr_info_t cpu_sei_intr_info[] = {
++	{
++		.arc_index = 84, .aggr_index = 171,
++		.injection = {
++			.inj = {
++				.address = mmIO_0_CFG_HALF_1_SOC_1_CPU_CPU_IF_BASE +
++					   mmCPU_IF_INTR_SEI_INJ_CPU_SEI_INTR,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++};
++
++static intr_info_t cpu_spi_eco_intr_info[] = {
++	{
++		.arc_index = 85, .aggr_index = 253,
++		.injection = {
++			.inj = {
++				.address = mmIO_0_CFG_HALF_1_SOC_1_CPU_CPU_IF_BASE +
++					   mmCPU_IF_INTR_SPI_INJ_CPU_SPI_INTR,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++	{
++		.arc_index = 85, .aggr_index = 478,
++		.injection = {
++			.inj = {
++				.address = 0x0,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++};
++
++static intr_info_t cpu_dpi_intr_info[] = {
++	{
++		.arc_index = 86, .aggr_index = 536,
++		.injection = {
++			.inj = {
++				.address = 0x0,
++				.value = 0x1,
++			},
++			.timestamp = 0x0,
++		},
++		.detection = {
++			.isr_hit_cnt = 0x0,
++		},
++		.debug_info = {
++			.m2w = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.w2m = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++			.ip = {
++				.address = 0x0,
++				.value = 0x0,
++			},
++		},
++	},
++};
+\ No newline at end of file
+diff --git a/samples/application_development/fs_interrupt_test/include/interrupt_structures.h b/samples/application_development/fs_interrupt_test/include/interrupt_structures.h
+new file mode 100644
+index 0000000..7cb2d8b
+--- /dev/null
++++ b/samples/application_development/fs_interrupt_test/include/interrupt_structures.h
+@@ -0,0 +1,89 @@
++#define MAX_SIZE_NAME 20
++
++typedef enum {
++	INTR_MSG_REI_DERR,
++	INTR_MSG_REI_SERR,
++	INTR_MSG_SEI,
++	INTR_MSG_SPI_ECO,
++	INTR_MSG_DPI,
++	INTR_MSG_TS,
++	INTR_MSG_RESERVED,
++	INTR_MSG_MAX
++} intr_msg_type_t;
++
++typedef struct {
++	uint32_t address;
++	uint32_t value;
++} reg_info_t;
++
++typedef struct {
++	reg_info_t m2w;  /* Message to Wire register info */
++	reg_info_t w2m;  /* Wire to Message register info */
++	reg_info_t ip;   /* Interrupt Pending register info */
++} reg_clr_info_t; //intr_sts_info_t
++
++typedef struct {
++	reg_info_t inj;        /* Injection register data */
++	uint32_t timestamp;    /* Time of injection. After a certain timeout, debug registers will be read
++						   and the test will be marked as failed */
++} intr_inj_t;
++
++typedef struct {
++	uint32_t isr_hit_cnt;  /* Number of times an ISR is hit. This is to know if there was flooding */
++} intr_det_t;
++
++typedef struct {
++	uint32_t arc_index;    /* Architecture index */
++	uint32_t aggr_index;   /* Aggregator index */
++	intr_inj_t injection;  /* Injection information */
++	intr_det_t detection;  /* Detection information */
++	reg_clr_info_t debug_info; /* Debug information */
++} intr_info_t;
++
++typedef struct {
++	intr_info_t *intr_list;  /* List of interrupt information */
++	uint32_t intr_count;     /* Number of interrupts */
++	bool result;             /* Result of the interrupt message */
++} intr_msg_t;
++
++typedef enum {
++	COMPONENT_CPU = 0,
++	COMPONENT_D2D_MAC,
++	COMPONENT_D2D_PHY,
++	COMPONENT_DEC,
++	COMPONENT_DTSTDVM,
++	COMPONENT_ENC,
++	COMPONENT_MUC,
++	COMPONENT_NIC,
++	COMPONENT_NMS,
++	COMPONENT_NOC,
++	COMPONENT_PCIE,
++	COMPONENT_PLL,
++	COMPONENT_PMMU,
++	COMPONENT_PSOC,
++	COMPONENT_RESERVED,
++	COMPONENT_XHA,
++	COMPONENT_MAX,
++} component_id_t;
++
++typedef struct {
++	char component_name[MAX_SIZE_NAME];  /* Name of the component */
++	component_id_t component_id;         /* ID of the component */
++	intr_msg_t intr_msgs[INTR_MSG_MAX];  /* Interrupt messages for the component */
++	bool result;                         /* Result of the component */
++} component_t;
++
++typedef struct {
++	component_t components[COMPONENT_MAX];  /* List of components */
++	bool result;                            /* Result of the component list */
++} component_list_t;
++
++typedef enum {
++	SINGLE,    /* Single firing mode */
++	FULL_AUTO, /* Full automatic firing mode */
++} intr_firing_mode;
++
++typedef struct {
++	component_list_t component_list;  /* List of components with interrupt information */
++	intr_firing_mode firing_mode;     /* Firing mode of the interrupts */
++} sys_intr_info_t;
+diff --git a/samples/application_development/fs_interrupt_test/src/main.c b/samples/application_development/fs_interrupt_test/src/main.c
+new file mode 100644
+index 0000000..f385993
+--- /dev/null
++++ b/samples/application_development/fs_interrupt_test/src/main.c
+@@ -0,0 +1,225 @@
++#include <zephyr.h>
++#include "cpu_intr_info.h"
++#include "interrupt_structure.h"
++
++static component_t io_die_comp[1] = {
++	[COMPONENT_CPU] = {
++		.component_name = "CPU",
++		.component_id = COMPONENT_CPU,
++		.intr_msgs = {
++			[INTR_MSG_REI_DERR] = {
++				.intr_list = cpu_rei_derr_intr_info,
++				.intr_count = sizeof(cpu_rei_derr_intr_info)/sizeof(intr_info_t),
++				.result = false,
++			},
++			[INTR_MSG_REI_SERR] = {
++				.intr_list = cpu_rei_serr_intr_info,
++				.intr_count = sizeof(cpu_rei_serr_intr_info)/sizeof(intr_info_t),
++				.result = false,
++			},
++			[INTR_MSG_SEI] = {
++				.intr_list = cpu_sei_intr_info,
++				.intr_count = sizeof(cpu_sei_intr_info)/sizeof(intr_info_t),
++				.result = false,
++			},
++			[INTR_MSG_SPI_ECO] = {
++				.intr_list = cpu_spi_eco_intr_info,
++				.intr_count = sizeof(cpu_spi_eco_intr_info)/sizeof(intr_info_t),
++				.result = false,
++			},
++			[INTR_MSG_DPI] = {
++				.intr_list = cpu_dpi_intr_info,
++				.intr_count = sizeof(cpu_dpi_intr_info)/sizeof(intr_info_t),
++				.result = false,
++			},
++			[INTR_MSG_TS] = {
++				.intr_list = NULL,
++				.intr_count = 0,
++				.result = false,
++			},
++			[INTR_MSG_RESERVED] = {
++				.intr_list = NULL,
++				.intr_count = 0,
++				.result = false,
++			},
++		},
++		.result = false,
++	},
++};
++
++static int get_component_id_by_name(const char *component_name, uint32_t *component_id)
++{
++	if (strcmp(component_name, "CPU") == 0) {
++		*component_id = COMPONENT_CPU;
++	} else if (strcmp(component_name, "D2D_MAC") == 0) {
++		*component_id = COMPONENT_D2D_MAC;
++	} else if (strcmp(component_name, "D2D_PHY") == 0) {
++		*component_id = COMPONENT_D2D_PHY;
++	} else if (strcmp(component_name, "DEC") == 0) {
++		*component_id = COMPONENT_DEC;
++	} else if (strcmp(component_name, "DTSTDVM") == 0) {
++		*component_id = COMPONENT_DTSTDVM;
++	} else if (strcmp(component_name, "ENC") == 0) {
++		*component_id = COMPONENT_ENC;
++	} else if (strcmp(component_name, "MUC") == 0) {
++		*component_id = COMPONENT_MUC;
++	} else if (strcmp(component_name, "NIC") == 0) {
++		*component_id = COMPONENT_NIC;
++	} else if (strcmp(component_name, "NMS") == 0) {
++		*component_id = COMPONENT_NMS;
++	} else if (strcmp(component_name, "NOC") == 0) {
++		*component_id = COMPONENT_NOC;
++	} else if (strcmp(component_name, "PCIE") == 0) {
++		*component_id = COMPONENT_PCIE;
++	} else if (strcmp(component_name, "PLL") == 0) {
++		*component_id = COMPONENT_PLL;
++	} else if (strcmp(component_name, "PMMU") == 0) {
++		*component_id = COMPONENT_PMMU;
++	} else if (strcmp(component_name, "PSOC") == 0) {
++		*component_id = COMPONENT_PSOC;
++	} else if (strcmp(component_name, "XHA") == 0) {
++		*component_id = COMPONENT_XHA;
++	} else {
++		printk("Invalid Component name %s\n", component_name);
++		return -1;
++	}
++
++	return 0;
++}
++
++static int get_intr_msg_type(const char *intr_type, uint32_t *intr_msg_type)
++{
++	if (strcmp(intr_type, "REI_DERR") == 0) {
++		*intr_msg_type = INTR_MSG_REI_DERR;
++	} else if (strcmp(intr_type, "REI_SERR") == 0) {
++		*intr_msg_type = INTR_MSG_REI_SERR;
++	} else if (strcmp(intr_type, "SEI") == 0) {
++		*intr_msg_type = INTR_MSG_SEI;
++	} else if (strcmp(intr_type, "SPI_ECO") == 0) {
++		*intr_msg_type = INTR_MSG_SPI_ECO;
++	} else if (strcmp(intr_type, "DPI") == 0) {
++		*intr_msg_type = INTR_MSG_DPI;
++	} else if (strcmp(intr_type, "TS") == 0) {
++		*intr_msg_type = INTR_MSG_TS;
++	} else {
++		printk("Invalid Interrupt type %s\n", intr_type);
++		return -1;
++	}
++
++	return 0;
++}
++
++static int get_debug_info(reg_clr_info_t *debug_info)
++{
++	/*TODO: can we derive the address and from aggregator index */
++	debug_info->ip.value = CFG_RREG32(debug_info->ip.address);
++	if (debug_info->ip.value) {
++		printk("ip status address: 0x%x and its value: 0x%x\n", debug_info->ip.address,  debug_info->ip.value);
++	} else {
++		printk("ip status is not set\n");
++		return -1;
++	}
++
++	debug_info->w2m.value = CFG_RREG32(debug_info->w2m.address);
++	if (debug_info->w2m.value) {
++		printk("w2m status address: 0x%x and its value: 0x%x\n", debug_info->w2m.address,  debug_info->w2m.value);
++	} else {
++		printk("w2m status is not set\n");
++		return -1;
++	}
++
++	debug_info->m2w.value = CFG_RREG32(debug_info->m2w.address);
++	if (debug_info->m2w.value) {
++		printk("m2w status address: 0x%x and its value: 0x%x\n", debug_info->m2w.address,  debug_info->m2w.value);
++	} else {
++		printk("m2w status is not set\n");
++		return -1;
++	}
++
++	return 0;
++}
++
++void main(void)
++{
++	uint32_t component_id;
++	component_t component;
++	uint32_t intr_msg_type;
++	bool is_single_mode = false;
++
++	char mode[10];
++	char comp_in[10];
++	char intr_type_in[10];
++
++	uint32_t inj_addr;
++
++	while (1) {
++		printk("\nEnter command: ");
++		scanf("%9s %9s %9s", mode, comp_in, intr_type_in);
++		for (int i = 0; mode[i]; i++) {
++			mode[i] = toupper(mode[i]);
++		}
++		for (int i = 0; comp_in[i]; i++) {
++			comp_in[i] = toupper(comp_in[i]);
++		}
++		for (int i = 0; intr_type_in[i]; i++) {
++			intr_type_in[i] = toupper(intr_type_in[i]);
++		}
++
++		if (strcmp(mode, "FULL") == 0) {
++			printk("Full mode selected\n");
++			component_id = COMPONENT_CPU;
++			intr_msg_type = INTR_MSG_REI_DERR;
++		} else if (strcmp(mode, "SINGLE") == 0) {
++			printk("Single mode selected\n");
++			if (get_component_id_by_name(comp_in, &component_id)) {
++				printk("Invalid Component name %s\n", comp_in);
++				continue;
++			}
++
++			if (get_intr_msg_type(intr_type_in, &intr_msg_type)) {
++				printk("Invalid Interrupt type %s\n", intr_type_in);
++				continue;
++			}
++		
++			is_single_mode = true;
++		} else {
++			printk("Invalid mode %s\n", mode);
++			continue;
++		}
++
++		/* TODO: Check whether do we need to enable the interrupts */
++		for (int i = component_id; i < COMPONENT_MAX; i++) {
++			component = io_die_comp[i];
++			for (int j = intr_msg_type; j < INTR_MSG_MAX; j++) {
++				printk("Component: %s, Interrupt Type: %s\n", comp_in, intr_type_in);
++				if (component.intr_msgs[j].intr_count) {
++					for (int k = 0; k < component.intr_msgs[j].intr_count; k++) {
++						inj_addr = component.intr_msgs[j].intr_list[k].injection.inj.address;
++						if (inj_addr) {
++							printk("ARC interrupt index: %d\n", component.intr_msgs[j].intr_list[k].arc_index);
++							printk("Aggregator interrupt index: %d\n", component.intr_msgs[j].intr_list[k].aggr_index);
++							CFG_WRREG32(inj_addr, component.intr_msgs[j].intr_list[k].injection.inj.value);
++							component.intr_msgs[j].intr_list[k].injection.timestamp = k_uptime_get();
++							if (!(get_debug_info(&component.intr_msgs[j].intr_list[k].debug_info))) {
++								component.intr_msgs[j].result = true;
++							} else {
++								component.intr_msgs[j].result = false;
++							}
++						} else {
++							printk("Interupt injection mechanism not available\n");
++						}
++					}
++				} else {
++					printk("%s interrupt not present\n", intr_type_in);
++				}
++			}
++
++			if (is_single_mode)
++				goto finish;
++		}
++
++finish:
++		printk("Interrupts fired\n");
++	}
++
++}
+\ No newline at end of file

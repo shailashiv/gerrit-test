@@ -1,0 +1,37 @@
+From ff3dd03fd396b9711a0326ec238f8f4354035c01 Mon Sep 17 00:00:00 2001
+From: Sailaja <sbandarupalli@habana.ai>
+Date: Tue, 05 Nov 2024 08:49:41 +0200
+Subject: [PATCH] [SW-200551] dts: arc: gaudi3: pid: disable pwrbrk for c2m and mesh
+
+While running F2 extreme workloads, watchdog issue is observed
+when system is put in power break mode. Ideally the workloads should
+run okay (even though slower) when system is in power break mode.
+
+This patch keep C2M and MESH which are fabric PLL in POR frequency
+while in powerbreak with which watchdog issue is not observed and
+F2 extreme test runs successfully.
+
+Change-Id: I844feb237b946ce1c35aef69076467831bdcd9bc
+Signed-off-by: Sailaja <sbandarupalli@habana.ai>
+---
+
+diff --git a/dts/arc/hl_gaudi3_pid.dtsi b/dts/arc/hl_gaudi3_pid.dtsi
+index 7c782cd..200fc95 100644
+--- a/dts/arc/hl_gaudi3_pid.dtsi
++++ b/dts/arc/hl_gaudi3_pid.dtsi
+@@ -335,7 +335,6 @@
+ &clk_mesh_dcore {
+ 	status = "okay";
+ 	skip_init;
+-	pwrbrk;
+ };
+ 
+ &clk_hbm_dcore {
+@@ -421,7 +420,6 @@
+ &clk_c2m {
+ 	status = "okay";
+ 	skip_init;
+-	pwrbrk;
+ };
+ 
+ &i2c0 {

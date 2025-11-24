@@ -1,0 +1,39 @@
+From 4322394501d501fe20c43c4ca20be88b04811a1a Mon Sep 17 00:00:00 2001
+From: jagaur <jagaur@habana.ai>
+Date: Fri, 13 Jun 2025 17:55:15 +0300
+Subject: [PATCH] [SW-229897] gaudi3: change spi wareout trigger data
+
+To enable SPI wareout we need to do a dummy write
+to flash. For this we were writing 0xFFFFFFFF to the unused
+28th sector. This was causing data corruption issue due to
+4 bytes data being overwritten in case the 28th sector held some
+valid data.
+To avoid this, we will read back 4 bytes of data from the sector
+being used to trigger Wareout timer and program back the same.
+
+Change-Id: I40e6103ff6fbf1f474358ba3981fd631035f54b9
+---
+
+diff --git a/drivers/flash/spi_nor.c b/drivers/flash/spi_nor.c
+index 64aee31..e12fca2 100644
+--- a/drivers/flash/spi_nor.c
++++ b/drivers/flash/spi_nor.c
+@@ -2574,6 +2574,7 @@
+ {
+ 	const struct spi_nor_config *hl_cfg = dev->config;
+ 	struct spi_nor_data *const driver_data = dev->data;
++	uint32_t flash_wo_trigger_data;
+ 	uint32_t spi_wo_timer_max_val_h = (uint32_t)(driver_data->flash_wo_time_max >> 32);
+ 	uint32_t spi_wo_timer_max_val_l = (uint32_t)(driver_data->flash_wo_time_max);
+ 
+@@ -2588,7 +2589,9 @@
+ 	sys_write32(0, hl_cfg->cfg_base_h +  hl_cfg->spi_pad_sel);
+ 
+ 	/* Perform a dummy write to trigger WO timer */
+-	sys_write32(0xFFFFFFFF, hl_cfg->cfg_base_h + hl_cfg->flash_wo_addr);
++	/* Read back 4 bytes from sector base address and write back the same data */
++	flash_wo_trigger_data = sys_read32(hl_cfg->cfg_base_h + hl_cfg->flash_wo_addr);
++	sys_write32(flash_wo_trigger_data, hl_cfg->cfg_base_h + hl_cfg->flash_wo_addr);
+ 
+ 	/* Configure pad sel back to GPIO mode */
+ 	sys_write32(1, hl_cfg->cfg_base_h + hl_cfg->spi_pad_sel);

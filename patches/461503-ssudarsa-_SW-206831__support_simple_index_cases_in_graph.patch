@@ -1,0 +1,211 @@
+From 516348f03413e7c142f50aa53956b7e903b4b4d8 Mon Sep 17 00:00:00 2001
+From: Satheesh Babu Sudarsanan <ssudarsanan@habana.ai>
+Date: Thu, 07 Nov 2024 16:05:11 +0200
+Subject: [PATCH] [SW-206831] support simple index cases in graph
+
+For t.compile support simple cases like
+only Long indexing inside graph without
+eager fallback.
+
+Change-Id: I75130ef5f7d626c3fc731e912eb3ee20375dfe00
+---
+
+diff --git a/hpu_ops/backend/index_gen.cpp b/hpu_ops/backend/index_gen.cpp
+index b69ff1a..5520102 100644
+--- a/hpu_ops/backend/index_gen.cpp
++++ b/hpu_ops/backend/index_gen.cpp
+@@ -750,4 +750,58 @@
+   return shape;
+ }
+ 
++struct SimpleIndexCompileOperator : OpBackend {
++  SimpleIndexCompileOperator(int device_id, c10::ScalarType scalar_type);
++  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++};
++
++SimpleIndexCompileOperator::SimpleIndexCompileOperator(
++    int device_id,
++    c10::ScalarType scalar_type)
++    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
++
++static std::shared_ptr<void> FillSimpleIndexParams(
++    size_t num_index_tensors,
++    size_t& size) {
++  PARAMS_STUB(ns_IndexKernel::Params);
++  assert(
++      num_index_tensors <=
++      sizeof(params->self_permute_dims) / sizeof(params->self_permute_dims[0]));
++  // there is no advanced indexing
++  for (size_t i = 0; i < num_index_tensors; ++i) {
++    params->advanced_indexing_dims[i] = false;
++    params->self_permute_dims[i] = 0;
++  }
++  params->num_index_tensors = num_index_tensors;
++  return params;
++}
++
++void SimpleIndexCompileOperator::AddNode(
++    synapse_helpers::graph& graph,
++    const at::Stack& stack) {
++  auto meta = IndexMeta(stack)[0];
++  StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
++  auto input = stackGetter.getNextInput<TensorsPair>();
++  auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
++  size_t size = 0;
++  auto params = FillSimpleIndexParams(indices.size(), size);
++  std::vector<synTensor> index_input{input.syn_t};
++  for (auto const& index : indices)
++    index_input.push_back(index.syn_t);
++
++  auto result = BuildOp(
++      graph,
++      get_guid_with_precision("index", meta.dtype),
++      std::move(index_input),
++      {{meta.shape, meta.dtype, 0}},
++      params.get(),
++      size);
++
++  syn_out(0) = std::move(result[0]);
++}
++
+ } // namespace habana
++
++static const auto& IndexAtenKernelRegistry = habana::KernelRegistry().add(
++    "aten::index.Tensor_hacked_twin",
++    KERNEL_FN_GLOBAL(habana::SimpleIndexCompileOperator));
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/pattern_rewriter.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/pattern_rewriter.py
+index 020a4c6..c4f69d7 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/pattern_rewriter.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/pattern_rewriter.py
+@@ -81,46 +81,12 @@
+         return x
+ 
+ 
+-class replace_rewrite_plain_index:
+-    def pattern(tensor_input, list_indexes):
+-        x = torch.ops.aten.index.Tensor(tensor_input, list_indexes)
+-        return x
+-
+-    def replace(tensor_input, list_indexes):
+-        x = torch.ops.hpu.plain_index(tensor_input, list_indexes)
+-        return x
+-
+-    def filter(match, *args, **kwargs):
+-        """
+-        It checks if all tensors are on hpu and there is no nope or fake tensor in indices list,
+-        so this rules out advance indexing and dynamic shapes.
+-        """
+-        src = match.placeholder_nodes[0]
+-        if not (isinstance(src, torch.fx.node.Node) and src.meta.get("val").device.type == "hpu"):
+-            return False
+-        indices = match.placeholder_nodes[1]
+-        if isinstance(indices, list):
+-            for index in indices:
+-                if index is None or (
+-                    isinstance(index, torch.fx.node.Node)
+-                    and (
+-                        index.meta.get("val") is None
+-                        or index.meta.get("val").device.type != "hpu"
+-                        or any(isinstance(dim, torch.SymInt) for dim in index.meta.get("val").size())
+-                    )
+-                ):
+-                    return False
+-            return True
+-        return False
+-
+-
+ # Register pattern rewriters
+ pattern_rewriters = []
+ pattern_rewriters.append(PatternRewriter(replace_rewrite_div))
+ pattern_rewriters.append(PatternRewriter(replace_rewrite_div_floor))
+ pattern_rewriters.append(PatternRewriter(replace_rewrite_div_trunc))
+ pattern_rewriters.append(PatternRewriter(replace_rewrite_floor_divide))
+-pattern_rewriters.append(PatternRewriter(replace_rewrite_plain_index))
+ 
+ 
+ def pass_pattern_rewriter(ctx: OptimizerContext):
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+index 07b2cd6..a83199f 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+@@ -51,7 +51,6 @@
+     "in_place_interleave",
+     "kv_reorder",
+     "mixture_of_experts",
+-    "plain_index",
+     "rms_norm",
+     "rms_norm_fast",
+     "rms_norm_backward",
+@@ -132,11 +131,14 @@
+     # Other
+     "slice_backward",  # SW-146680
+     "addcmul",
+-    "index",  # SW-146773
+     # Non-inferable
+     "nonzero",
+     "_unique2",
+     "bincount",
++}
++
++hpu_conditional_fallback_op_list = {
++    "index",  # SW-146773
+ }
+ 
+ # List of ops that do not support dynamic shape in torch.compile
+@@ -159,6 +161,28 @@
+ 
+ 
+ META_SHAPE_CHANGED = "Meta output shape changed."
++
++# Returns True when the index.hacked_twin op needs to fallback to eager
++def index_eager_fallback(node, op_name, is_dynamic):
++    eager_fallback = False
++    if is_dynamic:
++        eager_fallback = True
++    t = node.args[0]
++    indices = node.args[1]
++    for i, index in enumerate(indices):
++        # None indices are not supported inside graph
++        if index is None:
++            eager_fallback = True
++            break
++        index_dtype = index.meta["output_dtypes"]
++        # Only HPU indices are supported
++        if not (
++            index.meta["output_device"] == torch.device("hpu") or index.meta["output_device"] == torch.device("hpu:0")
++        ):
++            eager_fallback = True
++            break
++        # Long and Bool indices mix are supported
++    return eager_fallback
+ 
+ 
+ # Returns False when the index_put op needs to fallback to eager
+@@ -260,7 +284,6 @@
+     This function is supposed to ask shared layer whether specific
+     node is supported by the device.
+     """
+-
+     do_fallback = False
+     assert node.op == "call_function"
+     if node.meta["output_device"].type == "hpu":
+@@ -271,7 +294,10 @@
+         if check_for_default_fallback(op_name, node, is_dynamic):
+             do_fallback = True
+             logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
+-        elif not check_for_default_op_support(op_name, node, is_dynamic):
++        elif op_name == "index" and index_eager_fallback(node, op_name, is_dynamic):
++            do_fallback = True
++            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
++        elif not check_for_default_op_support(op_name, node, is_dynamic) or op_name in hpu_conditional_fallback_op_list:
+             for arg in args:
+                 arg_types.append(type(arg))
+             normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+@@ -290,7 +316,6 @@
+                         elif isinstance(val, list):
+                             return [convert(i) for i in val]
+                         return val
+-
+                     concrete_args = tuple(convert(arg) for arg in args)
+                     concrete_kwargs = {key: convert(val) for key, val in kwargs.items()}
+                     # Sometimes we get only number, but tensor is required

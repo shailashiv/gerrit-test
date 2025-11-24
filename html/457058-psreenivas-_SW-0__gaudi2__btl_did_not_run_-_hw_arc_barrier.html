@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 457058: [SW-0] gaudi2: btl did not run - hw arc barrier</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 457058: [SW-0] gaudi2: btl did not run - hw arc barrier</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Pavan Sreenivas &lt;psreenivas@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-10-17 13:23:51.464000000</p>
+            <p><strong>Updated:</strong> 2024-10-30 15:10:28.776000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-0] gaudi2: btl did not run - hw arc barrier
+
+Signed-off-by: Pavan S &lt;psreenivas@habana.ai&gt;
+Change-Id: I2d8923a58832430ba7d087ddbaf7440e80d91ef9
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: -2 by Pavan Sreenivas</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>drivers/d2d/controller/d2d_controller.c</code> (M) +6 -0</li><li><code>drivers/d2d/phy/d2d_phy.c</code> (M) +21 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/drivers/d2d/controller/d2d_controller.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -324,6 +324,7 @@</span>
+<span class="diff-ctx"> 	for (die = drv_data-&gt;die_id; die &lt; drv_cfg-&gt;regs_num; die++) {</span>
+<span class="diff-ctx"> 		single_die_mac_core_bcast(wval,</span>
+<span class="diff-ctx"> 				drv_cfg-&gt;base_addr[die] + D2D_MAC0_CORE0_CTRL_PKTZR_1);</span>
+<span class="diff-add">+		HL_ARC_W_BARRIER();</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -374,12 +375,15 @@</span>
+<span class="diff-ctx"> 	rc = d2d_phy_sw_train_ctrl_set(d2d_phy_dev, 0x1);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	rc = link_train_init(dev, MASTER_DIE_ID);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	rc = d2d_phy_sw_link_train(d2d_phy_dev);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	/* Handoff training control back to HW */</span>
+<span class="diff-ctx"> 	return d2d_phy_sw_train_ctrl_set(d2d_phy_dev, 0x0);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-hunk">@@ -943,6 +947,8 @@</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	d2d_controller_drv_traffic_en_set(dev, true);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-ctx"> 	rc = d2d_controller_retrain_cfg();</span>
+<span class="diff-ctx"> 	if (rc) {</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 20484ae..612c6d1 100644</span>
+<h4 class="diff-filename">b/drivers/d2d/phy/d2d_phy.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -105,6 +105,7 @@</span>
+<span class="diff-ctx"> 		/* clear MCU memory write pointer, disable write protection */</span>
+<span class="diff-ctx"> 		single_die_dphy_bcast(0x0, drv_cfg-&gt;base_addr[die] +</span>
+<span class="diff-ctx"> 					DPHY0_CH_BCAST_PHYCTRLREG_PROGMEMWPTR);</span>
+<span class="diff-add">+		HL_ARC_W_BARRIER();</span>
+<span class="diff-ctx"> 		/* broadcast PHY FW */</span>
+<span class="diff-ctx"> 		for (dw_idx = 0; dw_idx &lt; D2D_PHY_FW_DW_NUM; dw_idx++) {</span>
+<span class="diff-ctx"> 			single_die_dphy_bcast(d2d_phy_fw_arr[dw_idx], drv_cfg-&gt;base_addr[die] +</span>
+<span class="diff-hunk">@@ -139,6 +140,8 @@</span>
+<span class="diff-ctx"> 					drv_cfg-&gt;base_addr[die] + DPHY0_CTRL_INIT_PLL_CTRL2);</span>
+<span class="diff-ctx"> 		single_die_dphy_bcast(DPHY_CTRL_INIT_PLL_CTRL3_VAL,</span>
+<span class="diff-ctx"> 					drv_cfg-&gt;base_addr[die] + DPHY0_CTRL_INIT_PLL_CTRL3);</span>
+<span class="diff-add">+		HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -1154,24 +1157,40 @@</span>
+<span class="diff-ctx"> 	int rc;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	d2d_phy_drv_dphy_sys_reset_set(dev, true);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-ctx"> 	d2d_io_cfg(dev);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-ctx"> 	d2d_phy_drv_dphy_sys_reset_set(dev, false);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	rc = d2d_phy_drv_pll_init(dev, false, pll_freq_mhz);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #if defined(CONFIG_D2D_POST_SYS_RST_DCC_DIS)</span>
+<span class="diff-ctx"> 	rc = dphy_phy_status_wait(dev);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-ctx"> 	LOG_DBG(&quot;Applying post-DCC reset WA&quot;);</span>
+<span class="diff-ctx"> 	d2d_phy_drv_dphy_sys_reset_set(dev, true);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	/* disable dcc ckmeas , set phyinit_en again */</span>
+<span class="diff-ctx"> 	phy_init_ctrl_cfg(dev, true, false, true, false);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	phy_pll_en_cfg(dev, false);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	/* wait for internal logic to clear deglitch buffer */</span>
+<span class="diff-ctx"> 	k_busy_wait(1);</span>
+<span class="diff-ctx"> 	d2d_phy_drv_dphy_sys_reset_set(dev, false);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	phy_pll_en_cfg(dev, true);</span>
+<span class="diff-add">+	HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	rc = dphy_pll_and_ofstcal_wait_for_lock(dev, 0x1, false, DPHY_PLL_LOCK_TIMEOUT_US);</span>
+<span class="diff-ctx"> 	if (rc)</span>
+<span class="diff-ctx"> 		return rc;</span>
+<span class="diff-hunk">@@ -2781,6 +2800,8 @@</span>
+<span class="diff-ctx"> 					REKTIMER_VAL);</span>
+<span class="diff-ctx"> 		single_die_dphy_bcast(val, drv_cfg-&gt;base_addr[die] +</span>
+<span class="diff-ctx"> 						DPHY0_CH_BCAST_PHYCTRLREG_PHYUPDTCTRLSTS);</span>
+<span class="diff-add">+		HL_ARC_W_BARRIER();</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> 	LOG_DBG(&quot;%s VT adaptive receivers and data eye monitors&quot;, en ? &quot;Enabled&quot; : &quot;Disabled&quot;);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-10-17 13:23:51.464000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-17 13:24:00.386000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/23814/ (1/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-10-17 13:24:08.362000000)</span><pre>Patch Set 1: Code-Review-2</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-17 13:31:13.463000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/15701/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-17 13:31:13.475000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/14018/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-17 14:53:05.585000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/14018/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/17491/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/23814/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/15701/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2024-10-30 12:07:27.046000000)</span><pre>Patch Set 2: Patch Set 1 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-30 12:07:38.273000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/24438/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-30 12:17:35.019000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/16224/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-30 12:17:35.021000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/14516/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-10-30 15:10:28.776000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/14516/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/17959/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/24438/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/16224/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+From 6c1f838affa24561cb8ebe238f9a4c51a8afe9ab Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Fri, 23 May 2025 08:11:07 +0000
+Subject: [PATCH] [SW-232549] gaudi3: retry on ipm_send returning -EINVAL
+
+ipm_send implementation was modified to nudge the receiver with
+an interrupt if id is already present in the mailbox. To take advantage
+of that feature we need to retry if ipm_send fails with EINVAL
+
+Change-Id: I6f7269f790ecd32c3da43946c8d7644b8381b27e
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/src/gaudi3/dev.c b/src/gaudi3/dev.c
+index 21a144e..f8ab932 100644
+--- a/src/gaudi3/dev.c
++++ b/src/gaudi3/dev.c
+@@ -80,15 +80,21 @@
+ 
+ 	for (i = 0; i < EVENT_IPM_RETRIES; i++) {
+ 		ret = ipm_send(dev, 0, mbx_msg_id.u32, data, sizeof(int));
+-		if (!ret || ret != -EBUSY)
+-			break;
+ 
+-			k_busy_wait(EVENT_IPM_BUSY_WAIT_US);
++		if (ret == 0) {
++			/* Success */
++			return;
+ 		}
++		if (ret == -EBUSY || ret == -EINVAL) {
++			/* Retry */
++			k_busy_wait(EVENT_IPM_BUSY_WAIT_US);
++			continue;
++		}
++		break;
++	}
+ 
+-		if ((i == EVENT_IPM_RETRIES) || (ret))
+-			LOG_ERR("Unable to respond to msg_id: %d with err: %d",
+-				mbx_msg_id.u32, ret);
++	LOG_ERR("Unable to respond to msg_id: %d with err: %d",
++		mbx_msg_id.u32, ret);
+ }
+ 
+ static void gaudi3_intr_handler(const struct device *dev,

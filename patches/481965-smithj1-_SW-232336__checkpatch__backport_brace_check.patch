@@ -1,0 +1,225 @@
+From 202b1e42fdaf85c1e46b02de2aa33e0708768b24 Mon Sep 17 00:00:00 2001
+From: Carles Cufi <carles.cufi@nordicsemi.no>
+Date: Thu, 26 Dec 2024 16:45:15 +0100
+Subject: [PATCH] [SW-232336] checkpatch: backport brace check
+
+Backport change from upstream zephyr that modifies checkpatch such
+that braces are required around oneline statements (if/else/for/etc).
+Technically this was always the zephyr style, but the checkpatch
+script was still enforcing the kernel style of no braces on oneline
+blocks.
+
+Below is the original upstream commit message:
+----
+
+checkpatch: Adapt the braces check to Zephyr
+
+scripts/checkpatch.pl was written originally for the Linux kernel, and
+its code reflects the kernel's coding style. In particular, it has
+checks for unneeded braces around single-statement if/else/for/while
+conditions. In Zephyr however, braces are always required, and so the
+checks needed modifying to verify the opposite condition.
+
+In order to enable the now-compatible checks, we also remove the
+--ignore BRACES statement in .checkpatch.conf.
+
+Limitations: the current code works well if there are not conditional
+statements (e.g. #if, #ifdef or #endif) next to the if/else/for/while
+conditions. This is rarely the case, but triggers with the Bluetooth
+controller in code like this:
+
+```
+ #if defined(CONFIG_BT_PERIPHERAL)
+        if (!lll->is_hdcd)
+ #endif /* CONFIG_BT_PERIPHERAL */
+        {
+```
+
+```
+        } else
+ #endif /* CONFIG_BT_CTLR_PRIVACY */
+        {
+
+```
+
+```
+ #if defined(CONFIG_BT_CTLR_DF_ADV_CTE_TX)
+        if (lll->cte_started) {
+                radio_switch_complete(phy_s, 0, phy_s, 0);
+        } else
+ #endif /* CONFIG_BT_CTLR_DF_ADV_CTE_TX */
+        {
+```
+
+```
+ #ifdef DUAL_BANK
+        while ((FLASH_STM32_REGS(dev)->SR1 & FLASH_SR_QW) ||
+               (FLASH_STM32_REGS(dev)->SR2 & FLASH_SR_QW))
+ #else
+        while (FLASH_STM32_REGS(dev)->SR1 & FLASH_SR_QW)
+ #endif
+        {
+```
+Signed-off-by: Carles Cufi <carles.cufi@nordicsemi.no>
+
+Change-Id: Icad4a752051109716a7388592a39fd2c64f007a3
+Signed-off-by: Jason Smith <jsmith@habana.ai>
+---
+
+diff --git a/.checkpatch.conf b/.checkpatch.conf
+index accee08..a6d9a31 100644
+--- a/.checkpatch.conf
++++ b/.checkpatch.conf
+@@ -5,7 +5,6 @@
+ --min-conf-desc-length=1
+ --typedefsfile=scripts/checkpatch/typedefsfile
+ 
+---ignore BRACES
+ --ignore PRINTK_WITHOUT_KERN_LEVEL
+ --ignore SPLIT_STRING
+ --ignore VOLATILE
+diff --git a/doc/contribute/guidelines.rst b/doc/contribute/guidelines.rst
+index 5f31f64..460c79b 100644
+--- a/doc/contribute/guidelines.rst
++++ b/doc/contribute/guidelines.rst
+@@ -536,8 +536,7 @@
+ * The line length is 100 columns or fewer. In the documentation, longer lines
+   for URL references are an allowed exception.
+ * Add braces to every ``if``, ``else``, ``do``, ``while``, ``for`` and
+-  ``switch`` body, even for single-line code blocks. Use the ``--ignore BRACES``
+-  flag to make *checkpatch* stop complaining.
++  ``switch`` body, even for single-line code blocks.
+ * Use spaces instead of tabs to align comments after declarations, as needed.
+ * Use C89-style single line comments, ``/*  */``. The C99-style single line
+   comment, ``//``, is not allowed.
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 447bca6..6c1b9b0 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -5505,8 +5505,9 @@
+ 					my ($whitespace) = ($cond =~ /^((?:\s*\n[+-])*\s*)/s);
+ 					my $offset = statement_rawlines($whitespace) - 1;
+ 
+-					$allowed[$allow] = 0;
+-					#print "COND<$cond> whitespace<$whitespace> offset<$offset>\n";
++					# always allow braces (i.e. require them)
++					$allowed[$allow] = 1;
++					#print "COND<$cond> block<$block> whitespace<$whitespace> offset<$offset>\n";
+ 
+ 					# We have looked at and allowed this specific line.
+ 					$suppress_ifbraces{$ln + $offset} = 1;
+@@ -5515,46 +5516,37 @@
+ 					$ln += statement_rawlines($block) - 1;
+ 
+ 					substr($block, 0, length($cond), '');
++					#print "COND<$cond> block<$block>\n";
++
++					# Remove any 0x1C characters. The script replaces
++					# comments /* */ with those.
++					$block =~ tr/\x1C//d;
+ 
+ 					$seen++ if ($block =~ /^\s*{/);
+ 
+-					#print "cond<$cond> block<$block> allowed<$allowed[$allow]>\n";
+-					if (statement_lines($cond) > 1) {
+-						#print "APW: ALLOWED: cond<$cond>\n";
+-						$allowed[$allow] = 1;
+-					}
+-					if ($block =~/\b(?:if|for|while)\b/) {
+-						#print "APW: ALLOWED: block<$block>\n";
+-						$allowed[$allow] = 1;
+-					}
+-					if (statement_block_size($block) > 1) {
+-						#print "APW: ALLOWED: lines block<$block>\n";
+-						$allowed[$allow] = 1;
+-					}
+ 					$allow++;
+ 				}
+-				if ($seen) {
+-					my $sum_allowed = 0;
+-					foreach (@allowed) {
+-						$sum_allowed += $_;
+-					}
+-					if ($sum_allowed == 0) {
+-						WARN("BRACES",
+-						     "braces {} are not necessary for any arm of this statement\n" . $herectx);
+-					} elsif ($sum_allowed != $allow &&
+-						 $seen != $allow) {
+-						CHK("BRACES",
+-						    "braces {} should be used on all arms of this statement\n" . $herectx);
+-					}
++				my $sum_allowed = 0;
++				foreach (@allowed) {
++					$sum_allowed += $_;
++				}
++				#print "sum_allowed<$sum_allowed> seen<$seen> allow<$allow>\n";
++				if ($sum_allowed == 0) {
++					WARN("BRACES",
++					     "braces {} are not necessary for any arm of this statement\n" . $herectx);
++				} elsif ($seen != $allow) {
++					WARN("BRACES",
++					    "braces {} must be used on all arms of this statement\n" . $herectx);
+ 				}
+ 			}
+ 		}
+ 		if (!defined $suppress_ifbraces{$linenr - 1} &&
+ 					$line =~ /\b(if|while|for|else)\b/) {
+ 			my $allowed = 0;
+-
+-			# Check the pre-context.
+-			if (substr($line, 0, $-[0]) =~ /(\}\s*)$/) {
++			# Check the pre-context for:
++			# '#': #if
++			# '}': } while()
++			if (substr($line, 0, $-[0]) =~ /([\#\}]\s*)$/) {
+ 				#print "APW: ALLOWED: pre<$1>\n";
+ 				$allowed = 1;
+ 			}
+@@ -5564,39 +5556,21 @@
+ 
+ 			# Check the condition.
+ 			my ($cond, $block) = @{$chunks[0]};
+-			#print "CHECKING<$linenr> cond<$cond> block<$block>\n";
++			#print "level $level CHECKING<$linenr> cond<$cond> block<$block>\n";
+ 			if (defined $cond) {
+ 				substr($block, 0, length($cond), '');
+ 			}
+-			if (statement_lines($cond) > 1) {
+-				#print "APW: ALLOWED: cond<$cond>\n";
+-				$allowed = 1;
+-			}
+-			if ($block =~/\b(?:if|for|while)\b/) {
+-				#print "APW: ALLOWED: block<$block>\n";
+-				$allowed = 1;
+-			}
+-			if (statement_block_size($block) > 1) {
+-				#print "APW: ALLOWED: lines block<$block>\n";
+-				$allowed = 1;
+-			}
+-			# Check the post-context.
+-			if (defined $chunks[1]) {
+-				my ($cond, $block) = @{$chunks[1]};
+-				if (defined $cond) {
+-					substr($block, 0, length($cond), '');
+-				}
+-				if ($block =~ /^\s*\{/) {
+-					#print "APW: ALLOWED: chunk-1 block<$block>\n";
+-					$allowed = 1;
+-				}
+-			}
+-			if ($level == 0 && $block =~ /^\s*\{/ && !$allowed) {
++			# Remove any 0x1C characters. The script replaces
++			# comments /* */ with those.
++			$block =~ tr/\x1C//d;
++			#print sprintf '%v02X', $block;
++			#print "\n";
++			if ($level == 0 && $block !~ /^\s*\{/ && !$allowed) {
+ 				my $cnt = statement_rawlines($block);
+ 				my $herectx = get_stat_here($linenr, $cnt, $here);
+ 
+ 				WARN("BRACES",
+-				     "braces {} are not necessary for single statement blocks\n" . $herectx);
++				     "braces {} are required around if/while/for/else\n" . $herectx);
+ 			}
+ 		}
+ 

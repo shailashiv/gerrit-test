@@ -1,0 +1,1029 @@
+From a65d2fcaf4ee60b2ebcb1757aa80eb181892831e Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Sun, 28 Jan 2024 14:47:47 +0200
+Subject: [PATCH] [SW-0] scripts: ras: hlmi: test opcode 7
+
+Basic test of Opcode 7 (remote access).
+
+Change-Id: I6c3ef146067a29602c599bd443e2ce719091da0c
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/scripts/tests/ras/hlmi-basic.rc b/scripts/tests/ras/hlmi-basic.rc
+new file mode 100644
+index 0000000..6a7304e
+--- /dev/null
++++ b/scripts/tests/ras/hlmi-basic.rc
+@@ -0,0 +1,410 @@
++# Script to test using RAS config access by running FW loader
++# protocol using the hlmi-test raw mode.
++# Using Opcode - 7
++
++if [ -z $oamid ]; then
++	export oamid=1
++fi
++
++hlmi_long_to_args()
++{
++	local val
++
++	val=$(printf "%08x" $(($1)))
++	echo ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}
++}
++
++hlmi_long_long_to_args()
++{
++	local val
++
++	val=$(printf "%016x" $(($1)))
++	echo ${val:14:2} ${val:12:2} ${val:10:2} ${val:8:2} ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}
++}
++
++hlmi_args_to_long_str()
++{
++	printf "0x%s%s%s%s" $4 $3 $2 $1
++}
++
++hlmi_args_to_long_long_str()
++{
++	printf "0x%s%s%s%s%s%s%s%s" $8 $7 $6 $5 $4 $3 $2 $1
++}
++
++hlmi_args_to_long()
++{
++	local val
++	val=$(hlmi_args_to_long_str $*)
++	echo $((val))
++}
++
++hlmi_args_to_long_long()
++{
++	local val
++	val=$(hlmi_args_to_long_long_str $*)
++	echo $((val))
++}
++
++hlmi_set_oam()
++{
++	export oamid=$1
++}
++
++hlmi_write_raw()
++{
++	local opcode=$1
++	local offset=$2
++	shift 2
++	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $# -w "$*" > /dev/null 2>&1
++}
++
++hlmi_read_raw()
++{
++	local opcode=$1
++	local offset=$2
++	local len=$3
++	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $len | awk '/^00/ { $1=""; print $0}'
++}
++
++##############################
++
++hlmi_read_long_long()
++{
++	local val
++	val=$(hlmi_read_raw $1 $2 8)
++	data=$(hlmi_args_to_long_long $val)
++	printf "0x%08x" $data
++}
++
++hlmi_read_long()
++{
++	local val
++	val=$(hlmi_read_raw $1 $2 4)
++	data=$(hlmi_args_to_long $val)
++	printf "0x%08x" $data
++}
++
++hlmi_read_short()
++{
++
++	local val
++	val=$(hlmi_read_raw $1 $2 2)
++	data=$(hlmi_args_to_long $val)
++	printf "0x%04x" $data
++}
++
++hlmi_read_byte()
++{
++
++	local val
++
++	val=$(hlmi_read_raw $1 $2 1 | cut -d' ' -f2)
++	printf "0x%s" ${val:-5}
++
++	[ -z $val ] && return 1 || return 0
++}
++
++hlmi_write_byte()
++{
++	hlmi_write_raw $1 $2 $3
++}
++
++hlmi_write_long()
++{
++	local val
++
++	val=$(hlmi_long_to_args $3)
++	hlmi_write_raw $1 $2 $val
++}
++
++##############################
++
++hlmi_ca_read_address()
++{
++	hlmi_read_long 7 0
++}
++
++hlmi_ca_read_data()
++{
++	hlmi_read_long 7 4
++}
++
++hlmi_ca_read_cmd()
++{
++	hlmi_read_byte 7 8
++}
++hlmi_ca_read_status()
++{
++	hlmi_read_byte 7 9
++}
++
++hlmi_ca_write_address()
++{
++	hlmi_write_long 7 0 $1
++}
++
++hlmi_ca_write_data()
++{
++	hlmi_write_long 7 4 $1
++}
++
++hlmi_ca_write_cmd()
++{
++	hlmi_write_byte 7 8 $1
++}
++hlmi_ca_write_status()
++{
++	hlmi_write_byte 7 9 $1
++}
++
++##############################
++
++hlmi_ca_read_all_fields_helper()
++{
++	local address
++	local data
++	local cmd
++	local status
++
++	address=$(hlmi_args_to_long $1 $2 $3 $4)
++	data=$(hlmi_args_to_long $5 $6 $7 $8)
++	cmd=$(($9))
++	status=$(($10))
++
++	printf "0x%08x 0x%08x %d %d" ${address} ${data} ${cmd} ${status}
++	return $status
++}
++
++hlmi_ca_read_all_fields()
++{
++	local ans
++	ans=$(hlmi_read_raw 7 0 10)
++	hlmi_ca_read_all_fields_helper $ans
++}
++
++hlmi_ca_write_all_fields()
++{
++	local address
++	local data
++	local cmd
++
++	address=$(hlmi_long_to_args $1)
++	data=$(hlmi_long_to_args $2)
++	cmd=$(printf "%02x" $3)
++	hlmi_write_raw 7 0 $address $data $cmd
++}
++
++hlmi_ca_wfs_2()
++{
++	local sts
++	local loops=0
++
++	while : ; do
++		sts=$(hlmi_ca_read_status)
++		#ans=$(hlmi_ca_read_all_fields)
++
++		if [ ${sts} -eq 0 ]; then
++			echo 0
++			return 0
++		elif [ ${sts} -eq 1 ]; then
++			echo 1
++			return 0
++		fi
++		if [ $((loops)) -gt 4 ]; then
++			return 1
++		fi
++		loops=$(( loops ++ ))
++		sleep 0.3
++	done
++}
++
++
++hlmi_ca_wfs()
++{
++	local sts
++	local loops=0
++	local max_loops=$1
++	local tsleep=$2
++
++	while : ; do
++		sts=$(hlmi_ca_read_status)
++		#ans=$(hlmi_ca_read_all_fields)
++
++		if [ $((sts)) -eq 0 ]; then
++			echo 0
++			return 0
++		elif [ $((sts)) -eq 1 ]; then
++			echo 1
++			return 0
++		fi
++		if [ $((loops)) -gt $((max_loops)) ]; then
++			return 1
++		fi
++
++		loops=$(( loops ++ ))
++		sleep $tsleep
++	done
++}
++
++#######################################################################
++
++hlmi_write_reg()
++{
++	local sts
++	local address
++	local data
++
++	address=$(hlmi_long_to_args $1)
++	data=$(hlmi_long_to_args $2)
++
++	hlmi_write_raw 7 0 ${address} ${data} 00
++	sts=$(hlmi_ca_wfs 4 0.3)
++	if [ $? -ne 0 ]; then
++		echo '[Timeout] Write ' $*
++		return 1
++	fi
++	[ $((sts)) -eq 0 ] && return 0 || return 0
++}
++
++hlmi_read_reg()
++{
++	local sts
++	local address
++	local data
++	address=$(hlmi_long_to_args $1)
++
++	hlmi_write_raw 7 0 $address 00 00 00 00 01
++	sts=$(hlmi_ca_wfs 4 0.3)
++	if [ $? -ne 0 ]; then
++		echo '[Timeout] Read' $*
++		return 1
++	fi
++	[ $((sts)) -eq 0 ] && {
++		hlmi_ca_read_data
++		return 0
++	} || return 1
++}
++
++#######################################################################
++
++hlmi_mcpy_read_address()
++{
++	hlmi_read_long_long 21 0
++}
++
++hlmi_mcpy_read_size()
++{
++	hlmi_read_long 21 8
++}
++
++hlmi_mcpy_read_cmd()
++{
++	hlmi_read_byte 21 12
++}
++hlmi_mcpy_read_status()
++{
++	hlmi_read_byte 21 13
++}
++
++hlmi_mcpy_write_address()
++{
++	hlmi_write_long 21 0 $1
++}
++
++hlmi_mcpy_write_size()
++{
++	hlmi_write_long 21 8 $1
++}
++
++hlmi_mcpy_write_cmd()
++{
++	hlmi_write_byte 21 12 $1
++}
++hlmi_mcpy_write_status()
++{
++	hlmi_write_byte 21 13 $1
++}
++
++hlmi_mcpy_write_data()
++{
++	local offset=$1
++	local len=$2
++	hlmi_write_raw 22 $offset $len
++}
++
++hlmi_mcpy_read_data()
++{
++	hlmi_read_raw 22 0 255
++}
++
++##############################
++hlmi_wait_for_reg_value()
++{
++	local is_not=$1
++	local reg=$2
++	local value=$3
++	local mask=$4
++	local tout=$5
++	local max_loops=$6
++	local loops=0
++	local ans
++
++	while :; do
++		ans=$(hlmi_read_reg $reg)
++		if [ $? -eq 0 ]; then
++			if [ $((is_not)) -eq 0 ]; then
++				if [ $((ans & mask)) -eq $((value)) ]; then
++					printf "0x%08x" $((ans))
++					return 0
++				fi
++			else
++				if [ $((ans & mask)) -ne $((value)) ]; then
++					printf "0x%08x" $((ans))
++					return 0
++				fi
++			fi
++		fi
++		if [ $((loops)) -gt $((max_loops)) ]; then
++			return 1
++		fi
++
++		loops=$(( loops ++ ))
++		sleep $tout
++	done
++
++	echo "ERROR ERROR ERROR"
++}
++
++
++# examples
++#
++# hlmi_wait_for_boot_fit()
++# {
++# 	local ans
++# 	local err
++#
++# 	ans=$(hlmi_wait_for_reg_value 0 0x04c4b300 0x00000010 0xffffffff 0.5 4)
++# 	err=$?
++#
++# 	return $err
++# }
++#
++# hlmi_snd_cmd()
++# {
++# 	hlmi_write_reg 0x04c4b16c $1
++# }
++#
++# hlmi_wfs()
++# {
++# 	local val
++#
++# 	val=$(hlmi_wait_for_reg_value $1 0x04c4b168 $2 $3 0.5 4)
++# 	if [ $? -ne 0 ];then
++# 		return 1
++# 	fi
++#
++# 	printf "0x%x 0x%07x" $((val >> 28)) $((val & 0xfffffff))
++# 	return 0
++# }
++#
+diff --git a/scripts/tests/ras/hlmi-test-fwl.rc b/scripts/tests/ras/hlmi-test-fwl.rc
+new file mode 100644
+index 0000000..8d43a3f
+--- /dev/null
++++ b/scripts/tests/ras/hlmi-test-fwl.rc
+@@ -0,0 +1,596 @@
++# Script to test using RAS config access by running FW loader
++# protocol using the hlmi-test raw mode.
++# Using Opcode - 7
++# TODO use Opcode 21/22 and actually copy and dump data.
++# load file by sourcing it.
++# running the full test call: hlmi_sim_fwl()
++#
++
++# Dump of normal Update protocol flow
++#========================================
++
++#Read: 0x00000010 from 0x04c4b300
++#Write: 0x10000000 to 0x04c4b16c
++#Read: 0x00000000 from 0x04c4b168
++#Write: 0xf0000000 to 0x04c4b16c
++#Read: 0x00000000 from 0x04c4b168
++#Read: 0x60000000 from 0x04c4b168
++#Write: 0x00000000 to 0x04c4b16c
++#Read: 0x60000000 from 0x04c4b168
++#Read: 0x60000000 from 0x04c4b168
++#Read: 0x60000000 from 0x04c4b168
++#repeats[67]
++#Read: 0x40600000 from 0x04c4b168
++#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=40
++#pci_dev_copy_rw: mapbase=0x7f6c6d305000, map_sz=218103872
++#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=310
++#pci_dev_copy_rw: mapbase=0x7f6c6d305000, map_sz=218104128
++#Write: 0x10000000 to 0x04c4b16c
++#Read: 0x40600000 from 0x04c4b168
++#Read: 0x00000000 from 0x04c4b168
++#Write: 0x20000000 to 0x04c4b16c
++#Read: 0x00000000 from 0x04c4b168
++#Read: 0x80000000 from 0x04c4b168
++#Write: 0x00000000 to 0x04c4b16c
++#Read: 0x80000000 from 0x04c4b168
++#Read: 0x70000000 from 0x04c4b168
++#Write: 0x10000000 to 0x04c4b16c
++#Read: 0x70000000 from 0x04c4b168
++#Read: 0x00000000 from 0x04c4b168
++#Write: 0x00000000 to 0x04c4b16c
++
++# Dump of normal Update protocol flow with description
++#======================================================
++
++#[RX] L: BOOT sts: CPU_BOOT_STATUS_WAITING_FOR_BOOT_FIT [16]
++#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000
++#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000
++#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000
++#[TX] L: FWL cmd:        HL_UPD_GET_PROTO_STATUS [15] size   = 0x00000000 raw = 0xf0000000
++#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000
++#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000
++#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000
++#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000
++#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000
++#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000
++#repeats[67]
++#[RX] L: FWL sts:                  HL_UPD_STS_OK [ 4] offset = 0x00600000 raw = 0x40600000
++#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=40
++#pci_dev_copy_rw: mapbase=0x7f00ec703000, map_sz=218103872
++#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=310
++#pci_dev_copy_rw: mapbase=0x7f00ec703000, map_sz=218104128
++#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000
++#[RX] L: FWL sts:                  HL_UPD_STS_OK [ 4] offset = 0x00600000 raw = 0x40600000
++#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000
++#[TX] L: FWL cmd:               HL_UPD_RST_STATE [ 2] size   = 0x00000000 raw = 0x20000000
++#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000
++#[RX] L: FWL sts:             HL_UPD_STS_RST_ACK [ 8] offset = 0x00000000 raw = 0x80000000
++#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000
++#[RX] L: FWL sts:             HL_UPD_STS_RST_ACK [ 8] offset = 0x00000000 raw = 0x80000000
++#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000
++#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000
++#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000
++#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000
++#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000
++
++if [ -z $oamid ]; then
++	export oamid=1
++fi
++
++hlmi_long_to_args()
++{
++	local val
++
++	val=$(printf "%08x" $(($1)))
++	echo ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}
++}
++
++hlmi_long_long_to_args()
++{
++	local val
++
++	val=$(printf "%016x" $(($1)))
++	echo ${val:14:2} ${val:12:2} ${val:10:2} ${val:8:2} ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}
++}
++
++hlmi_args_to_long_str()
++{
++	printf "0x%s%s%s%s" $4 $3 $2 $1
++}
++
++hlmi_args_to_long_long_str()
++{
++	printf "0x%s%s%s%s%s%s%s%s" $8 $7 $6 $5 $4 $3 $2 $1
++}
++
++hlmi_args_to_long()
++{
++	local val
++	val=$(hlmi_args_to_long_str $*)
++	echo $((val))
++}
++
++hlmi_args_to_long_long()
++{
++	local val
++	val=$(hlmi_args_to_long_long_str $*)
++	echo $((val))
++}
++
++hlmi_set_oam()
++{
++	export oamid=$1
++}
++
++hlmi_write_raw()
++{
++	local opcode=$1
++	local offset=$2
++	shift 2
++	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $# -w "$*" > /dev/null 2>&1
++}
++
++hlmi_read_raw()
++{
++	local opcode=$1
++	local offset=$2
++	local len=$3
++	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $len | awk '/^00/ { $1=""; print $0}'
++}
++
++##############################
++
++hlmi_read_long_long()
++{
++	local val
++	val=$(hlmi_read_raw $1 $2 8)
++	data=$(hlmi_args_to_long_long $val)
++	printf "0x%08x" $data
++}
++
++hlmi_read_long()
++{
++	local val
++	val=$(hlmi_read_raw $1 $2 4)
++	data=$(hlmi_args_to_long $val)
++	printf "0x%08x" $data
++}
++
++hlmi_read_short()
++{
++
++	local val
++	val=$(hlmi_read_raw $1 $2 2)
++	data=$(hlmi_args_to_long $val)
++	printf "0x%04x" $data
++}
++
++hlmi_read_byte()
++{
++
++	local val
++
++	val=$(hlmi_read_raw $1 $2 1 | cut -d' ' -f2)
++	printf "0x%s" ${val:-5}
++
++	[ -z $val ] && return 1 || return 0
++}
++
++hlmi_write_byte()
++{
++	hlmi_write_raw $1 $2 $3
++}
++
++hlmi_write_long()
++{
++	local val
++
++	val=$(hlmi_long_to_args $3)
++	hlmi_write_raw $1 $2 $val
++}
++
++##############################
++
++hlmi_ca_read_address()
++{
++	hlmi_read_long 7 0
++}
++
++hlmi_ca_read_data()
++{
++	hlmi_read_long 7 4
++}
++
++hlmi_ca_read_cmd()
++{
++	hlmi_read_byte 7 8
++}
++hlmi_ca_read_status()
++{
++	hlmi_read_byte 7 9
++}
++
++hlmi_ca_write_address()
++{
++	hlmi_write_long 7 0 $1
++}
++
++hlmi_ca_write_data()
++{
++	hlmi_write_long 7 4 $1
++}
++
++hlmi_ca_write_cmd()
++{
++	hlmi_write_byte 7 8 $1
++}
++hlmi_ca_write_status()
++{
++	hlmi_write_byte 7 9 $1
++}
++
++##############################
++
++hlmi_ca_read_all_fields_helper()
++{
++	local address
++	local data
++	local cmd
++	local status
++
++	address=$(hlmi_args_to_long $1 $2 $3 $4)
++	data=$(hlmi_args_to_long $5 $6 $7 $8)
++	cmd=$(($9))
++	status=$(($10))
++
++	printf "0x%08x 0x%08x %d %d" ${address} ${data} ${cmd} ${status}
++	return $status
++}
++
++hlmi_ca_read_all_fields()
++{
++	local ans
++	ans=$(hlmi_read_raw 7 0 10)
++	hlmi_ca_read_all_fields_helper $ans
++}
++
++hlmi_ca_write_all_fields()
++{
++	local address
++	local data
++	local cmd
++
++	address=$(hlmi_long_to_args $1)
++	data=$(hlmi_long_to_args $2)
++	cmd=$(printf "%02x" $3)
++	hlmi_write_raw 7 0 $address $data $cmd
++}
++
++hlmi_ca_wfs_2()
++{
++	local sts
++	local loops=0
++
++	while : ; do
++		sts=$(hlmi_ca_read_status)
++		#ans=$(hlmi_ca_read_all_fields)
++
++		if [ ${sts} -eq 0 ]; then
++			echo 0
++			return 0
++		elif [ ${sts} -eq 1 ]; then
++			echo 1
++			return 0
++		fi
++		if [ $((loops)) -gt 4 ]; then
++			return 1
++		fi
++		loops=$(( loops ++ ))
++		sleep 0.3
++	done
++}
++
++
++hlmi_ca_wfs()
++{
++	local sts
++	local loops=0
++	local max_loops=$1
++	local tsleep=$2
++
++	while : ; do
++		sts=$(hlmi_ca_read_status)
++		#ans=$(hlmi_ca_read_all_fields)
++
++		if [ $((sts)) -eq 0 ]; then
++			echo 0
++			return 0
++		elif [ $((sts)) -eq 1 ]; then
++			echo 1
++			return 0
++		fi
++		if [ $((loops)) -gt $((max_loops)) ]; then
++			return 1
++		fi
++
++		loops=$(( loops ++ ))
++		sleep $tsleep
++	done
++}
++
++#######################################################################
++
++hlmi_write_reg()
++{
++	local sts
++	local address
++	local data
++
++	address=$(hlmi_long_to_args $1)
++	data=$(hlmi_long_to_args $2)
++
++	hlmi_write_raw 7 0 ${address} ${data} 00
++	sts=$(hlmi_ca_wfs 4 0.3)
++	if [ $? -ne 0 ]; then
++		echo '[Timeout] Write ' $*
++		return 1
++	fi
++	[ $((sts)) -eq 0 ] && return 0 || return 0
++}
++
++hlmi_read_reg()
++{
++	local sts
++	local address
++	local data
++	address=$(hlmi_long_to_args $1)
++
++	hlmi_write_raw 7 0 $address 00 00 00 00 01
++	sts=$(hlmi_ca_wfs 4 0.3)
++	if [ $? -ne 0 ]; then
++		echo '[Timeout] Read' $*
++		return 1
++	fi
++	[ $((sts)) -eq 0 ] && {
++		hlmi_ca_read_data
++		return 0
++	} || return 1
++}
++
++#######################################################################
++
++hlmi_mcpy_read_address()
++{
++	hlmi_read_long_long 21 0
++}
++
++hlmi_mcpy_read_size()
++{
++	hlmi_read_long 21 8
++}
++
++hlmi_mcpy_read_cmd()
++{
++	hlmi_read_byte 21 12
++}
++hlmi_mcpy_read_status()
++{
++	hlmi_read_byte 21 13
++}
++
++hlmi_mcpy_write_address()
++{
++	hlmi_write_long 21 0 $1
++}
++
++hlmi_mcpy_write_size()
++{
++	hlmi_write_long 21 8 $1
++}
++
++hlmi_mcpy_write_cmd()
++{
++	hlmi_write_byte 21 12 $1
++}
++hlmi_mcpy_write_status()
++{
++	hlmi_write_byte 21 13 $1
++}
++
++hlmi_mcpy_write_data()
++{
++	local offset=$1
++	local len=$2
++	hlmi_write_raw 22 $offset $len
++}
++
++hlmi_mcpy_read_data()
++{
++	hlmi_read_raw 22 0 255
++}
++
++##############################
++hlmi_wait_for_reg_value()
++{
++	local is_not=$1
++	local reg=$2
++	local value=$3
++	local mask=$4
++	local tout=$5
++	local max_loops=$6
++	local loops=0
++	local ans
++
++	while :; do
++		ans=$(hlmi_read_reg $reg)
++		if [ $? -eq 0 ]; then
++			if [ $((is_not)) -eq 0 ]; then
++				if [ $((ans & mask)) -eq $((value)) ]; then
++					printf "0x%08x" $((ans))
++					return 0
++				fi
++			else
++				if [ $((ans & mask)) -ne $((value)) ]; then
++					printf "0x%08x" $((ans))
++					return 0
++				fi
++			fi
++		fi
++		if [ $((loops)) -gt $((max_loops)) ]; then
++			return 1
++		fi
++
++		loops=$(( loops ++ ))
++		sleep $tout
++	done
++
++	echo "ERROR ERROR ERROR"
++}
++
++hlmi_wait_for_boot_fit()
++{
++	local ans
++	local err
++
++	ans=$(hlmi_wait_for_reg_value 0 0x04c4b300 0x00000010 0xffffffff 0.5 4)
++	err=$?
++
++	return $err
++}
++
++hlmi_snd_cmd()
++{
++	hlmi_write_reg 0x04c4b16c $1
++}
++
++hlmi_wfs()
++{
++	local val
++
++	val=$(hlmi_wait_for_reg_value $1 0x04c4b168 $2 $3 0.5 4)
++	if [ $? -ne 0 ];then
++		return 1
++	fi
++
++	printf "0x%x 0x%07x" $((val >> 28)) $((val & 0xfffffff))
++	return 0
++}
++
++hlmi_clr_sts()
++{
++	hlmi_snd_cmd 0x10000000
++}
++
++hlmi_rst_state()
++{
++	hlmi_snd_cmd 0x20000000
++}
++
++hlmi_proto_status()
++{
++	hlmi_snd_cmd 0xf0000000
++}
++
++hlmi_cmd_noop()
++{
++	hlmi_snd_cmd 0x00000000
++}
++
++hlmi_wait_for_noop()
++{
++	local ans
++	local err
++	ans=$(hlmi_wfs 0 0x00000000 0xffffffff)
++	err=$?
++	if [ $err -eq 0 ]; then
++		echo "WAIT4NOP: ok"
++	else
++		echo "WAIT4NOP: failed"
++	fi
++	return $err
++}
++
++hlmi_wait_for_no_noop()
++{
++	local ans
++	local err
++
++	ans=$(hlmi_wfs 1 0x00000000 0xf0000000)
++	err=$?
++	if [ $err -eq 0 ]; then
++		echo "WAIT4NONOP: ok"
++	else
++		echo "WAIT4NONOP: failed"
++	fi
++}
++
++hlmi_wait_for_change()
++{
++	hlmi_wfs 1 $1 $2
++}
++
++hlmi_wait_for_rst_ok()
++{
++	hlmi_wfs 0 0x70000000 0xf0000000
++}
++
++#############################################################
++
++export g_sts=0
++export g_sts_id=0
++export g_sts_val=0
++
++hlmi_parse_status()
++{
++	g_sts_id=$(echo $g_sts | cut -d' ' -f1)
++	g_sts_val=$(echo $g_sts | cut -d' ' -f2)
++}
++
++hlmi_wfs_change()
++{
++	local g_new_sts=0
++	g_new_sts=$(hlmi_wait_for_change $g_sts 0xf0000000)
++	echo
++	echo "STATUS Change $g_sts => $g_new_sts"
++	g_sts=$g_new_sts
++	hlmi_parse_status
++	printf "STATUS: cmd=%d offset=0x%08x\n" ${g_sts_id:--1} ${g_sts_val:-0xffffffff}
++}
++
++hlmi_sim_fwl()
++{
++	hlmi_wait_for_boot_fit
++
++echo "clr sts"
++	hlmi_clr_sts
++	hlmi_wait_for_noop
++echo "proto status"
++	hlmi_proto_status
++	hlmi_wfs_change
++	hlmi_cmd_noop
++	hlmi_wfs_change
++
++#	echo "==== g_sts : $g_sts == g_sts_val: $g_sts_val"
++	printf "FIT is ready at 0x%08x\n" ${g_sts_val}
++	# fit data is ready
++	# can be read here
++
++echo "TODO memcpy fit header 40 bytes"
++echo "TODO memcpy fit body"
++
++echo "clr sts"
++	hlmi_clr_sts
++	hlmi_wait_for_noop
++
++echo "RST state"
++	hlmi_rst_state
++	hlmi_wfs_change
++	echo "should be RST ACK(8)"
++	hlmi_cmd_noop
++	hlmi_wfs_change
++	echo "should be RST OK(7)"
++
++	hlmi_clr_sts
++	hlmi_wait_for_noop
++	hlmi_cmd_noop
++}

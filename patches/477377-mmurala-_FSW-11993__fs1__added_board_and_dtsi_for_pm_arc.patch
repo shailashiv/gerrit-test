@@ -1,0 +1,363 @@
+From bac6f27e5699a817b986269b3b32b77cf6a030b2 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Mon, 14 Apr 2025 12:54:45 +0300
+Subject: [PATCH] [FSW-11993] fs1: added board and dtsi for pm arc
+
+With this patch, defined new board for pmfw arc
+of compute die. which is replacement of reset
+arc in upcoming project.
+
+Change-Id: I13da39c370c59c1c14c08630390da91a36f9ea08
+---
+
+diff --git a/boards/intel/fs/Kconfig.fs1_pmfw_asic b/boards/intel/fs/Kconfig.fs1_pmfw_asic
+new file mode 100644
+index 0000000..3009e8b
+--- /dev/null
++++ b/boards/intel/fs/Kconfig.fs1_pmfw_asic
+@@ -0,0 +1,5 @@
++# Copyright 2025 Intel, Ltd. All Rights Reserved.
++# SPDX-License-Identifier: Apache-2.0
++
++config BOARD_FS1_PMFW_ASIC
++	select SOC_FS1_PMFW
+diff --git a/boards/intel/fs/Kconfig.fs1_pmfw_onix b/boards/intel/fs/Kconfig.fs1_pmfw_onix
+new file mode 100644
+index 0000000..7cec655
+--- /dev/null
++++ b/boards/intel/fs/Kconfig.fs1_pmfw_onix
+@@ -0,0 +1,5 @@
++# Copyright 2025 Intel, Ltd. All Rights Reserved.
++# SPDX-License-Identifier: Apache-2.0
++
++config BOARD_FS1_PMFW_ONIX
++	select SOC_FS1_PMFW
+diff --git a/boards/intel/fs/Kconfig.fs1_pmfw_palad b/boards/intel/fs/Kconfig.fs1_pmfw_palad
+new file mode 100644
+index 0000000..e75676c
+--- /dev/null
++++ b/boards/intel/fs/Kconfig.fs1_pmfw_palad
+@@ -0,0 +1,5 @@
++# Copyright 2025 Intel, Ltd. All Rights Reserved.
++# SPDX-License-Identifier: Apache-2.0
++
++config BOARD_FS1_PMFW_PALAD
++	select SOC_FS1_PMFW
+diff --git a/boards/intel/fs/board.yml b/boards/intel/fs/board.yml
+index d6cdab4..b2f34ca 100644
+--- a/boards/intel/fs/board.yml
++++ b/boards/intel/fs/board.yml
+@@ -110,4 +110,16 @@
+   - name: fs1_agent_palad
+     vendor: intel
+     socs:
+-      - name: agent
+\ No newline at end of file
++      - name: agent
++  - name: fs1_pmfw_asic
++    vendor: intel
++    socs:
++      - name: pmfw
++  - name: fs1_pmfw_onix
++    vendor: intel
++    socs:
++      - name: pmfw
++  - name: fs1_pmfw_palad
++    vendor: intel
++    socs:
++      - name: pmfw
+\ No newline at end of file
+diff --git a/boards/intel/fs/fs1_pmfw_asic.dts b/boards/intel/fs/fs1_pmfw_asic.dts
+new file mode 100644
+index 0000000..8c6c95f
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_asic.dts
+@@ -0,0 +1,29 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ */
++
++/dts-v1/;
++
++#include <fs1_pmfw.dtsi>
++
++/ {
++	model = "fs1_pmfw";
++	compatible = "intel,fs1_pmfw";
++
++	chosen {
++		zephyr,console = &uart0;
++		zephyr,shell-uart = &uart0;
++	};
++};
++
++&refclk {
++	clock-frequency = <50000000>;
++};
++
++&uart0 {
++	current-speed = <115200>;
++	status = "okay";
++};
+diff --git a/boards/intel/fs/fs1_pmfw_asic_defconfig b/boards/intel/fs/fs1_pmfw_asic_defconfig
+new file mode 100644
+index 0000000..d3d603f
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_asic_defconfig
+@@ -0,0 +1,21 @@
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_CPU_ARCHS_NO_HW_ATOMIC=y
++CONFIG_EXCEPTION_DEBUG=y
++CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=2048
++CONFIG_HEAP_MEM_POOL_SIZE=1280
++CONFIG_BUILD_OUTPUT_BIN=y
++CONFIG_MAIN_STACK_SIZE=5120
++CONFIG_PRINTK=y
++CONFIG_LOG=y
++CONFIG_LOG_MODE_MINIMAL=y
++CONFIG_LOG_MAX_LEVEL=4
++CONFIG_CONSOLE=y
++CONFIG_SERIAL=y
++CONFIG_UART_CONSOLE=y
++CONFIG_HW_STACK_PROTECTION=y
++CONFIG_EMPTY_WEAK_FUNCTIONS=y
++CONFIG_LINKER_ORPHAN_SECTION_PLACE=y
++CONFIG_MINIMAL_LIBC_OPTIMIZE_STRING_FOR_SIZE=n
++CONFIG_BOOT_IF_PSEUDO_RO_TIMER=y
++CONFIG_XIP=n
+diff --git a/boards/intel/fs/fs1_pmfw_onix.dts b/boards/intel/fs/fs1_pmfw_onix.dts
+new file mode 100644
+index 0000000..f48f8ff
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_onix.dts
+@@ -0,0 +1,29 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ */
++
++/dts-v1/;
++
++#include <fs1_pmfw.dtsi>
++
++/ {
++	model = "fs1_pmfw";
++	compatible = "intel,fs1_pmfw";
++
++	chosen {
++		zephyr,console = &uart0;
++		zephyr,shell-uart = &uart0;
++	};
++};
++
++&refclk {
++	clock-frequency = <35000000>;
++};
++
++&uart0 {
++	current-speed = <57600>;
++	status = "okay";
++};
+diff --git a/boards/intel/fs/fs1_pmfw_onix_defconfig b/boards/intel/fs/fs1_pmfw_onix_defconfig
+new file mode 100644
+index 0000000..acec5ae
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_onix_defconfig
+@@ -0,0 +1,19 @@
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_CPU_ARCHS_NO_HW_ATOMIC=y
++CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=2048
++CONFIG_BUILD_OUTPUT_BIN=y
++CONFIG_MAIN_STACK_SIZE=5120
++CONFIG_PRINTK=y
++CONFIG_LOG=y
++CONFIG_LOG_MODE_MINIMAL=y
++CONFIG_LOG_MAX_LEVEL=4
++CONFIG_CONSOLE=y
++CONFIG_SERIAL=y
++CONFIG_UART_CONSOLE=y
++CONFIG_HW_STACK_PROTECTION=y
++CONFIG_EMPTY_WEAK_FUNCTIONS=y
++CONFIG_LINKER_ORPHAN_SECTION_PLACE=y
++CONFIG_MINIMAL_LIBC_OPTIMIZE_STRING_FOR_SIZE=n
++CONFIG_BOOT_IF_PSEUDO_RO_TIMER=y
++CONFIG_XIP=n
+diff --git a/boards/intel/fs/fs1_pmfw_palad.dts b/boards/intel/fs/fs1_pmfw_palad.dts
+new file mode 100644
+index 0000000..bfa68a0
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_palad.dts
+@@ -0,0 +1,30 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ */
++
++/dts-v1/;
++
++#include <fs1_pmfw.dtsi>
++
++/ {
++	model = "fs1_pmfw";
++	compatible = "intel,fs1_pmfw";
++
++	chosen {
++		zephyr,console = &uart0;
++		zephyr,shell-uart = &uart0;
++	};
++};
++
++&refclk {
++	/* clock values differ between images on pldm */
++	clock-frequency = <21300>;
++};
++
++&uart0 {
++	current-speed = <300>;
++	status = "okay";
++};
+diff --git a/boards/intel/fs/fs1_pmfw_palad_defconfig b/boards/intel/fs/fs1_pmfw_palad_defconfig
+new file mode 100644
+index 0000000..1279f82
+--- /dev/null
++++ b/boards/intel/fs/fs1_pmfw_palad_defconfig
+@@ -0,0 +1,20 @@
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_CPU_ARCHS_NO_HW_ATOMIC=y
++CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=2048
++CONFIG_BUILD_OUTPUT_BIN=y
++CONFIG_MAIN_STACK_SIZE=5120
++CONFIG_PRINTK=y
++CONFIG_LOG=y
++CONFIG_LOG_MODE_MINIMAL=y
++CONFIG_LOG_MAX_LEVEL=4
++CONFIG_CONSOLE=y
++CONFIG_SERIAL=y
++CONFIG_UART_CONSOLE=y
++CONFIG_HW_STACK_PROTECTION=y
++CONFIG_EMPTY_WEAK_FUNCTIONS=y
++CONFIG_LINKER_ORPHAN_SECTION_PLACE=y
++CONFIG_MINIMAL_LIBC_OPTIMIZE_STRING_FOR_SIZE=n
++CONFIG_BOOT_IF_PSEUDO_RO_TIMER=y
++CONFIG_XIP=n
++CONFIG_RST_RUN_FROM_ICCM=n
+diff --git a/dts/arc/fs1_pmfw.dtsi b/dts/arc/fs1_pmfw.dtsi
+new file mode 100644
+index 0000000..2c4a170
+--- /dev/null
++++ b/dts/arc/fs1_pmfw.dtsi
+@@ -0,0 +1,27 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ */
++
++#include "fs1_emb.dtsi"
++
++/ {
++	chosen {
++		zephyr,console = &uart0;
++		zephyr,shell-uart = &uart0;
++	};
++
++	iccm0: iccm@ARC_PMFW_ICCM_OFFSET {
++		device_type = "memory";
++		compatible = "arc,iccm";
++		reg = <PREFIX_0X(ARC_PMFW_ICCM_OFFSET) ARC_PMFW_ICCM_SIZE>;
++	};
++
++	dccm0: dccm@ARC_PMFW_DCCM_OFFSET {
++		device_type = "memory";
++		compatible = "arc,dccm";
++		reg = <PREFIX_0X(ARC_PMFW_DCCM_OFFSET) ARC_PMFW_DCCM_SIZE>;
++	};
++};
+diff --git a/soc/intel/gpu/fs1/Kconfig.soc b/soc/intel/gpu/fs1/Kconfig.soc
+index f2d38c5..950333d 100644
+--- a/soc/intel/gpu/fs1/Kconfig.soc
++++ b/soc/intel/gpu/fs1/Kconfig.soc
+@@ -42,6 +42,10 @@
+ 	bool
+ 	select SOC_SERIES_FS1
+ 
++config SOC_FS1_PMFW
++	bool
++	select SOC_SERIES_FS1
++
+ config SOC_FS1_AGENT
+ 	bool
+ 	select SOC_SERIES_FS1
+@@ -52,3 +56,4 @@
+ 	default "fs1_agent" if SOC_FS1_AGENT
+ 	default "fs1_preboot" if SOC_FS1_PREBOOT
+ 	default "fs1_rst" if SOC_FS1_RST
++	default "fs1_pmfw" if SOC_FS1_PMFW
+diff --git a/soc/intel/gpu/fs1/emb/Kconfig.defconfig b/soc/intel/gpu/fs1/emb/Kconfig.defconfig
+index bb00d17..6bd0956d 100644
+--- a/soc/intel/gpu/fs1/emb/Kconfig.defconfig
++++ b/soc/intel/gpu/fs1/emb/Kconfig.defconfig
+@@ -110,6 +110,10 @@
+ source "soc/intel/gpu/fs1/emb/Kconfig.defconfig_rst"
+ endif #SOC_FS1_RST
+ 
++if SOC_FS1_PMFW
++source "soc/intel/gpu/fs1/emb/Kconfig.defconfig_pmfw"
++endif #SOC_FS1_PMFW
++
+ if SOC_FS1_AGENT
+ source "soc/intel/gpu/fs1/emb/Kconfig.defconfig_agent"
+ endif #SOC_FS1_AGENT
+diff --git a/soc/intel/gpu/fs1/emb/Kconfig.defconfig_pmfw b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_pmfw
+new file mode 100644
+index 0000000..21ee46d
+--- /dev/null
++++ b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_pmfw
+@@ -0,0 +1,24 @@
++# Copyright 2024 HabanaLabs, Ltd. All Rights Reserved.
++# SPDX-License-Identifier: Apache-2.0
++
++if SOC_FS1_PMFW
++
++config SOC
++	default "fs1_pmfw"
++
++config HARVARD
++	default y
++
++config NUM_IRQS
++	range 17 255
++	# TODO: Get these numbers for FS1
++	# must be > the highest interrupt number used
++	default 255
++
++config PMFW_RUN_FROM_ICCM
++	default n
++	bool "Run pmfw app from ICCM memory"
++	help
++	  pmfw app is executing from ICCM memory
++
++endif # SOC_FS1_PMFW
+diff --git a/soc/intel/gpu/soc.yml b/soc/intel/gpu/soc.yml
+index a0de940..93483f2 100644
+--- a/soc/intel/gpu/soc.yml
++++ b/soc/intel/gpu/soc.yml
+@@ -10,4 +10,5 @@
+     - name: mgmt_compute
+     - name: preboot_compute
+     - name: dsm
+-    - name: rst
+\ No newline at end of file
++    - name: rst
++    - name: pmfw

@@ -1,0 +1,59 @@
+From 1c9cc481102fe6a670fd99440572ce8ea3460778 Mon Sep 17 00:00:00 2001
+From: Michael Pauzner <mpauzner@habana.ai>
+Date: Sun, 15 Dec 2024 15:45:15 +0200
+Subject: [PATCH] [FSW-358] fs1: create empty pid appl
+
+Create empty PID for FS1.
+
+Change-Id: I843d0dde0e231939c275bb6d41c56322fe3a4312
+---
+
+diff --git a/app/io/pid.c b/app/io/pid.c
+index 3a0b3af..2f95d92 100644
+--- a/app/io/pid.c
++++ b/app/io/pid.c
+@@ -22,6 +22,7 @@
+ LOG_MODULE_REGISTER(pid);
+ static struct pid_table platdata;
+ 
++#ifndef CONFIG_SOC_FS1_PID
+ struct pid_thread main_thread = {
+ 	.name = "PID-MAIN-THREAD",
+ };
+@@ -215,12 +216,14 @@
+ 
+ 	return 0;
+ }
++#endif /* CONFIG_SOC_FS1_PID */
+ 
+ struct pid_table *pid_table_get(void)
+ {
+ 	return &platdata;
+ }
+ 
++#ifndef CONFIG_SOC_FS1_PID
+ #define HEARTBEAT_TIMEOUT	3000
+ static void send_heartbeat(struct pid_table *platdata)
+ {
+@@ -232,9 +235,13 @@
+ 			platdata->event.hb_prev_update_time = curr_time;
+ 	}
+ }
++#endif /* CONFIG_SOC_FS1_PID */
+ 
+ void main(void)
+ {
++#ifdef CONFIG_SOC_FS1_PID
++	LOG_INF("Dummy PID");
++#else
+ 	if (pid_init(&platdata) < 0) {
+ 		LOG_ERR("pid initialization failed.");
+ 		goto out_loop;
+@@ -326,6 +333,7 @@
+ 	}
+ 
+ out_loop:
++#endif /* CONFIG_SOC_FS1_PID */
+ 	while (1) {
+ 		k_busy_wait(PID_LOOP_DELAY);
+ 	}

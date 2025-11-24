@@ -1,0 +1,58 @@
+From 56e34330f4ec7ea16e47b86187ba06ebec4fe460 Mon Sep 17 00:00:00 2001
+From: Meron Cohen <mecohen@habana.ai>
+Date: Mon, 16 Jun 2025 23:23:56 +0300
+Subject: [PATCH] [SW-232306] g2e: fine-tune hbm tccd parameters
+
+In order to limit the HBM BW to 1400 GB/s, there is to update the
+HBM tCCD parameters as well (i.e., tCCDL, tCCDS, tCCDR).
+(tCCD = Column-to-Column Delay).
+In addition there is to update the HBM DRAMTIMING8 config register.
+These updates should take place only if it is a bis-e-compliant device.
+
+Change-Id: I9e4fd9ad1da46f3253e82194da1b2ef243ff5093
+Signed-off-by: Meron Cohen <mecohen@habana.ai>
+(cherry picked from commit 2fd49ed0022065a045d3605dda0d847d00c23070)
+---
+
+diff --git a/drivers/misc/hl_hbm/gaudi2/hbm.c b/drivers/misc/hl_hbm/gaudi2/hbm.c
+index 82e0075..86f56e5 100644
+--- a/drivers/misc/hl_hbm/gaudi2/hbm.c
++++ b/drivers/misc/hl_hbm/gaudi2/hbm.c
+@@ -1771,7 +1771,10 @@
+ 	hbm_phy_write(hbm_dev, mmHBM_PHY_MASTER_DRAMTIMING5, reg_val);
+ 
+ 	/* tCCDS, tCCDL, tCCDR - from Flashbolt spec. Frequency independent */
+-	hbm_phy_write(hbm_dev, mmHBM_PHY_MASTER_DRAMTIMING8, 0x72);
++	if (is_bis_e_compliant_device())
++		hbm_phy_write(hbm_dev, mmHBM_PHY_MASTER_DRAMTIMING8, 0xDF);
++	else
++		hbm_phy_write(hbm_dev, mmHBM_PHY_MASTER_DRAMTIMING8, 0x72);
+ }
+ 
+ static void phy_preload_initeng(uint32_t hbm_dev)
+@@ -3077,9 +3080,6 @@
+ 		ac_params->mc_trfc = 0x167;
+ 		ac_params->mc_trfcsb = 0x9f;
+ 		ac_params->mc_trrefd = 0x6;
+-		ac_params->mc_tccd_l = 0x1;
+-		ac_params->mc_tccd_s = 0x0;
+-		ac_params->mc_tccd_r = 0x1;
+ 		ac_params->mc_twtr_s = 0x8;
+ 		ac_params->mc_twtr_l = 0xc;
+ 		ac_params->mc_twtrap = 0x12;
+@@ -3107,6 +3107,15 @@
+ 		ac_params->hbm_twtr_l = 13;
+ 		ac_params->hbm_tinit5 = 320;
+ 		ac_params->hbm_tmod = 24;
++		if (is_bis_e_compliant_device()) {
++			ac_params->mc_tccd_l = 0x3;
++			ac_params->mc_tccd_s = 0x1;
++			ac_params->mc_tccd_r = 0x2;
++		} else {
++			ac_params->mc_tccd_l = 0x1;
++			ac_params->mc_tccd_s = 0x0;
++			ac_params->mc_tccd_r = 0x1;
++		}
+ 		break;
+ 	}
+ 

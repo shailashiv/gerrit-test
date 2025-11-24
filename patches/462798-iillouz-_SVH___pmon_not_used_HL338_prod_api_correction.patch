@@ -1,0 +1,121 @@
+From ccb93699ee36c0efe21d50e4763331eb86b184ad Mon Sep 17 00:00:00 2001
+From: Ilan Illouz <iillouz@habana.ai>
+Date: Mon, 18 Nov 2024 16:33:57 +0200
+Subject: [PATCH] [SVH]: pmon not used HL338 prod+api correction
+
+Change-Id: Ied12764a88c2bf8a0c369cf1cda49812f153a2cc
+Signed-off-by: Ilan Illouz <iillouz@habana.ai>
+---
+
+diff --git a/SVH/Engines/Gaudi3_PHY_eng/Gaudi3_phy_engine.py b/SVH/Engines/Gaudi3_PHY_eng/Gaudi3_phy_engine.py
+index 488251c..0fa1f33 100644
+--- a/SVH/Engines/Gaudi3_PHY_eng/Gaudi3_phy_engine.py
++++ b/SVH/Engines/Gaudi3_PHY_eng/Gaudi3_phy_engine.py
+@@ -3232,20 +3232,21 @@
+                     timing_window=8
+                     timeout_us=100
+                     refclk = 156.25
+-                    for label_name, list_val in pmon_ring_freq.items():
+-                        pmon_result,pmon_ack=adv_diag.measure_pmon_default(mss, list_val[0], timing_window, timeout_us)
+-                        final_results[label_name] = str(pmon_to_process_std(list_val[0], pmon_result, timing_window))
++                    if(board_type!=6 and board_type!=7):#Not used in HL338 production board
++                        for label_name, list_val in pmon_ring_freq.items():
++                            pmon_result,pmon_ack=adv_diag.measure_pmon_default(mss, list_val[0], timing_window, timeout_us)
++                            final_results[label_name] = str(pmon_to_process_std(list_val[0], pmon_result, timing_window))
+ 
+-                        #counter = pmon_result * (2**timing_window) / (2**12)
+-                        #input freq: 100MHz
+-                        #input_freq = refclk * 10**6
+-                        #input_freq_s = 1/input_freq
+-                        #timer_window_in_s = input_freq_s * 2**timing_window
+-                        #format in MHz
+-                        #cal_freq = round(counter/timer_window_in_s/1000000,2)
+-                        pmon_sel_val=mss.read_field(reg_name = 'afe_cmn_atest', field_name = 'pmonsel_a', lane=None)
+-                        #final_results[label_name] = str(cal_freq)
+-                        mss.write_field(reg_name = 'pvt_measure', field_name = 'req_a', lane=None, value = 0)
++                            #counter = pmon_result * (2**timing_window) / (2**12)
++                            #input freq: 100MHz
++                            #input_freq = refclk * 10**6
++                            #input_freq_s = 1/input_freq
++                            #timer_window_in_s = input_freq_s * 2**timing_window
++                            #format in MHz
++                            #cal_freq = round(counter/timer_window_in_s/1000000,2)
++                            pmon_sel_val=mss.read_field(reg_name = 'afe_cmn_atest', field_name = 'pmonsel_a', lane=None)
++                            #final_results[label_name] = str(cal_freq)
++                            mss.write_field(reg_name = 'pvt_measure', field_name = 'req_a', lane=None, value = 0)
+                     for lane in to_exec[3]:
+                         temprature_enable = 0
+                         if first_iteration_in_oam == 1:
+@@ -3292,23 +3293,42 @@
+ 
+                         #To write results in a .csv file
+                         mss.log.info(f"Results will be written in a .csv file")
+-                        opts = {
+-                            'oam':oam,
+-                            'die':die,
+-                            'phy':phy,
+-                            'lane':lane,
+-                            'absolut_lane':oam*48+die*24+phy*4+lane,
+-                            'ber':series_ber[index],
+-                            'int/ext':int_ext,
+-                            'Tx oam/exp':Tx_oam_exp,
+-                            'Tx die/rt':Tx_die_rt,
+-                            'Tx nic/side':Tx_nic_side,
+-                            'Tx lane':Tx_lane,
+-                            'dfe_ratio':dfe_ratio,
+-                            'meas_temp':None,
+-                            'cdr_locked':series_cdr[index],
+-                            'rx_bist_locked':series_bist_lock[index],
+-                            'pmon_ulvt':final_results['ulvt'],'pmon_lvt':final_results['lvt'],'pmon_svt':final_results['svt'],'pmon_hv':final_results['hv'],'pmon_tgate':final_results['tgate'],'pmon_momcap':final_results['momcap'],'pmon_nand':final_results['nand'],'pmon_nor':final_results['nor']}
++                        if(board_type==6 or board_type==7):#Not used in HL338 production board
++                            opts = {
++                                'oam':oam,
++                                'die':die,
++                                'phy':phy,
++                                'lane':lane,
++                                'absolut_lane':oam*48+die*24+phy*4+lane,
++                                'ber':series_ber[index],
++                                'int/ext':int_ext,
++                                'Tx oam/exp':Tx_oam_exp,
++                                'Tx die/rt':Tx_die_rt,
++                                'Tx nic/side':Tx_nic_side,
++                                'Tx lane':Tx_lane,
++                                'dfe_ratio':dfe_ratio,
++                                'meas_temp':None,
++                                'cdr_locked':series_cdr[index],
++                                'rx_bist_locked':series_bist_lock[index]}
++                        else:
++                                opts = {
++                                'oam':oam,
++                                'die':die,
++                                'phy':phy,
++                                'lane':lane,
++                                'absolut_lane':oam*48+die*24+phy*4+lane,
++                                'ber':series_ber[index],
++                                'int/ext':int_ext,
++                                'Tx oam/exp':Tx_oam_exp,
++                                'Tx die/rt':Tx_die_rt,
++                                'Tx nic/side':Tx_nic_side,
++                                'Tx lane':Tx_lane,
++                                'dfe_ratio':dfe_ratio,
++                                'meas_temp':None,
++                                'cdr_locked':series_cdr[index],
++                                'rx_bist_locked':series_bist_lock[index],
++                                'pmon_ulvt':final_results['ulvt'],'pmon_lvt':final_results['lvt'],'pmon_svt':final_results['svt'],'pmon_hv':final_results['hv'],'pmon_tgate':final_results['tgate'],'pmon_momcap':final_results['momcap'],'pmon_nand':final_results['nand'],'pmon_nor':final_results['nor']}
++                           
+                         Write2File(mss,CSV_FILE,BRANCH,prefec_hist,opts,temprature_enable=temprature_enable)
+                         print(f"Finished writing stats for hl{hl}:OAM{oam}, DIE{die}, PHY{phy}, Lane{lane}\n",end='')
+                         index = index +1
+diff --git a/SVH/Engines/Gaudi3_PHY_eng/programmer/api/lib.py b/SVH/Engines/Gaudi3_PHY_eng/programmer/api/lib.py
+index 3c36b59..85b46c6 100644
+--- a/SVH/Engines/Gaudi3_PHY_eng/programmer/api/lib.py
++++ b/SVH/Engines/Gaudi3_PHY_eng/programmer/api/lib.py
+@@ -2193,7 +2193,7 @@
+         vga_cap2 = mss.read_field(reg_name='rx_vga_reg2', field_name='cap2_lut_0_a', lane=lane)
+         vga_cap = vga_cap1 + vga_cap2
+         assert 0 <= vga_cap <= 40, f'Invalid vga_cap of {vga_cap} detected'
+-        assert (vga_cap1 <= 20 and vga_cap2 == 0) or (vga_cap1 == 20 and vga_cap2 <= 20), f'Invalid combination of vga_cap1 ({vga_cap1}) and vga_cap2 ({vga_cap2}) detected'
++        #assert (vga_cap1 <= 20 and vga_cap2 == 0) or (vga_cap1 == 20 and vga_cap2 <= 20), f'Invalid combination of vga_cap1 ({vga_cap1}) and vga_cap2 ({vga_cap2}) detected'
+         vga_cap_scaled = int(vga_cap/4)
+         values = {}
+         values['en'] = 1-mss.read_vfield(name='disable_vga_cap_adapt', lane=lane)

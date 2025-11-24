@@ -1,0 +1,784 @@
+From ff0405700eac2a35bf20aca943477f955f4268e2 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Dec 2024 12:34:31 +0200
+Subject: [PATCH] [SW-210370] emb cmn: collected common fit verify and error code
+
+Separated the existing lib/preboot/fit.c into fit_verify.c,
+fit_error.c, security.c. So, that zephyr-plugins can also
+use this code to verify the fit loaded at agent stage.
+
+Change-Id: Icb250ca203e8d278b2fef6e52472d45a616b6b1b
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/include/fit_error.h b/include/fit_error.h
+new file mode 100644
+index 0000000..e7103ac
+--- /dev/null
++++ b/include/fit_error.h
+@@ -0,0 +1,18 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef _EMB_CMN_MOD_FIT_ERROR_H_
++#define _EMB_CMN_MOD_FIT_ERROR_H_
++
++#include <fit_utils.h>
++
++void fit_load_print_error(enum fit_load_result errtype);
++void fit_format_print_error(enum fit_format_result errtype);
++bool fit_err_is_success(struct fit_error *err);
++void fit_report_error(struct fit_error *err);
++
++#endif /* _EMB_CMN_MOD_FIT_ERROR_H_ */
+diff --git a/include/fit_verify.h b/include/fit_verify.h
+new file mode 100644
+index 0000000..7cecba8
+--- /dev/null
++++ b/include/fit_verify.h
+@@ -0,0 +1,40 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef _EMB_CMN_MOD_FIT_VERIFY_H_
++#define _EMB_CMN_MOD_FIT_VERIFY_H_
++
++#include <preboot/fit_rsa.h>
++#include <fit_utils.h>
++
++int fit_verify_image_hash(const void *fit, int node, const uint8_t *buf, int len, void *hash);
++
++int fit_get_key_prop(const void *pub_key_fit, const char *key_name,
++		     struct rsa_key_prop *prop);
++
++int fit_verify_security_footer(const void *img, size_t img_size, enum fit_sec_failure *res);
++
++int fit_verify(void *fit, struct fit_error *err);
++
++bool fit_is_image_hash_verified(void);
++
++/* TODO: Clean up the security file among zephyr-plugins, zephyr-apps, baremetal */
++bool security_is_tpm_ext_req(uint32_t load_type);
++void security_ext_tpm_pcr(const void *img, size_t img_size);
++bool security_is_valid_address_range(uint64_t fit_addr, size_t len);
++bool security_sram_is_valid_address_range(uint64_t fit_addr, size_t len);
++bool security_img_validation_is_enabled(void);
++bool security_validate_svn(int sec_version);
++bool security_validate_key_idx(int key_idx);
++bool security_validate_pub_key(int key_idx, const void *pub_key,
++			       int pub_key_len, const void *pub_key_ext,
++			       int pub_key_ext_len);
++void security_store_svn_into_fw_info(int sec_version);
++void security_store_key_index_into_fw_info(int key_idx);
++void security_store_key_index_into_boot_info(int key_idx);
++
++#endif /* _EMB_CMN_MOD_FIT_VERIFY_H_ */
+diff --git a/include/types.h b/include/types.h
+new file mode 100644
+index 0000000..6f1f08c
+--- /dev/null
++++ b/include/types.h
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier:     GPL-2.0+
++ *
++ * Copyright (C) 2021 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++#ifndef _TYPEDEFS_H_
++#define _TYPEDEFS_H_
++
++typedef unsigned char u8;
++typedef char s8;
++typedef unsigned int u32;
++typedef signed int s32;
++typedef unsigned short int u16;
++typedef short int s16;
++typedef unsigned long long u64;
++typedef long long s64;
++
++#endif /* _TYPEDEFS_H_ */
+diff --git a/lib/common/fit_error.c b/lib/common/fit_error.c
+new file mode 100644
+index 0000000..03067d5
+--- /dev/null
++++ b/lib/common/fit_error.c
+@@ -0,0 +1,184 @@
++// SPDX-License-Identifier:     GPL-2.0+
++/*
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#include <stdint.h>
++#include <stddef.h>
++#include <stdbool.h>
++#include <types.h>
++#include <fit_error.h>
++#include <hl_fw_if.h>
++#include <boot_if.h>
++
++#include <emb_cmn_log.h>
++#include <oob_if.h>
++
++#ifdef __ZEPHYR__
++#include <preboot.h>
++LOG_MODULE_REGISTER(fit_error);
++#else
++#include <baremetal.h>
++#endif
++
++/* TODO: Once this function is ported on baremetal, remove it here*/
++__weak void oob_set_boot_err(enum hl_fw_fit_boot_error err, bool is_linux_boot_fail) {}
++
++static void fit_report_oob_err(enum fit_load_result err, enum fit_sec_failure sec_res)
++{
++	enum hl_fw_fit_boot_error boot_err = HL_FW_FIT_BOOT_ERR_NONE;
++
++	switch (err) {
++	case FIT_LOAD_BAD_LOAD_ADDR:
++		boot_err = HL_FW_FIT_BOOT_ERR_ADDRESS_VIOLATION;
++		break;
++	case FIT_LOAD_NOT_RUNNABLE:
++		boot_err = HL_FW_FIT_BOOT_ERR_NOT_RUNNABLE;
++		break;
++	case FIT_LOAD_CORRUPTED:
++		boot_err = HL_FW_FIT_BOOT_ERR_CORRUPTED;
++		break;
++	case FIT_LOAD_SEC_FAILED:
++
++		switch (sec_res) {
++		case FIT_SEC_SVN_INVALID:
++			boot_err = HL_FW_FIT_BOOT_ERR_SVN;
++			break;
++		case FIT_SEC_KEY_REVOKED:
++			boot_err = HL_FW_FIT_BOOT_ERR_REVOKED_KEY;
++			break;
++		case FIT_SEC_SIGN_FAILED:
++			boot_err = HL_FW_FIT_BOOT_ERR_SIGNATURE;
++			break;
++		default:
++			break;
++		}
++
++		break;
++	default:
++		break;
++	};
++
++	oob_set_boot_err(boot_err, false);
++}
++
++static int fwupd_sec_convert_min_error(enum fit_sec_failure err)
++{
++	int serr;
++
++	switch (err) {
++	case FIT_SEC_KEY_REVOKED:
++		serr = HL_SEC_ERR_KEY_REVOKED;
++		break;
++	case FIT_SEC_SVN_INVALID:
++		serr = HL_SEC_ERR_SVN_INVALID;
++		break;
++	case FIT_SEC_HASH_FAILED:
++		serr = HL_SEC_ERR_SIGN_FAILED;
++		break;
++	case FIT_SEC_SIGN_FAILED:
++		serr = HL_SEC_ERR_SIGN_FAILED;
++		break;
++	default:
++		serr = FIT_SEC_NONE;
++	};
++
++	return serr;
++}
++
++void fit_load_print_error(enum fit_load_result errtype)
++{
++	switch (errtype) {
++	case FIT_LOAD_SUCCESS:
++		break;
++	case FIT_LOAD_BAD_LOAD_ADDR:
++	case FIT_LOAD_NOT_RUNNABLE:
++	case FIT_LOAD_CORRUPTED:
++		EMB_LOG_ERR("FIT loading failed");
++		break;
++	case FIT_LOAD_SEC_FAILED:
++		EMB_LOG_ERR("FIT security validation failed");
++		break;
++	default:
++		EMB_LOG_HEX_ERR("unrecognized error value for: fit_load_result (%d)",
++			(unsigned int)errtype);
++		break;
++	}
++}
++
++void fit_format_print_error(enum fit_format_result errtype)
++{
++	switch (errtype) {
++	case FIT_FORMAT_SUCCESS:
++		break;
++	case FIT_FORMAT_HEADER_CHECK_FAILED:
++		EMB_LOG_ERR("FIT header check failed");
++		break;
++	case FIT_FORMAT_NO_DESCRIPTION:
++		EMB_LOG_ERR("Wrong FIT format: no description");
++		break;
++	case FIT_FORMAT_NO_IMAGES_PARENT_NODE:
++		EMB_LOG_ERR("Wrong FIT format: no images parent node");
++		break;
++	case FIT_FORMAT_CURRUPTED_LOAD_TYPE:
++		EMB_LOG_ERR("Currupted load type");
++		break;
++	case FIT_FORMAT_UNSUPPORTED_LOAD_TYPE:
++		EMB_LOG_ERR("Unsupported load type");
++		break;
++	case FIT_FORMAT_NO_LOAD_TYPE:
++		EMB_LOG_ERR("No load type present in the conf");
++		break;
++	case FIT_FORMAT_NO_LOAD_ADDRESS:
++		EMB_LOG_ERR("No load address present in the node");
++		break;
++	case FIT_FORMAT_NO_DATA:
++		EMB_LOG_ERR("No data present in the node");
++		break;
++	case FIT_FORMAT_NO_CONF_NODE:
++		EMB_LOG_ERR("No conf node present in the fit");
++		break;
++	case FIT_FORMAT_NO_PROPERTY:
++		EMB_LOG_ERR("Given property not found in the node");
++		break;
++	case FIT_FORMAT_BAD_SIZE:
++		EMB_LOG_ERR("Property doesn't contain data in proper size");
++		break;
++	default:
++		EMB_LOG_HEX_ERR("unrecognized error value for: fit_format_result (%d)",
++			(unsigned int)errtype);
++		break;
++	}
++}
++
++bool fit_err_is_success(struct fit_error *err)
++{
++	return !err->load && !err->fmt && !err->sec;
++}
++
++void fit_report_error(struct fit_error *err)
++{
++	cpu_boot_err_clrset(BIT_ULL(CPU_BOOT_ERR_FIT_CORRUPTED) |
++			    BIT_ULL(CPU_BOOT_ERR_SECURITY_FAIL), false);
++
++	if (fit_err_is_success(err))
++		return;
++
++	switch (err->load) {
++	case FIT_LOAD_SEC_FAILED:
++		cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);
++		preboot_error_inform(HL_FW_ERR_SECURITY,
++			fwupd_sec_convert_min_error(err->sec));
++		break;
++	default:
++		cpu_boot_err_set(CPU_BOOT_ERR_FIT_CORRUPTED);
++		preboot_error_inform(HL_FW_ERR_FIT, err->load);
++		break;
++	}
++
++	fit_report_oob_err(err->load, err->sec);
++	fit_format_print_error(err->fmt);
++	fit_load_print_error(err->load);
++}
+diff --git a/lib/common/fit_verify.c b/lib/common/fit_verify.c
+new file mode 100644
+index 0000000..1018269
+--- /dev/null
++++ b/lib/common/fit_verify.c
+@@ -0,0 +1,367 @@
++// SPDX-License-Identifier:     GPL-2.0+
++/*
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#include <stdint.h>
++#include <string.h>
++#include <libfdt.h>
++#include <fit_verify.h>
++#include <hl_fw_if.h>
++#include <hl_fit_if.h>
++
++#include <sha.h>
++#include <emb_cmn_log.h>
++
++#ifdef __ZEPHYR__
++LOG_MODULE_REGISTER(fit_verify);
++#endif
++
++#define FIT_MAX_KEY_NAME		64
++#define PREFIX_KEY			"key-"
++#define MAX_FDT_REGIONS			20
++#define HL_SEC_REGIONS_CNT		2
++#define FDT_MIN_SUPPORTED_VERSION	0x11
++
++static bool fit_verified_image_hash;
++/* libfdt is execting pub_key_fit dtb address must be 8 byte aligned. */
++static struct hl_fit_sec_desc fit_sec __aligned(8);
++static uint8_t signature[FIT_SIGNATURE_SIZE];
++
++static const uint8_t *fit_get_node_hash(const void *fit, int node)
++{
++	int hash;
++	const char *prop;
++
++	hash = fdt_subnode_offset(fit, node, HL_FIT_HASH_PROP);
++	if (hash < 0) {
++		EMB_LOG_ERR("Failed to find hash node");
++		return NULL;
++	}
++
++	prop = (const char *)fdt_getprop(fit, hash, HL_FIT_ALGO_PROP, NULL);
++	if (strcmp(prop, HL_FIT_SEC_SHA_NAME)) {
++		EMB_LOG_RAW_ERR("Hash Algorithm is not matching, ");
++		EMB_LOG_RAW("algo = ");
++		EMB_LOG_RAW(prop);
++		EMB_LOG_RAW("\n\r");
++		return NULL;
++	}
++
++	return (const uint8_t *)fdt_getprop(fit, hash, HL_FIT_VALUE_PROP, NULL);
++}
++
++__weak void sha_csum(const unsigned char *input, unsigned int ilen, unsigned char *output) {}
++
++int fit_verify_image_hash(const void *fit, int node, const uint8_t *buf, int len, void *hash)
++{
++	const uint8_t *node_hash;
++	uint8_t calc_hash[SHA_SUM_LEN];
++
++	node_hash = fit_get_node_hash(fit, node);
++	if (!node_hash) {
++		EMB_LOG_ERR("Failed at fetching the hash node");
++		return FIT_FORMAT_NO_PROPERTY;
++	}
++
++	sha_csum(buf, len, calc_hash);
++	if (memcmp(node_hash, calc_hash, SHA_SUM_LEN)) {
++		EMB_LOG_ERR("Hash verification failed for the image");
++		return FIT_SEC_HASH_FAILED;
++	}
++
++	if (hash)
++		memcpy(hash, calc_hash, SHA_SUM_LEN);
++
++	return FIT_SEC_NONE;
++}
++
++static int fit_get_pub_key_node(const void *pub_key_fit, const char *key_name)
++{
++	int sig_node;
++	char key_node_name[FIT_MAX_KEY_NAME] = PREFIX_KEY;
++	size_t key_node_name_len = sizeof(PREFIX_KEY) - 1;
++
++	key_node_name[FIT_MAX_KEY_NAME - 1] = '\0';
++
++	strncpy(key_node_name + key_node_name_len,
++			key_name, FIT_MAX_KEY_NAME - key_node_name_len);
++	/*
++	 * To avoid stack based buffer overflow
++	 * make sure your key string length does not exceed buffer size.
++	 */
++	if (key_node_name[FIT_MAX_KEY_NAME - 1] != '\0')
++		return -1;
++
++	sig_node = fdt_subnode_offset(pub_key_fit, 0, HL_FIT_SIGNATURE_NODENAME);
++
++	return fdt_subnode_offset(pub_key_fit, sig_node, key_node_name);
++}
++
++int fit_get_key_prop(const void *pub_key_fit, const char *key_name,
++		     struct rsa_key_prop *prop)
++{
++	int pub_key_node = 0;
++	int length;
++
++	if (fdt_check_header(pub_key_fit)) {
++		EMB_LOG_ERR("FITkey header check failed");
++		return FIT_FORMAT_HEADER_CHECK_FAILED;
++	}
++
++	pub_key_node = fit_get_pub_key_node(pub_key_fit, key_name);
++	if (pub_key_node < 0) {
++		EMB_LOG_ERR("Wrong FITkey format: no key node");
++		return pub_key_node;
++	}
++
++	prop->num_bits =
++		fit_get_int(pub_key_fit, pub_key_node, "rsa,num-bits", 0);
++	prop->n0inv =
++		fit_get_int(pub_key_fit, pub_key_node, "rsa,n0-inverse", 0);
++	prop->public_exponent =
++		fdt_getprop(pub_key_fit, pub_key_node, "rsa,exponent", &length);
++	if (!prop->public_exponent || length < sizeof(uint64_t))
++		prop->public_exponent = NULL;
++	prop->modulus =
++		fdt_getprop(pub_key_fit, pub_key_node, "rsa,modulus", NULL);
++	prop->rr =
++		fdt_getprop(pub_key_fit, pub_key_node, "rsa,r-squared", NULL);
++
++	if (!prop->num_bits || !prop->modulus) {
++		EMB_LOG_ERR("FIT: missing RSA Key");
++		return FIT_FORMAT_NO_PROPERTY;
++	}
++
++	return FIT_FORMAT_SUCCESS;
++}
++
++static int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,
++			      size_t sec_desc_size, const void *pub_key_fit,
++			      const uint8_t *sig, size_t sig_len)
++{
++	const char *key_name = HL_FIT_SEC_KEY_NAME;
++	struct rsa_key_prop prop;
++	struct image_region region[HL_SEC_REGIONS_CNT];
++
++	if (fit_get_key_prop(pub_key_fit, key_name, &prop))
++		return 1;
++
++	/*
++	 * region 0 holds the fit image as a whole,
++	 * region 1 holds the hl security descriptor
++	 */
++	region[0].data = img;
++	region[0].size = img_size;
++	region[1].data = sec_desc;
++	region[1].size = sec_desc_size;
++
++	return rsa_verify_regions(region, HL_SEC_REGIONS_CNT, sig, sig_len, &prop);
++}
++
++int fit_verify_security_footer(const void *img, size_t img_size, enum fit_sec_failure *res)
++{
++	const void *fit_sec_off;
++	const void *pub_key_fit;
++
++	/* hl fit files are padded so the size is 4 bytes aligned */
++	img_size = ROUND_UP4(img_size);
++
++	if (!security_img_validation_is_enabled())
++		return 0;
++
++	/* security descriptor is at the footer of the image */
++	fit_sec_off = (const void *)((uint8_t *)img + img_size);
++
++	/* check that the calculated memory range are legal */
++	if (!security_sram_is_valid_address_range((uintptr_t)fit_sec_off,
++						 sizeof(fit_sec))) {
++		EMB_LOG_ERR("Invalid address range");
++		return 1;
++	}
++
++	memcpy(&fit_sec, fit_sec_off, FIT_SEC_DESC_SIZE);
++
++	if (fit_sec.magic_number != FIT_SEC_MAGIC) {
++		EMB_LOG_ERR("Bad magic, security descriptor not found");
++		return 1;
++	}
++
++	if ((fit_sec.desc_version_maj != FIT_SEC_DESC_VER_MAJOR) ||
++	    (fit_sec.desc_version_min != FIT_SEC_DESC_VER_MINOR)) {
++		EMB_LOG_ERR("security descriptor version mismatch");
++		return 1;
++	}
++
++	if (fit_sec.desc_size < FIT_SEC_DESC_SIZE) {
++		EMB_LOG_ERR("security descriptor size too small");
++		return 1;
++	}
++
++	if (fit_sec.img_size != img_size) {
++		EMB_LOG_ERR("image size mismatch with security descriptor");
++		return 1;
++	}
++
++	if (!security_validate_svn(fit_sec.sec_version)) {
++		EMB_LOG_ERR("security descriptor svn not valid");
++		*res = FIT_SEC_SVN_INVALID;
++		return 1;
++	}
++
++	if (security_validate_key_idx(fit_sec.key_num)) {
++		EMB_LOG_HEX_ERR("Key revoked: ", fit_sec.key_num);
++		*res = FIT_SEC_KEY_REVOKED;
++		return 1;
++	}
++
++	pub_key_fit = &fit_sec.pub_key;
++
++	if (!security_validate_pub_key(fit_sec.key_num, pub_key_fit,
++				       FIT_PUB_KEY_SIZE, NULL, 0)) {
++		EMB_LOG_ERR("Public Key validation failed");
++		*res = FIT_SEC_SIGN_FAILED;
++		return 1;
++	}
++
++	/*
++	 * signature is calculated on both the fit image and the security
++	 * descriptor with the signature field of the descriptor zeroized.
++	 */
++	memcpy(signature, fit_sec.signature, FIT_SIGNATURE_SIZE);
++	memset(fit_sec.signature, 0, FIT_SIGNATURE_SIZE);
++
++	if (fit_verify_img_sig(img, img_size, &fit_sec, FIT_SEC_DESC_SIZE,
++			       pub_key_fit, signature, FIT_SIGNATURE_SIZE)) {
++		EMB_LOG_ERR("image signature verification failed");
++		*res = FIT_SEC_SIGN_FAILED;
++		return 1;
++	}
++
++	security_store_svn_into_fw_info(fit_sec.sec_version);
++	security_store_key_index_into_fw_info(fit_sec.key_num);
++	security_store_key_index_into_boot_info(fit_sec.key_num);
++
++	return 0;
++}
++
++static bool fit_load_is_secured(const void *fit)
++{
++	int err;
++	uint32_t load_type;
++	struct fit_error fit_err;
++	bool is_secured = false;
++	size_t fit_size = fdt_totalsize(fit);
++
++	err = fit_get_load_type(fit, &load_type, &fit_err);
++	if (err) {
++		is_secured = true;
++		goto tpm_pcr_extend;
++	}
++
++	switch (load_type) {
++	case FIT_LOAD_TYPE_RUN:
++	case FIT_LOAD_TYPE_RUN_N_EXTEND:
++	case FIT_LOAD_TYPE_NIC_EN_MASK:
++		is_secured = true;
++		break;
++	default:
++		is_secured = false;
++		break;
++	}
++
++tpm_pcr_extend:
++	if (is_secured)
++		if (security_is_tpm_ext_req(load_type))
++			security_ext_tpm_pcr(fit, fit_size);
++
++	return is_secured;
++}
++
++int fit_verify(void *fit, struct fit_error *err)
++{
++	int node, ret;
++	int conf, num_images, i;
++	const u8 *buf;
++	size_t fit_size = fdt_totalsize(fit);
++	size_t len;
++
++	err->fmt = fit_check_format(fit);
++	if (err->fmt) {
++		err->load = FIT_LOAD_CORRUPTED;
++		return err->load;
++	}
++
++	/* Check if image supports a minimum FDT version or newer */
++	if (fdt_version(fit) < FDT_MIN_SUPPORTED_VERSION) {
++		err->load = FIT_LOAD_SEC_FAILED;
++		err->sec = FIT_SEC_NONE;
++		return err->sec;
++	}
++
++	/* check provided fit_size is inside the bounds */
++	if (!security_is_valid_address_range((uintptr_t)fit, fit_size)) {
++		err->load = FIT_LOAD_SEC_FAILED;
++		err->sec = FIT_SEC_NONE;
++		return 1;
++	}
++
++	/* Get number of images in preboot configuration */
++	ret = fit_get_conf_offset_and_num_of_loadables(fit, &conf, &num_images);
++	if (ret || (conf < 0)) {
++		err->load = FIT_LOAD_CORRUPTED;
++		err->sec = FIT_SEC_NONE;
++		return 1;
++	}
++
++	if (num_images > FIT_MAX_IMAGES) {
++		EMB_LOG_HEX_ERR("Images in fit exceeds max limit: ", FIT_MAX_IMAGES);
++		err->load = FIT_LOAD_CORRUPTED;
++		return 1;
++	} else if (num_images < 0) {
++		EMB_LOG_HEX_ERR("Cant read images from fit: ", -num_images);
++		err->load = FIT_LOAD_CORRUPTED;
++		return 1;
++	}
++
++	if (!fit_load_is_secured(fit))
++		return 0; /* Nothing more to check */
++
++	if (fit_verify_security_footer(fit, fit_size, &err->sec)) {
++		err->load = FIT_LOAD_SEC_FAILED;
++		return 1;
++	}
++
++	for (i = 0; i < num_images; i++) {
++		node = fit_get_loadable_node_offset_by_index(fit, conf, i);
++		if (node < 0) {
++			EMB_LOG_HEX_ERR("Wrong FIT format: loadable image not found: ", i);
++			err->load = FIT_LOAD_NOT_RUNNABLE;
++			return 1;
++		}
++
++		ret = fit_get_data_from_offset(fit, node, (const void **)&buf, &len);
++		if (ret || (!buf)) {
++			EMB_LOG_HEX_ERR("Wrong FIT format: data empty for image: ", i);
++			err->load = FIT_LOAD_CORRUPTED;
++			return 1;
++		}
++
++		if (fit_verify_image_hash(fit, node, buf, len, NULL)) {
++			EMB_LOG_HEX_ERR("FIT loadable currupted: bad hash for image: ", i);
++			err->load = FIT_LOAD_CORRUPTED;
++			return 1;
++		}
++	}
++
++	fit_verified_image_hash = true;
++
++	return 0;
++}
++
++bool fit_is_image_hash_verified(void)
++{
++	return fit_verified_image_hash;
++}
+diff --git a/lib/preboot/security.c b/lib/preboot/security.c
+new file mode 100644
+index 0000000..66073ba
+--- /dev/null
++++ b/lib/preboot/security.c
+@@ -0,0 +1,107 @@
++// SPDX-License-Identifier:     GPL-2.0+
++/*
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ * NOTE: This security file is common between Zephyr-apps/preboot
++ *       and eROM/ppboot (baremetal).
++ */
++
++#ifdef __ZEPHYR__
++#include <preboot.h>
++#else
++#include <baremetal.h>
++#endif
++
++#include <hl_fw_if.h>
++#include <fit_verify.h>
++
++__weak bool preboot_security_key_is_valid(int key_idx, const void *pub_key, int pub_key_len,
++					  const void *pub_key_ext, int pub_key_ext_len)
++{
++	return false;
++}
++
++__weak bool preboot_img_validation_is_enabled(void)
++{
++	return false;
++}
++
++__weak bool preboot_security_key_is_revoked(int key_idx)
++{
++	return false;
++}
++
++__weak void preboot_security_boot_info_write_key_idx(uint32_t *key_idx) {}
++
++__weak bool preboot_is_fit_tpm_extend_required(uint32_t load_type)
++{
++	return false;
++}
++
++__weak void preboot_extend_fit_tpm_pcr(const void *img, size_t img_size) {}
++
++
++
++
++bool security_is_tpm_ext_req(uint32_t load_type)
++{
++	return preboot_is_fit_tpm_extend_required(load_type);
++}
++
++void security_ext_tpm_pcr(const void *img, size_t img_size)
++{
++	preboot_extend_fit_tpm_pcr(img, img_size);
++}
++
++bool security_is_valid_address_range(uint64_t fit_addr, size_t len)
++{
++	return preboot_is_valid_address_range(fit_addr, len);
++}
++
++bool security_sram_is_valid_address_range(uint64_t fit_addr, size_t len)
++{
++	return preboot_sram_is_valid_address_range(fit_addr, len);
++}
++
++
++
++bool security_img_validation_is_enabled(void)
++{
++	return preboot_img_validation_is_enabled();
++}
++
++bool security_validate_svn(int sec_version)
++{
++	return preboot_security_svn_is_valid(sec_version);
++}
++
++bool security_validate_key_idx(int key_idx)
++{
++	return preboot_security_key_is_revoked(key_idx);
++}
++
++bool security_validate_pub_key(int key_idx, const void *pub_key,
++			       int pub_key_len, const void *pub_key_ext,
++			       int pub_key_ext_len)
++{
++	return preboot_security_key_is_valid(key_idx, pub_key, pub_key_len,
++					     pub_key_ext, pub_key_ext_len);
++}
++
++
++
++void security_store_svn_into_fw_info(int sec_version)
++{
++	fw_info.sec_curr_svn = sec_version;
++}
++
++void security_store_key_index_into_fw_info(int key_idx)
++{
++	fw_info.sec_curr_key = key_idx;
++}
++
++void security_store_key_index_into_boot_info(int key_idx)
++{
++	preboot_security_boot_info_write_key_idx((uint32_t *)&key_idx);
++}

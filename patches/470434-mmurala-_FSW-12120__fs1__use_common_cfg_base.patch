@@ -1,0 +1,35 @@
+From c69a8e1814815669ae73e44ff6f67776ca88cdd8 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Wed, 22 Jan 2025 18:00:52 +0200
+Subject: [PATCH] [FSW-12120] fs1: use common cfg base
+
+With this patch removed duplicate cfg base
+declaration, used from embedded specs.
+
+Change-Id: I481546be2a8a3398fc3f464811f3ef04a4fb93b5
+---
+
+diff --git a/arch/fs1/arc/common.h b/arch/fs1/arc/common.h
+index 09a32d7..502639d 100644
+--- a/arch/fs1/arc/common.h
++++ b/arch/fs1/arc/common.h
+@@ -18,7 +18,6 @@
+ 
+ /* CFG is at Arc region F, specs CFG base address is 0x70000000. 7+8 = 0xF */
+ /* defined here in addition to specs because they are in use im common code */
+-#define HL_CFG_BASE			0x80000000
+ #define FW_MEM_REGION_BASE		0x78800000 /* IO Die0 Half0 FW memories */
+ #define FW_SRAM_BASE			(FW_MEM_REGION_BASE + 0x1A0000)
+ #define SP_SRAM_BASE			(FW_MEM_REGION_BASE + 0x200000)
+diff --git a/include/baremetal.h b/include/baremetal.h
+index f6f07c4..820adac 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -8,6 +8,7 @@
+ #ifndef COMMON_PREBOOT_H_
+ #define COMMON_PREBOOT_H_
+ 
++#include <address_space.h>
+ #include <common.h>
+ #include <sizes.h>
+ 

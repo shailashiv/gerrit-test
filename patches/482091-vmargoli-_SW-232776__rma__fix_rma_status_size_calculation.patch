@@ -1,0 +1,79 @@
+From c2e4a7664a02ca40ce23c260c7de084f1ff89c28 Mon Sep 17 00:00:00 2001
+From: Vitaly Margolin <vmargolin@habana.ai>
+Date: Thu, 19 Jun 2025 14:31:45 +0300
+Subject: [PATCH] [SW-232776] rma: fix rma status size calculation
+
+Fix wrong RMA status result FIT size
+calculation. In order to calculate it
+properly, we have to read all RMA
+tables from flash and calculate total
+result size before result FIT allocation
+
+Change-Id: I36fac6f7d020ed4329e91d349554da4487a97d69
+Signed-off-by: Vitaly Margolin <vmargolin@habana.ai>
+---
+
+diff --git a/fw-loader/src/fit_loader.c b/fw-loader/src/fit_loader.c
+index be5a791..05dddc0 100644
+--- a/fw-loader/src/fit_loader.c
++++ b/fw-loader/src/fit_loader.c
+@@ -1123,9 +1123,9 @@
+ static int fit_load_rma_status(const void *fit, int conf)
+ {
+ 	const char *stage;
+-	int err, i, rma_err, resp_size;
+-	size_t size;
+-	uint8_t *rma_table;
++	int err, i, rma_err, resp_size = 0;
++	size_t size[ARRAY_SIZE(rma_fit_node_name)];
++	uint8_t *rma_table[ARRAY_SIZE(rma_fit_node_name)];
+ 	const struct device *flash;
+ 	void *res_fit;
+ 
+@@ -1136,8 +1136,19 @@
+ 		goto load_fit_rma_st_err;
+ 	}
+ 
++	stage = "populate response";
++	for (i = 0; i < ARRAY_SIZE(rma_fit_node_name); i++) {
++		rma_err = rma_info_get(flash, i, &rma_table[i], &size[i]);
++		if (rma_err)
++			rma_table[i] = NULL;
++	}
++
+ 	/* Response will contain ARRAY_SIZE(rma_fit_node_name) + 1 properties */
+-	resp_size = HL_FIT_SIMPLE_PROP_SIZE * (ARRAY_SIZE(rma_fit_node_name) + 1);
++	for (i = 0; i < ARRAY_SIZE(rma_fit_node_name); i++)
++		if (rma_table[i])
++			resp_size += (HL_FIT_SIMPLE_PROP_SIZE + size[i]);
++
++	resp_size += HL_FIT_SIMPLE_PROP_SIZE;
+ 	res_fit = fwupd_fit_rel_and_resp_fit_alloc(resp_size, &stage, &err);
+ 	if (!res_fit)
+ 		goto load_fit_rma_st_err;
+@@ -1148,19 +1159,19 @@
+ 		goto load_fit_rma_st_err;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(rma_fit_node_name); i++) {
+-		rma_err = rma_info_get(flash, i, &rma_table,
+-					   &size);
+-		if (!rma_err) {
+-			stage = "populate response";
++		if (rma_table[i]) {
+ 			err = fdt_property(res_fit, rma_fit_node_name[i],
+-					   rma_table, size);
+-			rma_info_free(rma_table);
++					   rma_table[i], size[i]);
+ 			if (err)
+ 				goto load_fit_rma_st_err;
+ 		}
+ 	}
+ 
+ load_fit_rma_st_err:
++	for (i = 0; i < ARRAY_SIZE(rma_fit_node_name); i++)
++		if (rma_table[i])
++			rma_info_free(rma_table[i]);
++
+ 	if (err)
+ 		LOG_ERR("Get RMA status, %s failed: %d", stage, err);
+ 

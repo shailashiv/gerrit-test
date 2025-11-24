@@ -1,0 +1,30 @@
+From 3f0693b556d872f04af379dd9fc9d6aca7c60e4b Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Thu, 19 Jun 2025 20:14:51 +0300
+Subject: [PATCH] [SW-232549] g3: clear ipm msg on timeout
+
+If a software interrupt is missed, the message remains in the mailbox
+and is never cleared by the management firmware, leading to a complete
+IPM stall. This fix ensures that, in the event
+of a timeout, msg id is explicitly cleared maintain normal operation.
+
+Change-Id: I1fd613fa7cea3103c76fd67f64d11d9c2df5b67d
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/arch/gaudi3/device.c b/arch/gaudi3/device.c
+index 4f572b8..eb8a8d4 100644
+--- a/arch/gaudi3/device.c
++++ b/arch/gaudi3/device.c
+@@ -259,8 +259,10 @@
+ 			break;
+ 		}
+ 
+-		if (raw_msg_id != HL_MBX_MSG_CHECK_ALIVE)
++		if (raw_msg_id != HL_MBX_MSG_CHECK_ALIVE) {
+ 			LOG_ERR("Timedout waiting for message id: %d", raw_msg_id);
++			ipm_clear(mbx->dev, mbx_msg_id.u32);
++		}
+ 	}
+ 
+ 	k_sched_unlock();

@@ -1,0 +1,71 @@
+From 55c175c07fb05b6fa5ac3e14f8c31f0618e477de Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Sun, 07 Apr 2024 15:16:57 +0300
+Subject: [PATCH] [SW-181540] ubuntu22: add UEFI bios (for PLDM)
+
+Change-Id: I3eb3d64e8305973e976d0abcd928106409625b76
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+
+[SW-181540] ubuntu22: add UEFI bios (for PLDM)
+
+Change-Id: Ia285289a94d24223bb857b6110829cbc5dc204b3
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/templates/base/ubuntu/ubuntu22.04.json b/templates/base/ubuntu/ubuntu22.04.json
+index f5506cb..42e50b5 100644
+--- a/templates/base/ubuntu/ubuntu22.04.json
++++ b/templates/base/ubuntu/ubuntu22.04.json
+@@ -1,4 +1,4 @@
+ {
+     "name": "ubuntu22.04",
+-    "base_box_name": "os/ubuntu/ubuntu22.04-libvirt-202206.13.0.box"
++    "base_box_name": "os/ubuntu/ubuntu22.04-libvirt-20240409.1629.box"
+ }
+\ No newline at end of file
+diff --git a/templates/packer-template.json b/templates/packer-template.json
+index 7a4e803..d0f3572 100644
+--- a/templates/packer-template.json
++++ b/templates/packer-template.json
+@@ -78,7 +78,7 @@
+                 "-vv",
+                 "--extra-vars",
+                 "ansible_python_interpreter=auto"
+-            ]
++                ]
+         },
+         {
+             "only": [
+diff --git a/templates/vagrant-template.rb b/templates/vagrant-template.rb
+index d7696f6..8b66a8b 100644
+--- a/templates/vagrant-template.rb
++++ b/templates/vagrant-template.rb
+@@ -5,12 +5,24 @@
+     source.vm.provider :libvirt do |domain|
+       domain.memory = 4096
+       domain.cpus = 4
++      if source.vm.box.include?("22.04")
++        domain.loader = '/usr/share/OVMF/OVMF_CODE_4M.fd'
++        domain.nvram = '/var/lib/libvirt/qemu/nvram/OVMF_VARS_4M.fd'
++      end
+     end
+   end
+-  config.vm.define "output" do |output|
+-	output.vm.box = "{{.BoxName}}"
+-	output.vm.box_url = "file://package.box"
+-	config.ssh.insert_key = false
++    config.vm.define "output" do |output|
++    output.vm.box = "{{.BoxName}}"
++    output.vm.box_url = "file://package.box"
++    config.ssh.insert_key = false
++    output.vm.provider :libvirt do |destination|
++      destination.memory = 4096
++      destination.cpus = 4
++      if destination.vm.box.include?("22.04")
++        destination.loader = '/usr/share/OVMF/OVMF_CODE_4M.fd'
++        destination.nvram = '/var/lib/libvirt/qemu/nvram/OVMF_VARS_4M.fd'
++      end
++    end
+   end
+   {{ if ne .SyncedFolder "" -}}
+   		config.vm.synced_folder "{{.SyncedFolder}}", "/vagrant"

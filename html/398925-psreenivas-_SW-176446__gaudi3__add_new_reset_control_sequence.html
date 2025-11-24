@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 398925: [SW-176446] gaudi3: add new reset control sequence</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 398925: [SW-176446] gaudi3: add new reset control sequence</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> soc_init</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Pavan Sreenivas &lt;psreenivas@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-02-27 08:39:37.967000000</p>
+            <p><strong>Updated:</strong> 2025-06-02 12:03:05.637000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-176446] gaudi3: add new reset control sequence
+
+This patch adds new reset sequence in soc init which
+will be called by arcmgmt in hw init. The new reset
+sequence is as per the embedded PRM.
+
+Signed-off-by: Pavan S &lt;psreenivas@habana.ai&gt;
+Change-Id: I7bfc18e5fe035fd69782aa868d46835408d46347
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Sailaja Bandarupalli: +0, Abhishek Patgaonkar: +0, Subrata Chatterjee: +0, Noam Camus: +0, Igal Zeltser: +0, Jenkins EMB Service Account: +0, Akshay Pradip Bharad: +0, Sanyog Kale: +0, Pavan Sreenivas: +0</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>include/gaudi3/hl_noc_cfg_defs.h</code> (M) +1 -0</li><li><code>src/gaudi3/rst_ctrl.c</code> (A) +195 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/include/gaudi3/hl_noc_cfg_defs.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -22,5 +22,6 @@</span>
+<span class="diff-ctx"> void gaudi3_init_cache(const struct hl_noc_cfg_info *cfg);</span>
+<span class="diff-ctx"> void gaudi3_init_mc(const struct hl_noc_cfg_info *cfg);</span>
+<span class="diff-ctx"> void gaudi3_init_axiovrd(const struct hl_noc_cfg_info *cfg);</span>
+<span class="diff-add">+void gaudi3_rst_ctrl_init(void);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #endif /* NOC_CFG_INCLUDE_GAUDI3_HL_NOC_CFG_DEFS_H_ */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..2eb6bd6</span>
+<h4 class="diff-filename">b/src/gaudi3/rst_ctrl.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,195 @@</span>
+<span class="diff-add">+// SPDX-License-Identifier: Apache-2.0</span>
+<span class="diff-add">+/*</span>
+<span class="diff-add">+ * Copyright 2024 HabanaLabs, Ltd.</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &lt;psoc_reset_conf_regs.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_platform_defs.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_noc_cfg_defs.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_fw_if.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+/* The registers in the array are as per the reset control sequence */</span>
+<span class="diff-add">+static const uint32_t rst_ctrl[] = {</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PSOC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ARC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ARC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ARC_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_RRTR_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_RRTR_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_RRTR_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_RRTR_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DRTR_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_QMAN_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NIC_PRT_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PDMA_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SCHED_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SCHED_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SCHED_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SCHED_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SM_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SM_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SM_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_SM_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NCH_FT_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PCIE_IF_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NRTR_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_CPU_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PMMU_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_NCH_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_D2D_FT_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_GRTR_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_CS_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_CS_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_CS_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_CS_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PCIE_CTRL_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PCIE_PHY_CFG_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_DIV_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_DIV_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_DIV_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_DIV_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_DIV_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PM_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PM_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PM_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PM_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_IF_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_IF_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_IF_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TSTDVS_IF_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_DPHY_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_D2D_MAC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_D2D_MAC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_PSOC_ARC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_6_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_7_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_8_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_9_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_10_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_11_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_12_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_13_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_14_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_15_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_16_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_17_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_18_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_19_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_20_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_21_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_22_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_PLL_23_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MME_EUS_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MME_EUS_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MME_EUS_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MME_EUS_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MSS_CLS_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MSS_CLS_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MSS_CLS_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_MSS_CLS_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_6_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_7_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_8_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_9_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_10_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_11_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_12_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_13_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_14_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_15_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_16_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_17_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_18_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_19_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_20_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_21_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_22_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_23_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_24_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_25_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_26_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_27_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_28_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_29_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_30_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_31_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_ECLS_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_TPC_ECLS_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_STLB_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_STLB_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_STLB_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_STLB_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_EDMA_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_EDMA_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ROTATOR_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ROTATOR_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ROTATOR_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_ROTATOR_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_3_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_4_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_5_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_6_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_VIDEO_DEC_7_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_MC_0_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_MC_1_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_MC_2_CLK_RST_CTRL,</span>
+<span class="diff-add">+	mmPSOC_RESET_CONF_HBM_MC_3_CLK_RST_CTRL</span>
+<span class="diff-add">+};</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void gaudi3_rst_ctrl_init(void)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	uint32_t iter;</span>
+<span class="diff-add">+	uint8_t sku = hl_get_sku_type();</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	for (iter = 0; iter &lt; ARRAY_SIZE(rst_ctrl); iter++) {</span>
+<span class="diff-add">+		CFG_WREG32(D0_PSOC_RESET_CONF_REG(rst_ctrl[iter]), iter);</span>
+<span class="diff-add">+		if (sku == HL_DUAL_DIE_SKU)</span>
+<span class="diff-add">+			CFG_WREG32(D1_PSOC_RESET_CONF_REG(rst_ctrl[iter]), iter);</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+}</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-02-27 08:39:37.967000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 08:39:48.861000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1271/ (1/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-02-27 08:46:53.118000000)</span><pre>Topic set to g3_reset</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 08:47:26.474000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/760/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 08:47:26.474000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/701/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 10:03:23.298000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/701/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/760/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1271/ : SUCCESS</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-02-27 10:08:03.412000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 10:08:10.995000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1276/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 10:15:15.665000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/765/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 10:15:15.670000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/706/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-27 11:36:04.149000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/706/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/765/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1276/ : SUCCESS</pre></div><div class="message"><strong>Sanyog Kale</strong> <span class="date">(2024-02-28 13:50:53.317000000)</span><pre>Patch Set 2:
+
+(1 comment)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-03-04 06:45:58.421000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-04 06:46:21.336000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2087/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-04 06:57:42.456000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/1396/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-04 06:57:42.668000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/1355/ (2/3)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-03-04 09:37:46.818000000)</span><pre>Uploaded patch set 4.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-04 09:56:45.947000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/1355/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/6392/ )</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-03-06 11:37:40.656000000)</span><pre>Patch Set 2:
+
+(1 comment)</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2024-03-06 11:41:54.228000000)</span><pre>Patch Set 4:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-06 11:42:00.414000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2543/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-06 13:42:50.207000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/1650/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-06 13:42:50.237000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/1750/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-06 13:47:25.509000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/1750/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/1750/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/1650/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/1650/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2543/ : FAILURE
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2543/ )
+
+missing file, command or package [Component/s:CI-CD Support, DevOps]
+ ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2543/ )
+
+runShellCommand: Failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/2543/ )</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>src/gaudi3/rst_ctrl.c</h4><ul><li><strong>Sanyog Kale</strong> (Line 190): we need check for num dies and then access D1 registers.</li><li><strong>Pavan Sreenivas</strong> (Line 190): Done</li></ul></div></div>
+    </div>
+</body>
+</html>

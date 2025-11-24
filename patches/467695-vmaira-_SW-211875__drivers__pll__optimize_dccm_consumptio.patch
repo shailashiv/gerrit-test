@@ -1,0 +1,114 @@
+From a48235417087f04667f5f5faca7673dc9db4d5dc Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Thu, 26 Dec 2024 12:02:45 +0200
+Subject: [PATCH] [SW-211875] drivers: pll: optimize dccm consumption
+
+Currently, for gaudi3 arcpid dccm is short of few tens of bytes before
+overflowing. This patch reduces the number of bytes used to store
+'div sel'. The div sel value ranges from 0 to 3, representing ref clk,
+divided ref clk, pll clock and divided pll clock. Since, 1 byte is
+sufficient to hold the div sel value, this patch changes the type of
+div sel from uint32_t to uint8_t.
+
+Change-Id: Ibc9b8d4ca8236b42e95942b49a79fa11b3b35f08
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/drivers/clock_control/clock_control_hl_pll.c b/drivers/clock_control/clock_control_hl_pll.c
+index add39fc..2c9a940 100644
+--- a/drivers/clock_control/clock_control_hl_pll.c
++++ b/drivers/clock_control/clock_control_hl_pll.c
+@@ -245,7 +245,7 @@
+ 
+ static void hl_pll_clk_switch(const struct device *dev, bool bypass, uint32_t idx)
+ {
+-	uint32_t sel;
++	uint8_t sel;
+ 	const struct hl_pll_drv_cfg_info *const config = DEV_CFG(dev);
+ 	volatile struct hl_pll_regs *reg_base = (struct hl_pll_regs *)(config->base[idx]);
+ 	struct hl_pll_drv_data * const data = DEV_DATA(dev);
+@@ -448,14 +448,15 @@
+ static int hl_pll_get_cfg(const struct device *dev, enum hl_pll_div_out div,
+ 				struct hl_pll_cfg *cfg)
+ {
+-	uint32_t reg_val, div_sel, factor;
++	uint8_t div_sel;
++	uint32_t reg_val, factor;
+ 	const struct hl_pll_drv_cfg_info *const config = DEV_CFG(dev);
+ 	/* Retrieve PLL rate of 1st reg address stored in base address array */
+ 	volatile struct hl_pll_regs *reg_base = (struct hl_pll_regs *)(config->base[0]);
+ 	uint64_t rate;
+ 
+ 	rate = SYS_REF_CLOCK;
+-	div_sel = sys_read32((mem_addr_t) &reg_base->div_sel[div]);
++	div_sel = (uint8_t)sys_read32((mem_addr_t) &reg_base->div_sel[div]);
+ 	reg_val = sys_read32((mem_addr_t) &reg_base->cfg_div);
+ 	hl_pll_parse_cfg_div(reg_val, cfg);
+ 
+@@ -593,14 +594,14 @@
+ static int hl_pll_switch_clk(const struct device *dev, bool no_wait,
+ 							  bool bypass, uint32_t idx)
+ {
+-	int32_t sel, div_sel, div_sel_new = HL_PLL_REF_CLK;
++	uint8_t sel, div_sel, div_sel_new = HL_PLL_REF_CLK;
+ 	const struct hl_pll_drv_cfg_info *const config = DEV_CFG(dev);
+ 	volatile struct hl_pll_regs *reg_base = (struct hl_pll_regs *)(config->base[idx]);
+ 	struct hl_pll_drv_data * const data = DEV_DATA(dev);
+ 
+ 	for (sel = 0; sel < DEV_CFG(dev)->div_num; sel++) {
+ 		if (bypass) {
+-			div_sel = sys_read32((mem_addr_t) &reg_base->div_sel[sel]);
++			div_sel = (uint8_t)sys_read32((mem_addr_t) &reg_base->div_sel[sel]);
+ 		} else {
+ 			div_sel = div_sel_new = data->div_sel_val[sel];
+ 		}
+@@ -611,7 +612,7 @@
+ 			/* no break */
+ 		case HL_PLL_PLL_CLK:
+ 		case HL_PLL_DIV_REF:
+-			sys_write32(div_sel_new, (mem_addr_t) &reg_base->div_sel[sel]);
++			sys_write32((uint32_t)div_sel_new, (mem_addr_t) &reg_base->div_sel[sel]);
+ 			break;
+ 		case HL_PLL_REF_CLK:
+ 		default:
+@@ -721,7 +722,7 @@
+ 		cfg.postdiv2 = config->coefficients[3];
+ 
+ 		for (i = 0; i < config->div_num; i++) {
+-			data->div_sel_val[i] = config->div_sel[i];
++			data->div_sel_val[i] = (uint8_t)config->div_sel[i];
+ 		}
+ 
+ 		ret = hl_pll_set(dev, &cfg);
+@@ -731,7 +732,8 @@
+ 		}
+ 	} else {
+ 		for (i = 0; i < config->div_num; i++) {
+-			data->div_sel_val[i] = sys_read32((mem_addr_t) &reg_base->div_sel[i]);
++			data->div_sel_val[i] =
++				(uint8_t)sys_read32((mem_addr_t) &reg_base->div_sel[i]);
+ 		}
+ 		HL_PLL_DBG("HL PLL: %s initialization skipped",
+ 					DEV_CFG(dev)->name);
+@@ -1065,7 +1067,7 @@
+ 	for (sel = 0; sel < HL_PLL_DIV_SIZE; sel++) {
+ 		if (pll_cc->div_sel_val[sel] >= HL_PLL_REF_CLK &&
+ 		    pll_cc->div_sel_val[sel] <= HL_PLL_DIV_PLL)
+-			data->div_sel_val[sel] = pll_cc->div_sel_val[sel];
++			data->div_sel_val[sel] = (uint8_t)pll_cc->div_sel_val[sel];
+ 	}
+ 
+ 	return 0;
+diff --git a/include/drivers/clock_control/hl_pll.h b/include/drivers/clock_control/hl_pll.h
+index d09e2d2..26d05ad 100644
+--- a/include/drivers/clock_control/hl_pll.h
++++ b/include/drivers/clock_control/hl_pll.h
+@@ -47,7 +47,7 @@
+ };
+ 
+ struct hl_pll_drv_data {
+-	uint32_t div_sel_val[HL_PLL_DIV_SIZE];
++	uint8_t div_sel_val[HL_PLL_DIV_SIZE];
+ 	uint8_t num_dies;
+ 	struct k_mutex lock;
+ 	bool skip_init;

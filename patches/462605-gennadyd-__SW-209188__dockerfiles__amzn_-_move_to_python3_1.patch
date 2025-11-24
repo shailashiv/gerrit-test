@@ -1,0 +1,87 @@
+From 86c51a41edd2d606e8b6829d3bf98aff62efb050 Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Sun, 17 Nov 2024 14:32:15 +0200
+Subject: [PATCH]  [SW-209188] dockerfiles: amzn - move to python3.10
+
+Change-Id: I9703bb749c554330bbd05f85368a58f559304d0f
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/dockerfiles/base/Dockerfile.amzn2 b/dockerfiles/base/Dockerfile.amzn2
+index 249898d..7f35c1f 100644
+--- a/dockerfiles/base/Dockerfile.amzn2
++++ b/dockerfiles/base/Dockerfile.amzn2
+@@ -42,6 +42,10 @@
+ RUN yum groupinstall -y "Development Tools"
+ RUN yum install -y sudo system-lsb-core cmake
+ 
++COPY install-python310.sh .
++RUN ./install-python310.sh amzn2 && rm install-python310.sh
++ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
++
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+ 
+@@ -74,12 +78,6 @@
+     rm -f /etc/yum.repos.d/habanalabs.repo && \
+     yum clean all && rm -rf /var/cache/yum
+ 
+-# Update only python3 alternatives as yum doesn't support python3
+-# Updating alternatives for python to point python3.8 will break yum
+-# habanalabs-thunk is installing python3.7 - this is why this layer is here
+-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2 && \
+-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
+-
+ # SSH configuration necessary to support mpi-operator v2 and multi box comunications without configuration
+ RUN sed -i 's/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g' /etc/ssh/ssh_config && \
+     sed -i 's/[ #]\(.*ForwardAgent \).*/ \1yes/g' /etc/ssh/ssh_config && \
+@@ -105,7 +103,7 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==23.0.1 setuptools==65.5.0 wheel==0.45.0
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/install-python310.sh b/dockerfiles/base/install-python310.sh
+index 281e996..5ff5405 100755
+--- a/dockerfiles/base/install-python310.sh
++++ b/dockerfiles/base/install-python310.sh
+@@ -33,7 +33,7 @@
+         _SSL_LIB="--with-openssl=/usr/local/openssl-1.1.1w"
+     ;;
+     *amzn2*)
+-        yum install -y sqlite-devel readline-devel
++        yum install -y sqlite-devel readline-devel libffi libffi-devel
+         wget -nv -O /opt/openssl-1.1.1w.tar.gz https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz && \
+             cd /opt/ && \
+             tar xzf openssl-1.1.1w.tar.gz && \
+@@ -81,9 +81,9 @@
+         export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+     ;;
+     *amzn2*)
+-        update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 3 && \
+-        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2 && \
+-        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
++        update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 2 && \
++        update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
++        export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+     ;;
+     *debian*)
+         update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 3
+diff --git a/tests/common/hl-common.sh b/tests/common/hl-common.sh
+index ebf88fc..f096779 100755
+--- a/tests/common/hl-common.sh
++++ b/tests/common/hl-common.sh
+@@ -13,8 +13,8 @@
+         fi
+     ;;
+     amzn)
+-        __DEFAULT_HL_PYTHON_CMD="python3.8"
+-        __DEFAULT_HL_PIP_CMD="pip3.8"
++        __DEFAULT_HL_PYTHON_CMD="python3.10"
++        __DEFAULT_HL_PIP_CMD="pip3.10"
+     ;;
+     rhel)
+         if [ "$HL_OS_VER" == "9.4" ]; then

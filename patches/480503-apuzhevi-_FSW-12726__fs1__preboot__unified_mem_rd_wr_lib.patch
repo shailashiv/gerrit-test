@@ -1,0 +1,98 @@
+From 1fe1ac88597bde0fa3d27eaa6ce79383fc2eac61 Mon Sep 17 00:00:00 2001
+From: Alexey Puzhevich <alexey.puzhevich@intel.com>
+Date: Mon, 26 May 2025 15:05:48 +0300
+Subject: [PATCH] [FSW-12726] fs1: preboot: unified mem rd/wr lib
+
+Duplicated functionality was consolidated in the
+stand-alone header only library.
+
+Change-Id: I24e238edb19cd0f5001a39dcdd35e67b9e0d2b7b
+Signed-off-by: Alexey Puzhevich <alexey.puzhevich@intel.com>
+---
+
+diff --git a/fs/fs1/address_space.h b/fs/fs1/address_space.h
+index bbc422b..7b0105e 100644
+--- a/fs/fs1/address_space.h
++++ b/fs/fs1/address_space.h
+@@ -11,7 +11,12 @@
+ #define CFG_BAR_SIZE		0x10000000ull	/* 256MB */
+ #define CFG_PHYS_BASE		0x0300007FF0000000ull
+ 
++#ifndef HL_CFG_BASE
+ #define HL_CFG_BASE			0x80000000
++#endif
++#define REGION_BASE_ADDR(REG_IDX)	(REG_IDX << 28)
++#define ARC_REG_BASE_MASK	REGION_BASE_ADDR(0xF)
++
+ #define CFG_ARC_REGION_BASE		0xF0000000
+ 
+ #define IO0_PCIE_FW_SRAM_BASE		(mmIO_0_CFG_HALF_0_FW_MEM_PCIE_FW_SRAM_BASE +\
+diff --git a/gaudi3/address_space.h b/gaudi3/address_space.h
+index 1dba34e..05064e3 100644
+--- a/gaudi3/address_space.h
++++ b/gaudi3/address_space.h
+@@ -27,6 +27,8 @@
+ 
+ #define DRAM_RSVD_FW_SIZE_MB	16	/* default HBM mem size [MB] to be reserved for FW */
+ 
++#define ARC_REG_BASE_MASK	0L
++
+ /*
+  * Both Bar0 and Bar4 are configured to bar match mode and point to address
+  * 0x0, because we are working with the BMU, and only the BAR offset is
+diff --git a/regmap_io.h b/regmap_io.h
+new file mode 100644
+index 0000000..b2dbc26
+--- /dev/null
++++ b/regmap_io.h
+@@ -0,0 +1,50 @@
++/* SPDX-License-Identifier:     GPL-2.0+
++ *
++ * Copyright (C) 2023 HabanaLabs Ltd.
++ */
++
++#ifndef _REGMAP_IO_H_
++#define _REGMAP_IO_H_
++
++#include <stdint.h>
++#include <address_space.h>
++
++#define ARC_REG_UPD(OFFSET, ARC_REG_BASE)	((OFFSET & ~(ARC_REG_BASE_MASK)) | ARC_REG_BASE)
++
++static inline void base_writel(uint32_t val, uint32_t offset)
++{
++	*((volatile uint32_t *)(offset)) = val;
++}
++
++static inline uint32_t base_readl(uint32_t offset)
++{
++	uint32_t reg = *((volatile uint32_t *)(offset));
++
++	return reg;
++}
++
++static inline uint32_t regmap_readl(uint32_t offset)
++{
++	uint32_t reg = base_readl(ARC_REG_UPD(offset, HL_CFG_BASE));
++
++	return reg;
++}
++
++static inline void regmap_writel(uint32_t val, uint32_t offset)
++{
++	base_writel(val, (ARC_REG_UPD(offset, HL_CFG_BASE)));
++}
++
++static inline uint8_t regmap_readb(uint32_t offset)
++{
++	uint32_t reg = *((volatile uint32_t *)(HL_CFG_BASE + offset));
++
++	return (uint8_t)(reg & 0xFF);
++}
++
++static inline void regmap_writeb(uint8_t val, uint32_t offset)
++{
++	*((volatile uint32_t *)(HL_CFG_BASE + offset)) = (uint32_t)val;
++}
++
++#endif /* _REGMAP_IO_H_ */

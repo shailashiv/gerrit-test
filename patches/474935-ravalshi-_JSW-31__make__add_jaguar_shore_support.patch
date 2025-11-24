@@ -1,0 +1,63 @@
+From cbea573d2d64c76193c2cfb75842a7bcccc779df Mon Sep 17 00:00:00 2001
+From: Shivani Raval <sraval@habana.ai>
+Date: Tue, 11 Mar 2025 10:35:52 +0200
+Subject: [PATCH] [JSW-31] make: add jaguar shore support
+
+It is a single architecure build (ARC).
+ARC meant to be our main architecture,
+still need porting for arcboot preboot
+and zephyr to have real content to be
+used by post scripts.
+
+Change-Id: Ife2089a8441414f3a69ba9bd8f8b75be4f18e5be
+Signed-off-by: Shivani Raval <sraval@habana.ai>
+---
+
+diff --git a/board/habanalabs/common/dirs.sh b/board/habanalabs/common/dirs.sh
+index 9485deb..52992bb 100644
+--- a/board/habanalabs/common/dirs.sh
++++ b/board/habanalabs/common/dirs.sh
+@@ -18,6 +18,9 @@
+ fs1)
+ 	export SPECS_EMB_PROJ_DIR=${SPECS_EMBEDDED_ROOT}/fs/
+ 	;;
++jgs)
++	export SPECS_EMB_PROJ_DIR=${SPECS_EMBEDDED_ROOT}/jgs/
++	;;
+ *)
+ 	export SPECS_EMB_PROJ_DIR=${SPECS_EMBEDDED_ROOT}
+ 	;;
+diff --git a/package/hls2-bmc/deploy-shared-sources.sh b/package/hls2-bmc/deploy-shared-sources.sh
+index a79671f..83848d0 100755
+--- a/package/hls2-bmc/deploy-shared-sources.sh
++++ b/package/hls2-bmc/deploy-shared-sources.sh
+@@ -145,7 +145,7 @@
+ 		for specs_dir in ${SPECS_SEARCH_DIR[@]}
+ 		do
+ 		file_abs_path=$(find "${specs_dir}/${project}" \
+-			-not \( -path ${specs_dir}/${project}/asic_reg_structs -prune -o -path ${specs_dir}/fs -prune \) -name ${file})
++			-not \( -path ${specs_dir}/${project}/asic_reg_structs -prune -o -path ${specs_dir}/fs -o -path ${specs_dir}/jgs -prune \) -name ${file})
+ 		if [ ! -z "$file_abs_path" ]
+ 		then
+ 			file_found=1
+diff --git a/scripts/make/hl-common/Makefile b/scripts/make/hl-common/Makefile
+index 19f9bf8..753c842 100644
+--- a/scripts/make/hl-common/Makefile
++++ b/scripts/make/hl-common/Makefile
+@@ -1,6 +1,6 @@
+ HL_MULTI_ARCH_RELEASE := gaudi2 gaudi3 fs1
+ HL_DEFAULT_DEV_ARCH := gaudi2_arm gaudi3_arc fs1_arc
+-HL_SINGLE_ARCH_RELEASE :=
++HL_SINGLE_ARCH_RELEASE := jgs
+ HL_SECURITY_RELEASE :=
+ 
+ RELEASE_JOB_FAKE_SEC := "fake_security=true"
+@@ -149,7 +149,7 @@
+ .PHONY: %-custom
+ %-custom: ;
+ 
+-HL_SEC_FIT_CREATE_ARCH := gaudi2 gaudi3 fs1
++HL_SEC_FIT_CREATE_ARCH := gaudi2 gaudi3 fs1 jgs
+ 
+ .PHONY: %-key-revoke-create
+ %-key-revoke-create:

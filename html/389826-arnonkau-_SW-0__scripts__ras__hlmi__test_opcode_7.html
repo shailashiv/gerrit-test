@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 389826: [SW-0] scripts: ras: hlmi: test opcode 7</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 389826: [SW-0] scripts: ras: hlmi: test opcode 7</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> buildroot-external</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Arnon Kaufman &lt;akaufman@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-01-28 12:52:04.719000000</p>
+            <p><strong>Updated:</strong> 2025-05-21 10:00:33.359000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-0] scripts: ras: hlmi: test opcode 7
+
+Basic test of Opcode 7 (remote access).
+
+Change-Id: I6c3ef146067a29602c599bd443e2ce719091da0c
+Signed-off-by: Arnon Kaufman &lt;akaufman@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: +2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>scripts/tests/ras/hlmi-basic.rc</code> (A) +410 -0</li><li><code>scripts/tests/ras/hlmi-test-fwl.rc</code> (A) +596 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/scripts/tests/ras/hlmi-basic.rc</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,410 @@</span>
+<span class="diff-add">+# Script to test using RAS config access by running FW loader</span>
+<span class="diff-add">+# protocol using the hlmi-test raw mode.</span>
+<span class="diff-add">+# Using Opcode - 7</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+if [ -z $oamid ]; then</span>
+<span class="diff-add">+	export oamid=1</span>
+<span class="diff-add">+fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_long_to_args()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(printf &quot;%08x&quot; $(($1)))</span>
+<span class="diff-add">+	echo ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_long_long_to_args()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(printf &quot;%016x&quot; $(($1)))</span>
+<span class="diff-add">+	echo ${val:14:2} ${val:12:2} ${val:10:2} ${val:8:2} ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_str()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	printf &quot;0x%s%s%s%s&quot; $4 $3 $2 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_long_str()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	printf &quot;0x%s%s%s%s%s%s%s%s&quot; $8 $7 $6 $5 $4 $3 $2 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_args_to_long_str $*)</span>
+<span class="diff-add">+	echo $((val))</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_args_to_long_long_str $*)</span>
+<span class="diff-add">+	echo $((val))</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_set_oam()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	export oamid=$1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_raw()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local opcode=$1</span>
+<span class="diff-add">+	local offset=$2</span>
+<span class="diff-add">+	shift 2</span>
+<span class="diff-add">+	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $# -w &quot;$*&quot; &gt; /dev/null 2&gt;&amp;1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_raw()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local opcode=$1</span>
+<span class="diff-add">+	local offset=$2</span>
+<span class="diff-add">+	local len=$3</span>
+<span class="diff-add">+	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $len | awk &#x27;/^00/ { $1=&quot;&quot;; print $0}&#x27;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_long_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 8)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%08x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 4)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%08x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_short()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 2)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%04x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_byte()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 1 | cut -d&#x27; &#x27; -f2)</span>
+<span class="diff-add">+	printf &quot;0x%s&quot; ${val:-5}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	[ -z $val ] &amp;&amp; return 1 || return 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_byte()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_raw $1 $2 $3</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(hlmi_long_to_args $3)</span>
+<span class="diff-add">+	hlmi_write_raw $1 $2 $val</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 7 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 7 4</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 7 8</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_ca_read_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 7 9</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 7 0 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 7 4 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 7 8 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_ca_write_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 7 9 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_all_fields_helper()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	local cmd</span>
+<span class="diff-add">+	local status</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_args_to_long $1 $2 $3 $4)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $5 $6 $7 $8)</span>
+<span class="diff-add">+	cmd=$(($9))</span>
+<span class="diff-add">+	status=$(($10))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	printf &quot;0x%08x 0x%08x %d %d&quot; ${address} ${data} ${cmd} ${status}</span>
+<span class="diff-add">+	return $status</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_all_fields()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+	ans=$(hlmi_read_raw 7 0 10)</span>
+<span class="diff-add">+	hlmi_ca_read_all_fields_helper $ans</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_all_fields()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	local cmd</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+	data=$(hlmi_long_to_args $2)</span>
+<span class="diff-add">+	cmd=$(printf &quot;%02x&quot; $3)</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 $address $data $cmd</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_wfs_2()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while : ; do</span>
+<span class="diff-add">+		sts=$(hlmi_ca_read_status)</span>
+<span class="diff-add">+		#ans=$(hlmi_ca_read_all_fields)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		if [ ${sts} -eq 0 ]; then</span>
+<span class="diff-add">+			echo 0</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		elif [ ${sts} -eq 1 ]; then</span>
+<span class="diff-add">+			echo 1</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt 4 ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep 0.3</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_wfs()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+	local max_loops=$1</span>
+<span class="diff-add">+	local tsleep=$2</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while : ; do</span>
+<span class="diff-add">+		sts=$(hlmi_ca_read_status)</span>
+<span class="diff-add">+		#ans=$(hlmi_ca_read_all_fields)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		if [ $((sts)) -eq 0 ]; then</span>
+<span class="diff-add">+			echo 0</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		elif [ $((sts)) -eq 1 ]; then</span>
+<span class="diff-add">+			echo 1</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt $((max_loops)) ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep $tsleep</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#######################################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_reg()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+	data=$(hlmi_long_to_args $2)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 ${address} ${data} 00</span>
+<span class="diff-add">+	sts=$(hlmi_ca_wfs 4 0.3)</span>
+<span class="diff-add">+	if [ $? -ne 0 ]; then</span>
+<span class="diff-add">+		echo &#x27;[Timeout] Write &#x27; $*</span>
+<span class="diff-add">+		return 1</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	[ $((sts)) -eq 0 ] &amp;&amp; return 0 || return 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_reg()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 $address 00 00 00 00 01</span>
+<span class="diff-add">+	sts=$(hlmi_ca_wfs 4 0.3)</span>
+<span class="diff-add">+	if [ $? -ne 0 ]; then</span>
+<span class="diff-add">+		echo &#x27;[Timeout] Read&#x27; $*</span>
+<span class="diff-add">+		return 1</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	[ $((sts)) -eq 0 ] &amp;&amp; {</span>
+<span class="diff-add">+		hlmi_ca_read_data</span>
+<span class="diff-add">+		return 0</span>
+<span class="diff-add">+	} || return 1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#######################################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long_long 21 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_size()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 21 8</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 21 12</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_mcpy_read_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 21 13</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 21 0 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_size()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 21 8 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 21 12 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_mcpy_write_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 21 13 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local offset=$1</span>
+<span class="diff-add">+	local len=$2</span>
+<span class="diff-add">+	hlmi_write_raw 22 $offset $len</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_raw 22 0 255</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+hlmi_wait_for_reg_value()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local is_not=$1</span>
+<span class="diff-add">+	local reg=$2</span>
+<span class="diff-add">+	local value=$3</span>
+<span class="diff-add">+	local mask=$4</span>
+<span class="diff-add">+	local tout=$5</span>
+<span class="diff-add">+	local max_loops=$6</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while :; do</span>
+<span class="diff-add">+		ans=$(hlmi_read_reg $reg)</span>
+<span class="diff-add">+		if [ $? -eq 0 ]; then</span>
+<span class="diff-add">+			if [ $((is_not)) -eq 0 ]; then</span>
+<span class="diff-add">+				if [ $((ans &amp; mask)) -eq $((value)) ]; then</span>
+<span class="diff-add">+					printf &quot;0x%08x&quot; $((ans))</span>
+<span class="diff-add">+					return 0</span>
+<span class="diff-add">+				fi</span>
+<span class="diff-add">+			else</span>
+<span class="diff-add">+				if [ $((ans &amp; mask)) -ne $((value)) ]; then</span>
+<span class="diff-add">+					printf &quot;0x%08x&quot; $((ans))</span>
+<span class="diff-add">+					return 0</span>
+<span class="diff-add">+				fi</span>
+<span class="diff-add">+			fi</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt $((max_loops)) ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep $tout</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	echo &quot;ERROR ERROR ERROR&quot;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# examples</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# hlmi_wait_for_boot_fit()</span>
+<span class="diff-add">+# {</span>
+<span class="diff-add">+# 	local ans</span>
+<span class="diff-add">+# 	local err</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# 	ans=$(hlmi_wait_for_reg_value 0 0x04c4b300 0x00000010 0xffffffff 0.5 4)</span>
+<span class="diff-add">+# 	err=$?</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# 	return $err</span>
+<span class="diff-add">+# }</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# hlmi_snd_cmd()</span>
+<span class="diff-add">+# {</span>
+<span class="diff-add">+# 	hlmi_write_reg 0x04c4b16c $1</span>
+<span class="diff-add">+# }</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# hlmi_wfs()</span>
+<span class="diff-add">+# {</span>
+<span class="diff-add">+# 	local val</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# 	val=$(hlmi_wait_for_reg_value $1 0x04c4b168 $2 $3 0.5 4)</span>
+<span class="diff-add">+# 	if [ $? -ne 0 ];then</span>
+<span class="diff-add">+# 		return 1</span>
+<span class="diff-add">+# 	fi</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+# 	printf &quot;0x%x 0x%07x&quot; $((val &gt;&gt; 28)) $((val &amp; 0xfffffff))</span>
+<span class="diff-add">+# 	return 0</span>
+<span class="diff-add">+# }</span>
+<span class="diff-add">+#</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..8d43a3f</span>
+<h4 class="diff-filename">b/scripts/tests/ras/hlmi-test-fwl.rc</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,596 @@</span>
+<span class="diff-add">+# Script to test using RAS config access by running FW loader</span>
+<span class="diff-add">+# protocol using the hlmi-test raw mode.</span>
+<span class="diff-add">+# Using Opcode - 7</span>
+<span class="diff-add">+# TODO use Opcode 21/22 and actually copy and dump data.</span>
+<span class="diff-add">+# load file by sourcing it.</span>
+<span class="diff-add">+# running the full test call: hlmi_sim_fwl()</span>
+<span class="diff-add">+#</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Dump of normal Update protocol flow</span>
+<span class="diff-add">+#========================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#Read: 0x00000010 from 0x04c4b300</span>
+<span class="diff-add">+#Write: 0x10000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x00000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0xf0000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x00000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x60000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0x00000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x60000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x60000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x60000000 from 0x04c4b168</span>
+<span class="diff-add">+#repeats[67]</span>
+<span class="diff-add">+#Read: 0x40600000 from 0x04c4b168</span>
+<span class="diff-add">+#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=40</span>
+<span class="diff-add">+#pci_dev_copy_rw: mapbase=0x7f6c6d305000, map_sz=218103872</span>
+<span class="diff-add">+#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=310</span>
+<span class="diff-add">+#pci_dev_copy_rw: mapbase=0x7f6c6d305000, map_sz=218104128</span>
+<span class="diff-add">+#Write: 0x10000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x40600000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x00000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0x20000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x00000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x80000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0x00000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x80000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x70000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0x10000000 to 0x04c4b16c</span>
+<span class="diff-add">+#Read: 0x70000000 from 0x04c4b168</span>
+<span class="diff-add">+#Read: 0x00000000 from 0x04c4b168</span>
+<span class="diff-add">+#Write: 0x00000000 to 0x04c4b16c</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+# Dump of normal Update protocol flow with description</span>
+<span class="diff-add">+#======================================================</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#[RX] L: BOOT sts: CPU_BOOT_STATUS_WAITING_FOR_BOOT_FIT [16]</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:        HL_UPD_GET_PROTO_STATUS [15] size   = 0x00000000 raw = 0xf0000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                 HL_UPD_STS_ACK [ 6] offset = 0x00000000 raw = 0x60000000</span>
+<span class="diff-add">+#repeats[67]</span>
+<span class="diff-add">+#[RX] L: FWL sts:                  HL_UPD_STS_OK [ 4] offset = 0x00600000 raw = 0x40600000</span>
+<span class="diff-add">+#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=40</span>
+<span class="diff-add">+#pci_dev_copy_rw: mapbase=0x7f00ec703000, map_sz=218103872</span>
+<span class="diff-add">+#pci_dev_copy_rw: offset=0x00600000, off_base=0x00600000, size=310</span>
+<span class="diff-add">+#pci_dev_copy_rw: mapbase=0x7f00ec703000, map_sz=218104128</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                  HL_UPD_STS_OK [ 4] offset = 0x00600000 raw = 0x40600000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:               HL_UPD_RST_STATE [ 2] size   = 0x00000000 raw = 0x20000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:             HL_UPD_STS_RST_ACK [ 8] offset = 0x00000000 raw = 0x80000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:             HL_UPD_STS_RST_ACK [ 8] offset = 0x00000000 raw = 0x80000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                 HL_UPD_CLR_STS [ 1] size   = 0x00000000 raw = 0x10000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:              HL_UPD_STS_RST_OK [ 7] offset = 0x00000000 raw = 0x70000000</span>
+<span class="diff-add">+#[RX] L: FWL sts:                HL_UPD_STS_NOOP [ 0] offset = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+#[TX] L: FWL cmd:                    HL_UPD_NOOP [ 0] size   = 0x00000000 raw = 0x00000000</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+if [ -z $oamid ]; then</span>
+<span class="diff-add">+	export oamid=1</span>
+<span class="diff-add">+fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_long_to_args()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(printf &quot;%08x&quot; $(($1)))</span>
+<span class="diff-add">+	echo ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_long_long_to_args()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(printf &quot;%016x&quot; $(($1)))</span>
+<span class="diff-add">+	echo ${val:14:2} ${val:12:2} ${val:10:2} ${val:8:2} ${val:6:2} ${val:4:2} ${val:2:2} ${val:0:2}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_str()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	printf &quot;0x%s%s%s%s&quot; $4 $3 $2 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_long_str()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	printf &quot;0x%s%s%s%s%s%s%s%s&quot; $8 $7 $6 $5 $4 $3 $2 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_args_to_long_str $*)</span>
+<span class="diff-add">+	echo $((val))</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_args_to_long_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_args_to_long_long_str $*)</span>
+<span class="diff-add">+	echo $((val))</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_set_oam()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	export oamid=$1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_raw()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local opcode=$1</span>
+<span class="diff-add">+	local offset=$2</span>
+<span class="diff-add">+	shift 2</span>
+<span class="diff-add">+	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $# -w &quot;$*&quot; &gt; /dev/null 2&gt;&amp;1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_raw()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local opcode=$1</span>
+<span class="diff-add">+	local offset=$2</span>
+<span class="diff-add">+	local len=$3</span>
+<span class="diff-add">+	hlmi-test -d ${oamid} -k 4 -c $opcode -o $offset -l $len | awk &#x27;/^00/ { $1=&quot;&quot;; print $0}&#x27;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_long_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 8)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%08x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 4)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%08x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_short()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 2)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $val)</span>
+<span class="diff-add">+	printf &quot;0x%04x&quot; $data</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_byte()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(hlmi_read_raw $1 $2 1 | cut -d&#x27; &#x27; -f2)</span>
+<span class="diff-add">+	printf &quot;0x%s&quot; ${val:-5}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	[ -z $val ] &amp;&amp; return 1 || return 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_byte()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_raw $1 $2 $3</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_long()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(hlmi_long_to_args $3)</span>
+<span class="diff-add">+	hlmi_write_raw $1 $2 $val</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 7 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 7 4</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 7 8</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_ca_read_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 7 9</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 7 0 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 7 4 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 7 8 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_ca_write_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 7 9 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_all_fields_helper()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	local cmd</span>
+<span class="diff-add">+	local status</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_args_to_long $1 $2 $3 $4)</span>
+<span class="diff-add">+	data=$(hlmi_args_to_long $5 $6 $7 $8)</span>
+<span class="diff-add">+	cmd=$(($9))</span>
+<span class="diff-add">+	status=$(($10))</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	printf &quot;0x%08x 0x%08x %d %d&quot; ${address} ${data} ${cmd} ${status}</span>
+<span class="diff-add">+	return $status</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_read_all_fields()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+	ans=$(hlmi_read_raw 7 0 10)</span>
+<span class="diff-add">+	hlmi_ca_read_all_fields_helper $ans</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_write_all_fields()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	local cmd</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+	data=$(hlmi_long_to_args $2)</span>
+<span class="diff-add">+	cmd=$(printf &quot;%02x&quot; $3)</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 $address $data $cmd</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_wfs_2()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while : ; do</span>
+<span class="diff-add">+		sts=$(hlmi_ca_read_status)</span>
+<span class="diff-add">+		#ans=$(hlmi_ca_read_all_fields)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		if [ ${sts} -eq 0 ]; then</span>
+<span class="diff-add">+			echo 0</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		elif [ ${sts} -eq 1 ]; then</span>
+<span class="diff-add">+			echo 1</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt 4 ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep 0.3</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_ca_wfs()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+	local max_loops=$1</span>
+<span class="diff-add">+	local tsleep=$2</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while : ; do</span>
+<span class="diff-add">+		sts=$(hlmi_ca_read_status)</span>
+<span class="diff-add">+		#ans=$(hlmi_ca_read_all_fields)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		if [ $((sts)) -eq 0 ]; then</span>
+<span class="diff-add">+			echo 0</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		elif [ $((sts)) -eq 1 ]; then</span>
+<span class="diff-add">+			echo 1</span>
+<span class="diff-add">+			return 0</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt $((max_loops)) ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep $tsleep</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#######################################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_write_reg()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+	data=$(hlmi_long_to_args $2)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 ${address} ${data} 00</span>
+<span class="diff-add">+	sts=$(hlmi_ca_wfs 4 0.3)</span>
+<span class="diff-add">+	if [ $? -ne 0 ]; then</span>
+<span class="diff-add">+		echo &#x27;[Timeout] Write &#x27; $*</span>
+<span class="diff-add">+		return 1</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	[ $((sts)) -eq 0 ] &amp;&amp; return 0 || return 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_read_reg()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local sts</span>
+<span class="diff-add">+	local address</span>
+<span class="diff-add">+	local data</span>
+<span class="diff-add">+	address=$(hlmi_long_to_args $1)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	hlmi_write_raw 7 0 $address 00 00 00 00 01</span>
+<span class="diff-add">+	sts=$(hlmi_ca_wfs 4 0.3)</span>
+<span class="diff-add">+	if [ $? -ne 0 ]; then</span>
+<span class="diff-add">+		echo &#x27;[Timeout] Read&#x27; $*</span>
+<span class="diff-add">+		return 1</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	[ $((sts)) -eq 0 ] &amp;&amp; {</span>
+<span class="diff-add">+		hlmi_ca_read_data</span>
+<span class="diff-add">+		return 0</span>
+<span class="diff-add">+	} || return 1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#######################################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long_long 21 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_size()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_long 21 8</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 21 12</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_mcpy_read_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_byte 21 13</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_address()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 21 0 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_size()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_long 21 8 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 21 12 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+hlmi_mcpy_write_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_byte 21 13 $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_write_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local offset=$1</span>
+<span class="diff-add">+	local len=$2</span>
+<span class="diff-add">+	hlmi_write_raw 22 $offset $len</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_mcpy_read_data()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_read_raw 22 0 255</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+##############################</span>
+<span class="diff-add">+hlmi_wait_for_reg_value()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local is_not=$1</span>
+<span class="diff-add">+	local reg=$2</span>
+<span class="diff-add">+	local value=$3</span>
+<span class="diff-add">+	local mask=$4</span>
+<span class="diff-add">+	local tout=$5</span>
+<span class="diff-add">+	local max_loops=$6</span>
+<span class="diff-add">+	local loops=0</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while :; do</span>
+<span class="diff-add">+		ans=$(hlmi_read_reg $reg)</span>
+<span class="diff-add">+		if [ $? -eq 0 ]; then</span>
+<span class="diff-add">+			if [ $((is_not)) -eq 0 ]; then</span>
+<span class="diff-add">+				if [ $((ans &amp; mask)) -eq $((value)) ]; then</span>
+<span class="diff-add">+					printf &quot;0x%08x&quot; $((ans))</span>
+<span class="diff-add">+					return 0</span>
+<span class="diff-add">+				fi</span>
+<span class="diff-add">+			else</span>
+<span class="diff-add">+				if [ $((ans &amp; mask)) -ne $((value)) ]; then</span>
+<span class="diff-add">+					printf &quot;0x%08x&quot; $((ans))</span>
+<span class="diff-add">+					return 0</span>
+<span class="diff-add">+				fi</span>
+<span class="diff-add">+			fi</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+		if [ $((loops)) -gt $((max_loops)) ]; then</span>
+<span class="diff-add">+			return 1</span>
+<span class="diff-add">+		fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+		loops=$(( loops ++ ))</span>
+<span class="diff-add">+		sleep $tout</span>
+<span class="diff-add">+	done</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	echo &quot;ERROR ERROR ERROR&quot;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wait_for_boot_fit()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+	local err</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	ans=$(hlmi_wait_for_reg_value 0 0x04c4b300 0x00000010 0xffffffff 0.5 4)</span>
+<span class="diff-add">+	err=$?</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return $err</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_snd_cmd()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_write_reg 0x04c4b16c $1</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wfs()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local val</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	val=$(hlmi_wait_for_reg_value $1 0x04c4b168 $2 $3 0.5 4)</span>
+<span class="diff-add">+	if [ $? -ne 0 ];then</span>
+<span class="diff-add">+		return 1</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	printf &quot;0x%x 0x%07x&quot; $((val &gt;&gt; 28)) $((val &amp; 0xfffffff))</span>
+<span class="diff-add">+	return 0</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_clr_sts()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_snd_cmd 0x10000000</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_rst_state()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_snd_cmd 0x20000000</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_proto_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_snd_cmd 0xf0000000</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_cmd_noop()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_snd_cmd 0x00000000</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wait_for_noop()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+	local err</span>
+<span class="diff-add">+	ans=$(hlmi_wfs 0 0x00000000 0xffffffff)</span>
+<span class="diff-add">+	err=$?</span>
+<span class="diff-add">+	if [ $err -eq 0 ]; then</span>
+<span class="diff-add">+		echo &quot;WAIT4NOP: ok&quot;</span>
+<span class="diff-add">+	else</span>
+<span class="diff-add">+		echo &quot;WAIT4NOP: failed&quot;</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	return $err</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wait_for_no_noop()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local ans</span>
+<span class="diff-add">+	local err</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	ans=$(hlmi_wfs 1 0x00000000 0xf0000000)</span>
+<span class="diff-add">+	err=$?</span>
+<span class="diff-add">+	if [ $err -eq 0 ]; then</span>
+<span class="diff-add">+		echo &quot;WAIT4NONOP: ok&quot;</span>
+<span class="diff-add">+	else</span>
+<span class="diff-add">+		echo &quot;WAIT4NONOP: failed&quot;</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wait_for_change()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_wfs 1 $1 $2</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wait_for_rst_ok()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_wfs 0 0x70000000 0xf0000000</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#############################################################</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+export g_sts=0</span>
+<span class="diff-add">+export g_sts_id=0</span>
+<span class="diff-add">+export g_sts_val=0</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_parse_status()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	g_sts_id=$(echo $g_sts | cut -d&#x27; &#x27; -f1)</span>
+<span class="diff-add">+	g_sts_val=$(echo $g_sts | cut -d&#x27; &#x27; -f2)</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_wfs_change()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	local g_new_sts=0</span>
+<span class="diff-add">+	g_new_sts=$(hlmi_wait_for_change $g_sts 0xf0000000)</span>
+<span class="diff-add">+	echo</span>
+<span class="diff-add">+	echo &quot;STATUS Change $g_sts =&gt; $g_new_sts&quot;</span>
+<span class="diff-add">+	g_sts=$g_new_sts</span>
+<span class="diff-add">+	hlmi_parse_status</span>
+<span class="diff-add">+	printf &quot;STATUS: cmd=%d offset=0x%08x\n&quot; ${g_sts_id:--1} ${g_sts_val:-0xffffffff}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+hlmi_sim_fwl()</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	hlmi_wait_for_boot_fit</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;clr sts&quot;</span>
+<span class="diff-add">+	hlmi_clr_sts</span>
+<span class="diff-add">+	hlmi_wait_for_noop</span>
+<span class="diff-add">+echo &quot;proto status&quot;</span>
+<span class="diff-add">+	hlmi_proto_status</span>
+<span class="diff-add">+	hlmi_wfs_change</span>
+<span class="diff-add">+	hlmi_cmd_noop</span>
+<span class="diff-add">+	hlmi_wfs_change</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#	echo &quot;==== g_sts : $g_sts == g_sts_val: $g_sts_val&quot;</span>
+<span class="diff-add">+	printf &quot;FIT is ready at 0x%08x\n&quot; ${g_sts_val}</span>
+<span class="diff-add">+	# fit data is ready</span>
+<span class="diff-add">+	# can be read here</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;TODO memcpy fit header 40 bytes&quot;</span>
+<span class="diff-add">+echo &quot;TODO memcpy fit body&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;clr sts&quot;</span>
+<span class="diff-add">+	hlmi_clr_sts</span>
+<span class="diff-add">+	hlmi_wait_for_noop</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+echo &quot;RST state&quot;</span>
+<span class="diff-add">+	hlmi_rst_state</span>
+<span class="diff-add">+	hlmi_wfs_change</span>
+<span class="diff-add">+	echo &quot;should be RST ACK(8)&quot;</span>
+<span class="diff-add">+	hlmi_cmd_noop</span>
+<span class="diff-add">+	hlmi_wfs_change</span>
+<span class="diff-add">+	echo &quot;should be RST OK(7)&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	hlmi_clr_sts</span>
+<span class="diff-add">+	hlmi_wait_for_noop</span>
+<span class="diff-add">+	hlmi_cmd_noop</span>
+<span class="diff-add">+}</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-01-28 12:52:04.719000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-01-28 12:52:12.663000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/3418/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-01-28 12:57:20.914000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/988/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-01-28 12:57:20.921000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/423/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-01-28 14:14:42.158000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/988/ : FAILURE
+
+Checkout depth has been set to 1 ( 388469 ) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/988/ )
+
+habana_ci_env: No such file or directory ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+Could not read from remote repository ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+repo checkout failed twice ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+GerritDescription... ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+Checkout depth has been set to 1 ( 388469 ) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1526/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/423/ : FAILURE
+
+Checkout depth has been set to 1 ( 388469 ) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/423/ )
+
+Could not read from remote repository ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/603/ )
+
+Checkout depth has been set to 1 ( 388469 ) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/603/ )
+
+.repo folder found in home directory ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/603/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/3418/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-04 21:27:58.124000000)</span><pre>Uploaded patch set 2: Patch Set 1 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-04 21:28:05.769000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4539/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-04 21:33:11.718000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/498/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-04 21:33:11.724000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1089/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-04 23:53:49.172000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/498/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/673/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1089/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1619/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4539/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-05 17:42:57.643000000)</span><pre>Uploaded patch set 3: Patch Set 2 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 17:43:08.832000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4672/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 17:51:03.391000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1137/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 17:51:03.392000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/536/ (2/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-05 19:27:56.731000000)</span><pre>Uploaded patch set 4: Patch Set 3 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 19:28:07.254000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4694/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 19:33:27.981000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/545/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 19:33:27.993000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1146/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 20:41:12.835000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/536/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/536/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/709/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1137/ : FAILURE
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1137/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1666/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4672/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-05 22:35:10.610000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/545/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/718/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1146/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1675/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4694/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-06 10:50:16.347000000)</span><pre>Uploaded patch set 5: Patch Set 4 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-06 10:50:23.690000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4757/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-06 10:58:36.282000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1167/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-06 10:58:36.302000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/561/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-06 11:15:58.884000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/561/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/734/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1167/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1696/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/4757/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-08 10:11:55.742000000)</span><pre>Uploaded patch set 6.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-08 10:12:04.354000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5211/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-08 10:23:00.922000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/611/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-08 10:23:00.953000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1226/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-08 13:50:40.626000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/611/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/784/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1226/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5211/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-10 18:37:45.613000000)</span><pre>Uploaded patch set 7: Patch Set 6 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 18:37:56.913000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5411/ (1/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-10 18:39:36.403000000)</span><pre>Uploaded patch set 8: Patch Set 7 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 18:39:46.629000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5423/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 18:40:14.209000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5411/ : ABORTED
+
+runShellCommand: Failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5411/ )
+
+missing file, command or package [Component/s:CI-CD Support, DevOps]
+ ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5411/ )
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5411/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 18:44:44.227000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/634/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 18:44:44.241000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1249/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-10 20:37:56.199000000)</span><pre>Patch Set 8: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/634/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/807/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1249/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5423/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 08:16:23.370000000)</span><pre>Uploaded patch set 9: Patch Set 8 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 08:16:33.977000000)</span><pre>Patch Set 9: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5435/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 08:23:27.490000000)</span><pre>Patch Set 9:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/651/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 08:23:27.492000000)</span><pre>Patch Set 9:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1265/ (2/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 09:10:45.053000000)</span><pre>Uploaded patch set 10: Patch Set 9 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 09:10:54.493000000)</span><pre>Patch Set 10:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5452/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 09:17:29.053000000)</span><pre>Patch Set 10:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/654/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 09:17:29.053000000)</span><pre>Patch Set 10:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1269/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 09:27:26.785000000)</span><pre>Patch Set 9: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1265/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1265/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1795/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/651/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/823/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5435/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 11:07:55.899000000)</span><pre>Uploaded patch set 11: Patch Set 10 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 11:08:07.205000000)</span><pre>Patch Set 11: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5499/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 11:15:54.497000000)</span><pre>Patch Set 10: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/654/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/826/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1269/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5452/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 11:16:41.432000000)</span><pre>Patch Set 11:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/665/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 11:16:41.437000000)</span><pre>Patch Set 11:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1280/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 13:08:36.111000000)</span><pre>Patch Set 11: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/665/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/838/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5499/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1280/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 13:17:29.851000000)</span><pre>Uploaded patch set 12: Patch Set 11 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 13:17:39.280000000)</span><pre>Patch Set 12: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5543/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 13:28:12.374000000)</span><pre>Patch Set 12:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/686/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 13:28:12.402000000)</span><pre>Patch Set 12:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1302/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 15:19:08.931000000)</span><pre>Patch Set 12: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/686/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/858/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5543/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1302/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 15:40:47.579000000)</span><pre>Uploaded patch set 13: Patch Set 12 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 15:40:57.688000000)</span><pre>Patch Set 13: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5571/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 15:47:37.785000000)</span><pre>Patch Set 13:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/693/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 15:47:37.825000000)</span><pre>Patch Set 13:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1309/ (3/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 17:18:27.557000000)</span><pre>Uploaded patch set 14.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:18:37.248000000)</span><pre>Patch Set 14: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5582/ (1/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-11 17:25:44.661000000)</span><pre>Uploaded patch set 15: Patch Set 14 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:25:53.716000000)</span><pre>Patch Set 15: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5594/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:33:31.895000000)</span><pre>Patch Set 15:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/700/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:33:31.916000000)</span><pre>Patch Set 15:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1316/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:37:38.869000000)</span><pre>Patch Set 14: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5582/ : ABORTED
+
+runShellCommand: Failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5582/ )
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5582/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 17:39:54.308000000)</span><pre>Patch Set 13: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1309/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1309/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1839/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/693/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/865/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5571/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-11 19:29:43.435000000)</span><pre>Patch Set 15: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/700/ : UNSTABLE
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/872/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5594/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1316/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-12 08:28:46.438000000)</span><pre>Uploaded patch set 16: Patch Set 15 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 08:28:54.493000000)</span><pre>Patch Set 16: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5685/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 08:32:45.067000000)</span><pre>Patch Set 16:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/710/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 08:32:45.088000000)</span><pre>Patch Set 16:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1325/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 12:24:11.426000000)</span><pre>Patch Set 16: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5685/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/710/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1325/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-12 15:28:22.619000000)</span><pre>Uploaded patch set 17: Patch Set 16 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 15:28:30.881000000)</span><pre>Patch Set 17: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5806/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 15:38:36.037000000)</span><pre>Patch Set 17:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/726/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 15:38:36.277000000)</span><pre>Patch Set 17:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1350/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-12 17:40:52.315000000)</span><pre>Patch Set 17: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u20_master_next/5806/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/726/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1350/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-13 09:12:55.429000000)</span><pre>Patch Set 18: Patch Set 17 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 09:13:01.595000000)</span><pre>Patch Set 18: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1367/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 09:13:01.604000000)</span><pre>Patch Set 18:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/12/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 10:59:01.286000000)</span><pre>Patch Set 18: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/738/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/910/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1367/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/12/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-13 14:11:00.745000000)</span><pre>Uploaded patch set 19.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 14:11:09.967000000)</span><pre>Patch Set 19: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1372/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 14:11:10.004000000)</span><pre>Patch Set 19:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/742/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 14:11:10.004000000)</span><pre>Patch Set 19:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/41/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-13 16:03:39.357000000)</span><pre>Patch Set 19: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/742/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/914/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1372/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/41/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-14 07:34:55.708000000)</span><pre>Uploaded patch set 20: Patch Set 19 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:06.211000000)</span><pre>Patch Set 20: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/754/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:06.237000000)</span><pre>Patch Set 20:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/91/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:06.254000000)</span><pre>Patch Set 20:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1385/ (2/3)</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-14 07:35:32.637000000)</span><pre>Uploaded patch set 21: Patch Set 20 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:41.114000000)</span><pre>Patch Set 21:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/95/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:41.114000000)</span><pre>Patch Set 21:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1389/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:35:41.127000000)</span><pre>Patch Set 21:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/758/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 07:36:27.932000000)</span><pre>Patch Set 20: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/754/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/754/ )
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/926/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1385/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1385/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/1915/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/91/ : ABORTED
+
+Aborted by new patch set. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/91/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-14 09:28:10.798000000)</span><pre>Patch Set 21: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_buildroot_build_master_next/758/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/931/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u20_Test_Embedded_cpu_openbmc_build_master_next/1389/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/95/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-15 09:17:53.715000000)</span><pre>Uploaded patch set 22: Patch Set 21 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 09:18:04.334000000)</span><pre>Patch Set 22: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/277/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 09:26:43.743000000)</span><pre>Patch Set 22:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/14/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 09:26:43.751000000)</span><pre>Patch Set 22:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/17/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 11:15:13.153000000)</span><pre>Patch Set 22: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/14/ : FAILURE
+
+docker: Error response from daemon: OCI runtime create failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/949/ )
+
+Pleases validate node is connected with jenkins (and not with swjenkins) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/949/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/277/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/17/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 11:56:33.472000000)</span><pre>Patch Set 22: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/19/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-15 11:58:56.544000000)</span><pre>Patch Set 22: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/19/ : FAILURE
+
+docker: Error response from daemon: OCI runtime create failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/954/ )
+
+Pleases validate node is connected with jenkins (and not with swjenkins) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/954/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/277/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/17/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-20 16:01:49.808000000)</span><pre>Uploaded patch set 23: Patch Set 22 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-20 16:01:59.983000000)</span><pre>Patch Set 23: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/622/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-20 16:09:14.297000000)</span><pre>Patch Set 23:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/128/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-20 16:09:14.298000000)</span><pre>Patch Set 23:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/77/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-20 18:48:32.552000000)</span><pre>Patch Set 23: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/77/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/1013/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/128/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/622/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-21 12:44:22.280000000)</span><pre>Uploaded patch set 24: Patch Set 23 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 12:44:31.042000000)</span><pre>Patch Set 24: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/700/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 12:51:40.777000000)</span><pre>Patch Set 24:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/136/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 12:51:40.801000000)</span><pre>Patch Set 24:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/86/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 15:09:57.542000000)</span><pre>Patch Set 24: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/86/ : UNSTABLE
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/1021/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/7014/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/136/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/700/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-21 16:00:12.845000000)</span><pre>Uploaded patch set 25: Patch Set 24 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 16:00:26.254000000)</span><pre>Patch Set 25: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/765/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 16:08:33.184000000)</span><pre>Patch Set 25:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/93/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 16:08:33.220000000)</span><pre>Patch Set 25:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/143/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-21 18:01:04.496000000)</span><pre>Patch Set 25: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/93/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/1028/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/143/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/765/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-02-24 19:02:58.843000000)</span><pre>Uploaded patch set 26: Patch Set 25 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-24 19:03:16.345000000)</span><pre>Patch Set 26: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1019/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-24 19:08:18.543000000)</span><pre>Patch Set 26:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/114/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-24 19:08:18.559000000)</span><pre>Patch Set 26:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/175/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-02-24 23:09:58.335000000)</span><pre>Patch Set 26: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/114/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/1049/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/175/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1019/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-03-03 10:10:02.269000000)</span><pre>Uploaded patch set 27: Patch Set 26 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-03 10:10:19.328000000)</span><pre>Patch Set 27: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1934/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-03 10:22:31.310000000)</span><pre>Patch Set 27:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/161/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-03 10:22:31.337000000)</span><pre>Patch Set 27:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/217/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-03-03 14:48:22.842000000)</span><pre>Patch Set 27: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/161/ : ABORTED
+
+Jenkins pipeline steps canceled due to timeout ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_buildroot_build_master_next/1092/ )
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/8196/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/217/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/1934/ : SUCCESS</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2024-03-04 12:38:44.118000000)</span><pre>Uploaded patch set 28: Patch Set 27 was rebased.</pre></div><div class="message"><strong>Arnon Kaufman</strong> <span class="date">(2025-05-21 07:08:58.707000000)</span><pre>Uploaded patch set 29: Patch Set 28 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:09:04.481000000)</span><pre>Patch Set 29: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7895/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:09:06.606000000)</span><pre>Patch Set 29: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35943/ (1/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:11:23.184000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/638/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.327000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6817/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.335000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4164/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.418000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5363/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.440000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5652/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.442000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6761/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.480000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/6064/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.488000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5664/ (9/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 07:15:33.494000000)</span><pre>Patch Set 29:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5839/ (7/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-21 07:53:03.027000000)</span><pre>Patch Set 29: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7895/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/638/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 10:00:33.359000000)</span><pre>Patch Set 29: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6817/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5664/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/6064/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5839/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4164/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5363/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5652/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6761/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35943/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,2672 @@
+From f75cedaa0ca827373a9a107f59d0a2b2fec40c2b Mon Sep 17 00:00:00 2001
+From: Oded Rot <orot@habana.ai>
+Date: Mon, 05 May 2025 17:49:05 +0300
+Subject: [PATCH] [HL338][json][tests] Adding FT2 (security enable) for 338 - mapper fixes
+
+Still in WIP - don't merge yet
+
+Change-Id: I5950c1042899d8f7439b5e64a7733ba8944a1b94
+Signed-off-by: Oded Rot <orot@habana.ai>
+---
+
+diff --git a/json/tests/HL338/tests_options.json b/json/tests/HL338/tests_options.json
+index 4704bbc..e6fdbc6 100644
+--- a/json/tests/HL338/tests_options.json
++++ b/json/tests/HL338/tests_options.json
+@@ -776,6 +776,26 @@
+           },
+           "add_delta_values": true
+         },
++        "hl_qual_functional_serdes": {
++          "read_sensors": true,
++          "wait_between_measurements": {
++            "MV": {
++              "criteria": "mark",
++              "HL338_ft": 5,
++              "HL338_bi": 5,
++              "default": 5
++            }
++          },
++          "thresholds_criteria": true,
++          "thresholds_criteria_mode": {
++            "MV": {
++              "criteria": "mark",
++              "HL338_pt_functional": "HL338 PT Functional test",
++              "default": "HL338 functional test"
++            }
++          },
++          "add_delta_values": true
++        },
+         "resnet50_training_accuracy": {
+           "read_sensors": true,
+           "wait_between_measurements": {
+@@ -1002,6 +1022,9 @@
+         "hl_qual_functional": {
+           "read_dmesg": true
+         },
++        "hl_qual_functional_serdes": {
++          "read_dmesg": true
++        },
+         "resnet50_training_accuracy": {
+           "read_dmesg": true
+         },
+@@ -1062,6 +1085,10 @@
+       },
+       "uart_monitor": {
+         "hl_qual_functional": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "hl_qual_functional_serdes": {
+           "read_uart": true,
+           "wait_between_measurements": 20
+         },
+@@ -1147,6 +1174,10 @@
+           "read_uart": true,
+           "wait_between_measurements": 20
+         },
++        "hl_qual_functional_serdes": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
+         "resnet50_training_accuracy": {
+           "read_uart": true,
+           "wait_between_measurements": 20
+@@ -1229,6 +1260,10 @@
+           "monitor_operation": "read_oams_uart",
+           "wait_between_measurements": 20
+         },
++        "hl_qual_functional_serdes": {
++          "monitor_operation": "read_oams_uart",
++          "wait_between_measurements": 20
++        },
+         "resnet50_training_accuracy": {
+           "monitor_operation": "read_oams_uart",
+           "wait_between_measurements": 20
+@@ -1308,6 +1343,27 @@
+       },
+       "HL338_jig_monitor": {
+         "hl_qual_functional": {
++          "read_sensors": {
++            "MV": {
++              "criteria": "mark",
++              "HL338_pt_functional": false,
++              "HL338_pt_resnet": false,
++              "default": true
++            }
++          },
++          "print_to_console": true,
++          "wait_between_measurements": {
++            "MV": {
++              "criteria": "mark",
++              "HL338_ft": 30,
++              "HL338_ft1": 30,
++              "HL338_bi": 60,
++              "default": 30
++            }
++          },
++          "add_delta_values": false
++        },
++        "hl_qual_functional_serdes": {
+           "read_sensors": {
+             "MV": {
+               "criteria": "mark",
+@@ -1672,7 +1728,6 @@
+       "MV": {
+         "criteria": "mark",
+         "default": {
+-          "uboot": "",
+           "driver": "",
+           "preboot": "hl-gaudi3-1.21.0-fw-59.2.1-sec-2",
+           "zephyr": "hl-gaudi3-1.21.0-fw-59.2.1-sec-2",
+@@ -2017,6 +2072,42 @@
+               },
+               "HL338_power_cycle": {
+                 "t" : 1200,
++                "criteria": "/var/hl_qual/criteria.json"
++              },
++              "default": {
++                "t": 240
++              }
++            }
++          }
++        },
++        "hl_qual_functional_serdes": {
++          "common_flags": {
++            "f2": true,
++            "l": "extreme",
++            "rmod": "parallel",
++            "serdes": "ext"
++          },
++          "mark_flags": {
++            "MV": {
++              "criteria": "mark",
++              "HL338_ft": {
++                "t": 240,
++                "criteria": "/var/hl_qual/criteria.json"
++              },
++              "HL338_pt_functional": {
++                "t": 240,
++                "criteria": "/var/hl_qual/criteria.json"
++              },
++              "HL338_ft1": {
++                "t": 240,
++                "criteria": "/var/hl_qual/criteria.json"
++              },
++              "HL338_bi": {
++                "t": 240,
++                "criteria": "/var/hl_qual/criteria.json"
++              },
++              "HL338_power_cycle": {
++                "t": 1200,
+                 "criteria": "/var/hl_qual/criteria.json"
+               },
+               "default": {
+@@ -2422,6 +2513,15 @@
+         "mode": "multi"
+       },
+       "hl_qual_functional": {
++        "execute": true,
++        "stress_mode": false,
++        "num_of_loops": 2,
++        "hl_qual_timeout": 120,
++        "run_as_reference": false,
++        "mode": "multi",
++        "functional_threshold_criteria": "HL338 values"
++      },
++      "hl_qual_functional_serdes": {
+         "execute": true,
+         "stress_mode": false,
+         "num_of_loops": 2,
+@@ -4992,6 +5092,165 @@
+       ]
+     }
+ },
++  "TestFT2": {
++    "monitors": {
++      "dmesg_monitor": {
++        "update_fw": {
++          "read_dmesg": true
++        },
++        "update_eeprom": {
++          "read_dmesg": true
++        },
++        "validate_eeprom": {
++          "read_dmesg": true
++        },
++        "erom_update": {
++          "read_dmesg": true
++        },
++        "erom_erase": {
++          "read_dmesg": true
++        },
++        "security_enable": {
++          "read_dmesg": true
++        },
++        "svn_update": {
++          "read_dmesg": true
++        },
++        "security_status": {
++          "read_dmesg": true
++        },
++        "read_efuse": {
++          "read_dmesg": true
++        },
++        "validate_efuse": {
++          "read_dmesg": true
++        },
++        "revoke_cpld": {
++          "read_dmesg": true
++        },
++        "bis_compliant_enable": {
++          "read_dmesg": true
++        }
++      },
++      "uart_monitor": {
++        "update_fw": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "update_eeprom": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "validtare_eeprom": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "erom_update": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "erom_erase": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "security_enable": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "svn_update": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "security_status": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "read_efuse": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "validate_efuse": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "revoke_cpld": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        },
++        "bis_compliant_enable": {
++          "read_uart": true,
++          "wait_between_measurements": 20
++        }
++      }
++    },
++    "cpld_revoke_itb": "",
++    "update_fw_itb": {
++      "MV": {
++        "criteria": "mark",
++        "default": "/var/hl-gaudi3-1.20.1-fw-58.2.5-sec-2/gaudi3-agent-fw_loader-fit.itb",
++        "HL338_ft2": "/var/hl-gaudi3-1.20.1-fw-58.2.5-sec-2/gaudi3-agent-fw_loader-fit.itb",
++        "HL338_ft3": "/var/hl-gaudi3-1.20.1-fw-58.2.5-sec-2/gaudi3-agent-fw_loader-fit.itb"
++      }
++    },
++    "preboot_version": {
++      "MV": {
++        "criteria": "mark",
++        "default": "hl-gaudi3-1.21.0-fw-59.2.1-sec-2",
++        "HL338_ft2": "hl-gaudi3-1.21.0-fw-59.2.1-sec-2",
++        "HL338_ft3": "hl-gaudi3-1.21.0-fw-59.2.1-sec-2"
++      }
++    },
++    "update_fw_retries": 2,
++    "update_eeprom_retries": 3,
++    "skip_update_fw_check": {
++      "MV": {
++        "criteria": "mark",
++        "default": true,
++        "HL338_ft2": true,
++        "HL338_ft3": false
++      }
++    },
++    "erom_expected_version": "hl-gaudi3-1.20.1-fw-58.2.5-sec-2",
++    "cpld_expected_version": "4",
++    "cpld_time_stamp_expected_version": "0x67B607AE",
++    "expected_registers_values": {
++      "risc_v_spi_keys_id_reg": "0x11",
++      "risc_v_spi_status_1_reg": [
++        "0xb",
++        "0xa"
++      ]
++    },
++    "force_revoke": true,
++    "security_status": {
++      "regex_search": true,
++      "check_Security": "Enabled \\[Permanent: True\\]",
++      "check_Keys Present": "Yes",
++      "check_Revoked": "Revoked",
++      "check_Flash W/P": "On",
++      "check_Minimal SVN": {
++        "MV": {
++          "criteria": "mark",
++          "default": 0,
++          "HL338_ft2": 2,
++          "HL338_ft3": 2
++        }
++      }
++    },
++    "hl_rev_338": "04",
++    "eeprom_file_to_copy": "",
++    "eeprom_file_dest": "/var/eeprom/SystemProduct_148.itb",
++    "eeprom_field_to_check": {
++      "System Product HL": "0148"
++    },
++    "eeprom_field_check_enable": {
++      "MV": {
++        "criteria": "mark",
++        "default": false,
++        "HL338_ft2": false,
++        "HL338_ft3": true
++      }
++    }
++  },
+   "default": {
+     "hl_qual_flags": {
+       "num_of_loops": 1,
+diff --git a/tests/HL338/test_ft2.py b/tests/HL338/test_ft2.py
+new file mode 100644
+index 0000000..9777287
+--- /dev/null
++++ b/tests/HL338/test_ft2.py
+@@ -0,0 +1,2240 @@
++"""
++****************************************************************************
++* Copyright (C) 2021 HabanaLabs, Ltd.
++* All Rights Reserved.
++*
++* Unauthorized copying of this file, via any medium is strictly prohibited.
++* Proprietary and confidential.
++****************************************************************************
++"""
++
++help_dict = {'Owner': 'Oded Rot',
++             'required OS system': ' Linux or Windows',
++             'required connection ': ' pci, usb',
++             'pci_machine_ssh_details': 'json/tests/test_machines.json',
++             }
++
++import logging
++import pytest
++import hw_manager
++from tests.test_base import TestBase
++from hw_manager.interfaces.usb_i2c import UsbI2c
++from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
++from hlsa_utils.thread_pool import ThreadPool
++from tools import hl_fw_loader_tool
++from setup_manager import options, get_command_line_option
++import monitor_manager
++import time
++import  threading
++import setup_manager.regex_parser as RegexParser
++import re
++
++
++# Logging Manipulation
++log_manager = options.get_log_manager()
++
++# Main Logger
++logger = logging.getLogger(__name__)
++
++
++class TestFT2(TestBase):
++    @classmethod
++    def setup_class(cls):
++        # Global Status
++        cls.TEST_STATUS = True
++        cls.test_code = 'FT2'
++
++        # Get Test-Options
++        hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get Test Options')
++        cls.test_options = hw_manager.get_test_options()
++
++        # Get Station Options
++        hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get Station Options')
++        cls.station_options = hw_manager.get_station_options()
++
++        # Init devices Dict
++        cls.devices = {}
++        cls.devices_tests_status = {}
++
++        cls.mcp_first_module_id_idx = cls.test_options.mcp_first_module_id_idx
++        cls.set_log_by_mezz = cls.test_options.set_log_by_mezz
++        cls.mark_input = get_command_line_option("-m")
++
++        if cls.test_options.station_setup_module == 'SA_FT':
++            cls.mcp_connected = True
++            cls.mcp_first_module_id_idx = 0
++            cls.set_log_by_mezz = False
++
++        elif cls.test_options.station_setup_module == 'SA':
++            cls.mcp_connected = True
++            cls.mcp_first_module_id_idx = 0
++            cls.set_log_by_mezz = False
++
++        cls.host = hw_manager.get_machine_component("pci_machine")
++        cls.device = hw_manager.get_dut_component()
++        cls.device_cli = cls.host.get_control(hw_manager.controls.device_cli)
++        cls.smi_control = cls.host.get_control(hw_manager.controls.smi_cli)
++        cls.driver_cli = cls.host.get_control(hw_manager.controls.driver_cli)
++
++        cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
++
++        cls.global_status = hlsa_checker.check_values_is_equal(len(cls.connected_pcie_devices),
++                                                               expected_value=cls.test_options.num_of_devices,
++                                                               operation='Compare connected devices', units='String')
++
++        cls.pci_to_mezz = {}
++        cls.mezz_to_pci = {}
++        cls.pci_to_mezz_log_format = {}
++        cls.pcie_mezz_map = {}
++
++        cls.sve_run = cls.host.get_control(hw_manager.controls.sve_soc)
++        cls.device_mapper = hw_manager.device_mappers.SVE(cls)
++        cls.pci_to_mezz, cls.mezz_to_pci = cls.device_mapper.create_pci_mezz_mappings(
++            mcp_first_module_id_idx=cls.mcp_first_module_id_idx)
++
++        for pci in cls.connected_pcie_devices:
++            cls.pci_to_mezz_log_format[pci] = pci
++            if cls.set_log_by_mezz:
++                mezz = cls.pci_to_mezz[f'{pci}']
++                if mezz is not None and mezz != 'N/A':
++                    cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(mezz + 1)
++
++
++        for device in cls.connected_pcie_devices:
++            hlsa_logger(level='info', ident='Description', operation=f'[SETUP] PCI Device: {device} - SETUP...')
++            # Init Device's Dict
++            cls.devices[device] = {}
++            # cls.devices[device]["hl_num"] = cls.device_cli.get_hl_number(device)
++            # cls.devices[device]["long_pci_address"] = "0000:" + str(device)
++            # cls.devices[device]["mezz"] = cls.smi_control.get_module_id(
++            #     cls.devices[device]["long_pci_address"])
++
++        for device in cls.connected_pcie_devices:
++            cls.devices_tests_status[device] = {}
++
++        if cls.mcp_connected:
++            cls.usb_devices = int(UsbI2c.get_num_devices() / 2)
++            expected_devices_usb = cls.test_options.num_of_devices
++            hlsa_checker.check_values_is_equal(cls.usb_devices, expected_value=expected_devices_usb, ident='Description',
++                                               operation=f'Getting USB Devices', ignore_assert=True,
++                                               fail_log_level='warning')
++            cls.usb_elements = {}
++            # cls.mcp_first_module_id_idx = cls.test_options.mcp_first_module_id_idx
++            # if cls.test_options.station_setup_module == 'SA_FT':
++            #     cls.mcp_first_module_id_idx = 1  # MCP0_<module_id>
++            for device_idx in range(cls.mcp_first_module_id_idx, expected_devices_usb + cls.mcp_first_module_id_idx):
++                cls.usb_elements[device_idx] = {}
++                hlsa_logger(level='info', ident='Description',
++                            operation='Setup Device Index: (%d/%d) -' % (device_idx, cls.usb_devices),
++                            result='SUCCESS')
++                try:
++                    hlsa_logger(level='debug', ident='Description', operation='Get DUT (Device Index: %d)' % device_idx)
++                    cls.usb_elements[device_idx]['device'] = hw_manager.get_dut_component(device_idx)
++
++                    # hlsa_logger(level='debug', ident='Description',
++                    #             operation='Get TCA9546A (Device Index: %d)' % device_idx)
++                    # cls.usb_elements[device_idx]['tca9546'] = cls.usb_elements[device_idx]['device'].get_component(
++                    #     hw_manager.components.TCA9546A)
++                    # cls.usb_elements[device_idx]['tca9546_registers'] = cls.usb_elements[device_idx][
++                    #     'tca9546'].get_control(
++                    #     hw_manager.controls.usb_i2c_registers)
++                    # cls.usb_elements[device_idx]['tca9546_json_regs'] = cls.usb_elements[device_idx]['tca9546'].spec
++
++                    hlsa_logger(level='debug', ident='Description', operation='Get MACHX05')
++                    cls.usb_elements[device_idx]['machx05'] = cls.usb_elements[device_idx]['device'].get_component(hw_manager.components.MACHX05)
++                    cls.usb_elements[device_idx]['machx05_registers'] = cls.usb_elements[device_idx]['machx05'].get_control(hw_manager.controls.usb_i2c_registers)
++                    cls.usb_elements[device_idx]['machx05_json_regs'] = cls.usb_elements[device_idx]['machx05'].spec
++
++                    # Get OAM_CONTROLLER from HL338 object
++                    hlsa_logger(level='debug', ident='Description', operation='Get OAM_CONTROLLER from HL338 object')
++
++                    cls.usb_elements[device_idx]['oam_controller'] = cls.usb_elements[device_idx][
++                        'device'].get_component(hw_manager.components.OAM_CONTROLLER)
++                    cls.usb_elements[device_idx]['oam_controller_signals'] = cls.usb_elements[device_idx]['oam_controller'].spec
++
++                    hlsa_logger(level='debug', ident='Description', operation='Get MACHX05')
++                    cls.usb_elements[device_idx]['machx05'] = cls.usb_elements[device_idx]['device'].get_component(
++                        hw_manager.components.MACHX05)
++                    cls.usb_elements[device_idx]['machx05_registers'] = cls.usb_elements[device_idx][
++                        'machx05'].get_control(
++                        hw_manager.controls.usb_i2c_registers)
++                    cls.usb_elements[device_idx]['machx05_json_regs'] = cls.usb_elements[device_idx]['machx05'].spec
++
++                except Exception as exception:
++                    hlsa_logger(level='warning', ident='Description',
++                                operation='Test Initialization Failure (USB Device Index %d)' % device_idx,
++                                read_value='Exception: %s' % str(exception), result='FAIL')
++
++        cls.monitor_manager = monitor_manager.MonitorManager()
++        cls.dmesg_monitor = cls.monitor_manager.add_monitor(monitor_manager.monitors.DMESG_MONITOR)
++        if cls.mcp_connected:
++            cls.uart_monitor = cls.monitor_manager.add_monitor(monitor_manager.monitors.UART_MONITOR)
++
++        cls.loader_tool_manager = hl_fw_loader_tool.HLFWLoader()
++        cls.device = hw_manager.get_dut_component()
++
++        # Get HL3090 SoC
++        hlsa_logger(level='debug', ident='Description', test_code='EFUSE',
++                    operation='Get HL3090_DIE0_DIE1')
++        cls.hl30900_die_list = [cls.device.get_component(hw_manager.components.HL3090, comp_identifier="DIE0"),
++                                cls.device.get_component(hw_manager.components.HL3090, comp_identifier="DIE1")]
++
++        # cls.hl3090_i2c_soc_registers = [cls.hl30900_die_list[0].get_control(
++        #     hw_manager.controls.usb_i2c_debug_soc_registers), cls.hl30900_die_list[1].get_control(
++        #     hw_manager.controls.usb_i2c_debug_soc_registers)]
++        # cls.hl3090_json_soc_blocks = cls.hl30900_die_list[0].spec
++        cls.hl338_efuse = cls.hl30900_die_list[0].get_component(hw_manager.logic_components.HL338_EFUSE)
++
++        cls.Regex_parser = RegexParser.RegexParser()
++
++    def setup_method(self, method):
++        self.test_name = f'{method.__name__}'.replace('test_', '')
++        if method.__name__ == 'test_update_fw':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_erom_update':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_erom_validation':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_erom_erase':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_security_enable':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_bis_compliant_enable':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_svn_update':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_security_status':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_revoke_cpld':
++            # status = self.driver_cli.load_driver(drivin_flags=self.driver_options, driver_form="habanalabs_en")
++            # hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
++            # self.operational_devices_address = self.driver_cli.get_operational_devices()
++
++            for device in self.connected_pcie_devices:
++                hlsa_logger(level='info', ident='Description', operation=f'[SETUP] PCI Device: {device} - SETUP...')
++                # Init Device's Dict
++                self.devices[device] = {}
++                # self.devices[device]["hl_num"] = self.device_cli.get_hl_number(device)
++                # self.devices[device]["long_pci_address"] = "0000:" + str(device)
++                # self.devices[device]["mezz"] = self.smi_control.get_module_id(
++                #     self.devices[device]["long_pci_address"])
++
++
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_read_efuse':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_validate_efuse':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_update_eeprom':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++        elif method.__name__ == 'test_validate_eeprom':
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices_tests_status[device][self.test_name] = False
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++
++    @pytest.mark.HL338_ft2
++    def test_update_fw(self):
++        self.test_code = 'FT2 FW UPDATE'
++        self.test_name = 'update_fw'
++        self.TEST_STATUS = True
++        # self.devices_tests_status[self.test_name] = {}
++        # for device in self.devices:
++        #     self.devices_tests_status[self.test_name][device] = False
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._spi_wp_enable()
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            self._hl_fw_loader_reset()
++
++            # self._copy_preboot_to_host()
++            self.devices_fw_version = {}
++            self.TEST_STATUS, self.devices_fw_version = hl_fw_loader_tool.HLFWLoader.update_fw(self.loader_tool_manager,
++                                                                                                 itb_file=self.test_options.update_fw_itb,
++                                                                                                 pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                                                                                                 test_code=self.test_code,
++                                                                                                 retries=self.test_options.update_fw_retries)
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++        for pci_addr in self.devices:
++            try:
++                log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
++                if self.devices_fw_version['after'] is not None:
++                    if self.devices_fw_version['after'][pci_addr] is not None and self.devices_fw_version['after'][pci_addr]:
++                        sub_test_r = str(self.devices_fw_version['after'][pci_addr]).find(
++                            self.test_options.preboot_version)
++                        sub_test_res = 'FAIL' if sub_test_r == -1 else 'SUCCESS'
++                        level = 'info' if sub_test_res == 'SUCCESS' else 'error'
++                        hlsa_logger(level=level, ident='Value', dev_address=pci_addr,
++                                    mezzanine=self.pci_to_mezz[pci_addr],
++                                    test_code=self.test_code, operation='Preboot',
++                                    read_value=f'{self.devices_fw_version["after"][pci_addr]}', units='String',
++                                    expected_value=f'{self.test_options.preboot_version}', result=f'{sub_test_res}')
++                        if sub_test_res == 'SUCCESS':
++                            self.devices_tests_status[pci_addr][self.test_name] = True
++                        if sub_test_res == 'FAIL':
++                            self.devices_tests_status[pci_addr][self.test_name] = False
++                            hlsa_logger(level='error', ident='Description', dev_address=pci_addr,
++                                        mezzanine=self.pci_to_mezz[pci_addr],
++                                        test_code=self.test_code, operation='Failed to update Preboot')
++                            log_manager.update_status_false(self.pci_to_mezz_log_format[pci_addr])
++                else:
++                    hlsa_logger(level='error', ident='Description', dev_address=pci_addr,
++                                mezzanine=self.pci_to_mezz[pci_addr],
++                                test_code=self.test_code, operation='Failed to update Preboot')
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[pci_addr])
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during test_update_fw: {exception}')
++        log_manager.log_browser()
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.devices_tests_status[device][self.test_name]:
++                log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                self.TEST_STATUS = False
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    def test_update_eeprom(self):
++        self.test_code = 'FT2 UPDATE EEPROM'
++        self.test_name = 'update_eeprom'
++
++        self.TEST_STATUS = False
++
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            try:
++                self._copy_eeprom_file_to_host()
++
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._eeprom_wp_enable()
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self.devices_eeprom_update_status = {}
++                log_level = 'warning'
++                if not self.test_options.CICD_station:
++                    self.TEST_STATUS, self.devices_eeprom_update_status = hl_fw_loader_tool.HLFWLoader.eeprom_update(
++                        self.loader_tool_manager, itb_file=self.test_options.eeprom_file_dest,
++                        pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                        test_code=self.test_code, log_lvl=log_level, retries=self.test_options.update_eeprom_retries )
++
++                    if log_level == 'warning':
++                        self.TEST_STATUS = True
++                        for device in self.devices:
++                            self.devices_tests_status[device][self.test_name] = True
++
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++        for device in self.devices:
++            if not self.test_options.CICD_station:
++                if self.devices_eeprom_update_status[device] is not None and self.devices_eeprom_update_status[device]:
++                    self.devices_tests_status[device][self.test_name] = True
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++
++        if not self.test_options.CICD_station:
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_validate_eeprom(self):
++        self.test_code = 'FT2 VALIDATE EEPROM'
++        self.test_name = 'validate_eeprom'
++
++        self.TEST_STATUS = False
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            self._hl_fw_loader_reset()
++
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self.devices_eeprom_content = {}
++            self.TEST_STATUS, self.devices_eeprom_content = hl_fw_loader_tool.HLFWLoader.eeprom_read(
++                self.loader_tool_manager, pci_to_mezz_log_format=self.pci_to_mezz_log_format, test_code=self.test_code)
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        if not self.test_options.CICD_station:
++            fail_log_level = 'error'
++        else:
++            fail_log_level = 'warning'
++
++        if not self.test_options.eeprom_field_check_enable:
++            for device in self.devices:
++                self.devices_tests_status[device][self.test_name] = True
++        else:
++            fields_to_check = self.test_options.eeprom_field_to_check.keys()
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if self.devices_eeprom_content[device] is not None and self.devices_eeprom_content[device] != {}:
++                   #convert to dict
++                   eeprom_content = {' '.join(parts[:-1]): parts[-1] for s in self.devices_eeprom_content[device][:-1] if (parts := s.split())}
++
++                   check_all_fields_status = True
++                   for field_to_check in fields_to_check:
++                       status = hlsa_checker.check_values_is_equal(read_value=eeprom_content[field_to_check],
++                                                                   expected_value=self.test_options.eeprom_field_to_check[field_to_check],
++                                                                   test_code=self.test_code,
++                                                                   operation=f'Compare {field_to_check}', ignore_assert=True,
++                                                                   dev_address=device, fail_log_level=fail_log_level)
++                       if not status:
++                           check_all_fields_status = False
++                   if check_all_fields_status:
++                       self.devices_tests_status[device][self.test_name] = True
++            log_manager.log_browser()
++
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.test_options.CICD_station:
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_read_efuse(self):
++        self.test_code = 'FT2 READ EFUSE'
++        self.test_name = 'read_efuse'
++
++        self.TEST_STATUS = False
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            self._hl_fw_loader_reset()
++
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self.devices_efuse_content = {}
++            self.TEST_STATUS, self.devices_efuse_content = hl_fw_loader_tool.HLFWLoader.efuse_read(
++                self.loader_tool_manager,
++                pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                test_code=self.test_code)
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        for device in self.devices:
++            if self.devices_efuse_content[device] is not None and self.devices_efuse_content[device] != {}:
++                self.devices_tests_status[device][self.test_name] = True
++            # self.compare_efuse_data(device, self.devices_efuse_content[device])
++
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.devices_tests_status[device][self.test_name]:
++                log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                self.TEST_STATUS = False
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_erom_update(self):
++        self.test_code = 'FT2 EROM UPDATE'
++        self.test_name = 'erom_update'
++        self.TEST_STATUS = True
++
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._spi_wp_enable()
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            self._hl_fw_loader_reset()
++
++            for pci_addr in self.connected_pcie_devices:
++                status, output = hl_fw_loader_tool.HLFWLoader.erom_update(self.loader_tool_manager, device_pci=pci_addr)
++                output_status = "FAIL" in "".join(output).upper()
++                if status and not output_status:
++                    self.devices_tests_status[pci_addr][self.test_name] = True
++
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        self.TEST_STATUS = True
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.test_options.CICD_station:
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_erom_validation(self):
++        self.test_code = 'FT2 EROM VALIDATION'
++        self.test_name = 'erom_validation'
++        self.TEST_STATUS = True
++        command = "hl-smi --fw-version"
++
++        try:
++            # load driver
++            self.driver_options = hw_manager.get_driver_options()
++            status = self.driver_cli.load_driver(drivin_flags=self.driver_options, driver_form="habanalabs_en")
++            hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
++
++            # HL-SMI commnad
++            code, output = self.smi_control.execute_command(command)
++
++            hlsa_checker.check_values_is_equal(code, 0, test_code=self.test_code,
++                                               operation="Execute 'hl-smi --fw-version'")
++            erom_versions = {}
++            current_pci = None
++            find_erom = False
++
++            # Loop through output
++            for line in output:
++                line = line.strip()
++                if line.startswith("[") and "AIP" in line:
++                    line_parts = line.split()
++                    current_pci = line_parts[-1].replace("0000:","")
++                    find_erom = False
++                if line == "erom":
++                    find_erom = True
++                if "component" in line and find_erom and current_pci is not None:
++                    erom_version = line.split(":", 1)[1].strip()
++                    erom_versions[current_pci] = erom_version
++                    find_erom = False
++
++            # Validation with test_options value
++            expected_erom = self.test_options.erom_expected_version
++
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                erom_version = erom_versions.get(device)
++
++                if erom_version is not None:
++                    hlsa_checker.check_values_is_equal(erom_version, expected_erom, test_code=self.test_code,
++                                                       operation=f'Validate {device} EROM', units='String')
++                    self.devices_tests_status[device][self.test_name] = (erom_version == expected_erom)
++
++                else:
++                    hlsa_checker.check_value_is_not_none(erom_version, test_code=self.test_code,
++                                                         operation=f'Validate {device} EROM is not None', units='Sting',
++                                                         ignore_assert=True)
++                    self.devices_tests_status[device][self.test_name] = False
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code, operation=f'Exception in {self.test_name}'
++                                                                                                f': {exception}')
++            self.TEST_STATUS = False
++
++        # Check test results
++        for device in self.devices:
++            if not self.test_options.CICD_station:
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++
++        log_manager.log_browser()
++        assert  self.TEST_STATUS
++
++    # @pytest.mark.HL338_ft3
++    def test_erom_erase(self):
++        self.test_code = 'FT2 EROM ERASE'
++        self.test_name = 'erom_erase'
++        self.TEST_STATUS = True
++
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._spi_wp_enable()
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            for pci_addr in self.connected_pcie_devices:
++                hl_rev = self.device_cli.get_hl_revision_version_by_pcie_address(pci_addr=pci_addr)
++                if hl_rev is not None and int(hl_rev) >= 4:
++                    self.devices_tests_status[pci_addr][self.test_name] = True
++                    continue
++                status, output = hl_fw_loader_tool.HLFWLoader.erom_erase(self.loader_tool_manager, device_pci=pci_addr)
++                if status:
++                    self.devices_tests_status[pci_addr][self.test_name] = True
++
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++        self.TEST_STATUS = True
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.devices_tests_status[device][self.test_name]:
++                log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                self.TEST_STATUS = False
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_security_enable(self):
++        self.test_code = 'FT2 SECURITY ENABLE'
++        self.test_name = 'security_enable'
++        self.TEST_STATUS = True
++
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            self.TEST_STATUS = False
++            try:
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._efuse_wp_enable()
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++                for pci_addr in self.connected_pcie_devices:
++                    status, output = hl_fw_loader_tool.HLFWLoader.security_enable(self.loader_tool_manager, device_pci=pci_addr)
++                    if status:
++                        self.devices_tests_status[pci_addr][self.test_name] = True
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            # TODO verify rev04
++            # 54v reboot
++            # for device in self.devices:
++            #     hl_rev = self.device_cli.get_hl_revision_version_by_pcie_address(device)
++
++            self.TEST_STATUS = True
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if not self.test_options.CICD_station:
++                    if not self.devices_tests_status[device][self.test_name]:
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                        self.TEST_STATUS = False
++                else:
++                    self.devices_tests_status[device][self.test_name] = True
++            log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_svn_update(self):
++        self.test_code = 'FT2 SVN UPDATE'
++        self.test_name = 'svn_update'
++        self.TEST_STATUS = True
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            self.TEST_STATUS = False
++            try:
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._efuse_wp_enable()
++
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++                log_level = 'warning'  # Ignore SVN hl-fw-loader status
++                for pci_addr in self.connected_pcie_devices:
++                    status, output = hl_fw_loader_tool.HLFWLoader.update_svn(self.loader_tool_manager,
++                                                                             device_pci=pci_addr, log_lvl=log_level)
++                    if status:
++                        self.devices_tests_status[pci_addr][self.test_name] = True
++
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++            self.TEST_STATUS = True
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if not self.test_options.CICD_station:
++                    if not self.devices_tests_status[device][self.test_name]:
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                        self.TEST_STATUS = False
++                else:
++                    self.devices_tests_status[device][self.test_name] = True
++            log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_security_status(self):
++        self.test_code = 'FT2 SECURITY STATUS'
++        self.test_name = 'security_status'
++        self.TEST_STATUS = True
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++            log_level = 'warning'
++        else:
++            self.TEST_STATUS = False
++            log_level = 'error'
++
++        try:
++            self._run_dmesg_monitor()
++            self._start_supported_monitors()
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            status = self.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation='Remove Driver,Habanalabs')
++            self._hl_fw_loader_reset()
++
++            for pci_addr in self.connected_pcie_devices:
++                status, output = hl_fw_loader_tool.HLFWLoader.security_status(self.loader_tool_manager, device_pci=pci_addr)
++                status = self.regex_search(pci_addr, stdout=output , log_level=log_level)
++                if status or log_level == 'warning' :
++                    self.devices_tests_status[pci_addr][self.test_name] = True
++
++        except Exception as exception:
++            log_manager.log_browser()
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during {self.test_name}: {exception}')
++
++        try:
++            self._stop_supported_monitors()
++            self._print_data_from_supported_monitors()
++            # self.init_and_add_monitors()
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description',
++                        operation=f'Exception during {self.test_name}: {exception}')
++        self.TEST_STATUS = True
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.test_options.CICD_station:
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++        log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft3
++    def test_bis_compliant_enable(self):
++        self.test_code = 'BIS COMPLIANT ENABLE'
++        self.test_name = 'bis_compliant_enable'
++        self.TEST_STATUS = True
++
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            self.TEST_STATUS = False
++            try:
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._efuse_wp_enable()
++
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++                for pci_addr in self.connected_pcie_devices:
++                    status, output = hl_fw_loader_tool.HLFWLoader.bis_enable(self.loader_tool_manager, device_pci=pci_addr)
++                    if status:
++                        self.devices_tests_status[pci_addr][self.test_name] = True
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++            self.TEST_STATUS = True
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if not self.test_options.CICD_station:
++                    if not self.devices_tests_status[device][self.test_name]:
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                        self.TEST_STATUS = False
++                else:
++                    self.devices_tests_status[device][self.test_name] = True
++            log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_validate_efuse(self):
++        self.test_code = 'FT2 VALIDATE EFUSE'
++        self.test_name = 'validate_efuse'
++
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            self.TEST_STATUS = False
++            try:
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self.devices_efuse_content = {}
++                self.TEST_STATUS, self.devices_efuse_content = hl_fw_loader_tool.HLFWLoader.efuse_read(
++                    self.loader_tool_manager,
++                    pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                    test_code=self.test_code)
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            for device in self.devices:
++                self.devices_tests_status[device][self.test_name] = True
++                self.compare_efuse_data(device, self.devices_efuse_content[device])
++
++            for device in self.devices:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                if not self.test_options.CICD_station:
++                    if not self.devices_tests_status[device][self.test_name]:
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                        self.TEST_STATUS = False
++                else:
++                    self.devices_tests_status[device][self.test_name] = True
++            log_manager.log_browser()
++        assert self.TEST_STATUS
++
++    @pytest.mark.HL338_ft2
++    def test_revoke_cpld(self):
++        self.test_code = 'FT2 REVOKE CPLD'
++        self.test_name = 'revoke_cpld'
++        # self.devices_tests_status[self.test_name] = {}
++        # for device in self.devices:
++        #     self.devices_tests_status[self.test_name][device] = False
++
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        else:
++            self.TEST_STATUS = False
++            # self._cpld_rma_enable()
++            cpld_revoke_itb = self.test_options.cpld_revoke_itb
++            hl_fw_loader_on_devices = []
++            current_fw = {}
++            # load driver
++            # status = self.driver_cli.load_driver(drivin_flags=self.driver_options, driver_form="habanalabs_en")
++            # hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
++
++            try:
++                self._run_dmesg_monitor()
++                self._start_supported_monitors()
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            try:
++                status = self.driver_cli.remove_driver()
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  operation='Remove Driver,Habanalabs')
++                self._hl_fw_loader_reset()
++
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++            # remove driver
++            # status = self.driver_cli.remove_driver()
++            # hlsa_checker.check_status_is_true(status, ident='Description', operation='Remove Driver,Habanalabs',
++            #                                   ignore_assert=True, fail_log_level='warning')
++            try:
++                if not self.test_options.skip_update_fw_check:
++                    status, current_fw = hl_fw_loader_tool.HLFWLoader.update_fw(self.loader_tool_manager,
++                                                                    pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                                                                    test_code=self.test_code,
++                                                                    check_only_current_fw=True)
++                else:
++                    current_fw["before"] = {}
++                    for device in self.devices:
++                        current_fw["before"][device] = ''
++
++                self._thread_pool = ThreadPool()
++                self._thread_pool.init_thread_pool(len(self.connected_pcie_devices))
++                self.threads = {}
++
++                for device in self.devices:
++                    status_of_current_fw = False
++                    if self.test_options.skip_update_fw_check:
++                        status_of_current_fw = True
++                    elif ('update_fw' in self.devices_tests_status[device].keys()) and self.devices_tests_status[device]['update_fw']:
++                        status_of_current_fw = True
++                    elif self.test_options.preboot_version in current_fw["before"][device]:
++                        status_of_current_fw = True
++                        hlsa_logger(level='info', ident='Value', dev_address=device,
++                                    test_code=self.test_code, mezzanine=self.pci_to_mezz[device],
++                                    operation='Preboot', read_value=current_fw["before"][device])
++
++                    cpld_revoke_status = self._check_cpld_revoke_status_per_device(pci=device, log_level='warning')
++                    ts_status = self._check_cpld_timestamp_per_device(pci=device, log_level='warning')
++                    revoke_and_ts_status = cpld_revoke_status and ts_status
++
++                    if self.test_options.force_revoke or (status_of_current_fw and not revoke_and_ts_status):
++
++                        self.threads[device] = threading.Thread(
++                            target=lambda: hl_fw_loader_tool.HLFWLoader.revoke_cpld(self.loader_tool_manager,
++                                                                                    revoke_cpld_itb=cpld_revoke_itb,
++                                                                                    pci_to_mezz_log_format=self.pci_to_mezz_log_format,
++                                                                                    test_code=self.test_code,
++                                                                                    device_pci=device))
++                        self.threads[device].start()
++                        time.sleep(1)  # sleep to prevent thread race condition
++
++                        hl_fw_loader_on_devices.append(device)
++                    else:
++                        hlsa_logger(level='info', ident='Description', dev_address=device, test_code=self.test_code,
++                                    operation='Skipping cpld revoke for device')
++
++                for device in self.devices:
++                    self.threads[device].join()
++
++                while not self._thread_pool.check_all_threads_done():
++                    continue
++
++                # cpld reboot
++                self._mach05_soft_reset()
++                # self._54V_reset()
++
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++            hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                        operation=f'hl-fw-loader Revoke run on devices {hl_fw_loader_on_devices}')
++
++            for device in self.devices:
++                cpld_revoke_status = self._check_cpld_revoke_status_per_device(pci=device, log_level='error')
++                ts_status = self._check_cpld_timestamp_per_device(pci=device, log_level='error')
++                current_fw_status = False
++                if not self.test_options.force_revoke:
++                    if self.test_options.preboot_version in current_fw["before"][device]:
++                        current_fw_status = True
++                if self.test_options.skip_update_fw_check:
++                    current_fw_status = True
++                hlsa_checker.check_status_is_true(current_fw_status, ident='Value', dev_address=device,test_code=self.test_code,
++                                                  mezzanine=self.pci_to_mezz[device],
++                                                  operation='Preboot', read_value=current_fw["before"][device],
++                                                  expected_value=self.test_options.preboot_version, ignore_assert=True,
++                                                  units='String')
++                revoke_and_ts_and_fw_status = cpld_revoke_status and ts_status and current_fw_status
++                self.devices_tests_status[device][self.test_name] = revoke_and_ts_and_fw_status
++            try:
++                self._stop_supported_monitors()
++                self._print_data_from_supported_monitors()
++                # self.init_and_add_monitors()
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description',
++                            operation=f'Exception during {self.test_name}: {exception}')
++
++        self.TEST_STATUS = True
++        for device in self.devices:
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            if not self.test_options.CICD_station:
++                if not self.devices_tests_status[device][self.test_name]:
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
++            else:
++                self.devices_tests_status[device][self.test_name] = True
++        log_manager.log_browser()
++        if self.test_options.CICD_station:
++            self.TEST_STATUS = True
++        assert self.TEST_STATUS
++
++    def test_analyze_global_result(self):
++        log_manager.log_browser()
++        test_status = True
++        if not self.global_status:
++            test_status = False
++            hlsa_logger(level='error', ident='Description', test_code='ANALYZE GLOBAL RESULT',
++                        operation=f'Test Fail Due to 1 or More Malfunction Devices (!)', result='FAIL')
++        self.global_status = self.analyze_results()
++        hlsa_checker.check_status_is_true(self.global_status, ident='Description', test_code='ANALYZE GLOBAL RESULT',
++                                          operation=f'Check All Inner Test Results')
++        log_manager.log_browser()
++        assert test_status and self.global_status
++
++    # Pass - Fail Analysis
++    # @staticmethod
++    def analyze_results(self):
++        analysis_status = True
++        # PASS - FAIL Analysis Per PCIe Device
++        # Iterate Through Devices Result
++        for device in self.devices_tests_status:
++            # Unique Log Per PCIe Device
++            log_manager.log_browser(self.pci_to_mezz_log_format[device])
++            self.devices_tests_status[device]['status'] = True
++            for func_test, func_tests_dic in self.devices_tests_status[device].items():
++                if func_tests_dic['status'] == '#RESULTS_FAILED#':
++                    hlsa_logger(level='error', ident='Description', test_code='Final Test Results',
++                                dev_address=f'{device}',
++                                operation=f'Functional test summary:{func_test}', result=func_tests_dic['status'])
++                    # Update Status Collector
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    analysis_status = False
++                    self.devices_tests_status[device]['status'] = False
++                else:
++                    hlsa_logger(level='info', ident='Description', test_code='Final Test Results',
++                                dev_address=f'{device}', operation=f'Functional test summary:{func_test}',
++                                result=func_tests_dic['status'])
++            if self.devices_tests_status[device]['status']:
++                hlsa_logger(level='INFO', ident='Description', test_code='Final Test Results',
++                            dev_address=str(device), operation='Functional test summary:analyze_global_result',
++                            result='#RESULTS_PASS#')
++            else:
++                hlsa_logger(level='error', ident='Description', test_code='Final Test Results',
++                            dev_address=str(device), operation='Functional test summary:analyze_global_result',
++                            result='#RESULTS_FAILED#')
++        log_manager.log_browser()
++        return analysis_status
++
++    def _print_cpld_revoke_status(self):
++        if self.mcp_connected:
++            regs_status = True
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    usb_index = int(self.pci_to_mezz[device])
++                    registers_status = {}
++                    for expected_register, val in self.test_options.expected_registers_values.items():
++                        reg_value = self.usb_elements[usb_index]['machx05_registers'].read(getattr(
++                            self.usb_elements[usb_index]['machx05_json_regs'],expected_register))
++                        reg_value = hex(reg_value)
++                        reg_exp_values = val
++                        if isinstance(val, str):
++                            reg_exp_values = [val]
++                        for exp_value in reg_exp_values:
++                            status = hlsa_checker.check_values_is_equal(
++                                read_value=reg_value,
++                                expected_value=exp_value,
++                                test_code=self.test_code,
++                                operation=expected_register,
++                                ignore_assert=True, fail_log_level='warning',
++                                dev_address=device,
++                                mezzanine=int(self.pci_to_mezz[device]))
++                            if expected_register in registers_status.keys():
++                                registers_status[expected_register] = registers_status[expected_register] or status
++                            else:
++                                registers_status[expected_register] = status
++                    if False not in registers_status.values():
++                        self.devices_tests_status[device][self.test_name] = True
++                        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                                    operation='Registers revoke status check', dev_address=device,
++                                    mezzanine=self.pci_to_mezz[device], result='PASS')
++                    else:
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                        regs_status = False
++                        self.devices_tests_status[device][self.test_name] = False
++                        hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                                    operation='Registers revoke status check', dev_address=device,
++                                    mezzanine=self.pci_to_mezz[device], result='FAIL')
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='warning', ident='Description',
++                                operation='Exception during print_cpld_revoke_status (Device %s)' % device,
++                                read_value='Exception: %s' % str(exception), result='FAIL')
++                    regs_status = False
++            log_manager.log_browser()
++            return regs_status
++
++    def _check_cpld_revoke_status_per_device(self, pci, log_level='error'):
++        if self.mcp_connected:
++            device = pci
++            try:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                usb_index = int(self.pci_to_mezz[device])
++                registers_status = {}
++                for expected_register, val in self.test_options.expected_registers_values.items():
++                    reg_value = self.usb_elements[usb_index]['machx05_registers'].read(getattr(self.usb_elements[usb_index]['machx05_json_regs'],expected_register))
++                    reg_value = hex(reg_value)
++                    reg_exp_values = val
++                    if isinstance(val, str):
++                        reg_exp_values = [val]
++                    for exp_value in reg_exp_values:
++                        status = hlsa_checker.check_values_is_equal(
++                            read_value=reg_value, ident='Value',
++                            expected_value=exp_value,
++                            test_code=self.test_code,
++                            operation=expected_register,
++                            ignore_assert=True,
++                            dev_address=device,
++                            mezzanine=int(self.pci_to_mezz[device]),
++                            fail_log_level='warning')
++                        if status:
++                            registers_status[expected_register] = True
++                        elif expected_register in registers_status.keys() and registers_status[expected_register]:
++                            pass
++                        else:
++                            registers_status[expected_register] = reg_value
++
++                if any(item != True for item in list(registers_status.values())):
++                    hlsa_logger(level=log_level, ident='Description', test_code=self.test_code,
++                                operation='Check revoke status', dev_address=device,
++                                mezzanine=self.pci_to_mezz[device])
++                    for key_reg, value_reg in registers_status.items():
++                        if not value_reg:
++                            hlsa_logger(level=log_level, ident='Description', test_code=self.test_code,
++                                        operation=key_reg, dev_address=device, read_value=value_reg,
++                                        mezzanine=self.pci_to_mezz[device], result='FAIL')
++                else:
++                    hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                                    operation='Check revoke status', dev_address=device,
++                                    mezzanine=self.pci_to_mezz[device], result='PASS')
++                    return True
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='warning', ident='Description',
++                            operation='Exception during print_cpld_revoke_status (Device %s)' % device,
++                            read_value='Exception: %s' % str(exception), result='FAIL')
++                status = False
++            log_manager.log_browser()
++            return False
++
++    def _check_cpld_timestamp_per_device(self, pci, log_level='error'):
++        if self.mcp_connected:
++            device = pci
++            status = False
++            try:
++                log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                usb_index = int(self.pci_to_mezz[device])
++
++                cpld_expected_version = self.test_options.cpld_expected_version
++                cpld_version = str(self.usb_elements[usb_index]['machx05_registers'].read(self.usb_elements[usb_index]['machx05_json_regs'].version_reg))
++
++                ver_status = hlsa_checker.check_values_is_equal(read_value=cpld_version, ident='Value',
++                                                                test_code=self.test_code, units="String",
++                                                                operation='MACHX05 TS Version',fail_log_level=log_level,
++                                                                expected_value=cpld_expected_version, ignore_assert=True)
++
++                # current_cfg = self.usb_elements[usb_index]['machx05_registers'].read_bit(
++                #     self.usb_elements[usb_index]['machx05_json_regs'].risc_v_spi_status_1_reg,
++                #     self.usb_elements[usb_index]['machx05_json_regs'].risc_v_spi_status_1_reg.bits.
++                #     current_image_id.index)
++                #
++                # other_image = ''
++                # if current_cfg == 0:
++                #     other_image = ''
++                # if current_cfg == 1:
++                #     other_image = 'other_image_'
++
++                # Read TIME Stamp Version UC0
++                cpld_version_time_stamp_uc0 = self.usb_elements[usb_index]['machx05_registers'].read(
++                    getattr(self.usb_elements[usb_index]['machx05_json_regs'], 'time_stamp_uc0_reg'))
++                hlsa_checker.check_value_is_not_none(str(hex(cpld_version_time_stamp_uc0)), ident='Description',
++                                                     test_code=self.test_code, mezzanine=usb_index,
++                                                     operation='MACHX05 TS Version UC0', ignore_assert=True)
++
++                # Read TIME Stamp Version UC1
++                cpld_version_time_stamp_uc1 = self.usb_elements[usb_index]['machx05_registers'].read(
++                    getattr(self.usb_elements[usb_index]['machx05_json_regs'], 'time_stamp_uc1_reg'))
++                hlsa_checker.check_value_is_not_none(str(hex(cpld_version_time_stamp_uc1)), ident='Description',
++                                                     test_code=self.test_code, mezzanine=usb_index,
++                                                     operation='MACHX05 TS Version UC1', ignore_assert=True)
++
++                # Read TIME Stamp Version UC2
++                cpld_version_time_stamp_uc2 = self.usb_elements[usb_index]['machx05_registers'].read(
++                    getattr(self.usb_elements[usb_index]['machx05_json_regs'], 'time_stamp_uc2_reg'))
++                hlsa_checker.check_value_is_not_none(str(hex(cpld_version_time_stamp_uc2)), ident='Description',
++                                                     test_code=self.test_code, mezzanine=usb_index,
++                                                     operation='MACHX05 TS Version UC2', ignore_assert=True)
++
++                # Read TIME Stamp Version UC3
++                cpld_version_time_stamp_uc3 = self.usb_elements[usb_index]['machx05_registers'].read(
++                    getattr(self.usb_elements[usb_index]['machx05_json_regs'], 'time_stamp_uc3_reg'))
++                hlsa_checker.check_value_is_not_none(str(hex(cpld_version_time_stamp_uc3)), ident='Description',
++                                                     test_code=self.test_code, mezzanine=usb_index,
++                                                     operation='MACHX05 TS Version UC3', ignore_assert=True)
++
++                # Validate CPLD Version
++                # Merge Convert CPLD Value To Hex
++                cpld_version_list = [cpld_version_time_stamp_uc3, cpld_version_time_stamp_uc2,
++                                     cpld_version_time_stamp_uc1, cpld_version_time_stamp_uc0]
++                cpld_version_time_stamp = ''.join(format(x, '02X') for x in cpld_version_list)
++                cpld_version_time_stamp = bytes.fromhex(cpld_version_time_stamp)
++                cpld_version_time_stamp = cpld_version_time_stamp.hex()
++
++                # Merge Convert Expected Version CPLD Value To Hex
++                expected_version = ''.join(format(self.test_options.cpld_time_stamp_expected_version, '02X'))
++                expected_version = bytes.fromhex(expected_version)
++                expected_version = expected_version.hex()
++                ts_status = hlsa_checker.check_status_is_true((cpld_version_time_stamp == expected_version), ident='Value',
++                                                  test_code=self.test_code, fail_log_level=log_level,
++                                                  units="String", operation='MACHX05 TS Version',
++                                                  read_value=cpld_version_time_stamp,
++                                                  expected_value=expected_version,
++                                                  ignore_assert=True)
++
++                status = ts_status and ver_status
++
++            except Exception as exception:
++                log_manager.log_browser()
++                hlsa_logger(level='warning', ident='Description',
++                            operation='Exception during read TS (Device %s)' % device,
++                            read_value='Exception: %s' % str(exception), result='FAIL')
++                status = False
++            log_manager.log_browser()
++            return status
++
++    def _start_supported_monitors(self):
++        if self.mcp_connected:
++            uart_monitor_config = getattr(self.test_options.monitors.uart_monitor, self.test_name)
++            uart_monitor_config_dict = dict(uart_monitor_config)
++            if uart_monitor_config and uart_monitor_config_dict["read_uart"]:
++                uart_monitor_config_dict['test_name'] = self.test_name
++                self.monitor_manager.start_monitor(self.uart_monitor, uart_monitor_config_dict)
++                time.sleep(5)
++
++    def _stop_supported_monitors(self):
++        if self.mcp_connected:
++            uart_monitor_config = getattr(self.test_options.monitors.uart_monitor, self.test_name)
++            uart_monitor_config_dict = dict(uart_monitor_config)
++            if uart_monitor_config and uart_monitor_config_dict["read_uart"]:
++                self.monitor_manager.stop_monitor(self.uart_monitor)
++
++    def _run_dmesg_monitor(self, start_time=None):
++        dmesg_monitor_config = getattr(self.test_options.monitors.dmesg_monitor, self.test_name)
++        dmesg_monitor_config_dict = dict(dmesg_monitor_config)
++        if dmesg_monitor_config and dmesg_monitor_config["read_dmesg"]:
++            dmesg_monitor_config_dict['test_name'] = self.test_name
++            if start_time is not None:
++                dmesg_monitor_config_dict['start_time'] = start_time
++            self.monitor_manager.start_monitor(self.dmesg_monitor, dmesg_monitor_config_dict)
++            if start_time is not None:
++                time.sleep(10)
++                self.monitor_manager.stop_monitor(self.dmesg_monitor)
++
++    def _print_data_from_supported_monitors(self):
++        dmesg_monitor_config = self.test_options.monitors.dmesg_monitor[self.test_name]
++        if dmesg_monitor_config and dmesg_monitor_config["read_dmesg"]:
++            dmesg_output = self.monitor_manager.get_monitor_report_result(self.dmesg_monitor, dmesg_monitor_config)
++            hlsa_logger(level='info', ident='Description', operation='Read dmesg output')
++            if dmesg_output:
++                for line in dmesg_output:
++                    hlsa_logger(level='info', ident='Description', test_code='DMESG', operation='LOG', read_value=line)
++
++        if self.mcp_connected:
++            uart_monitor_config = self.test_options.monitors.uart_monitor[self.test_name]
++            if uart_monitor_config and uart_monitor_config["read_uart"]:
++                hlsa_logger(level='info', ident='Description', operation='Get uart output')
++                uart_buffer = self.monitor_manager.get_monitor_report_result(self.uart_monitor, uart_monitor_config)
++                for device, uart_output in uart_buffer.items():
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    hlsa_logger(level='info', ident='Description', operation='Read uart output')
++                    for line in uart_output.splitlines():
++                        hlsa_logger(level='info', ident='Description', test_code='UART', operation='LOG', read_value=line,
++                                    mezzanine=self.pci_to_mezz[device])
++                log_manager.log_browser()
++
++    # def init_and_add_monitors(self):
++    #     hlsa_logger(level='debug', ident='Description', test_code='Test_Monitor', operation='Get Monitor Manager')
++    #     self.monitor_manager.__init__()
++    #     self.sensor_monitor = self.monitor_manager.add_monitor(monitor_manager.monitors.SENSORS_MONITOR)
++    #     self.dmesg_monitor = self.monitor_manager.add_monitor(monitor_manager.monitors.DMESG_MONITOR)
++    #     if self.mcp_connected:
++    #         self.uart_monitor = self.monitor_manager.add_monitor(monitor_manager.monitors.UART_MONITOR)
++
++    def _mach05_soft_reset(self):
++        pass
++        # # Iterate Through USB Devices
++        # for device_idx in range(self.mcp_first_module_id_idx,
++        #                         self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++        #     # Set HL325s TCA9546 CH2
++        #     status = self.usb_elements[device_idx]['tca9546_registers'].write(self.usb_elements[device_idx]['tca9546_json_regs'].CH2)
++        #     hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Write TCA9546 to CH2')
++        #
++        #     status = self.usb_elements[device_idx]['machx05'].soft_reset_cpld()
++        #     hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Soft Reset MACH0X5')
++        # time.sleep(self.test_options['wait_after_cpld_power_cycle'])
++
++    def _spi_wp_enable(self):
++        pass
++        # if self.mcp_connected:
++        #     # Iterate Through USB Devices
++        #     for device_idx in range(self.mcp_first_module_id_idx,
++        #                             self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++        #         # Set HL325s TCA9546 CH2
++        #         status = self.usb_elements[device_idx]['tca9546_registers'].write(self.usb_elements[device_idx]['tca9546_json_regs'].CH2)
++        #         hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Write TCA9546 to CH2')
++        #
++        #         written = self.usb_elements[device_idx]['machx05_registers'].write_bit(
++        #             self.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg,
++        #             self.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg.bits.FLASH_SPI_0_WP_N.index, 1)
++        #         hlsa_checker.check_status_is_true(written, ident='Description', test_code=self.test_code, operation='FLASH_SPI_0_WP_N set 1')
++        #     time.sleep(1)
++
++    def _efuse_wp_enable(self):
++        pass
++        # if self.mcp_connected:
++        #     # Iterate Through USB Devices
++        #     for device_idx in range(self.mcp_first_module_id_idx,
++        #                             self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++        #         # Set HL325s TCA9546 CH2
++        #         status = self.usb_elements[device_idx]['tca9546_registers'].write(self.usb_elements[device_idx]['tca9546_json_regs'].CH2)
++        #         hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Write TCA9546 to CH2')
++        #
++        #
++        #
++        #         written = self.usb_elements[device_idx]['machx05_registers'].write_bit(
++        #             self.usb_elements[device_idx]['machx05_json_regs'].configuration1_reg,
++        #             self.usb_elements[device_idx]['machx05_json_regs'].configuration1_reg.bits.CPLD_EFUSE_BURN_EN.index, 1)
++        #         hlsa_checker.check_status_is_true(written, ident='Description', test_code=self.test_code, operation='CPLD_EFUSE_BURN_EN set 1')
++        #     time.sleep(1)
++
++    def _eeprom_wp_enable(self):
++        if self.mcp_connected:
++            # Iterate Through USB Devices
++            for device_idx in range(self.mcp_first_module_id_idx,
++                                    self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++                # # Set HL338s TCA9546 CH2
++                # status = self.usb_elements[device_idx]['tca9546_registers'].write(self.usb_elements[device_idx]['tca9546_json_regs'].CH2)
++                # hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Write TCA9546 to CH2')
++
++
++
++                written = self.usb_elements[device_idx]['machx05_registers'].write_bit(
++                    self.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg,
++                    self.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg.bits.FW_EEPROM_WP.index, 0)
++                hlsa_checker.check_status_is_true(written, ident='Description', test_code=self.test_code, operation='FW_EEPROM_WP set 0')
++            time.sleep(1)
++
++    def _cpld_rma_enable(self):
++        # Iterate Through USB Devices
++        for device_idx in range(self.mcp_first_module_id_idx,
++                                self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++            # CPLD RMA mode
++            self._cpld_rma_mode_set(device_idx, rma_mode='enable')
++
++    def get_efuse_content(self, pci_addr, stdout):
++        # pci_addr = self.devices[device_idx]['short_pci_address']
++        log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
++        try:
++
++            prod_hl_json_regex = self.device.definitions.regex_parser_json.prod_hl_loader
++            test_json_regex = getattr(prod_hl_json_regex, 'read_efuse_content')
++            res = self.Regex_parser.extract_results(stdout, test_json_regex)
++            efuse_data = res["fuse"]["efuse_content"]
++            efuse_content = [line.split() for line in efuse_data]
++            return sum(efuse_content, [])
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during getting efuse content',
++                        read_value=exception, dev_address=pci_addr)
++            self.devices_tests_status[pci_addr][self.test_name] = False
++            return []
++
++    def convert_string_to_hex(self, pci_addr, field_name, input_string):
++        # pci_addr = self.devices[device_idx]['short_pci_address']
++        log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
++        try:
++            input_string = str(input_string)
++            if input_string.startswith("0x"):
++                return f'0x{input_string[2:].lstrip("0") or "0"}'
++            elif input_string.startswith("0b"):
++                return hex(int(input_string, 2))
++            elif input_string.isdigit():
++                return hex(int(input_string))
++            else:
++                return '0x'+''.join([hex(ord(char))[2:] for char in input_string])
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'Exception during converting ({field_name}) from string to decimal',
++                        read_value=input_string, dev_address=pci_addr)
++            hlsa_logger(level='error', dev_address=pci_addr, ident='Description',
++                        test_code=self.test_code, operation=f'Exception', read_value=exception)
++            self.devices_tests_status[pci_addr][self.test_name] = False
++
++    def convert_hex_to_binary(self, pci_addr, hex_list):
++        # pci_addr = self.devices[device_idx]['short_pci_address']
++        log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
++        try:
++            return [format(int(hex_val, 16), '0{}b'.format(len(hex_val.replace('0x', '')) * 4))[::-1] for hex_val in hex_list]
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation='Exception while converting from hex to binary',
++                        read_value=hex_list, dev_address=pci_addr)
++            hlsa_logger(level='error', dev_address=pci_addr, ident='Description',
++                        test_code=self.test_code, operation=f'Exception', read_value=exception)
++            self.devices_tests_status[pci_addr][self.test_name] = False
++            return []
++
++    def convert_binary_to_ascii(self, pci_addr, field_name, binary_string):
++        # pci_addr = self.devices[device_idx]['short_pci_address']
++        log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
++        try:
++            binary_string = binary_string.replace("0b", "")
++            assci_string = ''.join(chr(int(binary_string[i:i + 8], 2)) for i in range(0, len(binary_string), 8))
++            if not assci_string.isalnum():
++                raise ValueError("the ASCII string not alphanumeric")
++            return assci_string
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code, result='FAIL',
++                        operation=f'Exception during converting ({field_name}) from binary to ASCII',
++                        read_value=binary_string, dev_address=pci_addr)
++            hlsa_logger(level='error', dev_address=pci_addr, ident='Description', result='FAIL',
++                        test_code=self.test_code, operation=f'Exception', read_value=exception)
++            self.devices_tests_status[pci_addr][self.test_name] = False
++            return ""
++
++    def compare_efuse_data(self, pci_addr, efuse_stdout):
++        try:
++            efuse_definition = self.hl338_efuse.definitions.Efuses.DIE0
++            efuse_content = self.get_efuse_content(pci_addr, efuse_stdout)
++            efuse_content_bin = self.convert_hex_to_binary(pci_addr, efuse_content)
++
++            if efuse_content_bin and efuse_definition:
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                            dev_address=pci_addr, operation="starting to dividing the Efuse content into fields")
++                efuse_definition_missing = []
++                for field_name in efuse_definition:
++                    try:
++                        field_value = ""
++                        field_definition = getattr(efuse_definition, field_name)
++                        code_format = field_definition.code_format
++                        expected_value = field_definition.expected_value
++                        if code_format.lower() == "2's compliment integer":
++                            continue
++                        efuse_definition_missing.append(field_name)  # Will delete after the field is printed
++                        for address in efuse_definition[field_name]["data"]:
++                            reg_index = efuse_definition[field_name]["data"][address]['reg_index']
++                            start_bit_index = efuse_definition[field_name]["data"][address]['start_bit_index']
++                            size_in_bits = efuse_definition[field_name]["data"][address]['size_in_bits']
++                            field_content = efuse_content_bin[reg_index][start_bit_index:start_bit_index + size_in_bits]
++                            if code_format.lower() == "characters":
++                                field_value = self.convert_binary_to_ascii(pci_addr, field_name,
++                                                                           field_content[::-1]) + field_value
++                            elif code_format.lower() == "hex":
++                                field_value = self.convert_string_to_hex(pci_addr, field_name, '0b' + field_content[::-1])[2:].zfill(len(field_content) // 4) + field_value
++                        if field_value:
++                            if code_format.lower() == "hex":
++                                field_value = self.convert_string_to_hex(pci_addr, field_name, '0x' + field_value)
++                            if expected_value == '':
++                                hlsa_logger(level='info', ident='Value', test_code=self.test_code,
++                                            dev_address=pci_addr, operation=field_name,
++                                            read_value=field_value,units='String')
++                                if field_name in efuse_definition_missing:
++                                        efuse_definition_missing.remove(field_name)
++                            else:
++                                expected_value = self.convert_string_to_hex(pci_addr, field_name, expected_value)
++                                read_value = self.convert_string_to_hex(pci_addr, field_name, field_value)
++                                hlsa_checker.check_values_is_equal(ident='Value', test_code=self.test_code,
++                                                                   dev_address=pci_addr, operation=field_name,
++                                                                   read_value=read_value, expected_value=expected_value,
++                                                                   ignore_assert=True, units='String')
++                                if field_name in efuse_definition_missing:
++                                    efuse_definition_missing.remove(field_name)
++                                if expected_value != read_value:
++                                    self.devices_tests_status[pci_addr][self.test_name]= False
++                    except Exception as exception:
++                        self.devices_tests_status[pci_addr][self.test_name] = False
++                        hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                                    operation=f'An exception occurred in field: {field_name}',
++                                    read_value=exception, dev_address=pci_addr)
++                for missing_field in efuse_definition_missing:
++                    hlsa_logger(level='ERROR', ident='Description', test_code=self.test_code,
++                                dev_address=pci_addr, operation='missing field',
++                                read_value=missing_field)
++                    self.devices_tests_status[pci_addr][self.test_name] = False
++            else:
++                hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                                 operation="efuse_content or efuse_definition are empty", result='FAIL')
++                self.devices_tests_status[pci_addr][self.test_name] = False
++
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code=self.test_code,
++                        operation=f'An exception occurred while dividing the Efuse content into multiple fields', dev_address=pci_addr,
++                        read_value=f'Exception: {exception}', result='FAIL')
++            self.devices_tests_status[pci_addr][self.test_name] = False
++        log_manager.log_browser()
++
++    def regex_search(self, pci_addr, stdout, log_level):
++        return_method = True
++        prod_hl_json_regex = self.device.definitions.regex_parser_json.prod_hl_loader
++        test_json_regex = getattr(prod_hl_json_regex, self.test_name)
++
++        try:
++            res = self.Regex_parser.extract_results(stdout, test_json_regex)
++            if res is not None:
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                            operation=f'Parser results', dev_address=pci_addr, mezzanine=self.pci_to_mezz[pci_addr],
++                            read_value=f'{res}')
++                for key in self.test_options[self.test_name].keys():
++                    if 'check_' in key and res[key.replace("check_", "")] != {}:
++                        if "regex_search" in self.test_options[self.test_name].keys() and \
++                                self.test_options[self.test_name]["regex_search"]:
++                            value = re.search(str(getattr(getattr(self.test_options, self.test_name), key)),
++                                str(list(res[key.replace("check_", "")].values())[0]["Description"][0]))
++
++                            if value is not None:
++                                read_value = value.string
++                                expected_val = str(getattr(getattr(self.test_options, self.test_name), key))
++                                expected_val = expected_val.replace("\\","")
++                                status = hlsa_checker.check_values_is_equal(read_value, ident='Description', test_code=self.test_code,
++                                                operation=key.replace("check_", ""), dev_address=pci_addr,
++                                                mezzanine=self.pci_to_mezz[pci_addr], fail_log_level=log_level, ignore_assert=True,
++                                                expected_value=expected_val)
++                            else:
++                                expected_val = str(getattr(getattr(self.test_options, self.test_name), key))
++                                status = hlsa_checker.check_value_is_not_none(value, ident='Description',
++                                                test_code=self.test_code, operation=key.replace("check_", ""),
++                                                dev_address=pci_addr, mezzanine=self.pci_to_mezz[pci_addr],
++                                                fail_log_level=log_level, ignore_assert=True,
++                                                expected_value=expected_val)
++
++                        else:
++                            status = hlsa_checker.check_values_is_equal(expected_value=str(
++                                getattr(getattr(self.test_options, self.test_name), key)),
++                                read_value=str(list(res[key.replace("check_", "")].values())[0]["Description"][0]),
++                                ident='Value', test_code=self.test_code, dev_address=pci_addr, mezzanine=self.pci_to_mezz[pci_addr],
++                                operation=f'{key.replace("check_", "")}', ignore_assert=True)
++
++                        if not status and log_level == 'error':
++                            return_method = False
++                        #     log_manager.update_status_false(self.pci_to_mezz_log_format[pci_addr])
++                        #     self.devices_tests_status[pci_addr][self.test_name] = False
++
++        except Exception as exception:
++            hlsa_logger(level='info', ident='Description',
++                        operation=f'Exception during regex parser: {str(exception)}')
++            return_method = False
++
++        return return_method
++
++    @classmethod
++    def _cpld_rma_mode_set(cls, device_idx, rma_mode='enable', test_code=''):
++        # Get Signals
++        cls.module_id_signal = cls.usb_elements[device_idx]['oam_controller_signals'].OAM_signals.MODULE_ID_RMA
++        cls.manf_mode_signal = cls.usb_elements[device_idx]['oam_controller_signals'].OAM_signals.MANF_MODE
++
++        if rma_mode == 'enable':
++            cls.module_id_value_to_set = cls.test_options['module_id_value_to_set']
++            cls.manf_mode_value_to_set = cls.test_options['manf_mode_value_to_set']
++
++        if rma_mode == 'disable':
++            cls.module_id_value_to_set = 0
++            cls.manf_mode_value_to_set = 1
++
++
++        # # Set HL338s TCA9546 Ch0
++        # status = cls.usb_elements[device_idx]['tca9546_registers'].write(cls.usb_elements[device_idx]
++        #                                                                   ['tca9546_json_regs'].CH0)
++        # hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++        #                                   operation='Write TCA9546 to CH0', mezzanine=device_idx)
++
++        # Get Initial Signals Values
++        module_id_original_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.module_id_signal)
++        hlsa_checker.check_value_is_not_none(module_id_original_value, ident='Description', test_code=test_code,
++                                             operation='Get Initial Module ID Signal')
++
++        manf_id_original_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.manf_mode_signal)
++        hlsa_checker.check_value_is_not_none(manf_id_original_value, ident='Description', test_code=test_code,
++                                             operation='Get Initial Manf_Mode Signal')
++
++        # Change Signal Values For Set Card On Manf Mode
++
++        # Set Signal On Module_ID
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.module_id_signal,
++                                                                           cls.module_id_value_to_set)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Module_ID Signal', read_value=cls.module_id_value_to_set)
++
++        # Set Signal On Manf_Mode To Opposite For Ensure Output
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.manf_mode_signal,
++                                                                           cls.manf_mode_value_to_set ^ 1)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Manf_Mode Signal Opposite Value(Validation)',
++                                          read_value=cls.manf_mode_value_to_set ^ 1)
++
++        # Set Signal On Manf_Mode To Correct Value For Unlock Card
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.manf_mode_signal,
++                                                                           cls.manf_mode_value_to_set)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Manf_Mode Signal Right Value',
++                                          read_value=cls.manf_mode_value_to_set)
++
++        # Get Signals To Validate The Changes
++        module_id_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.module_id_signal)
++        hlsa_checker.check_value_is_not_none(module_id_value, ident='Value', test_code=test_code,
++                                             operation='Module_ID Signal After Change')
++
++        manf_mode_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.manf_mode_signal)
++        hlsa_checker.check_value_is_not_none(manf_mode_value, ident='Value', test_code=test_code,
++                                             operation='Manf_Mode Signal After Change')
++
++        if manf_mode_value == cls.manf_mode_value_to_set and module_id_value == cls.module_id_value_to_set:
++            hlsa_logger(level='info', ident='Description', test_code=test_code,
++                        operation=f'Card On Manf Mode Debug State {rma_mode}', result='SUCCESS')
++            return True
++        else:
++            hlsa_logger(level='error', ident='Description', test_code=test_code,
++                        operation='Card Not On Manf Mode Debug State', result='FAIL')
++            return False
++
++    def _54V_reset(self):
++        pass
++        # Iterate Through USB Devices
++        # for device_idx in range(self.mcp_first_module_id_idx,
++        #                         self.test_options.num_of_devices + self.mcp_first_module_id_idx):
++        #
++        #     status = self.usb_elements[device_idx]['tca9546_registers'].write(
++        #         self.usb_elements[device_idx]['tca9546_json_regs'].CH0)
++        #     hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
++        #                                       operation='Write TCA9546 to CH0')
++        #
++        #     status = self.usb_elements[device_idx]['oam_controller'].set_signal(
++        #         self.usb_elements[device_idx]['oam_controller_signals'].OAM_signals.IO_PWR_ON, 0, True)
++        #
++        #     hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
++        #                                       operation='Turn OFF 54V - Wait - Turn ON 54V')
++        #
++        #     status = self.usb_elements[device_idx]['tca9546_registers'].write(self.usb_elements[device_idx]['tca9546_json_regs'].CH2)
++        #     hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code, operation='Write TCA9546 to CH2')
++        #
++        #     #
++        # time.sleep(self.test_options['wait_after_cpld_power_cycle'])
++
++    def _copy_preboot_to_host(self):
++        preboot_path = self.test_options.preboot_file_to_copy
++        path_to_copy = self.test_options.update_fw_itb
++
++        path_dest_dir = '/'.join(path_to_copy.split('/')[:-1])
++        code, stdout = self.driver_cli.execute_command(f'sudo mkdir -p {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'mkdir -p {path_dest_dir} on HOST PC')
++
++        code, stdout = self.driver_cli.execute_command(f'sudo chmod a+w -R {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'sudo chmod a+w {path_dest_dir} on HOST PC')
++
++        status = self.device_cli.put_file(preboot_path, path_to_copy)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
++                                          operation=f'copy preboot itb {preboot_path} to {path_to_copy} on host')
++
++    def _copy_revoke_to_host(self):
++        revoke_path = self.test_options.revoke_file_to_copy
++        path_to_copy = self.test_options.cpld_revoke_itb
++
++        path_dest_dir = '/'.join(path_to_copy.split('/')[:-1])
++        code, stdout = self.driver_cli.execute_command(f'sudo mkdir -p {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'mkdir -p {path_dest_dir} on HOST PC')
++
++        code, stdout = self.driver_cli.execute_command(f'sudo chmod a+w -R {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'sudo chmod a+w {path_dest_dir} on HOST PC')
++
++        status = self.device_cli.put_file(revoke_path, path_to_copy)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
++                                          operation=f'copy revoke itb {revoke_path} to {path_to_copy} on host')
++
++    def _copy_eeprom_file_to_host(self):
++        preboot_path = self.test_options.eeprom_file_to_copy
++        path_to_copy = self.test_options.eeprom_file_dest
++
++        path_dest_dir = '/'.join(path_to_copy.split('/')[:-1])
++        code, stdout = self.driver_cli.execute_command(f'sudo mkdir -p {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'mkdir -p {path_dest_dir} on HOST PC')
++
++        code, stdout = self.driver_cli.execute_command(f'sudo chmod a+w -R {path_dest_dir}')
++        hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code=self.test_code,
++                                          operation=f'sudo chmod a+w {path_dest_dir} on HOST PC')
++
++        status = self.device_cli.put_file(preboot_path, path_to_copy)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
++                                          operation=f'copy eeprom itb {preboot_path} to {path_to_copy} on host')
++
++    def _hl_fw_loader_reset(self):
++        self.sleep_time = 30
++        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                    operation=f'Execute Hard reset for devices')
++        self.driver_cli.execute_command("sudo hl-fw-loader -R -y")
++        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                    operation=f'Execute,sleep {self.sleep_time}')
++        time.sleep(self.sleep_time)
++
++    def teardown_method(self, method):
++        self.test_name = f'{method.__name__}'.replace('test_', '')
++
++        if method.__name__ == 'test_update_fw':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_update_eeprom':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_validate_eeprom':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_read_efuse':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_erom_update':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_erom_validation':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_erom_erase':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_security_enable':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_svn_update':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_security_status':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_bis_compliant_enable':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_validate_efuse':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++        elif method.__name__ == 'test_revoke_cpld':
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    if self.devices_tests_status[device][self.test_name]:
++                        hlsa_logger(level='info', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{method.__name__.replace("test_", "")}',
++                                    result='#RESULTS_PASS#')
++                    else:
++                        hlsa_logger(level='error', ident='Description', dev_address=device,
++                                    test_code='Final Test Results',
++                                    operation=f'test summary:{self.test_name}',
++                                    result='#RESULTS_FAILED#')
++                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++
++                except Exception as exception:
++                    log_manager.log_browser()
++                    hlsa_logger(level='error', ident='Description',
++                                operation=f'Exception during {method.__name__}: {exception}')
++            log_manager.log_browser()
++
++
++    @classmethod
++    def teardown_class(cls):
++        log_manager.log_browser()
++        try:
++            cls.monitor_manager.stop_all_monitors()
++            status = cls.monitor_manager.check_all_monitors_done()
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              operation=f'Check all monitors are done', ignore_assert=True,
++                                              fail_log_level='warning')
++            for i in range(60):
++                try:
++                    status = cls.monitor_manager.check_all_monitors_done()
++                    hlsa_checker.check_status_is_true(status, ident='Description',
++                                                      operation=f'Check all monitors are done', ignore_assert=True,
++                                                      fail_log_level='warning')
++                    if status:
++                        break
++                    time.sleep(5)
++                    cls.monitor_manager.stop_all_monitors()
++                except Exception as exception:
++                    hlsa_logger(level='warning', ident='Description',
++                                operation=f'Exception during teardown: {exception}')
++        except Exception as exception:
++            hlsa_logger(level='warning', ident='Description', operation=f'Exception during teardown: {exception}')
++
++
+diff --git a/tests/HL338/test_functional.py b/tests/HL338/test_functional.py
+index bffeaab..8f01f43 100644
+--- a/tests/HL338/test_functional.py
++++ b/tests/HL338/test_functional.py
+@@ -306,26 +306,16 @@
+             cls.pci_to_mezz_log_format = {}
+             cls.pcie_mezz_map = {}
+ 
+-            for pci in cls.connected_pcie_devices:
+-                if cls.pcie_mezz_map == {}:
+-                    # mezz = pci
+-                    mezz = cls.smi_control.get_module_id(f'0000:{pci}')
+-                else:
+-                    mezz = cls.pcie_mezz_map[f'{pci}']
+-                if cls.set_log_by_mezz:
+-                    if mezz is not None:
+-                        cls.pci_to_mezz[pci] = mezz
+-                        cls.mezz_to_pci[mezz] = pci
+-                        cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(int(mezz) + 1)
++            cls.sve_run = cls.host.get_control(hw_manager.controls.sve_soc)
++            cls.device_mapper = hw_manager.device_mappers.SVE(cls)
++            cls.pci_to_mezz, cls.mezz_to_pci = cls.device_mapper.create_pci_mezz_mappings()
+ 
+-                    else:
+-                        cls.pci_to_mezz[pci] = None
+-                        cls.mezz_to_pci[mezz] = None
+-                        cls.pci_to_mezz_log_format[pci] = None
+-                else:
+-                    cls.pci_to_mezz[pci] = pci
+-                    cls.mezz_to_pci[mezz] = None
+-                    cls.pci_to_mezz_log_format[pci] = pci
++            for pci in cls.connected_pcie_devices:
++                cls.pci_to_mezz_log_format[pci] = pci
++                if cls.set_log_by_mezz:
++                    mezz = cls.pci_to_mezz[f'{pci}']
++                    if mezz is not None and mezz != 'N/A':
++                        cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(mezz + 1)
+ 
+             for pci_addr in cls.connected_pcie_devices:
+                 cls.Devices[pci_addr.strip()] = {}
+diff --git a/tests/HL338/test_fw_eeprom_validate_via_PCIe.py b/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
+index c995eeb..9dc319e 100644
+--- a/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
++++ b/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
+@@ -80,29 +80,15 @@
+             cls.pcie_mezz_map = {}
+ 
+             cls.sve_run = host.get_control(hw_manager.controls.sve_soc)
+-            cls.device_mapper = hw_manager.device_mappers.HLS(cls)
+-            cls.pcie_mezz_map = cls.device_mapper.get_pcie_usb_map()
++            cls.device_mapper = hw_manager.device_mappers.SVE(cls)
++            cls.pci_to_mezz, cls.mezz_to_pci = cls.device_mapper.create_pci_mezz_mappings()
+ 
+             for pci in cls.connected_pcie_devices:
+-                if cls.pcie_mezz_map == {}:
+-                    # mezz = pci
+-                    mezz = cls.smi_control.get_module_id(f'0000:{pci}')
+-                else:
+-                    mezz = cls.pcie_mezz_map[f'{pci}']
++                cls.pci_to_mezz_log_format[pci] = pci
+                 if cls.set_log_by_mezz:
+-                    if mezz is not None:
+-                        cls.pci_to_mezz[pci] = mezz
+-                        cls.mezz_to_pci[mezz] = pci
+-                        cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(int(mezz) + 1)
+-
+-                    else:
+-                        cls.pci_to_mezz[pci] = None
+-                        cls.mezz_to_pci[mezz] = None
+-                        cls.pci_to_mezz_log_format[pci] = None
+-                else:
+-                    cls.pci_to_mezz[pci] = pci
+-                    cls.mezz_to_pci[mezz] = None
+-                    cls.pci_to_mezz_log_format[pci] = pci
++                    mezz = cls.pci_to_mezz[f'{pci}']
++                    if mezz is not None and mezz != 'N/A':
++                        cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(mezz + 1)
+ 
+             # Get Initial Driver Status
+             cls.driver_status = cls.driver_cli.check_driver_status()

@@ -1,0 +1,79 @@
+From 5a38b7330ca5be7fb6f9f756a5e1504ae8abcc34 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Sep 2024 10:09:19 +0300
+Subject: [PATCH] [FSW-9362] fs1: rst drv: added pcie monitor inbound transaction
+
+Added a code to monitor pcie inbound transaction
+
+Change-Id: Idd76f9b64ddfeb05820114fd88cad3af16a840e4
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/drivers/reset/fs1/io_dev.c b/drivers/reset/fs1/io_dev.c
+index f8e0a02..547f3d9 100644
+--- a/drivers/reset/fs1/io_dev.c
++++ b/drivers/reset/fs1/io_dev.c
+@@ -69,9 +69,62 @@
+ #define PCIE_OUTBOUND_RETRY_COUNT		10
+ #define PCIE_OUTBOUND_DELAY_US			10
+ 
++/* TODO: remove this once it is added in specs_h15 */
++#define CREDIT_CNTR_EN_OFFSET			0x604
++#define CREDIT_CNTR_VAL_WR_OFFSET		0x61C
++#define CREDIT_CNTR_VAL_RD_OFFSET		0x624
++
++#define CREDIT_CNTR_EN				IO0_H0_PCIE_WRAP(CREDIT_CNTR_EN_OFFSET)
++#define CREDIT_CNTR_VAL_WR			IO0_H0_PCIE_WRAP(CREDIT_CNTR_VAL_WR_OFFSET)
++#define CREDIT_CNTR_VAL_RD			IO0_H0_PCIE_WRAP(CREDIT_CNTR_VAL_RD_OFFSET)
++#define CREDIT_CNTR_MAX_VAL			0xFFFF
++
++static void reset_intel_fs_credit_dbg_cntr_en(bool en)
++{
++	CFG_WREG32(CREDIT_CNTR_EN, 0x0);
++	k_busy_wait(1);
++
++	if (en)
++		CFG_WREG32(CREDIT_CNTR_EN, 0x1);
++}
++
+ static void monitor_pcie_inbound_transactions(void)
+ {
+-	/* TODO: Add a code to monitor inbound transaction */
++	uint8_t retry = PCIE_INBOUND_RETRY_COUNT;
++	uint16_t wr_val, rd_val;
++
++	/* Enable the credit debug counter */
++	reset_intel_fs_credit_dbg_cntr_en(true);
++	k_busy_wait(PCIE_INBOUND_DELAY_US);
++
++	wr_val = CFG_RREG32(CREDIT_CNTR_VAL_WR);
++	rd_val = CFG_RREG32(CREDIT_CNTR_VAL_RD);
++	while (wr_val || rd_val) {
++
++		k_busy_wait(PCIE_INBOUND_DELAY_US);
++		retry--;
++
++		if (!retry) {
++			LOG_INF("Outstanding inbound transactions: WR = %d, RD = %d",
++								   wr_val, rd_val);
++			goto timeout;
++		}
++
++		/*
++		 * If there was any pending transactions before enabling dbg counters the
++		 * response to this transaction will result in counter value to be 0xFFFF
++		 * Hence need to re-enable dbg counters
++		 */
++		if ((wr_val == CREDIT_CNTR_MAX_VAL) || (rd_val == CREDIT_CNTR_MAX_VAL))
++			reset_intel_fs_credit_dbg_cntr_en(true);
++
++		wr_val = CFG_RREG32(CREDIT_CNTR_VAL_WR);
++		rd_val = CFG_RREG32(CREDIT_CNTR_VAL_RD);
++	}
++	LOG_DBG("Outstanding inbound transactions are zero");
++
++timeout:
++	reset_intel_fs_credit_dbg_cntr_en(false);
+ }
+ 
+ static void reset_intel_fs_disable_pcie_access(enum fs1_rst_src_bit reset_type)

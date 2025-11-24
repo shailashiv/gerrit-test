@@ -1,0 +1,145 @@
+From 8ff863bd329c7fd641100427f47a1934da280e27 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 17 Apr 2025 14:39:28 +0300
+Subject: [PATCH] [FSW-14755] fs1: add new spi dma copy support
+
+With this patch, added new spi dma support.
+Up to gaudi3, spi dma engine expects crc32
+at end of every dma chunk. New spi dma method
+requires crc32 at end of full binary.
+
+Change-Id: I2a7dc93e29fed18307201e129e93da33ff25ca5e
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index 4d2cab1..ecc5ed3 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -381,7 +381,7 @@
+ 	hl_join_bin ${BINS_DIR}/${PPBOOT} ${PCIE_PHY} ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE}
+ 
+ 	# pack and sign image
+-	hl_pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} 64K ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}
++	hl_pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}
+ 
+ 	# Create image pointers
+ 	prep_image_ptrs ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.le
+diff --git a/board/habanalabs/fs1_arc/post-image-spi.sh b/board/habanalabs/fs1_arc/post-image-spi.sh
+index d98e307..0ad7b83 100755
+--- a/board/habanalabs/fs1_arc/post-image-spi.sh
++++ b/board/habanalabs/fs1_arc/post-image-spi.sh
+@@ -180,7 +180,7 @@
+ 	local PRIME_IMAGE_RAM_CRC_ERROR=$3
+ 	local PRIME_IMAGE_RAM_SIGN_ERROR=$4
+ 
+-	hl_pack_bin ${PREBOOT_BINFILE} 64K ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}
++	hl_pack_bin ${PREBOOT_BINFILE} ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}
+ 
+ 	return
+ }
+@@ -195,74 +195,32 @@
+ 	rm ${NAME_1}.bin.* -rf
+ }
+ 
+-# TODO: FS1
+-MAX_SPI_DMA_DATA_TRANSFER=65520
+-SPI_DMA_DEST_64KB_OFFS=65536
+ function hl_pack_bin {
+ 	FILEFULLPATH=$1
+ 	FILENAME=$(basename ${FILEFULLPATH})
+ 	FILEPATH=$(dirname ${FILEFULLPATH})
+-	BSIZE=$2
+-	KEY_NUM=$3
+-	CRC_ERROR=$4
+-	SIGN_ERROR=$5
++	KEY_NUM=$2
++	CRC_ERROR=$3
++	SIGN_ERROR=$4
+ 
+ 	PADFULLBINFILE=${FILEFULLPATH}.pad
+ 	dd status=none conv=sync bs=16 if=${FILEFULLPATH} of=${PADFULLBINFILE}
+ 
+ 	SIZE_WITHOUT_CRC=$(stat --printf="%s" ${PADFULLBINFILE})
+-	NUM_SLICES=$((SIZE_WITHOUT_CRC/MAX_SPI_DMA_DATA_TRANSFER))
+-	MODULO_SLICES=$((SIZE_WITHOUT_CRC%MAX_SPI_DMA_DATA_TRANSFER))
+-	if [ ${MODULO_SLICES} -ne 0 ]; then
+-		NUM_SLICES=$((NUM_SLICES+1))
+-	fi
+ 
+ 	# image size to be computed as part of image descriptor function
+ 	local leftover=${SIZE_WITHOUT_CRC}
+ 	local skip_offset=0
+ 
++	size_words=$((leftover/4))
+ 
+-	# image packing example:
+-	# image_size = 200kb + 16 bytes CRC = 0x32010
+-	# num_slice: 4
+-	# 1st slice: flash offset: 0x0 DST: 0x0 (dma_size: 0xFFF4 left_size: 0x2201C)
+-	# 2nd slice: flash offset: 0x10000 DST: 0xFFF0 (dma_size: 0xFFF4 left_size: 0x12028)
+-	# 3nd slice: flash offset: 0x20000 DST: 0x1FFE0 (dma_size: 0xFFF4 left_size: 0x2034)
+-	# 4th slice: flash offset: 0x30000 DST: 0x2FFD0 (dma_size: 0x2034 left_size: 0x0)
+-	#
+-	#  =========================================================
+-	# | PPBOOT IMG SLICE1 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |
+-	#  ---------------------------------------------------------
+-	# | PPBOOT IMG SLICE2 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |
+-	#  ---------------------------------------------------------
+-	# | PPBOOT IMG SLICE3 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |
+-	#  ---------------------------------------------------------
+-	# | PPBOOT IMG SLICE4 + CRC (0x2030 + 0x4)		    |
+-	#  =========================================================
+-	#
+-	# Note: Padding size is not included in total size as DMA is
+-	# not expected to copy padding data.
+-	for ((slice_cnt=0; slice_cnt<${NUM_SLICES}; slice_cnt++)); do
+-		# bin file: (64KB-16) + CRC
+-		local BIN_FILE=${PADFULLBINFILE}.part${slice_cnt}
+-		if [ $leftover -lt $MAX_SPI_DMA_DATA_TRANSFER ]; then
+-			size_bytes=$leftover
+-		else
+-			size_bytes=$MAX_SPI_DMA_DATA_TRANSFER
+-		fi
+-
+-		size_words=$((size_bytes/4))
+-		dd status=none skip=${skip_offset} conv=sync bs=4 if=${PADFULLBINFILE} count=${size_words} > ${BIN_FILE}
+-		hl_calc_crc32 ${BIN_FILE}
+-		if [ ${CRC_ERROR} -eq 0 ]; then
+-			cat ${BIN_FILE}.crc32 >> ${BIN_FILE}
+-		fi
+-		flash_offset=$((SPI_DMA_DEST_64KB_OFFS/4))
+-		flash_offset=$((flash_offset*slice_cnt))
+-		dd status=none conv=sync if=${BIN_FILE} bs=4 seek=$flash_offset of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
+-		leftover=$((leftover-size_bytes))
+-		skip_offset=$((skip_offset+size_words))
+-	done
++	local BIN_FILE=${PADFULLBINFILE}.part0
++	dd status=none skip=0 conv=sync bs=4 if=${PADFULLBINFILE} count=${size_words} > ${BIN_FILE}
++	hl_calc_crc32 ${BIN_FILE}
++	if [ ${CRC_ERROR} -eq 0 ]; then
++		cat ${BIN_FILE}.crc32 >> ${BIN_FILE}
++	fi
++	dd status=none conv=sync if=${BIN_FILE} bs=4 seek=0 of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
+ 
+ 	hl_reverse_words ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int ${FILEPATH}/${DEV_PREFIX}-${FILENAME}.le 4
+ 	rm -f ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
+@@ -460,18 +418,7 @@
+ 	local start_addr=$(get_image_startaddr $img_name)
+ 	local start_addr_h=$((start_addr >> 32))		# take upper bytes
+ 	local start_addr_l=$((start_addr & 0xFFFFFFFF))	# take lower bytes
+-	local size_corr_fac=0
+-
+-	if [[ ${ipnames[$i]} != "FAKE_FUSE"* ]];
+-	then
+-		local num_slices=$((img_size / MAX_SPI_DMA_DATA_TRANSFER))
+-		local modulo_slices=$((img_size % MAX_SPI_DMA_DATA_TRANSFER))
+-		if [ ${modulo_slices} -ne 0 ]; then
+-			((++num_slices))
+-		fi
+-
+-		size_corr_fac=$((num_slices * 4))
+-	fi
++	local size_corr_fac=4 # crc32 size
+ 
+ 	local img_size_final=$((img_size+size_corr_fac))
+ 

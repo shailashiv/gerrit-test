@@ -1,0 +1,1624 @@
+From a7bc3e595fbb1a5d487c3b14dc17049c19f7cb59 Mon Sep 17 00:00:00 2001
+From: Oded Rot <orot@habana.ai>
+Date: Thu, 19 Jun 2025 18:01:34 +0300
+Subject: [PATCH] [HL338][tests] Fixing power_cycle logging and cleanup
+
+Change-Id: Ifcfcded259f855d098bef561eeee95028df0df16
+Signed-off-by: Oded Rot <orot@habana.ai>
+---
+
+diff --git a/tests/HL338/test_power_cycle.py b/tests/HL338/test_power_cycle.py
+index 46a2503..bf73733 100644
+--- a/tests/HL338/test_power_cycle.py
++++ b/tests/HL338/test_power_cycle.py
+@@ -671,12 +671,6 @@
+             hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
+                                               operation='SERR/DERR Checker result')
+ 
+-        elif method.__name__ == 'test_memory_bw':
+-            self.print_uart_for_failed_devices()
+-            status = self.get_serr_derr()
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
+-                                              operation='SERR/DERR Checker result')
+-
+         elif method.__name__ == 'test_pci_synapse_bw':
+             status = self.get_serr_derr()
+             hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
+@@ -809,11 +803,11 @@
+     def run_hl_qual_test(self, test_options_name=None, t=None):
+         MAX_QUAL_DURATION = 48 * 3600
+         if not test_options_name:
+-            log_manager.log_browser()
++            # log_manager.log_browser()
+             hlsa_logger(level='error', ident='Description', test_code=self.test_code,
+                         operation=f'failed to get test options for {self.test_name}', result='FAIL')
+             return False
+-        log_manager.log_browser()
++        # log_manager.log_browser()
+         hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+                     operation=f'Test {self.test_name} started')
+         # self._get_needed_parameters(t=t)
+@@ -935,48 +929,6 @@
+                             operation='Exception during print_cpld_fault (USB Device Index %d)' % device_idx,
+                             read_value='Exception: %s' % str(exception), result='FAIL')
+ 
+-    def _start_rate_limiter(self):
+-        if self.production_mode:
+-            # Start rate limiter
+-            for device in self.operational_devices_address:
+-                # todo check test_options params (execute or enable)
+-                if self.functional_tests_options[self.test_name]['rate_limiter']['enable']:
+-                    log_manager.log_browser(device.strip())
+-                    self.rate_limiter_to_set = self.functional_tests_options[self.test_name]['rate_limiter'][
+-                        'rate_limiter_value']
+-                    long_pci_address = self.devices[device]["long_pci_address"]
+-                    if not self.rate_limiter_cli.set_rate_limiter(long_pci_address, str(self.rate_limiter_to_set)):
+-                        hlsa_logger(level='error', ident='Description', test_code=self.test_code,
+-                                    operation=f'[Setup] Failed to Set Rate Limiter Device: {device.upper()}',
+-                                    result='FAIL')
+-                        pytest.xfail(f'{self.test_code} - Setup FAIL')
+-                    else:
+-                        hlsa_logger(level='info', ident='Description', test_code='HL-QUAL FUNCTIONAL',
+-                                    operation=f'Set,Rate Limiter Device: {device.upper()}', result='SUCCESS')
+-            self.hl_qual_control.remove_hl_qual_logs('HL225-pci-*')
+-
+-    def _stop_rate_limiter(self):
+-        if self.production_mode:
+-            # Stop rate limiter
+-            for device in self.operational_devices_address:
+-                log_manager.log_browser(device.strip())
+-                if self.functional_tests_options[self.test_name]['rate_limiter']['enable']:
+-                    rate_limiter_to_set = '100'
+-                    hl_device_number = self.devices[device]["hl_num"]
+-                    self.check_value_is_not_none(logger, hl_device_number,
+-                                                 "Get, get_hl_number(%s), %s" % (device, str(hl_device_number)))
+-                    if not self.rate_limiter_cli.set_rate_limiter(hl_device_number, rate_limiter_to_set):
+-                        hlsa_logger(level='error', ident='Description', test_code=self.test_code,
+-                                    operation=f'[Teardown] Failed to Set Rate Limiter Device: {device.upper()}',
+-                                    result='FAIL')
+-                        pytest.xfail(f'{self.test_code} - Teardown FAIL')
+-                    else:
+-                        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-                                    operation=f'Set,Rate Limiter Device: {device.upper()}', result='SUCCESS')
+-                else:
+-                    hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-                                operation='[Teardown] Rate Limiter Disabled...')
+-
+     def _check_production_mode_criteria_files(self):
+         criteria_path = self.test_options["functional_tests"]["criteria_file_to_send"]
+         path_to_copy = self.test_options["functional_tests"]["path_to_copy"]
+@@ -1054,8 +1006,8 @@
+ 
+         self.driver_cli.devices_hard_reset()
+         hlsa_logger(level='info', ident='Description', test_code='FUNCTIONAL',
+-                    operation=f'Execute,sleep {self.sleep_time}')
+-        time.sleep(self.sleep_time)
++                    operation=f'Execute,sleep 60 sec')
++        time.sleep(60)
+ 
+     def _print_tests_result(self, output, measurements, csv_report):
+         for line in output:
+@@ -1225,12 +1177,13 @@
+         hlsa_checker.check_status_is_true(status, ident='Description', test_code=self.test_code,
+                                           operation='Check test result',
+                                           ignore_assert=True)
++
+     def limit_power(self, stage_duration_sec, max_power_set_values):
+         activate_test_thread = True
+-        log_manager.log_browser()
+         sleep_between_itr = stage_duration_sec // (len(max_power_set_values) - 1)
+         for value in max_power_set_values:
+             try:
++                itr_start_time = time.time()
+                 if value <= 600:
+                     itr_start_time = time.time()
+                     for pci_addr in self.operational_devices_address:
+@@ -1260,18 +1213,24 @@
+                         hl_smi_val = self.smi_control.get_power_draw(f'0000:{pci_addr}')
+                         hlsa_logger(level='info', ident='Description', test_code=self.test_name, dev_address=pci_addr,
+                                     operation='HL-SMI Power Draw value', read_value=hl_smi_val)
+-                set_thread_log_context(None)
+-                # log_manager.log_browser()
++                    set_thread_log_context(None) # For fixing logs per device
+                 sleep_between_itr_time = sleep_between_itr - (time.time() - itr_start_time)
+                 if sleep_between_itr_time >=0:
+                     time.sleep(sleep_between_itr_time)
+             except Exception as exception:
+                 set_thread_log_context(None)
+-                # log_manager.log_browser()
+                 hlsa_logger(level='warning', ident='Description', operation=f'exception: {exception}')
+ 
+     def run_power_cycle(self, test_options_name=None, t=None):
+-        set_thread_log_context("main")
++        # set_thread_log_context("main") # For fixing logs per device
++
++        for device in self.connected_pcie_devices:
++            if not self.test_name in self.Devices[device]['functional_tests'].keys():  # used on DC_power_cycle runs
++                self.Devices[device]['functional_tests'][test_options_name] = {'status': '#RESULTS_FAILED#'}
++                hlsa_logger(level='info', ident='Description', operation=f'Fixing Devices Dict {test_options_name}')
++                self.Devices[device.strip()]['status'] = True
++
++
+         self.test_status = self.run_hl_qual_test(test_options_name=test_options_name, t=t)
+         status = self.collect_monitors_csv_output(fail_log_level='warning')
+     # Version Compare - Mutate Devices, Adds Versions (Must be Executed 1st !)
+@@ -1378,189 +1337,6 @@
+                     operation=f'Exception during test: {exception}')
+             assert False
+ 
+-    # @pytest.mark.HL225_ft
+-    # def test_load_driver_iteration(self):
+-    #     try:
+-    #         # Test Status Affect The Current Test Execution
+-    #         TEST_STATUS = True
+-    #         log_manager.log_browser()  # Log Maste
+-    #         # Iterate Through PCIe Devices
+-    #         if self.test_options.load_driver_iteration.num_of_test_loops == 0:
+-    #             hlsa_logger(level='error', ident='Description', test_code='Load Driver Iteration',
+-    #                         operation='Number of test loop is: 0', result='FAIL')
+-    #             return
+-    #         status = self.driver_cli.remove_driver()
+-    #         hlsa_checker.check_status_is_true(status, ident='Description', test_code='Load Driver Iteration',
+-    #                                           operation='Remove Driver,Habanalabs')
+-    #         for iteration in range(self.test_options.load_driver_iteration.num_of_test_loops):
+-    #             # log_manager.log_browser()
+-    #             hlsa_logger(level='info', ident='Description', test_code='Load Driver Iteration',
+-    #                 operation='Iteration {} of {}'.format(iteration + 1, self.test_options.load_driver_iteration.num_of_test_loops))
+-    #             # status = self.driver_cli.load_driver(timeout_locked=0)
+-    #             self.driver_options = hw_manager.get_driver_options()
+-    #             status = self.driver_cli.load_driver(drivin_flags=self.driver_options)
+-    #             time.sleep(1)
+-    #             hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
+-    #             self.actual_operational_devices_address = self.driver_cli.get_operational_devices()
+-    #             print_dmesg = False
+-    #             try:
+-    #                 for device in self.operational_devices_address:
+-    #                     hl_device_number = self.devices[device]["hl_num"]
+-    #                     mezz = self.devices[device]['mezz']
+-    #                     # log_manager.log_browser()  # Log Maste
+-    #                     hlsa_logger(level='info', ident='Value', loop=str(iteration), driver_number=hl_device_number,
+-    #                                 dev_address=device, mezzanine=mezz, test_code='Load Driver Iteration',
+-    #                                 operation=f'Connected PCIE Device', result='SUCCESS')
+-    #                     if device not in self.actual_operational_devices_address:
+-    #                         hlsa_logger(level='error', ident='Description', loop=str(iteration),
+-    #                                     driver_number=hl_device_number,
+-    #                                     dev_address=device, mezzanine=mezz, test_code='Load Driver Iteration',
+-    #                                     operation=f'ERROR PCIE Address: {device} Is Not Operational (!)')
+-    #                         log_manager.log_browser(str(device))
+-    #                         hlsa_logger(level='error', ident='Description', loop=str(iteration),
+-    #                                     driver_number=hl_device_number,
+-    #                                     dev_address=device, mezzanine=mezz, test_code='Load Driver Iteration',
+-    #                                     operation=f'ERROR PCIE Address: {device} Is Not Operational (!)')
+-    #                         self.Devices[device.strip()]['status'] = False
+-    #                         TEST_STATUS = False
+-    #                         print_dmesg = True
+-    #                         try:
+-    #                             uart_buffer = self.dict_uart_index_connection[
+-    #                                 self.Devices[device]['uart_id']].stop_sniffer()
+-    #                             for line in uart_buffer.splitlines():
+-    #                                 hlsa_logger(level='info', ident='Description', driver_number=hl_device_number,
+-    #                                             dev_address=device, mezzanine=mezz,
+-    #                                             test_code='Load Driver Iteration',
+-    #                                             operation=f'UART LOG: {line}')
+-    #                             self.dict_uart_index_connection[self.Devices[device]['uart_id']].start_sniffer()
+-    #                         except Exception as exception:
+-    #                             hlsa_logger(level='error', ident='Description', test_code='Load Driver Iteration',
+-    #                                         operation=f'UART LOG: {exception}')
+-    #                     log_manager.log_browser()
+-    #                 if print_dmesg:
+-    #                     message = get_dmesg()
+-    #                     # log_manager.log_browse_all()
+-    #                     if message is not None:
+-    #                         for line in message:
+-    #                             hlsa_logger(level='info', ident='Description', test_code='Load Driver Iteration',
+-    #                                         operation=f'dmesg: {line}')
+-    #                 status = self.driver_cli.remove_driver()
+-    #                 hlsa_checker.check_status_is_true(status, ident='Description', test_code='Load Driver Iteration',
+-    #                                                   operation='Remove Driver,Habanalabs')
+-    #                 # on Default Run have Power Cycle 54V , On Production_mode Need Config The JSON File
+-    #                 if self.test_options.load_driver_iteration.pwr_54V_reset_enable:
+-    #                     self._54v_reset()
+-    #                 elif self.test_options.load_driver_iteration.reset_device_fw_loader_enable:
+-    #                     self._fw_loader_reset()
+-    #                 elif self.test_options.load_driver_iteration.machxo3_reset_enable:
+-    #                     self._machxo3_reset()
+-    #                 else:
+-    #                     self._54v_reset()
+-    #             except Exception as exception:
+-    #                 hlsa_logger(level='error', ident='Description', test_code='Load Driver Iteration',
+-    #                             operation=f'Exception during test: {exception}')
+-    #         # status = self.driver_cli.load_driver(timeout_locked=0 )
+-    #         self.driver_options = hw_manager.get_driver_options()
+-    #         status = self.driver_cli.load_driver(drivin_flags=self.driver_options)
+-    #         if not status:
+-    #             hlsa_logger(level='error', ident='Description', test_code='Load Driver Iteration',
+-    #                         operation='Init Driver', result='FAIL')
+-    #         time.sleep(1)
+-    #         for device in self.operational_devices_address:
+-    #             if self.Devices[device.strip()]['status']:
+-    #                 self.Devices[device.strip()]['functional_tests'][self.test_name]['status'] = '#RESULTS_PASS#'
+-    #             else:
+-    #                 self.Devices[device.strip()]['functional_tests'][self.test_name]['status'] = '#RESULTS_FAILED#'
+-    #         assert TEST_STATUS
+-    #     except Exception as exception:
+-    #         hlsa_logger(level='error', ident='Description', test_code=f'{self.test_name.upper()}',
+-    #                     operation=f'Exception during test: {exception}')
+-    #         assert False
+-    #
+-    # # todo ------- need update (not refactor , see todo comments inside the method)
+-    # @pytest.mark.HL225_pt
+-    # @pytest.mark.HL225_pt3
+-    # @pytest.mark.HL225_ft
+-    # @pytest.mark.HL225_ft1
+-    # @pytest.mark.HL225_bi
+-    # def test_sensors_read_for_qual(self):
+-    #     try:
+-    #         TEST_STATUS = True
+-    #         log_manager.log_browser()
+-    #
+-    #         path_dest = self.functional_tests[self.test_name]["file_path"]["destination"]
+-    #         for PCI_address in self.operational_devices_address:
+-    #             pci_for_sensor = PCI_address.split(".")
+-    #             pci_for_sensor = pci_for_sensor[0].replace(':', '')
+-    #             file_name = f'{self.device.name}-pci-{pci_for_sensor}'
+-    #             retries = int(self.functional_tests[self.test_name]["retries"])
+-    #             for run_idx in range(retries):
+-    #                 hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-    #                             operation=f'Running sensors cmd on idle {run_idx + 1}/{retries}', dev_address=PCI_address)
+-    #
+-    #                 log_level = 'error' if run_idx == retries - 1 else 'warning'
+-    #                 log_result = 'FAIL' if log_level == 'error' else ''
+-    #
+-    #                 code, stdout = self.cli_control.execute_command(f'sensors {file_name} | sudo tee {path_dest}{file_name}.txt >/dev/null')
+-    #                 if code != 0:
+-    #                     hlsa_logger(level=log_level, ident='Description', test_code=self.test_code,
+-    #                                 operation='Sensors data read', result=log_result)
+-    #
+-    #                 else:
+-    #                     try:
+-    #                         self.Devices[PCI_address.strip()]['functional_tests'][self.test_name]['status'] = '#RESULTS_PASS#'
+-    #                         status = self.sensors_read_for_qual_test('offline',1, file_name, False, True,fail_log_level=log_level,
+-    #                                         return_status_on_warning=False, loop_override=run_idx)
+-    #
+-    #                         if status:
+-    #                             break
+-    #                         if not status and run_idx == retries - 1:
+-    #                             log_manager.update_status_false(PCI_address)
+-    #                     except Exception as exception:
+-    #                         log_manager.log_browser()
+-    #                         hlsa_logger(level='error', ident='Get', test_code=self.test_code,operation=f'sensors_read_for_qual_test {exception}')
+-    #                         TEST_STATUS = False
+-    #
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-    #                                     operation='Execute Sensors data read', result='SUCCESS')
+-    #
+-    #         # Examine Test Status
+-    #         log_manager.log_browser()
+-    #         self.print_uart_for_failed_devices()
+-    #         assert TEST_STATUS
+-    #
+-    #     except Exception as exception:
+-    #         hlsa_logger(level='error', ident='Description', test_code=self.test_code,
+-    #                     operation=f'Exception during test: {exception}')
+-    #         assert False
+-
+-    # @pytest.mark.HL225_ft
+-    # @pytest.mark.HL225_bi
+-    # @pytest.mark.HL225_sysval_stress
+-    # def test_memory_bw(self):
+-    #     if self.functional_tests_options[self.test_name]['execute']:
+-    #
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #         self._get_needed_parameters()
+-    #
+-    #         if str(self.running_mode).lower() == "multi":
+-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.memory_bw)
+-    #
+-    #         elif str(self.running_mode).lower() == "single":
+-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.memory_bw)
+-    #
+-    #         else:
+-    #             hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation='get hl_qual running mode', result='FAIL')
+-    #
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #
+-    #     else:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'Test {self.test_name} skipped')
+-    #
+-
+-    # @pytest.mark.HLS3_ft2
+-    # @pytest.mark.HLS3_bi
+-    # @pytest.mark.HLB_ft2
+     def test_power_stress(self):
+         self.test_status = self.run_hl_qual_test('power_stress')
+         status = self.collect_monitors_csv_output(fail_log_level='error')
+@@ -1582,7 +1358,7 @@
+         self.TEST_THREAD = SuperThread('power_stress', lambda: self.run_power_cycle(test_options_name="power_stress", t=int(cycle_duration+100)))
+         self.TEST_THREAD.start()
+         while t_duration < cycle_duration:
+-            log_manager.log_browser()
++            # log_manager.log_browser() # For fixing logs per device
+             start_time = time.time()
+ 
+             hlsa_logger(level='info', ident='Description',
+@@ -1792,809 +1568,6 @@
+         else:
+             hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'Test {self.test_name} skipped')
+ 
+-    # def test_hl_qual_functional(self):
+-    #
+-    #     if self.functional_tests[self.test_name]['execute']:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #         self._get_needed_parameters()
+-    #
+-    #         if str(self.running_mode).lower() == "multi":
+-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.functional_test_2)
+-    #
+-    #         elif str(self.running_mode).lower() == "single":
+-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.functional_test_2)
+-    #
+-    #         else:
+-    #             hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation=f'get hl_qual running mode', result='FAIL')
+-    #
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #
+-    #     else:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} skipped')
+-    #
+-    # @pytest.mark.HL225_ft
+-    # @pytest.mark.HL225_bi
+-    # @pytest.mark.HL225_ft1
+-    # def test_resnet50_training_accuracy(self):
+-    #     if self.functional_tests[self.test_name]['execute']:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #         self._get_needed_parameters()
+-    #
+-    #         if str(self.running_mode).lower() == "multi":
+-    #             self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.training_app)
+-    #
+-    #         elif str(self.running_mode).lower() == "single":
+-    #             self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.training_app)
+-    #
+-    #         else:
+-    #             hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation=f'get hl_qual running mode', result='FAIL')
+-    #
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #
+-    #     else:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} skipped')
+-
+-    # @pytest.mark.HLS3_ft
+-    # @pytest.mark.HLS3_ft2
+-    # @pytest.mark.HLS3_pt_bmc_exp
+-    def test_serdes_fec(self):
+-        TEST_STATUS = True
+-
+-        # self.operational_devices_address = self.driver_cli.get_operational_devices()
+-
+-        if self.functional_tests_options.serdes_fec.polarity_fix:
+-            for pci in self.operational_devices_address:
+-                if self.devices[pci]["mezz"] == '0':
+-                    hl_num = self.devices[pci]["hl_num"]
+-                    command = f'echo 42 0 1 | sudo tee /sys/kernel/debug/habanalabs_cn/hl_cn{hl_num}/nic_polarity'
+-                    code, stdout = self.device_cli.execute_command(command)
+-                    hlsa_checker.check_status_is_true(code == 0, ident='Description', dev_address=pci,
+-                                                      mezzanine=self.devices[pci]["mezz"],
+-                                                      driver_number=hl_num, operation=f'Set polarity for oam 0 port 21',
+-                                                      ignore_assert=True)
+-                    status = self.toggle_up_ports()
+-
+-        # Run FEC test
+-        self.ports_status = {}
+-        self.changes_counter_calc = {}
+-        self.failed_exp = []
+-
+-        for pci in self.operational_devices_address:
+-            self.ports_status[pci] = {}
+-            self.changes_counter_calc[pci] = {}
+-            self.ports_status[pci]['current_status'] = {}
+-            self.ports_status[pci]['previous_status'] = {}
+-
+-        for pci in self.operational_devices_address:
+-            for port in range(0, 24):
+-                self.ports_status[pci]['current_status'][port] = False
+-                self.ports_status[pci]['previous_status'][port] = False
+-
+-            # self.calculate_ports_changes_counter(retries=1)
+-            log_level = 'error'
+-            if self.functional_tests_options.serdes_fec.check_internal_ports:
+-                log_level = 'warning'
+-            status = self.print_fec_status_per_pci(pci, self.test_name, log_level_ports=log_level)
+-            if self.functional_tests_options.serdes_fec.check_internal_ports and not status:
+-                TEST_STATUS = False
+-
+-            # if not status:
+-            #     TEST_STATUS = False
+-                # log_manager.update_status_false(pci)
+-        for exp_id in self.test_options.connected_exp_cards:
+-            try:
+-                log_manager.log_browser(f'exp{exp_id}')
+-                if str(exp_id) in self.failed_exp:
+-                    hlsa_logger(level='INFO', ident='Description', test_code='Final Test Results',
+-                                dev_address=exp_id, operation=f'{self.__module__}.py::{self.__class__.__name__}::test_serdes_fec',
+-                                result='#RESULTS_FAIL#')
+-                    log_manager.update_status_false(f'exp{exp_id}')
+-                    TEST_STATUS = False
+-                else:
+-                    hlsa_logger(level='INFO', ident='Description', test_code='Final Test Results',
+-                            dev_address=exp_id,
+-                            operation=f'{self.__module__}.py::{self.__class__.__name__}::test_serdes_fec',
+-                            result='#RESULTS_PASS#')
+-            except Exception as exception:
+-                hlsa_logger(level='warning', ident='Description',
+-                            operation=f'Exception during parsing fec_stats: {str(exception)}')
+-                log_manager.log_browser()
+-                TEST_STATUS = False
+-
+-        log_manager.log_browser()
+-        assert TEST_STATUS
+-    # @pytest.mark.HL225_ft
+-    # @pytest.mark.HL225_bi
+-    # def test_serdes_ber_pam4(self):
+-    #     if not self.test_options.enable_nic_tests:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-    #             operation=f'Skipped {self.test_name} - enable_nic_test',read_value=self.test_options.enable_nic_test)
+-    #     else:
+-    #
+-    #         if self.functional_tests_options[self.test_name]['execute']:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #             self._get_needed_parameters()
+-    #
+-    #             if str(self.running_mode).lower() == "multi":
+-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.ber_plugin)
+-    #
+-    #             elif str(self.running_mode).lower() == "single":
+-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.ber_plugin)
+-    #
+-    #             else:
+-    #                 hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation=f'get hl_qual running mode', result='FAIL')
+-    #
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #
+-    #         else:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} skipped')
+-    #
+-    # def test_serdes_bw(self):
+-    #     if not self.test_options.enable_nic_tests:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-    #             operation=f'Skipped {self.test_name} - enable_nic_test',read_value=self.test_options.enable_nic_test)
+-    #     else:
+-    #
+-    #         if self.functional_tests_options[self.test_name]['execute']:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #
+-    #             self._get_needed_parameters()
+-    #
+-    #             if str(self.running_mode).lower() == "multi":
+-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)
+-    #
+-    #             elif str(self.running_mode).lower() == "single":
+-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)
+-    #
+-    #             else:
+-    #                 hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation=f'get hl_qual running mode', result='FAIL')
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #         else:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} skipped')
+-    #
+-    # @pytest.mark.HL225_ft
+-    # @pytest.mark.HL225_bi
+-    # def test_serdes_bw_pam4(self):
+-    #     if not self.test_options.enable_nic_tests:
+-    #         hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-    #             operation=f'Skipped {self.test_name} - enable_nic_test',read_value=self.test_options.enable_nic_test)
+-    #     else:
+-    #
+-    #         if self.functional_tests_options[self.test_name]['execute']:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} started')
+-    #             self._get_needed_parameters()
+-    #
+-    #             if str(self.running_mode).lower() == "multi":
+-    #                 self._run_hl_qual_multi_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)
+-    #
+-    #             elif str(self.running_mode).lower() == "single":
+-    #                 self._run_hl_qual_single_mode(self.hl_qual_control.control_config.spec.hl_qual_tests.e2e_concurrency)
+-    #
+-    #             else:
+-    #                 hlsa_logger(level='error', ident='Description', test_code=self.test_code,operation=f'get hl_qual running mode', result='FAIL')
+-    #
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} finished')
+-    #         else:
+-    #             hlsa_logger(level='info', ident='Description', test_code=self.test_code,operation=f'Test {self.test_name} skipped')
+-
+-    # todo fix this test code (only copied from prod, need to update to support all modes)
+-    def sensors_read_for_qual_test(self, mode, sensors_sample_t=1, csv=None, offline_override=False,
+-                                   disable_print_jig_temp_console=False,
+-                                   fail_log_level='error', return_status_on_warning=True, loop_override=0):
+-
+-        parser = RegexParser.RegexParser()
+-        log_manager.log_browser()
+-        pci = None
+-        hl_num = None
+-        mezz = None
+-        if self.mark_input is not None and self.mark_input != "" and \
+-                self.functional_tests_options[self.test_name]['production_flags'][self.mark_input]['sensors']:
+-
+-            sensors_sample_tmp = self.functional_tests_options[self.test_name]['production_flags'][self.mark_input]['sensors']
+-            sensors_sample_t = int(re.findall(r"-sensors\s+(\d+)", sensors_sample_tmp)[0])
+-            # sensors_sample_t = sensors_sample_t-15 # sync to hl_qual sensors sample time  # TODO check sync value
+-            if sensors_sample_t <= 0:
+-                sensors_sample_t = 10
+-            hlsa_logger(level='info', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                        operation=f'Sensors sample time: {sensors_sample_t}')
+-            test_loop = 0
+-            final_ignore_loops_num = 2
+-            if self.mark_input == "HL225_pt" or self.mark_input == "HL225_pt3":
+-                final_ignore_loops_num = 0
+-            limits_criteria = self.functional_tests_options.limits_criteria
+-            selected_criteria_idx = limits_criteria.index(
+-                self.functional_tests_options[self.test_name]['sensors_threshold_criteria'][self.mark_input])
+-            hlsa_logger(level='info', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                        operation=f'Sensors threshold criteria: {self.functional_tests_options[self.test_name]["sensors_threshold_criteria"][self.mark_input]}')
+-            power_from_hl_qual_sensors = self.functional_tests_options[self.test_name]['power_from_hl_qual_sensors']
+-            hlsa_logger(level='info', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                        operation=f'Sensors - get power value from hl_qual sensors file: {power_from_hl_qual_sensors}')
+-            delta_lim = {"On Chip 4x TS": [], "On Chip 4x TD": [], "TD0 to TS0": [],
+-                         "TD1 to TS1": [], "TD2 to TS2": [], "TD3 to TS3": []}
+-            ts_collector = {"On Chip 0": [], "On Chip 1": [], "On Chip 2": [], "On Chip 3": []}
+-            td_collector = {"On Chip TD 0": [], "On Chip TD 1": [], "On Chip TD 2": [], "On Chip TD 3": []}
+-            while True:
+-                sensors_log = []
+-                if mode.upper() == 'ONLINE' and not power_from_hl_qual_sensors:
+-                    code, sensors_log = self.cli_control.execute_command("sensors")
+-                    if code != 0:
+-                        hlsa_logger(level='warning', ident='Read', test_code=f'{self.test_code} {mode.upper()}',
+-                                    operation='Sensors data read', result='FAIL')
+-                        return False
+-                if mode.upper() == 'OFFLINE':
+-                    path_src = f'{self.functional_tests_options["hl_qual_path"][self.driver_mode.upper()]["source"]}{csv}'
+-                    path_dest = f'{self.functional_tests_options["hl_qual_path"][self.driver_mode.upper()]["destination"]}{csv}'
+-                    if self.functional_tests_options[self.test_name].get("file_path"):
+-                        path_src = f'{self.functional_tests_options[self.test_name]["file_path"]["source"]}{csv}'
+-                        path_dest = f'{self.functional_tests_options[self.test_name]["file_path"]["destination"]}{csv}'
+-                    # Get File
+-                    status = self.driver_cli.get_file(path_src, path_dest)
+-                    assert status, f'\n[Sensors] Get ,Faild To Get Sensors Log File for card: {csv}, Check path write permissions ,#FAIL_DETAIL#"'
+-                    # Open Log File From TestPc
+-                    f = open(path_dest, "r")
+-                    sensors_log = f.readlines()
+-                res = {}
+-                if len(sensors_log) != 0:
+-                    # Analyze Read Per Device
+-                    res = parser.extract_results(sensors_log, self.sensors_regx_parser)
+-                    if res is not None:
+-                        hlsa_logger(level='info', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                                    operation='PCI sensors results', result='SUCCESS')
+-                    else:
+-                        hlsa_logger(level=fail_log_level, ident='Description',
+-                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                    operation='PCI sensors results', result='FAIL')
+-                        assert res is not None
+-                test_pass = 1
+-                devices_data = self.operational_devices_address
+-                if mode.upper() == 'OFFLINE' and offline_override is False:
+-                    devices_data = res["PCI_adapter_address"]["HL225"]["PCI_Address"]
+-                try:
+-                    for index, pci in enumerate(devices_data):
+-                        try:
+-                            if ':' not in pci:  # Fix pci format on offline mode
+-                                pci = pci[0] + pci[1] + ':' + pci[2] + pci[3] + '.0'
+-                            hl_num = self.devices[pci]["hl_num"]
+-                            mezz = self.devices[pci]["mezz"]
+-                            if mode.upper() == 'OFFLINE' and offline_override is False:
+-                                test_loop = index
+-                                if pci not in self.delta_lim_final:
+-                                    self.delta_lim_final[pci] = delta_lim.copy()
+-                                    self.delta_lim_final[pci].update(td_collector.copy())
+-                                    self.delta_lim_final[pci].update(ts_collector.copy())
+-                            sensors_types = ["PCI_adapter_voltage", "PCI_adapter_temperature", "PCI_adapter_current"]
+-                            if power_from_hl_qual_sensors:
+-                                sensors_types = ["PCI_adapter_voltage", "PCI_adapter_temperature",
+-                                                 "PCI_adapter_current",
+-                                                 "PCI_adapter_power"]
+-                            threshold_mapping = {"PCI_adapter_voltage": "voltage",
+-                                                 "PCI_adapter_temperature": "temperature",
+-                                                 "PCI_adapter_current": "current",
+-                                                 "PCI_adapter_power": "power"
+-                                                 }
+-                            # Sensors cmd
+-                            # print sensors from sensors cmd
+-                            if mode.upper() == 'OFFLINE' or not power_from_hl_qual_sensors:
+-                                for sensors_type in sensors_types:
+-                                    for item in res[sensors_type].keys():
+-                                        if index >= len(res[sensors_type][item]["Value"]):
+-                                            continue
+-                                        val = res[sensors_type][item]["Value"][index]
+-                                        try:
+-                                            unit = res[sensors_type][item]["unit"][index]
+-                                        except Exception as exception:
+-                                            hlsa_logger(level='debug', ident='Get',
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=f'Unit for {item} is missing {exception}')
+-                                            unit = ''
+-                                        if unit == '':
+-                                            unit = 'W' if sensors_type == 'PCI_adapter_power' else ''
+-                                        min_limit = round(
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][
+-                                                threshold_mapping[sensors_type]][item]['min'], 4)
+-                                        if min_limit is None:
+-                                            log_manager.log_browser(pci)
+-                                            hlsa_logger(level='warning', ident='Get',
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=f'Voltage minimum not defined')
+-                                            log_manager.log_browser()
+-                                            min_limit = 0
+-                                        max_limit = round(
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][
+-                                                threshold_mapping[sensors_type]][item]['max'], 4)
+-                                        try:
+-                                            if "m" in unit:
+-                                                max_limit = max_limit * 1000
+-                                                min_limit = min_limit * 1000
+-                                        except Exception as exception:
+-                                            hlsa_logger(level='warning', ident='Get',
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=f'Cannot convert milli units {exception}')
+-
+-                                        sensor_print = self.sensors_threshold[limits_criteria[selected_criteria_idx]][
+-                                            threshold_mapping[sensors_type]][item]['print']
+-                                        if test_loop == 0 and sensors_sample_t != 1:
+-                                            sensor_print = 0
+-                                        if sensors_sample_t != 1 and test_loop >= (
+-                                                len(devices_data) - final_ignore_loops_num):
+-                                            sensor_print = 0
+-                                        if sensor_print == 1:
+-                                            # Unique Log
+-                                            log_manager.log_browser(pci)
+-                                            if loop_override != 0:
+-                                                test_loop = loop_override
+-                                            if min_limit <= float(val.replace("+", "")) <= max_limit:
+-                                                hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                            driver_number=hl_num,
+-                                                            dev_address=pci, mezzanine=mezz,
+-                                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                                            operation=item,
+-                                                            read_value=val, units=unit,
+-                                                            expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                            result='SUCCESS')
+-                                            else:
+-                                                hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                            driver_number=hl_num,
+-                                                            dev_address=pci, mezzanine=mezz,
+-                                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                                            operation=item,
+-                                                            read_value=val, units=unit,
+-                                                            expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                            result='FAIL')
+-                                                test_pass = 0
+-                                # On Chip TS Delta, On Chip TD Delta
+-                                test_loop_filter = 0 < test_loop < (len(devices_data) - final_ignore_loops_num)
+-                                if test_loop_filter and sensors_sample_t != 1:
+-                                    sensors_for_delta_per_type = [["On Chip 0", "On Chip 1", "On Chip 2", "On Chip 3"],
+-                                                                  ["On Chip TD 0", "On Chip TD 1", "On Chip TD 2",
+-                                                                   "On Chip TD 3"]]
+-                                    sensors_for_delta_per_type_mapping = ["On Chip 4x TS", "On Chip 4x TD"]
+-                                    sensors_for_delta_per_chip = ["TD0 to TS0", "TD1 to TS1", "TD2 to TS2",
+-                                                                  "TD3 to TS3"]
+-                                    # map_place=0
+-                                    delta_values_per_chip = []
+-                                    for delta_type_index, sensors_for_delta in enumerate(sensors_for_delta_per_type):
+-                                        # delta_max_sensor = ''
+-                                        # delta_min_sensor = ''
+-                                        try:
+-                                            # sensors_for_delta = delta_type
+-                                            delta_values_dic = {}
+-                                            for sensor_idx, item in enumerate(sensors_for_delta):
+-                                                delta_values_dic[item] = res["PCI_adapter_temperature"][item]["Value"][
+-                                                    index]
+-                                                val_wo_plus_sign = str(
+-                                                    res["PCI_adapter_temperature"][item]["Value"][index]).replace('+',
+-                                                                                                                  '')
+-                                                self.delta_lim_final[pci][item].append(float(val_wo_plus_sign))
+-                                            for element in delta_values_dic.values():
+-                                                delta_values_per_chip.append(float(element))
+-                                            delta_max_sensor = max(delta_values_dic, key=delta_values_dic.get)
+-                                            delta_min_sensor = min(delta_values_dic, key=delta_values_dic.get)
+-                                            sensor_max = max(delta_values_dic.values())
+-                                            sensor_min = min(delta_values_dic.values())
+-                                            delta_value = float(max(delta_values_dic.values())) - float(
+-                                                min(delta_values_dic.values()))
+-                                            self.delta_lim_final[pci][
+-                                                sensors_for_delta_per_type_mapping[delta_type_index]].append(
+-                                                delta_value)
+-                                            val = round(delta_value, 2)
+-                                            criteria, item, unit = 'delta', sensors_for_delta_per_type_mapping[
+-                                                delta_type_index], 'C'
+-                                            min_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item][
+-                                                'min']
+-                                            max_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item][
+-                                                'max']
+-                                            sensor_print = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item][
+-                                                'print'] if not (test_loop == 0 and sensors_sample_t != 1) else 0
+-                                            if sensor_print == 1:
+-                                                # Unique Log
+-                                                log_manager.log_browser(pci)
+-                                                if min_limit <= val <= max_limit:
+-                                                    hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=f'{item}', read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='SUCCESS')
+-                                                    hlsa_logger(level='info', ident='value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=f'Max Delta {delta_max_sensor}',
+-                                                                read_value=sensor_max, units=unit,
+-                                                                result='SUCCESS')
+-                                                    hlsa_logger(level='info', ident='value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=f'Min Delta {delta_min_sensor}',
+-                                                                read_value=sensor_min, units=unit,
+-                                                                result='SUCCESS')
+-                                                else:
+-                                                    hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=item, read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='FAIL')
+-                                                    hlsa_logger(level=fail_log_level, ident='value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=f'Max Delta {delta_max_sensor}',
+-                                                                read_value=sensor_max, result='FAIL')
+-                                                    hlsa_logger(level=fail_log_level, ident='value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=f'Min Sensor {delta_min_sensor}',
+-                                                                read_value=sensor_min, result='FAIL')
+-                                                    test_pass = 0
+-                                        except Exception as exception:
+-                                            hlsa_logger(level='warning', ident='Description', loop=test_loop,
+-                                                        driver_number=hl_num,
+-                                                        dev_address=pci, mezzanine=mezz,
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=f'Sensors Max Delta {exception}')
+-                                            test_pass = 0
+-                                            val = 0
+-                                    # Compare TS And TD Per Chip
+-                                    try:
+-                                        for sensor_idx, item in enumerate(sensors_for_delta_per_chip):
+-                                            tmp = delta_values_per_chip[sensor_idx + len(sensors_for_delta_per_chip)] - \
+-                                                  delta_values_per_chip[sensor_idx]
+-                                            Delta_max_sensor = ""
+-                                            Delta_min_sensor = ""
+-                                            sensor_max = delta_values_per_chip[
+-                                                sensor_idx + len(sensors_for_delta_per_chip)]
+-                                            sensor_min = delta_values_per_chip[sensor_idx]
+-                                            # if tmp > 0:
+-                                            #     Delta_max_sensor = "TD" + str(sensor_idx)
+-                                            #     Delta_min_sensor = "TS" + str(sensor_idx)
+-                                            # else:
+-                                            #     Delta_max_sensor = "TS" + str(sensor_idx)
+-                                            #     Delta_min_sensor = "TD" + str(sensor_idx)
+-                                            #     sensor_max, sensor_min = sensor_min, sensor_max
+-                                            self.delta_lim_final[pci][item].append(tmp)
+-                                            val = round(tmp, 3)
+-                                            criteria, unit = 'delta', 'C'
+-                                            min_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item][
+-                                                'min']
+-                                            max_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item][
+-                                                'max']
+-                                            sensor_print = \
+-                                                self.sensors_threshold[limits_criteria[selected_criteria_idx]][
+-                                                    criteria][item][
+-                                                    'print'] if not (test_loop == 0 and sensors_sample_t != 1) else 0
+-                                            if sensor_print == 1:
+-                                                # Unique Log
+-                                                log_manager.log_browser(pci)
+-                                                if min_limit <= val <= max_limit:
+-                                                    hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=item, read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='SUCCESS')
+-                                                else:
+-                                                    hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=item, read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='FAIL')
+-                                                    test_pass = 0
+-                                    except Exception as exception:
+-                                        hlsa_logger(level='warning', ident='Description', loop=test_loop,
+-                                                    driver_number=hl_num,
+-                                                    dev_address=pci, mezzanine=mezz,
+-                                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                                    operation=f'Sensors TD TS Delta per chip {exception}')
+-                                    # Compare ADC54V Current And VRM1 Input Current
+-                                    try:
+-                                        sensors_for_delta_per_type = [["ADC 54V Current", "VRM1 Input Current"],
+-                                                                      ["VRM1 Output Current", "VRM2 13.5V Current"]]
+-                                        name_sensors_for_delta = ["ADC 54V Current to VRM1 Input Current",
+-                                                                  "VRM1 Output Current to VRM2 13.5V Current"]
+-                                        units_sensors_for_delta = ["mA", "A"]
+-                                        for delta_type in sensors_for_delta_per_type:
+-                                            sensors_for_delta = delta_type
+-                                            delta_values_dic = {}
+-                                            delta_values_per_chip = []
+-                                            for sensor_idx, item in enumerate(sensors_for_delta):
+-                                                delta_values_dic[item] = res["PCI_adapter_current"][item]["Value"][
+-                                                    index]
+-                                            for element in delta_values_dic.values():
+-                                                delta_values_per_chip.append(float(element))
+-                                            # for sensor_idx, item in enumerate(name_sensors_for_delta):
+-                                            tmp = delta_values_per_chip[0] - delta_values_per_chip[1]
+-                                            val = round(tmp, 3)
+-                                            criteria, item, unit = 'delta', name_sensors_for_delta[
+-                                                sensors_for_delta_per_type.index(delta_type)], units_sensors_for_delta[
+-                                                sensors_for_delta_per_type.index(delta_type)]
+-                                            # criteria, unit = 'delta', 'mA'
+-                                            min_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item]['min']
+-                                            max_limit = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item]['max']
+-                                            sensor_print = \
+-                                            self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][
+-                                                item]['print'] if not (test_loop == 0 and sensors_sample_t != 1) else 0
+-                                            if sensor_print == 1:
+-                                                # Unique Log
+-                                                log_manager.log_browser(pci)
+-                                                if min_limit <= val <= max_limit:
+-                                                    hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=item, read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='SUCCESS')
+-                                                else:
+-                                                    hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                                driver_number=hl_num,
+-                                                                dev_address=pci, mezzanine=mezz,
+-                                                                test_code=f'{self.test_code} {mode.upper()}',
+-                                                                operation=item, read_value=val, units=unit,
+-                                                                expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                                result='FAIL')
+-                                                    test_pass = 0
+-                                    except Exception as exception:
+-                                        hlsa_logger(level='warning', ident='Description', loop=test_loop,
+-                                                    driver_number=hl_num,
+-                                                    dev_address=pci, mezzanine=mezz,
+-                                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                                    operation=f'Delta Current Sensors {exception}')
+-                            if mode.upper() == 'ONLINE' or offline_override is True:
+-                                if not power_from_hl_qual_sensors:
+-                                    # hl-smi power draw
+-                                    # time.sleep(2)
+-                                    try:
+-                                        hl_smi_val = self.smi_control.get_power_draw(f'0000:{pci}')
+-                                        val = float(hl_smi_val.strip("W"))
+-                                    except Exception as exception:
+-                                        hlsa_logger(level='warning', ident='Description', loop=test_loop,
+-                                                    driver_number=hl_num,
+-                                                    dev_address=pci, mezzanine=mezz,
+-                                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                                    operation=f'hl-smi power draw {exception}')
+-                                        test_pass = 0
+-                                        val = 0
+-                                    criteria, item, unit = 'power', 'power.draw', 'W'
+-                                    min_limit = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'min']
+-                                    max_limit = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'max']
+-                                    sensor_print = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'print'] if not (test_loop == 0 and sensors_sample_t != 1) else 0
+-                                    if sensor_print == 1:
+-                                        # Unique Log
+-                                        log_manager.log_browser(pci)
+-                                        if min_limit <= val <= max_limit:
+-                                            hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                        driver_number=hl_num,
+-                                                        dev_address=pci, mezzanine=mezz,
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=item, read_value=val, units=unit,
+-                                                        expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                        result='SUCCESS')
+-                                        else:
+-                                            hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                        driver_number=hl_num,
+-                                                        dev_address=pci, mezzanine=mezz,
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=item, read_value=val, units=unit,
+-                                                        expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                        result='FAIL')
+-                                            test_pass = 0
+-                                # FT_jig sensors
+-                                if self.test_options['ft_jig_module']:
+-                                    if mezz == 0:
+-                                        log_manager.log_browser(pci)
+-                                        hlsa_logger(level=fail_log_level, ident='Description',
+-                                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                                    operation=f'Module ID by HL-SMI PCI Device 0000:{pci} cannot be 0')
+-                                    try:
+-                                        log_manager.log_browser()
+-                                        ft_jig_temp_sensor = self.ft_jig_control.get_sensor_temperature(mezz)
+-                                        val = ft_jig_temp_sensor
+-                                    except Exception as exception:
+-                                        log_manager.log_browser()
+-                                        hlsa_logger(level='warning', ident='Description',
+-                                                    test_code=f'{self.test_code} {mode.upper()}',
+-                                                    operation=f' ft_jig_control.get_sensor_temperature {exception}')
+-                                        val = 0
+-                                        pass
+-                                    criteria, item, unit = 'inlet Temp', f'OAM{mezz} temp', 'C'
+-                                    min_limit = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'min']
+-                                    max_limit = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'max']
+-                                    sensor_print = \
+-                                    self.sensors_threshold[limits_criteria[selected_criteria_idx]][criteria][item][
+-                                        'print'] if not (test_loop == 0 and sensors_sample_t != 1) else 0
+-                                    if sensor_print == 1:
+-                                        # Unique Log
+-                                        log_manager.log_browser(pci)
+-                                        if min_limit <= float(val) <= max_limit:
+-                                            if val <= max_limit:
+-                                                hlsa_logger(level='info', ident='Value', loop=test_loop,
+-                                                            driver_number=hl_num,
+-                                                            dev_address=pci, mezzanine=mezz,
+-                                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                                            operation=item, read_value=val, units=unit,
+-                                                            expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                            result='SUCCESS')
+-                                        else:
+-                                            hlsa_logger(level=fail_log_level, ident='Value', loop=test_loop,
+-                                                        driver_number=hl_num,
+-                                                        dev_address=pci, mezzanine=mezz,
+-                                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                                        operation=item, read_value=val, units=unit,
+-                                                        expected_value=f'Min: {min_limit} | Max: {max_limit}',
+-                                                        result='FAIL')
+-                                            test_pass = 0
+-                                    if self.test_options[
+-                                        'print_jig_temp_console'] and disable_print_jig_temp_console is False:
+-                                        # Print to console
+-                                        # print(f'Date,Time,Milliseconds,Level,Filename,Line,Ident,{test_loop},{hl_num},{pci},{mezz},{test_code} {mode.upper()},{item},{val},{unit},Expected Value,Result')
+-                                        print(
+-                                            f'\nLoop:{test_loop},hl:{hl_num},pcie:{pci},mezz:{mezz},test:{self.test_code} {mode.upper()},inlet {item},value:{val},{unit}')
+-                                        fan_speed_dic = self.ft_jig_control.get_fan_speed(int(mezz))
+-                                        if self.test_options['print_jig_fan_rpm_console']:
+-                                            for item_dic in fan_speed_dic.items():
+-                                                print(
+-                                                    f'\nLoop:{test_loop},hl:{hl_num},pcie:{pci},mezz:{mezz},test:{self.test_code} {mode.upper()},fan {item_dic[0]},value:{item_dic[1]},rpm')
+-                            if not test_pass:
+-                                if fail_log_level == 'error':
+-                                    self.Devices[pci]['functional_tests'][self.test_name][
+-                                        'status'] = '#RESULTS_FAILED#'
+-                                hlsa_logger(level=fail_log_level, ident='Description',
+-                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                            operation=f'Sensors limits check failed', driver_number=hl_num,
+-                                            dev_address=pci, mezzanine=mezz)
+-                        except Exception as exception:
+-                            log_manager.log_browser()
+-                            hlsa_logger(level='warning', ident='Description',
+-                                        test_code=f'{self.test_code} {mode.upper()}',
+-                                        operation=f'exception during sensors parsing: {exception}')
+-                except Exception as exception:
+-                    log_manager.log_browser()
+-                    hlsa_logger(level='warning', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                                operation=f'exception during sensors parsing: {exception}')
+-                    pass
+-                # Making a Log Of Min/Max Using All The Deltas
+-                test_loop_print = test_loop - final_ignore_loops_num
+-                if test_loop != 0 or sensors_sample_t != 1:
+-                    if mode.upper() == 'OFFLINE' and self.functional_tests_options["sensors_read_for_qual"]["min_max_print"]:
+-                        log_manager.log_browser(pci)
+-                        for sensor_name, sensor_val in self.delta_lim_final[pci].items():
+-                            if (len(sensor_val) > 0) and (max(sensor_val) != min(sensor_val)):
+-                                # sensor_val_unsgin = list(map(lambda x: x.replace('+', ''), sensor_val))
+-                                # sensor_val_unsgin = [tmp.replace('+','') for tmp in sensor_val]
+-                                sensor_val_abs = [abs(item) for item in sensor_val]
+-                                hlsa_logger(level='info', ident='Value', loop=test_loop_print, driver_number=hl_num,
+-                                            dev_address=pci, mezzanine=mezz,
+-                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                            operation=f'Final Max Abs {sensor_name}',
+-                                            read_value=round(max(sensor_val_abs), 2), units='C')
+-                                hlsa_logger(level='info', ident='Value', loop=test_loop_print, driver_number=hl_num,
+-                                            dev_address=pci, mezzanine=mezz,
+-                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                            operation=f'Final Max Abs {sensor_name}_loop',
+-                                            read_value=sensor_val_abs.index(max(sensor_val_abs)) + 1)
+-                                # loop0 is removed from calculation
+-                                hlsa_logger(level='info', ident='Value', loop=test_loop_print, driver_number=hl_num,
+-                                            dev_address=pci, mezzanine=mezz,
+-                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                            operation=f'Final Min Abs {sensor_name}',
+-                                            read_value=round(min(sensor_val_abs), 2), units='C')
+-                                hlsa_logger(level='info', ident='Value', loop=test_loop_print, driver_number=hl_num,
+-                                            dev_address=pci, mezzanine=mezz,
+-                                            test_code=f'{self.test_code} {mode.upper()}',
+-                                            operation=f'Final Min Abs {sensor_name}_loop',
+-                                            read_value=sensor_val_abs.index(min(sensor_val_abs)) + 1)
+-                                # loop0 is removed from calculation
+-                                # remove last loop from calculation
+-                # Excluding last loop from calculations
+-                if mode.upper() == 'OFFLINE' and offline_override is False:
+-                    if test_loop <= len(devices_data) - final_ignore_loops_num:
+-                        log_manager.log_browser()
+-                        if test_pass:
+-                            return True
+-                        else:
+-                            return False if fail_log_level == 'error' else return_status_on_warning
+-
+-                if mode.upper() == 'OFFLINE':
+-                    log_manager.log_browser()
+-                    if test_pass:
+-                        return True
+-                    else:
+-                        return False if fail_log_level == 'error' else return_status_on_warning
+-                else:
+-                    try:
+-                        time.sleep(sensors_sample_t)
+-                        test_loop = test_loop + 1
+-                    except SystemExit as exception:
+-                        break
+-                    except Exception as exception:
+-                        log_manager.log_browser()
+-                        hlsa_logger(level='warning', ident='Description', test_code=f'{self.test_code} {mode.upper()}',
+-                                    operation=f'exception during sensors parsing: {exception}')
+-
+-    # @pytest.mark.HL225_sysval_stress
+-    # Must Be Executed Last (!!!)
+-    # @pytest.mark.HLS3_ft2
+-    # @pytest.mark.HLS3_bi
+-    # @pytest.mark.HLB_ft2
+-    def test_analyze_global_result(self):
+-        log_manager.log_browser()
+-        TEST_STATUS = True
+-        if not self.global_status:
+-            hlsa_logger(level='error', ident='Description', test_code='ANALYZE GLOBAL RESULT',
+-                        operation=f'Functional Test Fail Due to 1 or More Malfunction Devices (!)', result='FAIL')
+-        self.global_status = TestFunctionalProd.analyze_results(self.Devices)
+-        hlsa_checker.check_status_is_true(self.global_status, ident='Description', test_code='ANALYZE GLOBAL RESULT',
+-                                          operation=f'Check All Inner Functional Test Results')
+-        if not self.global_status:
+-            TEST_STATUS = False
+-        log_manager.log_browser()
+-        assert TEST_STATUS
+-
+-    # Pass - Fail Analysis
+-    @staticmethod
+-    def analyze_results(devices):
+-        analysis_status = True
+-        # PASS - FAIL Analysis Per PCIe Device
+-        # Iterate Through Devices Result
+-        for device in devices:
+-            # Unique Log Per PCIe Device
+-            log_manager.log_browser(device)
+-            for func_test, func_tests_dic in devices[device]['functional_tests'].items():
+-                if func_tests_dic['status'] == '#RESULTS_FAILED#':
+-                    hlsa_logger(level='error', ident='Description', test_code='Final Test Results',
+-                                dev_address=f'{device}',
+-                                operation=f'Functional test summary:{func_test}', result=func_tests_dic['status'])
+-                    # Update Status Collector
+-                    log_manager.update_status_false(device)
+-                    analysis_status = False
+-                    devices[device]['status'] = False
+-                else:
+-                    hlsa_logger(level='info', ident='Description', test_code='Final Test Results',
+-                                dev_address=f'{device}', operation=f'Functional test summary:{func_test}',
+-                                result=func_tests_dic['status'])
+-            if devices[device]['status']:
+-                hlsa_logger(level='INFO', ident='Description', test_code='Final Test Results',
+-                            dev_address=str(device), operation='Functional test summary:analyze_global_result',
+-                            result='#RESULTS_PASS#')
+-            else:
+-                hlsa_logger(level='error', ident='Description', test_code='Final Test Results',
+-                            dev_address=str(device), operation='Functional test summary:analyze_global_result',
+-                            result='#RESULTS_FAILED#')
+-        log_manager.log_browser()
+-        return analysis_status
+ 
+     def get_device_component_version(self, component_name, hl_device_number):
+         func = getattr(self.device_cli, "get_%s_version" % component_name)
+@@ -3055,19 +2028,6 @@
+             except Exception as exception:
+                 hlsa_logger(level='warning', ident='Description', test_code=self.test_code,
+                             operation=f'Exception during test: {exception}')
+-            try:
+-                if self.ft_jig_sensors:
+-                    jig_monitor_config_sensors = getattr(self.test_options.monitors.HL325_jig_monitor, self.test_name)
+-                    if jig_monitor_config_sensors.read_sensors:
+-                        jig_monitor_status = False
+-                        device_data = self.get_jig_monitor_results(test_name=self.test_name,
+-                                                                   id=self.devices[device]["mezz"])
+-                        if device_data is not None:
+-                            jig_monitor_status = self.print_sensor_csv_by_device(device_data, pci=device,
+-                                                                                 fail_log_level='warning',jig_sensors=True)
+-            except Exception as exception:
+-                hlsa_logger(level='warning', ident='Description', test_code=self.test_code,
+-                            operation=f'Exception during test: {exception}')
+             if not (sensor_monitor_status and jig_monitor_status):
+                 self.Devices[device]['functional_tests'][self.test_name] = {'status': '#RESULTS_FAILED#'}
+                 all_devices_status = False
+@@ -3084,352 +2044,6 @@
+ 
+         return all_devices_status
+ 
+-    def check_ports_up_per_pci(self, pci):
+-        status = True
+-        ports_state_dic = self.driver_cli.get_ports_state(pci)
+-        for key in ports_state_dic.keys():
+-            if ports_state_dic[key] != 'up':
+-                hlsa_logger(level='warning', ident='Description', dev_address=pci,
+-                            operation=f'Check Port {key}', read_value=f'{ports_state_dic[key]}',
+-                            expected_value='up', result='FAIL')
+-                status = False
+-        return status
+-
+-    def get_ports_down_per_pci(self, pci):
+-        port_down_list = []
+-        ports_state_dic = self.driver_cli.get_ports_state(pci)
+-        for key in ports_state_dic.keys():
+-            if ports_state_dic[key] == 'down':
+-                hlsa_logger(level='info', ident='Description', dev_address=pci,
+-                            operation=f'Check Port {key}', read_value=f'{ports_state_dic[key]}')
+-                port_down_list.append(key)
+-        return port_down_list
+-
+-    def check_ports_up(self, retries_check=3):
+-        for retry_check in range(retries_check):
+-            # Check port *3
+-            all_ports_up = True
+-            for pci in self.operational_devices_address:
+-                log_manager.log_browser(pci)
+-                pci_ports_up = self.check_ports_up_per_pci(pci)
+-                hlsa_checker.check_status_is_true(pci_ports_up, ident='Description', dev_address=pci,
+-                                                  operation=f'Check device all ports state '
+-                                                            f'{retry_check + 1}/{retries_check}',
+-                                                  ignore_assert=True, fail_log_level='warning')
+-                log_manager.log_browser()
+-                all_ports_up = all_ports_up and pci_ports_up
+-            hlsa_checker.check_status_is_true(all_ports_up, ident='Description', test_code=self.test_code,
+-                                              operation=f'Check all devices ports state '
+-                                                        f'{retry_check + 1}/{retries_check}',
+-                                              ignore_assert=True, fail_log_level='warning')
+-            if all_ports_up:
+-                return all_ports_up
+-            time.sleep(30)
+-        return False
+-
+-    def check_port_speed_nrz(self, pci):
+-        ports_net_if_list = self.driver_cli.get_ports_net_if_list(pci)
+-        for net_if in ports_net_if_list:
+-            speed = self.driver_cli.get_net_if_speed(net_if)
+-            expected_speed = self.test_options['nrz_port_speed']
+-            hlsa_checker.check_values_is_equal(read_val=speed, expected_val=expected_speed, ident='Description',
+-                                               test_code=f'NIC SETUP', operation=f'Check port {net_if} speed match NRZ',
+-                                               dev_address=pci, mezzanine=self.devices[pci]["mezz"],
+-                                               driver_number=self.devices[pci]["hl_num"], ignore_assert=True)
+-
+-    def check_ports_changes_counter_per_pci(self, pci):
+-        log_manager.log_browser(pci)
+-        ports_state_dic = self.driver_cli.get_ports_counter_changes(pci)
+-        for key in ports_state_dic.keys():
+-            hlsa_logger(level='debug', ident='Description', dev_address=pci, test_code=self.test_code.upper(),
+-                        operation=f'Check Port {key} Changes Counter', read_value=f'{ports_state_dic[key]}')
+-        log_manager.log_browser()
+-        return ports_state_dic
+-
+-    def nic_setup(self, nrz_enable=True, manage_network_ifs_fix=False):
+-        TEST_STATUS = True
+-        self.hl_qual_path = self.test_options.hl_qual_costumer_path
+-        if self.driver_mode == "DEVELOPMENT":
+-            self.hl_qual_path = self.test_options.hl_qual_development_path
+-        # habanalabs driver is up
+-        # NRZ pre _en load
+-        for pci in self.operational_devices_address:
+-            hl_device_number = self.devices[pci]["hl_num"]
+-            if nrz_enable:
+-                hlsa_logger(level='info', ident='Description', operation='Enable NRZ mode',
+-                            driver_number=hl_device_number)
+-                self.TEST_THREAD = SuperThread(f'Nrz_hl{hl_device_number}',
+-                                               lambda: self.driver_cli.enable_hl_device_nrz(hl_device_number))
+-            else:
+-                hlsa_logger(level='info', ident='Description', operation='Disable NRZ mode',
+-                            driver_number=hl_device_number)
+-                self.TEST_THREAD = SuperThread(f'Nrz_hl{hl_device_number}',
+-                                               lambda: self.driver_cli.disable_hl_device_nrz(hl_device_number))
+-            self.TEST_THREAD.start()
+-        time.sleep(60)
+-        for pci in self.operational_devices_address:
+-            hl_device_number = self.devices[pci]["hl_num"]
+-            SuperThread.terminate_by_name(f'Nrz_hl{hl_device_number}')
+-
+-        self.driver_options = hw_manager.get_driver_options()
+-        status = self.driver_cli.load_driver(driver_form="habanalabs_en", drivin_flags=self.driver_options)
+-        time.sleep(60)
+-        hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver to Serdes')
+-
+-        if manage_network_ifs_fix:
+-            for i in range(5):
+-                try:
+-                    time.sleep(60)
+-                    code = self.manage_network_operation(operation='down', ignore_assert=True, fail_log_level='warning')
+-
+-                    if code == 0:
+-                        break
+-                except Exception as exception:
+-                    log_manager.log_browser()
+-                    hlsa_logger(level='warning', ident='Description', test_code=self.test_code,
+-                                operation=f'Exception during test: {exception}')
+-            try:
+-                self.manage_network_operation(operation='up', ignore_assert=True, fail_log_level='warning')
+-            except Exception as exception:
+-                log_manager.log_browser()
+-                hlsa_logger(level='warning', ident='Description', test_code=self.test_code,
+-                            operation=f'Exception during test: {exception}')
+-        status = self.check_ports_up(retries_check=6)
+-        if not status:
+-            self.manage_network_operation(operation='up', time_sleep=80)
+-        if manage_network_ifs_fix:
+-            self.manage_network_operation(operation='fix')
+-
+-        if nrz_enable:
+-            for device in self.operational_devices_address:
+-                self.check_port_speed_nrz(device)
+-        return TEST_STATUS
+-
+-    def print_fec_status_per_pci(self, pci, snip_method_name, log_level_ports='error', final_check=False):
+-        # log_manager.log_browser(pci)
+-        test_code = snip_method_name.replace('_', ' ')
+-        hl_num = self.devices[pci]["hl_num"]
+-        mezz = self.smi_control.get_module_id(f'0000:{pci}')
+-        device_status = True
+-        status_post = False
+-        status_pre = False
+-        failed_ports = []
+-        passed_ports = []
+-        final_check_prefix = ''# TODO  'Final ' if final_check else ''
+-        stdout = self.driver_cli.device_print_fec_status(hl_num=hl_num)
+-        for line in stdout:
+-            hlsa_logger(level='info', ident='Description', operation=f'nic_print_fec_stats: {line}')
+-        # parser = RegexParser.RegexParser()
+-        try:
+-            stdout = [row.replace('\0', '') for row in stdout[1:]]
+-            stdout = list(filter(None, stdout))
+-            stdout = list(dict.fromkeys(stdout))
+-            sorted_with_header = sorted(stdout, key=len, reverse=True)
+-            if not any('card' in x for x in sorted_with_header):# if all ports are down
+-                status = False
+-                device_status = False
+-
+-            reader = csv.DictReader(sorted_with_header)
+-            data_dict = [row for row in reader]
+-            # res = []
+-            # [res.append(x) for x in data_dict if x not in res]
+-            res = data_dict.copy()
+-            for idx, port_data in enumerate(res):
+-                if port_data['card'] == 'card':
+-                    del res[idx]
+-
+-            hlsa_logger(level='info', ident='Description', test_code=test_code.upper(),
+-                         operation='parser results', read_value=res)
+-            max_limit_pre = float(
+-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][
+-                    "SERDES FEC"]["pre_fec_SER"]["max"])
+-            min_limit_pre = float(
+-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][
+-                    "SERDES FEC"]["pre_fec_SER"]["min"])
+-            max_limit_post = float(
+-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][
+-                    "SERDES FEC"]["post_fec_SER"]["max"])
+-            min_limit_post = float(
+-                self.sensors_threshold[self.functional_tests_options.serdes_fec.functional_threshold_criteria][
+-                    "SERDES FEC"]["post_fec_SER"]["min"])
+-
+-            for port_data in res:
+-                port = re.split("Port (\\d+): (Link is down)", port_data['card'])
+-                if len(port) > 1:
+-                    port_data["port"] = port[1]
+-                    skip_port = False
+-                    if self.functional_tests_options.serdes_fec.skip_oam_port:
+-                        for ignore_oam_port in self.functional_tests_options.serdes_fec.skip_oam_port:
+-                            if str(port_data["port"]) == str(ignore_oam_port[1]) and str(mezz) == str(ignore_oam_port[0]):
+-                                hlsa_logger(level='warning', ident='Description',
+-                                            dev_address=pci, mezzanine=mezz,
+-                                            operation=f'Ignore fec for oam {mezz} port {port[1]}')
+-                                skip_port = True
+-                        if skip_port:
+-                            continue
+-
+-                    status = False
+-                    device_status = False
+-
+-                    hlsa_checker.check_status_is_true(status, ident='Value', test_code=test_code.upper(),
+-                                                      operation=f'Check Port {port_data["port"]} pre_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value='N/A',
+-                                                      expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
+-                                                      ignore_assert=True, fail_log_level=log_level_ports)
+-                    hlsa_checker.check_status_is_true(status, ident='Value', test_code=test_code.upper(),
+-                                                      operation=f'Check Port {port_data["port"]} post_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value='N/A',
+-                                                      expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
+-                                                      ignore_assert=True, fail_log_level=log_level_ports)
+-                    failed_ports.append(int(port_data["port"]))
+-                    oam = mezz
+-                    exp_id = self.get_exp_card_per_oam_port(oam, int(port_data["port"]))
+-                    if exp_id is not None:
+-                        log_manager.log_browser(f'exp{exp_id}')
+-                        hlsa_logger(level='error', ident='Description',
+-                                    dev_address=pci, mezzanine=oam, result='FAIL',
+-                                    operation=f'Port connected to Exp card {self.get_exp_card_per_oam_port(oam, int(port_data["port"]))} failed - Mezz {oam} port {int(port_data["port"])}')
+-                        log_manager.update_status_false(f'exp{exp_id}')
+-                        log_manager.log_browser()
+-
+-                else:
+-                    pre_fec_value = float(port_data["Max pre_FEC_SER_int"])
+-                    status_pre = pre_fec_value <= max_limit_pre
+-                    post_fec_value = float(port_data["Max post_FEC_SER_int"])
+-                    status_post = post_fec_value <= max_limit_post
+-
+-                    passed_status_prefix = ''# TODO 'Final ' if status_post and status_pre else ''
+-                    if final_check_prefix:
+-                        passed_status_prefix = ''
+-                    hlsa_checker.check_status_is_true(status_pre, ident='Value', test_code=test_code.upper(),
+-                                                      operation=f'Check Port {port_data["port"]} {passed_status_prefix}{final_check_prefix}pre_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value=port_data["Max pre_FEC_SER_int"],
+-                                                      expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}',
+-                                                      ignore_assert=True, fail_log_level=log_level_ports)
+-                    hlsa_checker.check_status_is_true(status_post, ident='Value', test_code=test_code.upper(),
+-                                                      operation=f'Check Port {port_data["port"]} {passed_status_prefix}{final_check_prefix}post_fec_SER',
+-                                                      dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                                      read_value=port_data["Max post_FEC_SER_int"],
+-                                                      expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}',
+-                                                      ignore_assert=True, fail_log_level=log_level_ports)
+-                    status = status_pre and status_post
+-                    device_status = status and device_status
+-                # if update_ports_status:
+-                if status:
+-                # if status and not self.ports_status[pci]['current_status'][int(value["Port"][0])]:
+-                    # passed fec but failed on changes_counter
+-                    # hlsa_logger(level='warning', ident='Description', test_code=test_code.upper(), dev_address=pci,
+-                    #             operation=f'Port {int(value["Port"][0])} '
+-                    #                       f'failed on previous changes_counter and passed fec check')
+-                    # hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                    #             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                    #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                    #             read_value=f'{value["post_fec_SER"][0]}',
+-                    #             expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}')
+-                    hlsa_logger(level='info', ident='Description', test_code=test_code.upper(),
+-                                operation=f'Port {port_data["port"]} post_fec_SER',
+-                                dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                                read_value=f'{port_data["Max post_FEC_SER_int"]}',
+-                                expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}')
+-                    passed_ports.append(int(port_data["port"]))
+-
+-                # if not status:
+-                #     # self.ports_status[pci]['current_status'][int(value["Port"][0])] = False
+-                #     # if not status_post:
+-                #     #     # hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #     #     #             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                #     #     #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #     #     #             read_value=f'{value["post_fec_SER"][0]}',
+-                #     #     #             expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                #     #     hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #     #                 operation=f'Port {value["Port"][0]} post_fec_SER',
+-                #     #                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #     #                 read_value=f'{value["post_fec_SER"][0]}',
+-                #     #                 expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                #     # elif not status_pre:
+-                #     #     # hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #     #     #             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
+-                #     #     #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #     #     #             read_value=f'{value["pre_fec_SER"][0]}',
+-                #     #     #             expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                #     #     hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #     #                 operation=f'Port {value["Port"][0]} pre_fec_SER',
+-                #     #                 dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #     #                 read_value=f'{value["pre_fec_SER"][0]}',
+-                #     #                 expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                #     #     failed_ports.append(int(value["Port"][0]))
+-                #     #     oam = mezz
+-                #     #     exp_id = self.get_exp_card_per_oam_port(oam,
+-                #     #                                             int(value["Port"][0]))
+-                #     #     if exp_id is not None:
+-                #     #         log_manager.log_browser(f'exp{exp_id}')
+-                #     #         hlsa_logger(level='error', ident='Description', test_code='HL-QUAL SERDES BER PAM4',
+-                #     #                     dev_address=pci, mezzanine=oam, result='FAIL',
+-                #     #                     operation=f'Port connected to Exp card {self.get_exp_card_per_oam_port(oam, int(value["Port"][0]))} failed - port {int(value["Port"][0])}')
+-                #     #         log_manager.update_status_false(f'exp{exp_id}')
+-                #     #         log_manager.log_browser()
+-                #     else:
+-                #         # hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #         #             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} post_fec_SER',
+-                #         #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #         #             read_value=f'{value["post_fec_SER"][0]}',
+-                #         #             expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                #         # hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #         #             operation=f'Port {value["Port"][0]} Last Changes Counter: {self.changes_counter_calc[pci]["calc"][int(value["Port"][0])]} pre_fec_SER',
+-                #         #             dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #         #             read_value=f'{value["pre_fec_SER"][0]}',
+-                #         #             expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                #         hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #                     operation=f'Port {value["Port"][0]} post_fec_SER',
+-                #                     dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #                     read_value=f'{value["post_fec_SER"][0]}',
+-                #                     expected_value=f'Min: {min_limit_post} | Max: {max_limit_post}', result='FAIL')
+-                #         hlsa_logger(level=log_level, ident='Description', test_code=test_code.upper(),
+-                #                     operation=f'Port {value["Port"][0]} pre_fec_SER',
+-                #                     dev_address=pci, mezzanine=mezz, driver_number=hl_num,
+-                #                     read_value=f'{value["pre_fec_SER"][0]}',
+-                #                     expected_value=f'Min: {min_limit_pre} | Max: {max_limit_pre}', result='FAIL')
+-                #         failed_ports.append(int(value["Port"][0]))
+-
+-        except Exception as exception:
+-            hlsa_logger(level='warning', ident='Description',
+-                            operation=f'Exception during parsing fec_stats: {str(exception)}')
+-            log_manager.log_browser()
+-            device_status = False
+-
+-        failed_ports = list(dict.fromkeys(failed_ports))
+-        for fail_port in failed_ports:
+-            oam = mezz
+-            if self.get_exp_card_per_oam_port(oam, fail_port) is not None:
+-                self.failed_exp.append(self.get_exp_card_per_oam_port(oam, fail_port))
+-                self.failed_exp = list(dict.fromkeys(self.failed_exp))
+-                hlsa_logger(level='info', ident='Description',
+-                            operation=f'exp {self.failed_exp} failed due to failed oam:{oam} port:{fail_port}')
+-            exp_id = self.get_exp_card_per_oam_port(oam, fail_port)
+-            if exp_id is not None:
+-                log_manager.log_browser(f'exp{exp_id}')
+-                hlsa_logger(level='error', ident='Description',
+-                            dev_address=pci, mezzanine=oam, result='FAIL',
+-                            operation=f'Port connected to Exp card {exp_id} failed - port {fail_port}')
+-                log_manager.update_status_false(f'exp{exp_id}')
+-                log_manager.log_browser()
+-        # for idx in [i for i in range(len(res['test_results'][pci]['Device']['result'])) if
+-        #             res['test_results'][pci]['Device']['result'][i] == 'Passed']:
+-        #     passed_ports.append(int(value["Port"][0]))
+-        # passed_ports = list(dict.fromkeys(passed_ports))
+-
+-        log_manager.log_browser()
+-        return device_status
+-
+-    def get_exp_card_per_oam_port(self, oam, port):
+-        data = self.device.spec.components.HL325.HL325_on_HLS3[oam]
+-        for dic in data:
+-            if int(dic['Port']) == port:
+-                return str(int(dic['Exp']) + 1)
+-        return None
+ 
+     def update_operational_devices_info(self):
+         test_status = True
+@@ -3456,97 +2070,6 @@
+         #     self.devices[device]["hl_smi_serial_number"] = self.smi_control.get_serial_number(
+         #         self.devices[device]["long_pci_address"])
+         #     self.devices[device]["mezz"] = self.smi_control.get_module_id(self.devices[device]["long_pci_address"])
+-
+-    def toggle_port_pci_idx(self, pci, ports, state):
+-        if type(ports) == int:
+-            ports_to_toggle = [ports]
+-        else:
+-            ports_to_toggle = ports
+-        function_status = True
+-        ports_net_if_list = self.driver_cli.get_ports_net_if_list(pci)
+-        for net_if in ports_net_if_list:
+-            idx = self.driver_cli.get_ports_index(pci, net_if)
+-            if idx in ports_to_toggle:
+-                status = self.driver_cli.set_net_if_state(net_if, state)
+-                hlsa_logger(level='info', ident='Description', operation=f'toggle {net_if} {state}')
+-                function_status = function_status and status
+-        return function_status
+-
+-    def toggle_up_ports(self):
+-        toggle_status = True
+-        for pci in self.operational_devices_address:
+-            log_manager.log_browser(pci)
+-            ports_down_list = self.get_ports_down_per_pci(pci=pci)
+-            if ports_down_list:
+-                status = self.toggle_port_pci_idx(pci, ports_down_list, 'down')
+-                toggle_status = toggle_status and status
+-                time.sleep(10)
+-                status = self.toggle_port_pci_idx(pci, ports_down_list, 'up')
+-                toggle_status = toggle_status and status
+-                time.sleep(20)
+-        return toggle_status
+-
+-    def calculate_ports_changes_counter(self, retries=3, log_level='error'):
+-        log_manager.log_browser()
+-        all_devices_status = True
+-        for run_idx in range(retries):
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                        operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}')
+-            # self.changes_counter_calc = {}
+-            for pci in self.operational_devices_address:
+-                log_manager.log_browser(pci)
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                            operation=f'Start Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
+-                # self.changes_counter_calc[pci] = {}
+-                self.changes_counter_calc[pci]['start'] = self.check_ports_changes_counter_per_pci(pci)
+-            log_manager.log_browser()
+-            time.sleep(self.functional_tests_options[self.test_name]["port_changes_counter_duration"])
+-            for pci in self.operational_devices_address:
+-                log_manager.log_browser(pci)
+-                self.changes_counter_calc[pci]['end'] = self.check_ports_changes_counter_per_pci(pci)
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                            operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}', dev_address=pci)
+-            log_manager.log_browser()
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code.upper(),
+-                        operation=f'End Changes Counter measurement try:{run_idx + 1}/{retries}')
+-            for pci in self.operational_devices_address:
+-                self.changes_counter_calc[pci]['calc'] = {}
+-                # self.changes_counter_calc[pci]['status'] = {}
+-                log_manager.log_browser(pci)
+-                device_status = True
+-                for port in self.changes_counter_calc[pci]['start'].keys():
+-                    if self.ports_status[pci]['previous_status'][port]:
+-                        continue
+-                    self.changes_counter_calc[pci]['calc'][port] = int(
+-                        self.changes_counter_calc[pci]['end'][port]) - int(
+-                        self.changes_counter_calc[pci]['start'][port])
+-                    limit_check = int(self.changes_counter_calc[pci]['calc'][port]) <= \
+-                                  self.functional_tests_options[self.test_name][
+-                                      "port_changes_counter_max"]
+-                    hlsa_checker.check_status_is_true(limit_check, ident='Description', dev_address=pci,
+-                                                      test_code=self.test_code.upper(),
+-                                                      operation=f'Check Port {port} Changes Counter try:{run_idx + 1}/{retries}',
+-                                                      read_value=f'{self.changes_counter_calc[pci]["calc"][port]}',
+-                                                      expected_value=f'Min: {0} | Max: {self.functional_tests_options[self.test_name]["port_changes_counter_max"]}',
+-                                                      ignore_assert=True, fail_log_level=log_level)
+-                    if not limit_check:
+-                        self.ports_status[pci]['current_status'][port] = False
+-                        device_status = False
+-                    else:
+-                        self.ports_status[pci]['current_status'][port] = True
+-                hlsa_checker.check_status_is_true(device_status, ident='Description', dev_address=pci,
+-                                                  operation=f'Check device port up/down changes counter try:{run_idx + 1}/{retries}',
+-                                                  ignore_assert=True, fail_log_level=log_level)
+-                all_devices_status = device_status and all_devices_status
+-            log_manager.log_browser()
+-            time.sleep(30)
+-        return all_devices_status
+-
+-    def convert_to_ports_status_list(self, failed_ports_idx, num_of_ports_per_device=24):
+-        ports_status_list = [0] * num_of_ports_per_device
+-        for failed_port_idx in failed_ports_idx:
+-            ports_status_list[int(failed_port_idx)] = 1
+-        return ports_status_list
+ 
+     def print_uart_for_failed_devices(self):
+         try:

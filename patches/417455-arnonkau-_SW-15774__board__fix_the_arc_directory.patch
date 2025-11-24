@@ -1,0 +1,32 @@
+From b95a543d7df052f5baabb05cce2c79dbe5676fdd Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Mon, 20 May 2024 03:55:36 +0300
+Subject: [PATCH] [SW-15774] board: fix the arc directory
+
+The ARC/ARM build directory is still done in separate directories.
+e.g; gaudi3 & gaudi3_arc. The arc image directory still need to be
+fixed.
+
+Change-Id: Id14403622705ea00a2106216ad66ba5f490d7d51
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+
+add var to dirs
+
+Change-Id: I14b368e551c541525339c63f8c8a2212d731d420
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/board/habanalabs/common/post-image-exports.sh b/board/habanalabs/common/post-image-exports.sh
+index 1c1e0d5..bf3f8f6 100755
+--- a/board/habanalabs/common/post-image-exports.sh
++++ b/board/habanalabs/common/post-image-exports.sh
+@@ -15,5 +15,7 @@
+ ITS_SED_PARAMS+="s/@HL_SEC_FW_VERSION@/${HL_SEC_FW_VERSION}/g;";
+ ITS_SED_PARAMS+="s/@SHA_VERSION@/${SHA_VERSION}/g;"
+ ITS_SED_PARAMS+="s#@HL_UBOOT_BIN_FILE@#${HL_UBOOT_BIN_FILE}#g;"
+-ITS_SED_PARAMS+="s#@FILES_PATH_1@#${BINS_DIR}#g;"
+-ITS_SED_PARAMS+="s#@FILES_PATH_2@#${BINS_PROD_DIR}#g;"
++ITS_SED_PARAMS+="s#@FILES_PATH_1@#${BINS_PROD_DIR}#g;"
++ITS_SED_PARAMS+="s#@FILES_PATH_2@#${BINS_ARC_DIR}#g;"
++
++export ITS_SED_PARAMS

@@ -1,0 +1,47 @@
+From 9b6d2302965553bef8aa94c50caa1fb4682175ed Mon Sep 17 00:00:00 2001
+From: Renzhi Jiang <renzhi.jiang@intel.com>
+Date: Mon, 21 Apr 2025 16:15:15 +0300
+Subject: [PATCH] [SW-0] add reset src print for debug
+
+DO NOT MERGE
+
+Change-Id: I8f55b174e9eeb2cdefc7763f00c3a11954b1d33a
+Signed-off-by: Renzhi Jiang <renzhi.jiang@intel.com>
+---
+
+diff --git a/arch/gaudi2/arc/common.c b/arch/gaudi2/arc/common.c
+index d3743ff..d09ccc7 100644
+--- a/arch/gaudi2/arc/common.c
++++ b/arch/gaudi2/arc/common.c
+@@ -715,6 +715,7 @@
+ 	 * structure, should be initialized here before use.
+ 	 */
+ 	device_init_efuse();
++	device_init_uart();
+ 	device_init_pci();
+ 	device_init_pll();
+ 	udelay_init();
+diff --git a/arch/gaudi2/common/common.c b/arch/gaudi2/common/common.c
+index 0318de0..dd831af 100644
+--- a/arch/gaudi2/common/common.c
++++ b/arch/gaudi2/common/common.c
+@@ -264,12 +264,17 @@
+ 	uint32_t orig_rst_source;
+ 
+ 	orig_rst_source = regmap_readl(mmPSOC_GLOBAL_CONF_RST_SRC);
+-
++	preboot_puts_hex_raw("orig_rst_source:", orig_rst_source, true);
++	preboot_puts("\n");
+ 	/* In case of cold reset, only 1 bit will be set */
+ 	if (orig_rst_source == HL_COLD_RST)
+ 		return HL_COLD_RST;
+ 
+-	return regmap_readl(mmRST_SRC);
++	uint32_t rst_src = regmap_readl(mmRST_SRC);
++	preboot_puts_hex_raw("rst_src:", rst_src, true);
++	preboot_puts("\n");
++
++	return rst_src;
+ }
+ 
+ void preboot_init_pcie_phy_fw_update(void)

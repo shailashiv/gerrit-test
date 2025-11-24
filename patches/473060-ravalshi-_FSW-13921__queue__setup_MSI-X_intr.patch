@@ -1,0 +1,84 @@
+From 34e41403cd0f01c8b0455c3283be9d9882609056 Mon Sep 17 00:00:00 2001
+From: Shivani Raval <sraval@habana.ai>
+Date: Sun, 16 Feb 2025 18:56:42 +0200
+Subject: [PATCH] [FSW-13921] queue: setup MSI-X intr
+
+Currently for D2H response we have to poll,
+After this setup it will raise the D2H MSI
+interrupt with proper MSIX ID for D2H0 and D2H1.
+
+Change-Id: I43473d3a3f85c0f6183b1b93cfe7f02fa7393771
+Signed-off-by: Shivani Raval <sraval@habana.ai>
+---
+
+diff --git a/drivers/misc/queue/CMakeLists.txt b/drivers/misc/queue/CMakeLists.txt
+index 7c3d88a..f527afc 100644
+--- a/drivers/misc/queue/CMakeLists.txt
++++ b/drivers/misc/queue/CMakeLists.txt
+@@ -5,7 +5,8 @@
+ zephyr_include_directories(.)
+ zephyr_include_directories($ENV{ZEPHYR_BASE}/include/zephyr/drivers/misc/fs_queue/)
+ zephyr_include_directories($ENV{ZEPHYR_BASE}/soc/intel/gpu/fs1/)
+-
++zephyr_include_directories($ENV{ZEPHYR_BASE}/include/zephyr/drivers/misc/common/${DEVICE})
++zephyr_include_directories($ENV{SPECS_ROOT}/${DEVICE}/)
+ 
+ zephyr_library_sources_ifdef(CONFIG_USERSPACE	common/handlers.c)
+ zephyr_library_sources_ifdef(CONFIG_INTEL_FS_QUEUE_D2H queue.c)
+diff --git a/drivers/misc/queue/queue.c b/drivers/misc/queue/queue.c
+index 88093ef..5c334df 100644
+--- a/drivers/misc/queue/queue.c
++++ b/drivers/misc/queue/queue.c
+@@ -17,6 +17,9 @@
+ #include <zephyr/shared_irq.h>
+ #include <zephyr/devicetree.h>
+ #include <zephyr/drivers/misc/common/hl_devs.h>
++#include <fs1_blocks_linux_driver.h>
++#include <pcie_dbi_access_regs.h>
++#include <hl_platform_defs.h>
+ 
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_REGISTER(fs_queue);
+@@ -87,6 +90,13 @@
+ 
+ 	data->queue.pi = (data->queue.pi + size) % data->queue.len;
+ 	sys_write32(data->queue.pi, (mem_addr_t) &reg_base->pi);
++
++	if (config->type == FS_QUEUE_TYPE_D2H) {
++		msix_idx = (uint32_t) sys_read32((mem_addr_t) &reg_base->msix_id);
++		LOG_DBG("Raising msix for vector id:%d", msix_idx);
++		CFG_WREG32(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_MSIX_BASE, msix_idx);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -218,6 +228,28 @@
+ 	data->queue.pi_to_cb = 0;
+ 	data->init_done = true;
+ 
++	if (config->type == FS_QUEUE_TYPE_D2H) {
++		msix_idx = (uint32_t) sys_read32((mem_addr_t) &reg_base->msix_id);
++		offset = (msix_idx * 4) + mmIO_0_CFG_HALF_0_CXL_EP_PCIE_MSIX_SRAM_SAI_BASE;
++		LOG_DBG("msix_index is: %d offset:0x%x", msix_idx, offset);
++
++		/* ToDo check SAI level*/
++		CFG_WREG32((msix_idx * 4) + mmIO_0_CFG_HALF_0_CXL_EP_PCIE_MSIX_SRAM_SAI_BASE,
++			0xFFFFFFFF);
++
++		/* enable MSI-X Gateway */
++		CFG_WREG32((mmIO_0_CFG_HALF_0_CXL_EP_DBI_ACCESS_BASE +
++			mmPCIE_DBI_ACCESS_MSIX_GW_CTRL), 0xF);
++
++		/* enable DBI Gateway */
++		CFG_WREG32((mmIO_0_CFG_HALF_0_CXL_EP_DBI_ACCESS_BASE +
++			mmPCIE_DBI_ACCESS_DBI_GW_BYPASS), 0x0);
++
++		/* ToDo Check SAI level */
++		CFG_WREG32((mmIO_0_CFG_HALF_0_CXL_EP_DBI_ACCESS_BASE +
++			mmPCIE_DBI_ACCESS_SIG_ACCESS_PROT_SAI_VAL), 0xFFFFFFFF);
++	}
++
+ 	return 0;
+ }
+ 

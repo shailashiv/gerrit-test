@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 477573: [FSW-14755] fs1: add new spi dma copy support</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 477573: [FSW-14755] fs1: add new spi dma copy support</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> buildroot-external</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-04-19 17:22:50.316000000</p>
+            <p><strong>Updated:</strong> 2025-07-03 15:28:24.191000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-14755] fs1: add new spi dma copy support
+
+With this patch, added new spi dma support.
+Up to gaudi3, spi dma engine expects crc32
+at end of every dma chunk. New spi dma method
+requires crc32 at end of full binary.
+
+Change-Id: I2a7dc93e29fed18307201e129e93da33ff25ca5e
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Subrahmanyeswara Swamy Murala: +0, Jenkins EMB Service Account: +0, Tal Yacobi: -1</li><li><strong>Verified</strong>: +2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh</code> (M) +1 -1</li><li><code>board/habanalabs/fs1_arc/post-image-spi.sh</code> (M) +13 -66</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh</h4><pre class="diff-content"><span class="diff-hunk">@@ -381,7 +381,7 @@</span>
+<span class="diff-ctx"> 	hl_join_bin ${BINS_DIR}/${PPBOOT} ${PCIE_PHY} ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	# pack and sign image</span>
+<span class="diff-del">-	hl_pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} 64K ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}</span>
+<span class="diff-add">+	hl_pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	# Create image pointers</span>
+<span class="diff-ctx"> 	prep_image_ptrs ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.le</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index d98e307..0ad7b83 100755</span>
+<h4 class="diff-filename">b/board/habanalabs/fs1_arc/post-image-spi.sh</h4><pre class="diff-content"><span class="diff-hunk">@@ -180,7 +180,7 @@</span>
+<span class="diff-ctx"> 	local PRIME_IMAGE_RAM_CRC_ERROR=$3</span>
+<span class="diff-ctx"> 	local PRIME_IMAGE_RAM_SIGN_ERROR=$4</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	hl_pack_bin ${PREBOOT_BINFILE} 64K ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}</span>
+<span class="diff-add">+	hl_pack_bin ${PREBOOT_BINFILE} ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-hunk">@@ -195,74 +195,32 @@</span>
+<span class="diff-ctx"> 	rm ${NAME_1}.bin.* -rf</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-# TODO: FS1</span>
+<span class="diff-del">-MAX_SPI_DMA_DATA_TRANSFER=65520</span>
+<span class="diff-del">-SPI_DMA_DEST_64KB_OFFS=65536</span>
+<span class="diff-ctx"> function hl_pack_bin {</span>
+<span class="diff-ctx"> 	FILEFULLPATH=$1</span>
+<span class="diff-ctx"> 	FILENAME=$(basename ${FILEFULLPATH})</span>
+<span class="diff-ctx"> 	FILEPATH=$(dirname ${FILEFULLPATH})</span>
+<span class="diff-del">-	BSIZE=$2</span>
+<span class="diff-del">-	KEY_NUM=$3</span>
+<span class="diff-del">-	CRC_ERROR=$4</span>
+<span class="diff-del">-	SIGN_ERROR=$5</span>
+<span class="diff-add">+	KEY_NUM=$2</span>
+<span class="diff-add">+	CRC_ERROR=$3</span>
+<span class="diff-add">+	SIGN_ERROR=$4</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	PADFULLBINFILE=${FILEFULLPATH}.pad</span>
+<span class="diff-ctx"> 	dd status=none conv=sync bs=16 if=${FILEFULLPATH} of=${PADFULLBINFILE}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	SIZE_WITHOUT_CRC=$(stat --printf=&quot;%s&quot; ${PADFULLBINFILE})</span>
+<span class="diff-del">-	NUM_SLICES=$((SIZE_WITHOUT_CRC/MAX_SPI_DMA_DATA_TRANSFER))</span>
+<span class="diff-del">-	MODULO_SLICES=$((SIZE_WITHOUT_CRC%MAX_SPI_DMA_DATA_TRANSFER))</span>
+<span class="diff-del">-	if [ ${MODULO_SLICES} -ne 0 ]; then</span>
+<span class="diff-del">-		NUM_SLICES=$((NUM_SLICES+1))</span>
+<span class="diff-del">-	fi</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	# image size to be computed as part of image descriptor function</span>
+<span class="diff-ctx"> 	local leftover=${SIZE_WITHOUT_CRC}</span>
+<span class="diff-ctx"> 	local skip_offset=0</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+	size_words=$((leftover/4))</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	# image packing example:</span>
+<span class="diff-del">-	# image_size = 200kb + 16 bytes CRC = 0x32010</span>
+<span class="diff-del">-	# num_slice: 4</span>
+<span class="diff-del">-	# 1st slice: flash offset: 0x0 DST: 0x0 (dma_size: 0xFFF4 left_size: 0x2201C)</span>
+<span class="diff-del">-	# 2nd slice: flash offset: 0x10000 DST: 0xFFF0 (dma_size: 0xFFF4 left_size: 0x12028)</span>
+<span class="diff-del">-	# 3nd slice: flash offset: 0x20000 DST: 0x1FFE0 (dma_size: 0xFFF4 left_size: 0x2034)</span>
+<span class="diff-del">-	# 4th slice: flash offset: 0x30000 DST: 0x2FFD0 (dma_size: 0x2034 left_size: 0x0)</span>
+<span class="diff-del">-	#</span>
+<span class="diff-del">-	#  =========================================================</span>
+<span class="diff-del">-	# | PPBOOT IMG SLICE1 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |</span>
+<span class="diff-del">-	#  ---------------------------------------------------------</span>
+<span class="diff-del">-	# | PPBOOT IMG SLICE2 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |</span>
+<span class="diff-del">-	#  ---------------------------------------------------------</span>
+<span class="diff-del">-	# | PPBOOT IMG SLICE3 + CRC + PADDING (0xFFF0 + 0x4 + 0x12) |</span>
+<span class="diff-del">-	#  ---------------------------------------------------------</span>
+<span class="diff-del">-	# | PPBOOT IMG SLICE4 + CRC (0x2030 + 0x4)		    |</span>
+<span class="diff-del">-	#  =========================================================</span>
+<span class="diff-del">-	#</span>
+<span class="diff-del">-	# Note: Padding size is not included in total size as DMA is</span>
+<span class="diff-del">-	# not expected to copy padding data.</span>
+<span class="diff-del">-	for ((slice_cnt=0; slice_cnt&lt;${NUM_SLICES}; slice_cnt++)); do</span>
+<span class="diff-del">-		# bin file: (64KB-16) + CRC</span>
+<span class="diff-del">-		local BIN_FILE=${PADFULLBINFILE}.part${slice_cnt}</span>
+<span class="diff-del">-		if [ $leftover -lt $MAX_SPI_DMA_DATA_TRANSFER ]; then</span>
+<span class="diff-del">-			size_bytes=$leftover</span>
+<span class="diff-del">-		else</span>
+<span class="diff-del">-			size_bytes=$MAX_SPI_DMA_DATA_TRANSFER</span>
+<span class="diff-del">-		fi</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		size_words=$((size_bytes/4))</span>
+<span class="diff-del">-		dd status=none skip=${skip_offset} conv=sync bs=4 if=${PADFULLBINFILE} count=${size_words} &gt; ${BIN_FILE}</span>
+<span class="diff-del">-		hl_calc_crc32 ${BIN_FILE}</span>
+<span class="diff-del">-		if [ ${CRC_ERROR} -eq 0 ]; then</span>
+<span class="diff-del">-			cat ${BIN_FILE}.crc32 &gt;&gt; ${BIN_FILE}</span>
+<span class="diff-del">-		fi</span>
+<span class="diff-del">-		flash_offset=$((SPI_DMA_DEST_64KB_OFFS/4))</span>
+<span class="diff-del">-		flash_offset=$((flash_offset*slice_cnt))</span>
+<span class="diff-del">-		dd status=none conv=sync if=${BIN_FILE} bs=4 seek=$flash_offset of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int</span>
+<span class="diff-del">-		leftover=$((leftover-size_bytes))</span>
+<span class="diff-del">-		skip_offset=$((skip_offset+size_words))</span>
+<span class="diff-del">-	done</span>
+<span class="diff-add">+	local BIN_FILE=${PADFULLBINFILE}.part0</span>
+<span class="diff-add">+	dd status=none skip=0 conv=sync bs=4 if=${PADFULLBINFILE} count=${size_words} &gt; ${BIN_FILE}</span>
+<span class="diff-add">+	hl_calc_crc32 ${BIN_FILE}</span>
+<span class="diff-add">+	if [ ${CRC_ERROR} -eq 0 ]; then</span>
+<span class="diff-add">+		cat ${BIN_FILE}.crc32 &gt;&gt; ${BIN_FILE}</span>
+<span class="diff-add">+	fi</span>
+<span class="diff-add">+	dd status=none conv=sync if=${BIN_FILE} bs=4 seek=0 of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	hl_reverse_words ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int ${FILEPATH}/${DEV_PREFIX}-${FILENAME}.le 4</span>
+<span class="diff-ctx"> 	rm -f ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int</span>
+<span class="diff-hunk">@@ -460,18 +418,7 @@</span>
+<span class="diff-ctx"> 	local start_addr=$(get_image_startaddr $img_name)</span>
+<span class="diff-ctx"> 	local start_addr_h=$((start_addr &gt;&gt; 32))		# take upper bytes</span>
+<span class="diff-ctx"> 	local start_addr_l=$((start_addr &amp; 0xFFFFFFFF))	# take lower bytes</span>
+<span class="diff-del">-	local size_corr_fac=0</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if [[ ${ipnames[$i]} != &quot;FAKE_FUSE&quot;* ]];</span>
+<span class="diff-del">-	then</span>
+<span class="diff-del">-		local num_slices=$((img_size / MAX_SPI_DMA_DATA_TRANSFER))</span>
+<span class="diff-del">-		local modulo_slices=$((img_size % MAX_SPI_DMA_DATA_TRANSFER))</span>
+<span class="diff-del">-		if [ ${modulo_slices} -ne 0 ]; then</span>
+<span class="diff-del">-			((++num_slices))</span>
+<span class="diff-del">-		fi</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		size_corr_fac=$((num_slices * 4))</span>
+<span class="diff-del">-	fi</span>
+<span class="diff-add">+	local size_corr_fac=4 # crc32 size</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	local img_size_final=$((img_size+size_corr_fac))</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-19 17:22:50.316000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:22:57.859000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34692/ (1/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-19 17:23:00.394000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6747/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-19 17:26:48.094000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/536/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.874000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4056/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.905000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5452/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.911000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6669/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.964000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5615/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.973000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5442/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:57.996000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6530/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:58.038000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5184/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 17:29:58.074000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5918/ (9/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-19 18:09:28.999000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6747/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/536/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-19 20:10:16.088000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6669/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7652/ )
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7652/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7652/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5918/ : FAILURE
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/5049/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/5049/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34692/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4056/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5184/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6530/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5452/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5442/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5615/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-21 08:15:37.499000000)</span><pre>Uploaded patch set 2: Patch Set 1 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-21 08:15:43.352000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6784/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:15:44.746000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34730/ (1/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-21 08:19:09.916000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/542/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.177000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5625/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.193000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5192/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.212000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5452/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.224000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6676/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.280000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5925/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.287000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5462/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.305000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6540/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 08:22:57.324000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4062/ (9/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-21 09:01:32.691000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6784/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/542/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-21 10:22:03.865000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6676/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7659/ )
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7659/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_openbmc_build_master_next/7659/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5925/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/5056/ )
+
+Warning:Workspace has a corrupt git repository [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/5056/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_hlb325_build_master_next/5056/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34730/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4062/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5192/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6540/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5462/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5452/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5625/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-22 08:56:18.229000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 08:56:27.274000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6834/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 08:56:28.339000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34781/ (1/9)</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-22 08:57:34.076000000)</span><pre>Topic set to NEW_SPI_DMA</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 08:59:18.221000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/551/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:13.932000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5936/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:13.944000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5467/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:13.987000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5477/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:13.988000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5640/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:14.035000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4073/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:14.045000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6687/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:14.083000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6555/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 09:03:14.108000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5206/ (9/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-22 09:41:24.668000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6834/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/551/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-22 11:38:19.348000000)</span><pre>Patch Set 3: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34781/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4073/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5206/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6555/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5477/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5467/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5640/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6687/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5936/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-23 15:32:55.637000000)</span><pre>Uploaded patch set 4: Patch Set 3 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-23 15:33:00.963000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6901/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:33:05.051000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34849/ (1/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-23 15:36:12.096000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/565/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.333000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5952/ (4/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.334000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5661/ (3/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.334000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5498/ (2/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.362000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4089/ (5/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.380000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6576/ (6/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.412000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6703/ (7/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.453000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5488/ (8/9)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 15:39:29.458000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5227/ (9/9)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-23 16:26:14.641000000)</span><pre>Patch Set 4: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6901/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_buildroot_build_master_next/565/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-23 17:45:20.018000000)</span><pre>Patch Set 4: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34849/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_buildroot_build_master_next/4089/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_fw-loader_build_master_next/5227/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_u22_master_next/6576/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_tc3_master_next/5498/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_rh86_master_next/5488/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hl-smi_build_d10_master_next/5661/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_openbmc_build_master_next/6703/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_hlb325_build_master_next/5952/ : SUCCESS</pre></div><div class="message"><strong>Tal Yacobi</strong> <span class="date">(2025-06-17 12:31:47.676000000)</span><pre>Patch Set 4: Code-Review-1
+
+(1 comment)</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-07-03 15:28:24.191000000)</span><pre>Patch Set 4:
+
+(1 comment)</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>board/habanalabs/fs1_arc/post-image-spi.sh</h4><ul><li><strong>Tal Yacobi</strong> (Line 221): I don&#x27;t think it&#x27;s necessary to append the crc to the image here.
+
+Since we only need the crc for the entire image, it&#x27;s better to keep the crc only in the device descriptor and not in the image itself.</li><li><strong>Subrahmanyeswara Swamy Murala</strong> (Line 221): SPI DMA engine expects crc32 of entire image at the end of Image.
+crc32 field in boot descriptor cannot be used for SPI DMA, because there is no way to give crc32 value as input to SPI DMA except at end of image.</li></ul></div></div>
+    </div>
+</body>
+</html>

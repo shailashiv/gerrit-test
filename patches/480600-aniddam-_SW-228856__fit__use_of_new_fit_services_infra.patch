@@ -1,0 +1,100 @@
+From 3ea28c1e758fc0d6b32a3677c621b8c6ef9a9b3a Mon Sep 17 00:00:00 2001
+From: Avi Niddam <aniddam@habana.ai>
+Date: Tue, 27 May 2025 12:43:23 +0300
+Subject: [PATCH] [SW-228856] fit: use of new fit_services infra
+
+Context:
+We unified some fit related code.
+The main lego pieces are the newly created (via other commits):
+fit_services.c/h located (in emb_common_mod).
+The infrastructure is ready and meanwhile it supports the use of
+fit_foreach_property
+(there were duplications of code related this function).
+So from now, please, anyone doing an infrastructure change related to
+the fit files should carefully double-check.
+Since any unfied code should be located In fit_services.c/h in a
+similar way as fit_foreach_property has been.
+
+For this specific commit:
+In this current commit, we prepare the use of fit_foreach_property
+in PPBoot.
+So, both some Makefiles and c and h files are adapted accordingly.
+
+Change-Id: Ic04e268eca13a265c95471920d3690516c8d8d02
+Signed-off-by: Avi Niddam <aniddam@habana.ai>
+---
+
+diff --git a/Makefile b/Makefile
+index e24b025..5d77236 100644
+--- a/Makefile
++++ b/Makefile
+@@ -50,6 +50,7 @@
+ PPBOOT_SRCS_C += $(shell ls $(EMB_COMMON_MOD_DIR)/lib/common/lib_common.c)
+ PPBOOT_SRCS_C += $(shell ls $(EMB_COMMON_MOD_DIR)/lib/common/boot_desc.c)
+ PPBOOT_SRCS_C += $(shell ls $(EMB_COMMON_MOD_DIR)/lib/common/pci.c)
++PPBOOT_SRCS_C += $(shell ls $(EMB_COMMON_MOD_DIR)/lib/common/fit_services.c)
+ PPBOOT_APP_S := $(shell ls app/ppboot/crt0_ppboot.S)
+ PPBOOT_APP_S += $(shell ls $(HL_DEV_ARCH)/*.S | grep -v lds)
+ 
+@@ -92,7 +93,7 @@
+ 	@date +'#define PPBOOT_TIME "%T"' >> $@
+ 
+ buildversion-habanalabs: include/baremetal.h $(AUTO_GENERATED_FILE)
+-	echo "VERSION_STR" | gcc -include $< -I./ -I ./lib/common/ -I ./$(HL_DEV_ARCH)/ -I$(SPECS_EMBEDDED_DIR)/$(SPECS_EMB_DEV) -I$(SPECS_DIR)/$(BASE_DEV_NAME)/asic_reg -I$(SPECS_DIR)/ -I ./include/ -P -E -o - - | tail -1 | sed 's/\" \+\"//g;s/["\n]//g' | cut -d' ' -f2- | tr -d '\n' > $@
++	echo "VERSION_STR" | gcc -include $< -I./ -I ./lib/common/ -I ./$(HL_DEV_ARCH)/ -I$(EMB_COMMON_MOD_DIR)/include -I$(SPECS_EMBEDDED_DIR)/$(SPECS_EMB_DEV) -I$(SPECS_DIR)/$(BASE_DEV_NAME)/asic_reg -I$(SPECS_DIR)/ -I ./include/ -P -E -o - - | tail -1 | sed 's/\" \+\"//g;s/["\n]//g' | cut -d' ' -f2- | tr -d '\n' > $@
+ 
+ $(PCI_PHY_FW_TARGET): $(HL_DEV_ARCH)/pcie_phy_fw.i
+ 	@cut -d' ' -f2- $< | xxd -r -p | dd status=none bs=16 count=$$(($(PHY_FW_SIZE) / 16)) conv=sync,swab of=$@
+diff --git a/app/ext_rom/Makefile b/app/ext_rom/Makefile
+index 964786d..ad1652a 100644
+--- a/app/ext_rom/Makefile
++++ b/app/ext_rom/Makefile
+@@ -95,7 +95,8 @@
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_regions.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_rsa.o \
+ 	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit.o \
+-	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_load.o
++	$(EMB_COMMON_MOD_DIR)/lib/preboot/fit_load.o \
++	$(EMB_COMMON_MOD_DIR)/lib/common/fit_services.o
+ 
+ include $(HL_DEV_ARCH)/Makefile
+ 
+diff --git a/include/baremetal.h b/include/baremetal.h
+index 41a43be..b29a2ea 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -57,6 +57,8 @@
+ #include <types.h>
+ #include "auto_generated.h"
+ 
++#include "fit_services.h"
++
+ #define VERSION_MAX_LEN		128
+ 
+ #define VERSION_STR	"version " PPBOOT_VER \
+@@ -85,13 +87,6 @@
+ enum preboot_vers {
+ 	PREBOOT_BTL_VER,
+ 	PREBOOT_EFUSE_VER,
+-};
+-
+-enum fit_sec_failure {
+-	FIT_SEC_NONE = 0,
+-	FIT_SEC_SVN_INVALID,
+-	FIT_SEC_KEY_REVOKED,
+-	FIT_SEC_SIGN_FAILED,
+ };
+ 
+ struct hl_nic_en {
+diff --git a/lib/common/security.c b/lib/common/security.c
+index 74c5f8b..a811932 100644
+--- a/lib/common/security.c
++++ b/lib/common/security.c
+@@ -13,6 +13,7 @@
+ #include <preboot/fit.h>
+ #include <string.h>
+ #include <uart.h>
++#include "fit_services.h"
+ 
+ /* libfdt is execting pub_key_fit dtb address must be 8 byte aligned. */
+ static struct hl_fit_sec_desc fit_sec __aligned(8);

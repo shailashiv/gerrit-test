@@ -1,0 +1,46 @@
+From 9fbda5adedf9cbb3c72dc52c033444f75556a15c Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Mon, 25 Nov 2024 12:35:49 +0200
+Subject: [PATCH] [FSW-0] loading rst arc dccm on pldm
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: Icdc82457bf719c16d47bdfb6fcf321c45ed93ab6
+---
+
+diff --git a/arch/fs1/arc/palad.c b/arch/fs1/arc/palad.c
+index ff5221e..2793584 100644
+--- a/arch/fs1/arc/palad.c
++++ b/arch/fs1/arc/palad.c
+@@ -368,6 +368,24 @@
+ 				mmIO_0_CFG_HALF_0_PSOC_ARC_MISC_ARC_BASE;
+ 
+ 	regmap_writel(0, base + mmARC_ARC_RST);
++	regmap_writel(0, mmIO_0_CFG_HALF_0_PSOC_ARC_MISC_ARC_BASE + mmARC_ARC_RST);
++	regmap_writel(0, mmIO_0_CFG_HALF_0_PSOC_ARC_RST_BASE + mmARC_ARC_RST);
++	regmap_writel(0, mmIO_0_CFG_HALF_0_PSOC_ARC_RST_BASE + mmARC_ARC_RST);
++}
++
++static void btldr_copy_reset_app(void)
++{
++	preboot_puts("palad rst_3 copy dccm\n");
++	/*
++	 * Clean copy of the application is stored in MISC ICCM. In case the application binary
++	 * exceeds MISC ICCM size (256kb), the rest is stored in MISC DCCM.
++	 * An efuse bit is controlling whether the application binary is larger than MISC ICCM size.
++	 */
++	fs1_mem_init(IO0_RST_DCCM_FULL_BASE, IO_RST_DCCM_SIZE, false);
++	preboot_puts("zeroed rst dccm\n");
++	fs1_mem_copy(IO0_MNG_ICCM_FULL_BASE, IO0_RST_DCCM_FULL_BASE, IO_RST_DCCM_SIZE, false,
++		     false);
++	preboot_puts("done\n");
+ }
+ 
+ #define COMP_PREBOOT_MAX_SZ SZ_128K
+@@ -456,6 +474,7 @@
+ 
+ void btldr_copy_data(void)
+ {
++	btldr_copy_reset_app();
+ 	btldr_copy_preboot_app();
+ 	if (hl_get_die_id() == FS1_COMPUTE_DIE_0)
+ 		return;

@@ -1,0 +1,98 @@
+From bb5f5821553b0b0dade4e3f17fa9195409491aad Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Wed, 25 Dec 2024 16:20:30 +0200
+Subject: [PATCH] [DRAFT] add flr implementation - playground
+
+Change-Id: I6283eb6112a3f43293603ecb4b3c079dc36c73d9
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/drivers/pcie/sriov/sriov.c b/drivers/pcie/sriov/sriov.c
+index df6fb14..e3cc780 100644
+--- a/drivers/pcie/sriov/sriov.c
++++ b/drivers/pcie/sriov/sriov.c
+@@ -61,12 +61,82 @@
+ 
+ static void execute_pf_flr(const struct device *dev, uint8_t reset_type)
+ {
+-	/* TODO need to complete PF FLR flow here */
++	uint32_t val, start_time_ms, curr_time_ms;
++	struct flr_regs *flr_regs = (reset_type == HL_FLR_RST) ? &pf_flr_regs : &vf_flr_regs;
++
++	/* SET PCIE inbound termination */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_VF_IB_PCIE_DISABLE_CFG);
++	/* Halting the compute engines */
++	/* TODO this should include FLR prepare and ACK for PF using bridge */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_HALT_ENGINE_CFG);
++	/* Flushing the cache */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_CACHE_CFG);
++	/* MNG.ARG will enable the isolation by resetting */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_RES_ISO_CFG);
++	/* actual reset - done by BTM */
++	reset_intel_gpu_execute_reset_sequence(RESET_DEV_INST, reset_type);
++
++	/* Polling for FLR_DONE */
++	start_time_ms = k_uptime_get();
++	while (1) {
++		val = CFG_RREG32(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_FLR_RST_BTM_DONE));
++		if (val == flr_regs->flr_btm_done)
++			break;
++
++		curr_time_ms = k_uptime_get();
++		/* Done here means that all DIEs finished their reset ! */
++		if ((curr_time_ms - start_time_ms) >= WAIT_BTM_DONE_TIMEOUT) {
++			LOG_ERR("timeout for FLR btm done, try to continue\n");
++			break;
++		}
++
++		k_msleep(1);
++	}
++
++	reset_intel_gpu_post_reset(RESET_DEV_INST, reset_type,
++				   RESET_INTEL_GPU_POST_INIT_VF_CFG);
++	/* Disable the PCIE isolation */
++	reset_intel_gpu_post_reset(RESET_DEV_INST, reset_type,
++				   RESET_INTEL_GPU_POST_RES_ISO_CFG);
++	/* reset termination registers - TODO is required ? */
++	reset_intel_gpu_post_reset(RESET_DEV_INST, reset_type,
++				   RESET_INTEL_GPU_POST_VF_IB_PCIE_ENABLE_CFG);
++
++	/* Indication for PCIe that FLR is done */
++	CFG_WREG32(IO0_H0_PCIE_FLR(mmPSOC_BOOT_CONF_FLR_RST_DONE), 1);
++	/* PCIE Controller will clear FLR interrupt */
++	CFG_WREG32(IO0_H0_PCIE_FLR(flr_regs->active), 0);
+ }
+ 
+ static void execute_vf_flr(const struct device *dev, uint8_t reset_type)
+ {
+-	/* TODO need to complete VF FLR flow here */
++	/*
++	 * TODO Communicate VF[x] FLR to PF via a dedicated MSI-X interrupt, so that
++	 * PF blocks further VF access
++	 */
++
++	/* SET PCIE inbound termination */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_VF_IB_PCIE_DISABLE_CFG);
++	/* Halting the compute engines */
++	/* TODO this should include FLR prepare and ACK for PF using bridge */
++	reset_intel_gpu_pre_reset(RESET_DEV_INST, reset_type,
++				  RESET_INTEL_GPU_PRE_HALT_ENGINE_CFG);
++
++	/* actual reset - done by BTM */
++	reset_intel_gpu_execute_reset_sequence(RESET_DEV_INST, reset_type);
++
++	/* reset termination registers - TODO is required ? */
++	reset_intel_gpu_post_reset(RESET_DEV_INST, reset_type,
++		RESET_INTEL_GPU_POST_VF_IB_PCIE_ENABLE_CFG);
++
++	/* TODO Do we need to init FID for GT ? */
++
++	/* TODO how to inform PCIe that it is done */
+ }
+ 
+ static void flr_pf_isr(const struct device *dev)

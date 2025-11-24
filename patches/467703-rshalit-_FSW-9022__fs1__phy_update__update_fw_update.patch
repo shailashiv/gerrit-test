@@ -1,0 +1,57 @@
+From 17992e18c6a7006527708b274841312ab195793c Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Thu, 26 Dec 2024 12:04:22 +0200
+Subject: [PATCH] [FSW-9022] fs1: phy update: update fw update
+
+FW update was put in comment till now, as a bug
+in RTL. Once it was resolved, this part can be merged.
+
+Change-Id: I46a914b64182064580a7c9a1b8c014def2dd3f28
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/arch/fs1/arc/palad.c b/arch/fs1/arc/palad.c
+index e70fa22..03ba6e8 100644
+--- a/arch/fs1/arc/palad.c
++++ b/arch/fs1/arc/palad.c
+@@ -175,8 +175,7 @@
+ 
+ static void init_pcie_phy_fw_update(void)
+ {
+-	u32 val;
+-
++	u32 val, start_time_ms, curr_time_ms;
+ 	/*
+ 	 * The exact size of data written to SRAM_LOCATIONS and CSR_LOCATIONS
+ 	 * is written to PHY_FW_FSM_SIZE register.
+@@ -221,19 +220,18 @@
+ 	 * FW should poll on PHY_FW_FSM_CTRL ➔ FW_FSM_PHY_INIT_DONE
+ 	 * which shows the completion of FW loading to the phy.
+ 	 */
++	start_time_ms = k_uptime_get();
++	while (!(regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	       mmPCIE_FW_FSM_PHY_FW_FSM_CTRL) &
++	       PCIE_FW_FSM_PHY_FW_FSM_CTRL_FW_FSM_PHY_INIT_DONE_M)) {
++		curr_time_ms = k_uptime_get();
++		if ((curr_time_ms - start_time_ms) >= WAIT_BTM_DONE_TIMEOUT) {
++			preboot_puts("PCIe Phy timeout, try to continue\n");
++			return;
++		}
++	}
+ 
+-	/*
+-	 * this code is commented out because pcie phy is not fully implemented
+-	 * in palladium and it will hang the simulation.
+-	 * once pcie phy is implemented, this code should be uncommented.
+-	 * jira ticket: H15-352
+-	 *
+-	 * while (!(regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
+-	 * mmPCIE_FW_FSM_PHY_FW_FSM_CTRL) &
+-	 * PCIE_FW_FSM_PHY_FW_FSM_CTRL_FW_FSM_PHY_INIT_DONE_M));
+-	 *
+-	 * preboot_puts("FW copied to phy successfully\n");
+-	 */
++	preboot_puts("FW copied to phy successfully\n");
+ }
+ 
+ #define BAR_SIZE_1GB		(SZ_1G - 1)

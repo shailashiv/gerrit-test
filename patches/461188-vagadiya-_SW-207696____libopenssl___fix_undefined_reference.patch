@@ -1,0 +1,25 @@
+From 595005842c8f537cf5573422fcfa35c7fc3c0d93 Mon Sep 17 00:00:00 2001
+From: Mitali Vagadiya <vmnagajibhai@habana.ai>
+Date: Wed, 06 Nov 2024 13:51:40 +0200
+Subject: [PATCH] [SW-207696] : libopenssl : fix undefined reference error on RH8
+
+On RH8 OS, libopenssl is creating issue related to undefined
+references, This patch fixes those undefined references
+related to dl lib functions, used by crypto library.
+
+Change-Id: I13171fcc3ca3be33d664f2d34fe8bc9fb774ecda
+---
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 1818fcc..400ab31 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -45,7 +45,7 @@
+ find_package(OpenSSL REQUIRED)
+ if (OPENSSL_FOUND)
+ 	include_directories(${OPENSSL_INCLUDE_DIRS})
+-	target_link_libraries(${TARGET_NAME} ${OPENSSL_LIBRARIES})
++	target_link_libraries(${TARGET_NAME} ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS})
+ endif(OPENSSL_FOUND)
+ 
+ find_package(ZLIB REQUIRED)

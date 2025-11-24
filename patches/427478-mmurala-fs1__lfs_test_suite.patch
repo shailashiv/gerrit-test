@@ -1,0 +1,439 @@
+From 11b134ce4e952263f364b418ec3391e044ebd809 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Tue, 25 Jun 2024 13:14:13 +0300
+Subject: [PATCH] fs1: lfs test suite
+
+testing code
+example to implement lfs api's.
+
+Change-Id: I688fbd8b87e6283e3fdc00cf86459937e620f569
+---
+
+diff --git a/arch/fs1/arc/Makefile b/arch/fs1/arc/Makefile
+index 70076c1..b4cfc59 100644
+--- a/arch/fs1/arc/Makefile
++++ b/arch/fs1/arc/Makefile
+@@ -12,7 +12,7 @@
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/slave.c)
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_uart.c)
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_recovery.c)
+-BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_boot_info.c)
++BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_boot_info_test.c)
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_dma.c)
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_security.c)
+ BOOT_ROM_COMMON_SRCS_C += $(shell ls $(HL_DEV_ARCH)/dev_mem_copy.c)
+diff --git a/arch/fs1/arc/dev_boot_info_test.c b/arch/fs1/arc/dev_boot_info_test.c
+new file mode 100644
+index 0000000..668a285
+--- /dev/null
++++ b/arch/fs1/arc/dev_boot_info_test.c
+@@ -0,0 +1,372 @@
++// SPDX-License-Identifier:     GPL-2.0+
++/*
++ * Copyright (C) 2024 HabanaLabs Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#include <string.h>
++#include <stdbool.h>
++#include <boot_rom.h>
++#include <hl_boot_desc.h>
++#include <common.h>
++#include <fs1_fw_if.h>
++#include <lfs_wrapper.h>
++#include <hl_sec_if.h>
++#include <status.h>
++#include "dev_efuse.h"
++#include <fs1_blocks_linux_driver.h>
++#include <psoc_boot_conf_regs.h>
++#include <fs1_reg_map.h>
++#include "dev_uart.h"
++#include "dev_boot_info.h"
++#include <dev_uart.h>
++#include <fs1_blocks_linux_driver.h>
++#include <psoc_pad_conf_regs.h>
++#include <uart_regs.h>
++#include <lfs.h>
++
++void lfs_get_file_name(char *file_name, const char *file_tag, uint32_t file_num);
++
++int boot_info_get_size(char *tag, enum hl_boot_info_type file_num, uint32_t *size);
++int truncate_file(enum hl_boot_info_type type, int size);
++
++#define FILE1 22
++
++char *names[] = { "swamy", "abhishek", "sailaja", "sanyog", "ran", "guy" };
++char *names_1[] = { "ran", "guy", "swamy", "abhishek", "sailaja", "sanyog" };
++
++void resize_disk();
++
++struct student {
++	uint32_t roll_num;
++	uint32_t age;
++	char name[10];
++};
++
++#define LFS_EXT_IMPLEMENTATION 1
++
++#if LFS_EXT_IMPLEMENTATION == 1
++extern lfs_t lfs;
++extern struct lfs_file_config defaults;
++
++int boot_info_get_size(__unused char *tag, __unused enum hl_boot_info_type file_num, uint32_t *size)
++{
++	static char full_name[LFS_NAME_MAX] = { '\0' };
++	lfs_file_t file;
++	int ret;
++
++	ret = lfs_init_disk();
++	if (ret)
++		return ret;
++
++	lfs_get_file_name(full_name, tag, file_num);
++	ret = lfs_file_opencfg(&lfs, &file, full_name, LFS_O_RDONLY, &defaults);
++	if (ret < 0) {
++		*size = 0;
++		return 0;
++	}
++
++	*size = (uint32_t)lfs_file_size(&lfs, &file);
++
++	lfs_file_close(&lfs, &file);
++
++	return ret;
++}
++/* Modify data inside an existing info. Same constraints as lfs_file_set() */
++int lfs_file_set_partial(__unused char *tag, __unused enum hl_boot_info_type file_num, const void *data, uint32_t offset, uint32_t size)
++{
++	static char full_name[LFS_NAME_MAX] = { '\0' };
++	lfs_file_t file;
++	int ret;
++	size_t fsize;
++
++	ret = lfs_init_disk();
++	if (ret)
++		return ret;
++
++	lfs_get_file_name(full_name, tag, file_num);
++	ret = lfs_file_opencfg(&lfs, &file, full_name, LFS_O_RDWR | LFS_O_CREAT, &defaults);
++	if (ret < 0)
++		return ret;
++
++	fsize = lfs_file_size(&lfs, &file);
++	if (fsize > size + offset) {
++		ret = lfs_file_truncate(&lfs, &file, size + offset);
++	}
++
++	if (!ret) {
++		lfs_file_seek(&lfs, &file, offset, LFS_SEEK_SET);
++		ret = lfs_file_write(&lfs, &file, data, size);
++	}
++
++	lfs_file_close(&lfs, &file);
++
++	return ret >= 0 ? 0 : ret;
++}
++#endif
++
++void boot_rom_putc(const char ch)
++{
++	while ((regmap_readl(IO0_H0_PSOC_CFG_UART(mmUART_STATE)) & UART_SR_TXFULL) != 0);
++	regmap_writel(ch, IO0_H0_PSOC_CFG_UART(mmUART_DATA));
++}
++
++void new_line()
++{
++	boot_rom_putc('\r');
++	boot_rom_putc('\n');
++}
++
++void put_str(char *str, uint32_t size)
++{
++	uint32_t i;
++	new_line();
++	for (i = 0 ; i< size ; i++) {
++		boot_rom_putc(str[i]);
++	}
++	new_line();
++}
++
++int print_file_size(int file)
++{
++	uint32_t size = 0, len;
++	char data[20];
++
++	boot_info_get_size(LFS_TAG_BOOT_INFO, file, &size);
++	len = sprintf(data, "size - %d", size);
++	put_str(data, len);
++	return size;
++}
++
++bool boot_rom_skip_boot_info(void)
++{
++	if (boot_rom_global.die_type != FS1_IO_DIE_MASTER)
++		return true;
++
++	/* check boot info efuse
++	* if (EFUSE_SKIP_BOOT_INFO == 1)
++	* 	return true;
++	*/
++
++	return false;
++}
++
++void file_read_test()
++{
++	char data[20];
++	int size;
++
++	size = print_file_size(FILE1); /* size provided by user at the time of write.*/
++	if (lfs_file_copy(LFS_TAG_BOOT_INFO, FILE1, data, size)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_INVALID);
++		return;
++	}
++	put_str(data, size);
++}
++
++void set_part_test_shrink()
++{
++	/* with this test found one issue in lfs_file_set_partial */
++	char temp[10] = "xyz";
++	char data[20];
++
++	if(lfs_file_set_partial(LFS_TAG_BOOT_INFO, FILE1, temp, 5, 3)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_SECURITY_DATA_SET_FAIL);
++		return;
++	}
++
++	print_file_size(FILE1);
++
++	if (lfs_file_copy(LFS_TAG_BOOT_INFO, FILE1, data, 8)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_INVALID);
++		return;
++	}
++
++	put_str(data, 8);
++
++}
++
++void set_part_test_expand()
++{
++	char temp[10] = "xyz";
++	char data[20];
++
++	if(lfs_file_set_partial(LFS_TAG_BOOT_INFO, FILE1, temp, 10, 3)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_SECURITY_DATA_SET_FAIL);
++		return;
++	}
++
++	print_file_size(FILE1);
++
++	if (lfs_file_copy(LFS_TAG_BOOT_INFO, FILE1, data, 13)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_INVALID);
++		return;
++	}
++
++	put_str(data, 13);
++
++}
++
++void file_overwrite_test()
++{
++	char array[10] = "abcde";
++
++	if (lfs_file_set(LFS_TAG_BOOT_INFO, FILE1, array, 10)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL);
++		return;
++	}
++	file_read_test();
++}
++
++
++/* Partial copy test */
++void file_partial_copy_test()
++{
++	char data[20];
++
++	if (lfs_file_copy_partial(LFS_TAG_BOOT_INFO, FILE1, data, 10, 3)) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FAIL);
++		return;
++	}
++
++	put_str(data, 5);
++}
++
++void read_records(char *int_names[])
++{
++	char result[50];
++	uint32_t count = 0, res;
++	struct student data2 = { 0 };
++
++	for (count = 1; count < 5; count++) {
++		memset(&data2, 0, sizeof(data2));
++		if (lfs_file_copy(LFS_TAG_BOOT_INFO, count, &data2, sizeof(data2))) {
++			boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_INVALID);
++			//return;
++		}
++		res = sprintf(result, "roll-%d, age-%d, name-%s", data2.roll_num, data2.age, data2.name);
++		put_str(result, res);
++
++		if ((data2.age != count+5) ||
++			(data2.roll_num != count) ||
++			(strcmp(data2.name, int_names[count-1]) != 0)) {
++			boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_DATA_GET_FAIL);
++		}
++	}
++}
++// #define BOOT_ROM_INFO	"br"
++// lfs_file_set(BOOT_ROM_INFO, FILE1, array, 10)
++
++
++/* TO make sure after every data write data written to disk instead of cache */
++#define FILE2 23
++void write_test_below_cache_size()
++{
++	char name[13] = "abcdefghijkl";
++	char name2[13] = "mnopqrstuvwx";
++
++	if (lfs_file_set(LFS_TAG_BOOT_INFO, FILE1, name, strlen(name))) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL);
++		return;
++	}
++
++	if (lfs_file_set(LFS_TAG_BOOT_INFO, FILE2, name2, strlen(name))) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL);
++		return;
++	}
++}
++void boot_rom_get_boot_info(void)
++{
++	if (boot_rom_global.boot_info_set_done) {
++		/* Read and make sure proper data after any reset */
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_START);
++
++		/* TODO: retrieve boot info and verify */
++
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FINISH);
++	}
++
++	/* Flag which is indication for other modules to know Boot ROM done with LFS */
++	boot_rom_status_update(PROGRESS_BOOT_INFO_LFS_FINISHED);
++}
++void boot_rom_set_boot_info(void)
++{
++	uint32_t count = 0;
++	struct student data = { 0 };
++
++	struct fs1_cold_rst_data cold_rst_data;
++
++	if(boot_rom_skip_boot_info())
++		return;
++
++	// write_test_below_cache_size();
++	// return;
++
++	if (!boot_rom_global.boot_info_set_done) {
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_START);
++
++		/* INFO: save records */
++		/* file name cant be 0 as we use name type tag "br" for boot_rom */
++		for (count = 1; count < 5; count++) {
++			memset(&data, 0, sizeof(data));
++			data.roll_num = count;
++			data.age = count + 5;
++			memcpy(data.name, names[count-1], strlen(names[count-1]));
++
++			if (lfs_file_set(LFS_TAG_BOOT_INFO, count, &data, sizeof(data))) {
++				boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL);
++				return;
++			}
++		}
++
++		//resize_disk();
++
++		/* INFO: retrieve records */
++		read_records(names);//working
++
++#if 1
++		/* INFO: write partial */
++		for (count = 1; count < 5; count++) {
++			memset(&data, 0, sizeof(data));
++
++			memcpy(data.name, names_1[count-1], strlen(names_1[count-1]));
++			if(lfs_file_set_partial(LFS_TAG_BOOT_INFO, count, names_1[count-1],
++					(sizeof(data.roll_num) + sizeof(data.age)), strlen(names_1[count-1]) )) {
++				boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL);
++				return;
++			}
++		}
++
++		/* INFO: retrieve records */
++		read_records(names_1);//working
++#endif
++
++		put_str("end", 3);
++
++		cold_rst_data.data = regmap_readl(IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_COLD_RST_REG_2));
++		cold_rst_data.boot_info_set_done = 1;
++		regmap_writel(cold_rst_data.data, IO0_H0_PSOC_BOOT(mmPSOC_BOOT_CONF_COLD_RST_REG_2));
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FINISH);
++	} else {
++		/* Read and make sure databackup after any reset */
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_START);
++
++		read_records(names_1);
++
++		boot_rom_status_update(PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FINISH);
++	}
++
++	return;
++}
++
++void custom_printf(const char *format, uint32_t value1, uint32_t value2) {
++    char buffer[100];  // Adjust the size as needed
++	int len;
++
++    // Format the string using snprintf
++    len = snprintf(buffer, sizeof(buffer), format, value1, value2);
++
++    // Print the formatted string
++    put_str(buffer, len + 1);
++}
+diff --git a/arch/fs1/arc/progress_bits.h b/arch/fs1/arc/progress_bits.h
+index e67104a..892c560 100644
+--- a/arch/fs1/arc/progress_bits.h
++++ b/arch/fs1/arc/progress_bits.h
+@@ -152,6 +152,11 @@
+ 	PROGRESS_BOOT_INFO_LFS_FILE_SET_FAIL = 142,
+ 	PROGRESS_BOOT_INFO_LFS_FILE_NAME_FAIL = 143,
+ 	PROGRESS_BOOT_INFO_LFS_FINISHED = 144,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_INVALID = 145,
++	PROGRESS_BOOT_INFO_SECURITY_DATA_SET_FAIL = 146,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_GET_FAIL = 147,
++	PROGRESS_BOOT_INFO_IMG_DESC_INFO_SET_FAIL = 148,
++	PROGRESS_BOOT_INFO_IMG_DESC_DATA_GET_FAIL = 149,
+ };
+ 
+ #endif /* _PROGRESS_BITS_H_ */
+diff --git a/common/littlefs/lfs.c b/common/littlefs/lfs.c
+index 90f6234..0f479ad 100644
+--- a/common/littlefs/lfs.c
++++ b/common/littlefs/lfs.c
+@@ -9,6 +9,8 @@
+ #include "lfs_util.h"
+ #include "crc32.h"
+ 
++void custom_printf(const char *format, uint32_t value1, uint32_t value2);
++
+ // some constants used throughout the code
+ #define LFS_BLOCK_NULL ((lfs_block_t)-1)
+ #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
+@@ -1365,6 +1367,7 @@
+ 
+     LFS_ERROR("Corrupted dir pair at {0x%"PRIx32", 0x%"PRIx32"}",
+             dir->pair[0], dir->pair[1]);
++    //custom_printf("Corrupted dir pair at {0x%"PRIx32", 0x%"PRIx32"}", dir->pair[0], dir->pair[1]);
+     return LFS_ERR_CORRUPT;
+ }
+ 

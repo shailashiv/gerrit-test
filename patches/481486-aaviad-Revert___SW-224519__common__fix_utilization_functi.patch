@@ -1,0 +1,27 @@
+From 48cd0508f62dc3240eda35e4bebffbec37496753 Mon Sep 17 00:00:00 2001
+From: Ariel Aviad <aaviad@habana.ai>
+Date: Tue, 10 Jun 2025 11:44:55 +0000
+Subject: [PATCH] Revert "[SW-224519] common: fix utilization function"
+
+This reverts commit 840c15e99abc0e2ca6ca8ec6ea871814f227ca06.
+
+Change-Id: I7432420db32af7b6ee2d57b2f6afd124e8e50e0a
+---
+
+diff --git a/src/hlml.c b/src/hlml.c
+index d12e633..c1447de 100644
+--- a/src/hlml.c
++++ b/src/hlml.c
+@@ -460,12 +460,6 @@
+ 	}
+ 	aip_info->power = (unsigned int)MW_TO_WATT(power_consumption);
+ 
+-	ret_int = hl_smi_sensors_get_info(aip_info, HL_SMI_SENSORS_INFO_SEC_POW);
+-	if (ret_int != HLML_INT_SUCCESS) {
+-		ret = HLML_ERROR_NO_DATA;
+-		goto dev_get_util_err;
+-	}
+-
+ 	if (aip_info->use_new_utilization_formula) {
+ 		/*
+ 	 	 * The utilization formula is:

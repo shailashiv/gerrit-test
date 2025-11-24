@@ -1,0 +1,51 @@
+From f9107d52a62aec9f60770171c6d4d4ff19ad6f3d Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Sun, 01 Dec 2024 18:59:19 +0200
+Subject: [PATCH] [SW-204807] scripts: print out config info
+
+Our build environment contains two build systems,
+the build-root and a meta build scripts bundle.
+
+Adding the HL_DEV and HL_TARGET values to the build procedure
+summary block (red or green, depend on success) to indicate the
+user which platform is now in focus. In case the target and device
+does not match, the environment should be adjusted. e.g; use the
+proper make <dev>-<target>-prepare
+
+Change-Id: I52f409423ee0bfea0cfb1adbbfed590668278a65
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/Makefile b/Makefile
+index 50e34d4..e606d5e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -54,6 +54,20 @@
+ 	$(call print_line, "$$frame_line")
+ endef
+ 
++ifeq ("$(origin OUTPUT_DIR)", "command line")
++	HL_VARS_DIR := $(OUTPUT_DIR)
++else
++	OUTPUT_DIR = $(CURDIR)/output/$(HL_DEV)
++	HL_VARS_DIR := $(CURDIR)/output
++endif
++
++define print_env
++	$(call print_frameline); \
++	for i in $(shell awk '{print $$2;}' $(1)); do \
++		$(call print_line, "* "$$i); \
++	done; \
++	$(call print_frameline)
++endef
+ # Invoke a second make, passing relevant variables, and log a short summary
+ sub-make:
+ 	@$(MAKE) $(filter-out hl-help sub-make,$(MAKECMDGOALS)); \
+@@ -66,6 +80,7 @@
+ 	$(call print_line, "* make duration is: $$SECONDS [Sec]"); \
+ 	$(call print_line, "* make completed at: $(shell date)"); \
+ 	$(call print_frameline); \
++	$(call print_env, $(HL_VARS_DIR)/.hl-vars.mk); \
+ 	echo; \
+ 	exit $$EXIT_STATUS
+ 

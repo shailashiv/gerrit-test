@@ -1,0 +1,158 @@
+From c7f5f081dd5ab05845928df0be5861af6545d3b6 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Wed, 21 May 2025 06:08:48 +0300
+Subject: [PATCH] [FSW-9706] dts: add mailbox entries b/w pid and mgmt
+
+This patch adds pid and mgmt tx and rx dtsi sw mailbox
+ipm entries to device tree.
+IO0_HALF0_SW_MAILBOX1_0 - TX(MGMT) --> RX (PID)
+IO0_HALF0_SW_MAILBOX2_0 - TX(PID) --> RX (MGMT)
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I41fa5ff0c5f9f5ceabd5a7e5ec3d7020d6a7863a
+---
+
+diff --git a/boards/intel/fs/fs1_mgmt_asic_defconfig b/boards/intel/fs/fs1_mgmt_asic_defconfig
+index e17f0f4..39f9d4c 100644
+--- a/boards/intel/fs/fs1_mgmt_asic_defconfig
++++ b/boards/intel/fs/fs1_mgmt_asic_defconfig
+@@ -23,4 +23,6 @@
+ 
+ CONFIG_IPM=y
+ CONFIG_IPM_INTEL_FS=y
++CONFIG_IPM_INTEL_FS_TX_MBX=y
++CONFIG_IPM_INTEL_FS_RX_MBX=y
+ CONFIG_HL_EFUSE=y
+diff --git a/boards/intel/fs/fs1_mgmt_onix_defconfig b/boards/intel/fs/fs1_mgmt_onix_defconfig
+index 097d9df..f2b404b 100644
+--- a/boards/intel/fs/fs1_mgmt_onix_defconfig
++++ b/boards/intel/fs/fs1_mgmt_onix_defconfig
+@@ -19,4 +19,6 @@
+ 
+ CONFIG_IPM=y
+ CONFIG_IPM_INTEL_FS=y
++CONFIG_IPM_INTEL_FS_TX_MBX=y
++CONFIG_IPM_INTEL_FS_RX_MBX=y
+ CONFIG_HL_EFUSE=y
+diff --git a/dts/arc/fs1_io_mgmt.dtsi b/dts/arc/fs1_io_mgmt.dtsi
+index e12e443..7bdb526 100644
+--- a/dts/arc/fs1_io_mgmt.dtsi
++++ b/dts/arc/fs1_io_mgmt.dtsi
+@@ -57,24 +57,6 @@
+ 			pci_dbi_offset = <0xc402000>;
+ 		};
+ 
+-		mbx_iod0mgmt_iod0pid: fs-mbx@f9caa000 {
+-			compatible = "intel,fs_mbx_tx";
+-			reg = <0xf9caa000 0x590>, <0x789a0000 0x1000>;
+-			reg-names = "cfg", "data";
+-			interrupts = <160 2>;
+-			mbx_type = <1>;
+-			label = "FS_MBX_IOD0MGMT_IOD0PID";
+-		};
+-
+-		mbx_iod0pid_iod0mgmt: fs-mbx@f9ca9000 {
+-			compatible = "intel,fs_mbx_rx";
+-			reg = <0xf9ca9000 0x590>, <0x789a1000 0x1000>;
+-			reg-names = "cfg", "data";
+-			interrupts = <161 2>;
+-			mbx_type = <2>;
+-			label = "FS_MBX_IOD0PID_IOD0MGMT";
+-		};
+-
+ 		queueirq: fs_queue_irq@4 {
+ 			reg = <0x4 0x4>;
+ 			#address-cells = <1>;
+@@ -127,6 +109,37 @@
+ 				label = "FS_QUEUE_H2D0";
+ 			};
+ 		};
++
++	sw_malibox_irq: fs_sw_mailbox_irq@5 {
++			reg = <0x5 0x4>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			compatible = "shared-irq";
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupts = <176 2>;
++			interrupt-names = "shared_irq";
++			node_label = "FS_SW_MAILBOX_SHARED_IRQ";
++
++			mbx_iod0mgmt_iod0pid: fs-mbx@IO0_HALF0_SW_MAILBOX1_0 {
++				compatible = "intel,fs_mbx_tx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX1_0) 0x590>,
++				      <SPSRAM_IO_MGMT_TX_IO_PID_RX_MBX SPSRAM_IPM_BUFF_SIZE>;
++				reg-names = "cfg", "data";
++				mbx_type = <1>;
++				node_label = "FS_MBX_IOD0MGMT_IOD0PID";
++			};
++
++			mbx_iod0pid_iod0mgmt: fs-mbx@IO0_HALF0_SW_MAILBOX2_0 {
++				compatible = "intel,fs_mbx_rx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX2_0) 0x590>,
++				      <0xf9c80b80 0xf>; /* Psoc glbl mask */
++				reg-names = "cfg", "intr_mask";
++				mask_idx = <31>;
++				mbx_type = <2>;
++				node_label = "FS_MBX_IOD0PID_IOD0MGMT";
++			};
++		};
+ 	};
+ };
+ 
+diff --git a/dts/arc/fs1_io_pid.dtsi b/dts/arc/fs1_io_pid.dtsi
+index 03bc71d..218b82a 100644
+--- a/dts/arc/fs1_io_pid.dtsi
++++ b/dts/arc/fs1_io_pid.dtsi
+@@ -29,22 +29,35 @@
+ 	};
+ 
+ 	soc {
+-		mbx_iod0mgmt_iod0pid: fs-mbx@f9caa000 {
+-			compatible = "intel,fs_mbx_rx";
+-			reg = <0xf9caa000 0x590>, <0x789a0000 0x1000>;
+-			reg-names = "cfg", "data";
+-			interrupts = <160 2>;
+-			mbx_type = <2>;
+-			label = "FS_MBX_IOD0MGMT_IOD0PID";
+-		};
+-
+-		mbx_iod0pid_iod0mgmt: fs-mbx@f9ca9000 {
+-			compatible = "intel,fs_mbx_tx";
+-			reg = <0xf9ca9000 0x590>, <0x789a1000 0x1000>;
+-			reg-names = "cfg", "data";
++		sw_malibox_irq: fs_sw_mailbox_irq@5 {
++			reg = <0x5 0x4>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			compatible = "shared-irq";
++			interrupt-controller;
++			#interrupt-cells = <2>;
+ 			interrupts = <161 2>;
+-			mbx_type = <1>;
+-			label = "FS_MBX_IOD0PID_IOD0MGMT";
++			interrupt-names = "shared_irq";
++			node_label = "FS_SW_MAILBOX_SHARED_IRQ";
++
++			mbx_iod0pid_iod0mgmt: fs-mbx@IO0_HALF0_SW_MAILBOX2_0 {
++				compatible = "intel,fs_mbx_tx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX2_0) 0x590>,
++				      <SPSRAM_IO_PID_TX_IO_MGMT_RX_MBX SPSRAM_IPM_BUFF_SIZE>;
++				reg-names = "cfg", "data";
++				mbx_type = <1>;
++				node_label = "FS_MBX_IOD0PID_IOD0MGMT";
++			};
++
++			mbx_iod0mgmt_iod0pid: fs-mbx@IO0_HALF0_SW_MAILBOX1_0 {
++				compatible = "intel,fs_mbx_rx";
++				reg = <PREFIX_0X(IO0_HALF0_SW_MAILBOX1_0) 0x590>,
++				      <0xf9c80b80 0xf>; /* PSOC glbl mask */
++				reg-names = "cfg", "intr_mask";
++				mask_idx = <31>;
++				mbx_type = <2>;
++				node_label = "FS_MBX_IOD0MGMT_IOD0PID";
++			};
+ 		};
+ 	};
+ };

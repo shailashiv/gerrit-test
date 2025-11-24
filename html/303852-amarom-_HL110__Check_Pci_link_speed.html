@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 303852: [HL110] Check Pci link speed</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 303852: [HL110] Check Pci link speed</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> hl-sa</p>
+            <p><strong>Branch:</strong> Development</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Avi Marom &lt;amarom@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2023-02-22 10:44:33.021000000</p>
+            <p><strong>Updated:</strong> 2025-06-09 14:38:25.861000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[HL110] Check Pci link speed
+
+Change-Id: Ifc0514507a45a33eea1b26b83a55e84ef5e0ffb1
+Signed-off-by: Avi &lt;amarom@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: System Jenkins: +0</li><li><strong>Verified</strong>: -2 by System Jenkins</li><li><strong>Finished</strong>: System Jenkins: +0</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>tests/HL110/test_pci_link_spec.py</code> (M) +44 -36</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/tests/HL110/test_pci_link_spec.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -8,11 +8,11 @@</span>
+<span class="diff-ctx"> ****************************************************************************</span>
+<span class="diff-ctx"> &quot;&quot;&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-help_dict = {&#x27;Owner&#x27;:&#x27;Oded, Maor&#x27;,</span>
+<span class="diff-del">-&#x27;required OS system&#x27;:&#x27; Linux or Windows&#x27;,</span>
+<span class="diff-del">-&#x27;required connection &#x27;:&#x27; &#x27;,</span>
+<span class="diff-del">-&#x27;pci_machine_ssh_details&#x27;:&#x27;json/tests/test_machines.json&#x27;,</span>
+<span class="diff-del">-}</span>
+<span class="diff-add">+help_dict = {&#x27;Owner&#x27;: &#x27;Oded, Maor&#x27;,</span>
+<span class="diff-add">+             &#x27;required OS system&#x27;: &#x27; Linux or Windows&#x27;,</span>
+<span class="diff-add">+             &#x27;required connection &#x27;: &#x27; &#x27;,</span>
+<span class="diff-add">+             &#x27;pci_machine_ssh_details&#x27;: &#x27;json/tests/test_machines.json&#x27;,</span>
+<span class="diff-add">+             }</span>
+<span class="diff-ctx"> import logging</span>
+<span class="diff-ctx"> import hw_manager</span>
+<span class="diff-ctx"> from tests.test_base import TestBase</span>
+<span class="diff-hunk">@@ -40,43 +40,51 @@</span>
+<span class="diff-ctx">         hlsa_logger(level=&#x27;debug&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Get SSH&#x27;)</span>
+<span class="diff-ctx">         host = hw_manager.get_machine_component(&quot;pci_machine&quot;)</span>
+<span class="diff-ctx">         cls.device_cli = host.get_control(hw_manager.controls.device_cli)</span>
+<span class="diff-add">+        cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def test_pci_link_spec(self):</span>
+<span class="diff-ctx">         TEST_STATUS = True</span>
+<span class="diff-del">-        # Get PCI Link Spec</span>
+<span class="diff-del">-        code, stdout = self.device_cli.execute_command(&#x27;sudo lspci -d 1da3: -vvv&#x27;)</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(code == 0, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Get PCI Link spec&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        # Validate PCI Link Spec</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(len(stdout) != 0, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Validate PCI Link buffer&#x27;,</span>
+<span class="diff-del">-                        read_value=&#x27;Empty Buffer&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        # Parse Results</span>
+<span class="diff-ctx">         parser = RegexParser.RegexParser()</span>
+<span class="diff-del">-        res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.test_pci_link_spec)</span>
+<span class="diff-del">-        hlsa_checker.check_value_is_not_none(res, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Parse Success&#x27;)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        keywords = self.test_options[&#x27;keywords&#x27;][&#x27;gen_keywords&#x27;]</span>
+<span class="diff-del">-        if len(keywords) == 0:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Validate PCI Link Spec&#x27;,</span>
+<span class="diff-del">-                        read_value=&#x27;Cant Take The Keywords For This Test&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-del">-            assert False, &quot;\nValidate,PCI Link Spec,Cant Take The Keywords For This Test ,#FAIL_DETAIL#&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-        for card in res[&quot;pci_link_status&quot;].keys():</span>
+<span class="diff-del">-            link_status = res[&quot;pci_link_status&quot;][card][&quot;LnkSta&quot;][&quot;linkStatus&quot;][0]</span>
+<span class="diff-add">+        for pci_addr in self.connected_pcie_devices:</span>
+<span class="diff-add">+            pci_info_cmd = &#x27;sudo lspci -s &#x27; + pci_addr + &#x27; -d 1da3: -vvv&#x27;  # Get PCI Link Spec</span>
+<span class="diff-add">+            code, stdout = self.device_cli.execute_command(pci_info_cmd)</span>
+<span class="diff-add">+            hlsa_checker.check_status_is_true(code == 0, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;,</span>
+<span class="diff-add">+                                              operation=&#x27;Get PCI Link spec&#x27;)</span>
+<span class="diff-add">+            # Validate PCI Link Spec</span>
+<span class="diff-add">+            hlsa_checker.check_status_is_true(len(stdout) != 0, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;,</span>
+<span class="diff-add">+                                              operation=&#x27;Validate PCI Link buffer&#x27;)</span>
+<span class="diff-add">+            # Parse Results</span>
+<span class="diff-add">+            res = parser.extract_results(stdout, self.device.definitions.regex_parser_json.test_pci_link_spec)</span>
+<span class="diff-add">+            hlsa_checker.check_value_is_not_none(res, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Parse Success&#x27;)</span>
+<span class="diff-add">+            link_status = res[&quot;pci_link_status&quot;][pci_addr][&quot;LnkSta&quot;][&quot;linkStatus&quot;][0]</span>
+<span class="diff-add">+            keywords = self.test_options[&#x27;keywords&#x27;]</span>
+<span class="diff-add">+            if len(keywords) == 0:</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Validate PCI Link Spec&#x27;,</span>
+<span class="diff-add">+                            read_value=&#x27;Cant Take The Keywords For This Test&#x27;, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-add">+                assert False, &quot;\nValidate,PCI Link Spec,Cant Take The Keywords For This Test ,#FAIL_DETAIL#&quot;</span>
+<span class="diff-add">+            if keywords.find(&#x27;8GT&#x27;) != -1:</span>
+<span class="diff-add">+                mode_str = &#x27;Gen3 Mode&#x27;</span>
+<span class="diff-add">+            else:</span>
+<span class="diff-add">+                mode_str = &#x27;Gen4 Mode&#x27;</span>
+<span class="diff-ctx">             if str(link_status) != str(keywords):</span>
+<span class="diff-del">-                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Value&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Card %s not on Gen3 Mode&#x27; % card,</span>
+<span class="diff-add">+                operation_str = &#x27;Pci card %s is not on &#x27; + mode_str</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Gen Mode&#x27;, read_value=link_status,</span>
+<span class="diff-add">+                            expected_value=str(keywords))</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Value&#x27;, test_code=&#x27;PCI&#x27;, operation=operation_str % pci_addr,</span>
+<span class="diff-ctx">                             read_value=link_status, result=&#x27;FAIL&#x27;)</span>
+<span class="diff-ctx">                 TEST_STATUS = False</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-        for line in stdout:</span>
+<span class="diff-del">-            hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;PCI Spec:&#x27;, read_value=line.strip())</span>
+<span class="diff-del">-            # Search Keywords</span>
+<span class="diff-del">-            for idx, keyword in enumerate(keywords):</span>
+<span class="diff-del">-                if keyword in line:</span>
+<span class="diff-del">-                    hlsa_logger(level=&#x27;Value&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Keyword Detected:&#x27;,</span>
+<span class="diff-del">-                                read_value=keyword,result=&#x27;SUCCESS&#x27;)</span>
+<span class="diff-del">-                    list(keywords).pop(idx)</span>
+<span class="diff-add">+            else:</span>
+<span class="diff-add">+                operation_str = &#x27;Pci card %s is on &#x27; + mode_str</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Value&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Gen Mode&#x27;, read_value=link_status,</span>
+<span class="diff-add">+                            expected_value=str(keywords))</span>
+<span class="diff-add">+                hlsa_logger(level=&#x27;error&#x27;, ident=&#x27;Value&#x27;, test_code=&#x27;PCI&#x27;, operation=operation_str % pci_addr,</span>
+<span class="diff-add">+                            read_value=link_status, result=&#x27;Pass&#x27;)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-        hlsa_logger(level=&#x27;info&#x27;, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Gen Mode&#x27;, read_value=link_status, expected_value=str(keywords))</span>
+<span class="diff-del">-        hlsa_checker.check_status_is_true(TEST_STATUS, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=&#x27;Validate PCI Link spec - All Cards On Gen3 Mode&#x27;)</span>
+<span class="diff-ctx">\ No newline at end of file</span>
+<span class="diff-add">+        if TEST_STATUS:</span>
+<span class="diff-add">+            operation_str = &#x27;Validate PCI Link spec - All Cards On &#x27; + mode_str</span>
+<span class="diff-add">+        else:</span>
+<span class="diff-add">+            operation_str = &#x27;Validate PCI Link spec -Not all Cards On &#x27; + mode_str</span>
+<span class="diff-add">+        hlsa_checker.check_status_is_true(TEST_STATUS, ident=&#x27;Description&#x27;, test_code=&#x27;PCI&#x27;, operation=operation_str)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Avi Marom</strong> <span class="date">(2023-02-22 10:44:33.021000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2023-02-22 10:45:27.522000000)</span><pre>Patch Set 1:
+
+Build Started https://system-jenkins.habana-labs.com/job/HLSA/job/HLSA_Verify/695/</pre></div><div class="message"><strong>System Jenkins</strong> <span class="date">(2023-02-22 10:46:31.834000000)</span><pre>Patch Set 1: Verified-1
+
+Build Failed 
+
+https://system-jenkins.habana-labs.com/job/HLSA/job/HLSA_Verify/695/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://system-jenkins.habana-labs.com/job/HLSA/job/HLSA_Verify/695/ )</pre></div><div class="message"><strong>Carmel Admoni</strong> <span class="date">(2023-10-31 08:14:47.036000000)</span><pre>Removed reviewer Carmel Admoni.</pre></div><div class="message"><strong>Matan Turjeman</strong> <span class="date">(2025-06-09 14:38:25.861000000)</span><pre>Removed reviewer Matan Turjeman.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

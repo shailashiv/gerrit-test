@@ -1,0 +1,223 @@
+From 7a6209de5497b25a64008833da742a1807fcedb4 Mon Sep 17 00:00:00 2001
+From: qunyang <quyang@habana.ai>
+Date: Tue, 22 Oct 2024 10:21:54 +0300
+Subject: [PATCH] [SW-207711] split waittensor downstream graph
+
+Change-Id: Ib69f672f388b9a2178ea86deb09999d97c99eb3b
+---
+
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
+index 0464bb1..a548d1e 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/config.py
+@@ -59,6 +59,7 @@
+ # enables native implementation of the propose partitions pass
+ use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
+ enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "0")
++enable_waittensor_graph_split = _get_bool_from_env("PT_HPU_ENABLE_WAITTENSOR_GRAPH_SPLIT", "0")
+ # when set to 1, the compiled recipe is always static
+ # even if the fx graph traced by torch dynamic has symbols
+ force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+index 03aa0af..33cac72 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+@@ -107,6 +107,7 @@
+         return [
+             pass_graph_print,
+             # These passes will prepare proper placement for some corner-cases.
++            pass_mark_waittensor_downstream_ops,
+             pass_propose_partitions,
+             pass_post_process_partitions,
+             pass_merge_paths,
+@@ -166,6 +167,39 @@
+                 new_previous_nodes = []
+ 
+         return len(allreduces) > 0
++    return False
++
++
++class WaittensorDownstreamOperatorSupport(OperatorSupport):
++    def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
++        if (
++            "upstream_waittensor_name" in node.meta
++            and node.meta["upstream_waittensor_name"] == self.waittensor_name
++            and "partition_assigned" not in node.meta
++            and node.meta["placement"] == "hpu_cluster"
++        ):
++            node.meta["partition_assigned"] = "true"
++            return True
++        return False
++
++
++def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
++    if hpu_backend_config.enable_waittensor_graph_split:
++        gm = ctx.graph_module
++        waittensors = [n for n in gm.graph.nodes if n.name.startswith("wait_tensor")]
++        for waittensor in waittensors:
++            upstream_waittensor_name = waittensor.name
++            user_nodes = list(waittensor.users.keys())
++            new_user_nodes = []
++            while len(user_nodes) > 0:
++                for user_node in user_nodes:
++                    if "upstream_waittensor_name" not in user_node.meta:
++                        user_node.meta["upstream_waittensor_name"] = upstream_waittensor_name
++                        new_user_nodes.extend(list(user_node.users.keys()))
++                user_nodes = new_user_nodes
++                new_user_nodes = []
++
++        return len(waittensors) > 0
+     return False
+ 
+ 
+@@ -1007,6 +1041,15 @@
+         for allreduce in allreduces:
+             setattr(cls, "allreduce_name", allreduce.name)
+             ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
++
++    if hpu_backend_config.enable_waittensor_graph_split:
++        wait_tensors = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("wait_tensor")]
++        cls = WaittensorDownstreamOperatorSupport
++        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
++        for wait_tensor in wait_tensors:
++            setattr(cls, "waittensor_name", wait_tensor.name)
++            ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
++
+     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
+     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
+ 
+@@ -1375,6 +1418,11 @@
+     assert ctx.graph_module is not None
+     assert ctx.current_partitions is not None
+ 
++    # disable parallel partition merging since it's conflict with waittensor
++    # graph split
++    if hpu_backend_config.enable_waittensor_graph_split:
++        return False
++
+     logger.debug(f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}")
+ 
+     graph_changed = False
+diff --git a/tests/pytest_working/compile/test_waittensor_graph_split.py b/tests/pytest_working/compile/test_waittensor_graph_split.py
+new file mode 100644
+index 0000000..7004a55
+--- /dev/null
++++ b/tests/pytest_working/compile/test_waittensor_graph_split.py
+@@ -0,0 +1,117 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++import pytest
++import torch
++from habana_frameworks.torch.dynamo.compile_backend import config
++from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
++from habana_frameworks.torch.dynamo.compile_backend.passes import (
++    pass_allreduce_parents,
++    pass_fuse_partitions,
++    pass_mark_waittensor_downstream_ops,
++    pass_propose_partitions,
++)
++from torch.fx.experimental.proxy_tensor import make_fx
++
++
++@pytest.fixture(autouse=True)
++def set_env():
++    orig_enable_allreduce_graph_split = config.enable_allreduce_graph_split
++    orig_enable_waittensor_graph_split = config.enable_waittensor_graph_split
++    config.enable_waittensor_graph_split = 1
++    config.enable_allreduce_graph_split = 1
++    yield
++    config.enable_waittensor_graph_split = orig_enable_waittensor_graph_split
++    config.enable_allreduce_graph_split = orig_enable_allreduce_graph_split
++
++
++def test_waittensor_graph_split(set_env):
++    assert config.enable_waittensor_graph_split == 1
++    assert config.enable_allreduce_graph_split == 1
++
++    import habana_frameworks.torch.distributed.hccl
++
++    if not torch.distributed.is_initialized():
++        torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
++
++    def fn(arg0_1, arg1_1, arg2_1, arg3_1, arg4_1, arg5_1, arg6_1, arg7_1):
++        expand = torch.ops.aten.expand.default(arg0_1, [64, 64])
++        transpose = torch.ops.aten.transpose.int(expand, 0, 1)
++        mm = torch.ops.aten.mm.default(transpose, arg6_1)
++        transpose_1 = torch.ops.aten.transpose.int(mm, 0, 1)
++        transpose_2 = torch.ops.aten.transpose.int(arg7_1, 0, 1)
++        mm_1 = torch.ops.aten.mm.default(expand, transpose_2)
++        transpose_3 = torch.ops.aten.transpose.int(transpose_1, 0, 1)
++        clone = torch.ops.aten.clone.default(transpose_3)
++        transpose_4 = torch.ops.aten.transpose.int(mm_1, 0, 1)
++        mm_2 = torch.ops.aten.mm.default(transpose_4, arg4_1)
++        transpose_5 = torch.ops.aten.transpose.int(mm_2, 0, 1)
++        transpose_6 = torch.ops.aten.transpose.int(arg5_1, 0, 1)
++        mm_3 = torch.ops.aten.mm.default(mm_1, transpose_6)
++        transpose_7 = torch.ops.aten.transpose.int(transpose_5, 0, 1)
++        clone_1 = torch.ops.aten.clone.default(transpose_7)
++        view_default = torch.ops.aten.view.default(clone, [4096])
++        view_default_1 = torch.ops.aten.view.default(clone_1, [4096])
++        cat = torch.ops.aten.cat.default([view_default, view_default_1])
++        all_reduce = torch.ops._c10d_functional.all_reduce_.default(cat, "sum", "0")
++        wait_tensor = torch.ops._c10d_functional.wait_tensor.default(all_reduce)
++        slice_3 = torch.ops.aten.slice.Tensor(wait_tensor, 0, 0, 4096)
++        view_4 = torch.ops.aten.view.default(slice_3, [64, 64])
++        copy_1 = torch.ops.aten.copy.default(clone, view_4)
++        slice_4 = torch.ops.aten.slice.Tensor(wait_tensor, 0, 4096, 8192)
++        view_5 = torch.ops.aten.view.default(slice_4, [64, 64])
++        copy_2 = torch.ops.aten.copy.default(clone_1, view_5)
++        transpose_8 = torch.ops.aten.transpose.int(mm_3, 0, 1)
++        mm_4 = torch.ops.aten.mm.default(transpose_8, arg2_1)
++        transpose_9 = torch.ops.aten.transpose.int(mm_4, 0, 1)
++        transpose_10 = torch.ops.aten.transpose.int(arg3_1, 0, 1)
++        mm_5 = torch.ops.aten.mm.default(mm_3, transpose_10)
++        transpose_11 = torch.ops.aten.transpose.int(transpose_9, 0, 1)
++        clone_2 = torch.ops.aten.clone.default(transpose_11)
++        transpose_12 = torch.ops.aten.transpose.int(mm_5, 0, 1)
++        mm_6 = torch.ops.aten.mm.default(transpose_12, arg1_1)
++        transpose_13 = torch.ops.aten.transpose.int(mm_6, 0, 1)
++        transpose_14 = torch.ops.aten.transpose.int(transpose_13, 0, 1)
++        clone_3 = torch.ops.aten.clone.default(transpose_14)
++        view_default_2 = torch.ops.aten.view.default(clone_2, [4096])
++        view_default_3 = torch.ops.aten.view.default(clone_3, [4096])
++        cat_1 = torch.ops.aten.cat.default([view_default_2, view_default_3])
++        all_reduce_1 = torch.ops._c10d_functional.all_reduce_.default(cat_1, "sum", "0")
++        wait_tensor_1 = torch.ops._c10d_functional.wait_tensor.default(all_reduce_1)
++        slice_7 = torch.ops.aten.slice.Tensor(wait_tensor_1, 0, 0, 4096)
++        view_10 = torch.ops.aten.view.default(slice_7, [64, 64])
++        copy_4 = torch.ops.aten.copy.default(clone_2, view_10)
++        slice_8 = torch.ops.aten.slice.Tensor(wait_tensor_1, 0, 4096, 8192)
++        view_11 = torch.ops.aten.view.default(slice_8, [64, 64])
++        copy_5 = torch.ops.aten.copy.default(clone_3, view_11)
++        return (copy_1, copy_2, copy_4, copy_5)
++
++    example_inputs = [torch.randn([64, 64]).to("hpu") for i in range(7)]
++    example_inputs = [torch.randn([]).to("hpu")] + example_inputs
++
++    graph_module = make_fx(fn)(*example_inputs)
++    ctx = OptimizerContext(
++        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
++    )
++
++    for node in graph_module.graph.nodes:
++        if not (node.name.startswith("all_reduce") or node.name.startswith("wait_tensor")):
++            node.meta["placement"] = "hpu_cluster"
++        else:
++            node.meta["placement"] = "eager"
++
++    pass_allreduce_parents(ctx)
++    pass_mark_waittensor_downstream_ops(ctx)
++    pass_propose_partitions(ctx)
++    pass_fuse_partitions(ctx)
++
++    partition_num = len(list(ctx.graph_module.children()))
++    assert partition_num == 4, "partitions are not properly splited"

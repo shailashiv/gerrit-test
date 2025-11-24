@@ -1,0 +1,28 @@
+From 842284e6969e28d15d4d1c9496514f304323461e Mon Sep 17 00:00:00 2001
+From: Barak Goldberg <bgoldberg@habana.ai>
+Date: Tue, 24 Sep 2024 10:59:29 +0300
+Subject: [PATCH] [SW-200592] transformer engine - change scale tensors to bf16 to avoid redudent casts
+
+Change-Id: I336c254edd9c16a9aaa1aa443765edad0d8a1d04
+---
+
+diff --git a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
+index d40fa1b..1211f35 100644
+--- a/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
++++ b/python_packages/habana_frameworks/torch/hpex/experimental/transformer_engine/module/base.py
+@@ -164,12 +164,12 @@
+ 
+         self.fp8_meta[fp8_meta_tensor_key] = FP8TensorMeta()
+ 
+-        self.fp8_meta[fp8_meta_tensor_key].scale = torch.ones(num_fp8_tensors, dtype=torch.float32, device="hpu")
+-        self.fp8_meta[fp8_meta_tensor_key].scale_inv = torch.ones(num_fp8_tensors, dtype=torch.float32, device="hpu")
++        self.fp8_meta[fp8_meta_tensor_key].scale = torch.ones(num_fp8_tensors, dtype=torch.bfloat16, device="hpu")
++        self.fp8_meta[fp8_meta_tensor_key].scale_inv = torch.ones(num_fp8_tensors, dtype=torch.bfloat16, device="hpu")
+         self.fp8_meta[fp8_meta_tensor_key].amax_history = torch.zeros(
+             self.fp8_meta["recipe"].amax_history_len,
+             num_fp8_tensors,
+-            dtype=torch.float32,
++            dtype=torch.bfloat16,
+             device="hpu",
+         )
+         self.fp8_meta[fp8_meta_tensor_key].amax_history_index = torch.zeros(1, dtype=torch.int32, device="hpu")

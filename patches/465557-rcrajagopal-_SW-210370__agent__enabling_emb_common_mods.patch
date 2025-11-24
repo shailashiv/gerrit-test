@@ -1,0 +1,31 @@
+From f8952ae475bf82d491916aa60aef1eff3ffc3b44 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Mon, 09 Dec 2024 18:37:38 +0200
+Subject: [PATCH] [SW-210370] agent: enabling emb common mods
+
+copy emb common mods code to build folder and compile
+along with agent fw_loader code
+
+Change-Id: Ica19140a2e7dec67a0a703044123178748e1b426
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/package/agent-fwl/agent-fwl.mk b/package/agent-fwl/agent-fwl.mk
+index bbd4ea0..de9dadb 100644
+--- a/package/agent-fwl/agent-fwl.mk
++++ b/package/agent-fwl/agent-fwl.mk
+@@ -124,9 +124,14 @@
+ 	@$(AGENT_FWL_CONF_ENV) $(HOST_DIR)/bin/cmake $(AGENT_FWL_CONF_OPTS) -S $(AGENT_FWL_BUILD_DIR)/fw-loader -B $(AGENT_FWL_BUILD_DIR)/build
+ endef
+ 
++define AGENT_FWL_COPY_EMB_COMMON_MODS_SRC
++	rsync -au --chmod=u=rwX,go=rX --exclude .svn --exclude .git --exclude .hg --exclude .bzr --exclude CVS $(EMB_COMMON_MOD_SRC_DIR)/ $(@D)/emb_common_mod
++endef
++
+ AGENT_FWL_POST_RSYNC_HOOKS += HL_VERSION_GEN
+ AGENT_FWL_POST_RSYNC_HOOKS += AGENT_FWL_COPY_ZEPHYR_SRC
+ AGENT_FWL_POST_RSYNC_HOOKS += AGENT_FWL_APP_VERSION_GEN
++AGENT_FWL_POST_RSYNC_HOOKS += AGENT_FWL_COPY_EMB_COMMON_MODS_SRC
+ 
+ define AGENT_FWL_BUILD_CMDS
+ 	@$(TARGET_MAKE_ENV) $(MAKE) -C $(AGENT_FWL_BUILD_DIR)/build

@@ -1,0 +1,1838 @@
+From bfb8b1c54fc8d89426d00dceec61e815b7edb21f Mon Sep 17 00:00:00 2001
+From: Krzysztof Badziak <kbadziak@habana.ai>
+Date: Fri, 21 Apr 2023 14:42:12 +0300
+Subject: [PATCH] experimental draft for low overhead profiler
+
+Change-Id: I99764ccdb9e5851cba49d6b514239a6a8537ad76
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d808392..3e4259f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -113,6 +113,7 @@
+   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+   pytorch_helpers/habana_helpers/dtype_helpers.cpp
+   pytorch_helpers/habana_helpers/towl.cpp
++  pytorch_helpers/low_overhead_profiler/profiler.cpp
+   pytorch_helpers/serialize/export.cpp
+   pytorch_helpers/visualize/visualize.cpp
+   habana_kernels/basic_kernels.cpp
+@@ -223,6 +224,7 @@
+   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+   pytorch_helpers/habana_helpers/towl.cpp
+   pytorch_helpers/visualize/visualize.cpp
++  pytorch_helpers/low_overhead_profiler/profiler.cpp
+   pytorch_helpers/serialize/export.cpp
+   habana_kernels/basic_kernels.cpp
+   habana_kernels/binary_inplace_kernels.cpp
+diff --git a/backend/kernel/hpu_habana_cache.cpp b/backend/kernel/hpu_habana_cache.cpp
+index d926ebc..db2e160 100644
+--- a/backend/kernel/hpu_habana_cache.cpp
++++ b/backend/kernel/hpu_habana_cache.cpp
+@@ -696,6 +696,8 @@
+   PT_EAGER_DEBUG(
+       "[SHAPE AGNOSTIC] ridx : ", ridx, " num_inputs : ", num_inputs);
+   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
++  {
++  LOP_TRACE_NAMED_FAST("update_inputs");
+   for (auto const& input : input_refs) {
+     if (input.isTensor()) {
+       auto& tensor = input.toTensor();
+@@ -746,6 +748,7 @@
+         ridx++;
+       }
+     }
++  }
+   }
+ 
+   TORCH_CHECK(
+@@ -947,6 +950,9 @@
+   HABANA_ASSERT(
+       !allocated_outputs.has_value() ||
+       (outputs_end - ridx == allocated_outputs->size()));
++
++  {
++  LOP_TRACE_NAMED_FAST("update_outputs");
+   for (; ridx < outputs_end; ridx++) {
+     auto output_idx = dtensorinfos.at(ridx)->get_output_index();
+     TORCH_CHECK(
+@@ -989,6 +995,7 @@
+     ti.set_shape(pt_output.sizes().vec());
+     ti.set_strides(pt_output.strides().vec());
+     ti.patch(pt_output, is_shape_agnostic_graph);
++  }
+   }
+ 
+   PT_EAGER_DEBUG(
+@@ -1316,6 +1323,7 @@
+ void RecipeValueSpec::patch_launch_info(
+     std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
+     std::vector<size_t>& external_tensor_info_indexes) const {
++  LOP_TRACE_FUNC_FAST();
+   TORCH_CHECK(
+       tensor_ids_.size() == dtensorinfos.size(),
+       "syn tensor ids are not populated");
+@@ -1529,7 +1537,10 @@
+       }
+     }
+     // wait for input DMA to complete before launching the compute.
++    {
++    LOP_TRACE_NAMED_FAST("wait_for_input_dma");
+     device.add_wait_events_on_stream(inDevPtr, stream_handle);
++    }
+ 
+     // Hold on to the pytorch tensors for the intermediates untill the recipe
+     // execution completes
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 2cdd45a..3370a41 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -98,7 +98,9 @@
+ 
+   bool sync_with_compile_stage = !launch_op->get_enable_4stage_pipeline();
+ 
++  LOP::emit_event_fast(true, "HabanaLaunchOpPT::run");
+   launch_op->run(stack, allocated_outputs, output_shapes, false, pipeline_call);
++  LOP::emit_event_fast(false, "HabanaLaunchOpPT::run");
+ 
+   if (!pipeline_call.is_called()) {
+     PT_BRIDGE_DEBUG(
+@@ -4920,6 +4922,7 @@
+ 
+   idx += 1;
+   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
++    LOP_TRACE_NAMED_FAST("make_shared_RecipeArgumentSpec");
+     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+         false, input_refs, jit_ir_graph_, graph_key_, op_strs_);
+   }
+diff --git a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+index a3647b8..f60b134 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt_lowering.cpp
+@@ -1429,7 +1429,9 @@
+ }
+ 
+ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
++  LOP_TRACE_FUNC_FAST();
+   num_inputs = jit_ir_graph_->inputs().size();
++
+   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
+   TORCH_CHECK(
+       num_inputs == input_st.size(),
+diff --git a/backend/synapse_helpers/graph.cpp b/backend/synapse_helpers/graph.cpp
+index f42a193..d13a05a 100644
+--- a/backend/synapse_helpers/graph.cpp
++++ b/backend/synapse_helpers/graph.cpp
+@@ -768,6 +768,8 @@
+     }
+   }
+ 
++  auto profile_workspace_init = LOP::FastManualProfiler("workspace_init");
++
+   size_t least_workspace_size = workspace_size;
+   size_t tensor_mem =
+       device.get_device_memory().get_total_memory_required(addresses);
+@@ -796,6 +798,8 @@
+     memory_reporter_event_create(device, MEM_REPORTER_GRAPH_BEFORE_LAUNCH);
+   }
+ 
++  profile_workspace_init.end();
++
+   log_graph_info(
+       device,
+       recipe_handle.recipe_name_.c_str(),
+@@ -804,6 +808,8 @@
+       device.get_workspace_size());
+ 
+   {
++    auto profile_address_lock = LOP::FastManualProfiler("address_lock");
++
+     address_lock = absl::make_unique<device_ptr_lock>(
+         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
+     auto iter = inputs_and_outputs_info.begin();
+@@ -828,6 +834,9 @@
+     towl::emitRecipeLaunch(
+         recipe_handle, workspace_size, addresses, inputs_and_outputs_info);
+ 
++    
++    profile_address_lock.end();
++    
+     PT_SYNHELPER_DEBUG(
+         "in graph::launch, launch handle string:\n",
+         "------Launch-handle ",
+diff --git a/backend/synapse_helpers/stream.cpp b/backend/synapse_helpers/stream.cpp
+index 21c03b2..f7a28ed 100644
+--- a/backend/synapse_helpers/stream.cpp
++++ b/backend/synapse_helpers/stream.cpp
+@@ -55,6 +55,7 @@
+ void stream::register_pending_event(
+     const shared_event& event,
+     bool record_event) {
++  LOP_TRACE_FUNC_FAST();
+   {
+     std::lock_guard<std::mutex> lock_guard(mut_);
+     if (record_event) {
+diff --git a/habana_eager/eager_exec.cpp b/habana_eager/eager_exec.cpp
+index 99e3828..c8b6c4e 100644
+--- a/habana_eager/eager_exec.cpp
++++ b/habana_eager/eager_exec.cpp
+@@ -449,11 +449,17 @@
+         }
+       }
+     }
++    LOP::emit_event_fast(true, "HabanaLaunchOpPT::HabanaLaunchOpPT");
+     auto habana_launch_op =
+         std::make_unique<habana::HabanaLaunchOpPT>(graph_and_meta);
++    LOP::emit_event_fast(false, "HabanaLaunchOpPT::HabanaLaunchOpPT");
++
++    LOP::emit_event_fast(true, "HabanaLaunchOpPT::set_input_stack_");
+     habana_launch_op->set_input_stack(stack);
++    LOP::emit_event_fast(false, "HabanaLaunchOpPT::set_input_stack_");
+     habana_launch_op->set_require_h2d_st(
+         m_eager_op_meta_data.require_h2d_, m_eager_op_meta_data.require_st_);
++
+     HabanaLaunchOpPipeline::LoweringTask(
+         std::move(habana_launch_op),
+         habana_launch_op->get_input_stack(),
+diff --git a/habana_eager/graph_exec.cpp b/habana_eager/graph_exec.cpp
+index 92d3052..b68733a 100644
+--- a/habana_eager/graph_exec.cpp
++++ b/habana_eager/graph_exec.cpp
+@@ -431,9 +431,13 @@
+   m_graph_and_meta->SetHPUStream(stream);
+   try {
+     if (m_is_pipeline_supported) {
++      LOP::emit_event_fast(true, "HabanaLaunchOpPT::HabanaLaunchOpPT");
+       auto habana_launch_op =
+           std::make_unique<habana::HabanaLaunchOpPT>(m_graph_and_meta);
++      LOP::emit_event_fast(false, "HabanaLaunchOpPT::HabanaLaunchOpPT");
++      LOP::emit_event_fast(true, "HabanaLaunchOpPT::set_input_stack_");
+       habana_launch_op->set_input_stack(stack);
++      LOP::emit_event_fast(false, "HabanaLaunchOpPT::set_input_stack_");
+       habana_launch_op->set_symbol_values(in_symbol_value_map);
+       HabanaLaunchOpPipeline::LoweringTask(
+           std::move(habana_launch_op),
+diff --git a/python_packages/habana_frameworks/torch/CMakeLists.txt b/python_packages/habana_frameworks/torch/CMakeLists.txt
+index 5f93a06..3f469c9 100644
+--- a/python_packages/habana_frameworks/torch/CMakeLists.txt
++++ b/python_packages/habana_frameworks/torch/CMakeLists.txt
+@@ -42,6 +42,7 @@
+ add_subdirectory(dynamo/compile_backend)
+ add_subdirectory(hpex/csrc)
+ add_subdirectory(hpu/csrc)
++add_subdirectory(low_overhead_profiler/csrc)
+ add_subdirectory(utils/debug/csrc)
+ add_subdirectory(utils/experimental/csrc)
+ add_subdirectory(utils/event_dispatcher/csrc)
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/compilers.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/compilers.py
+index 3bf7ed4..0810072 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/compilers.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/compilers.py
+@@ -10,6 +10,8 @@
+ #
+ ###############################################################################
+ 
++import habana_frameworks.torch.low_overhead_profiler.profiler as lop
++
+ from typing import List
+ from unittest import mock
+ 
+@@ -103,6 +105,17 @@
+     # Return the module in boxed format required by AOT Autograd.
+     return functorch.compile.make_boxed_func(graph_module.forward)
+ 
++    def wrapper(*args, **kwargs):
++        lop.emit_begin(lop.profiler.RUN)
++        result = graph_module.forward(*args, **kwargs)
++        lop.emit_end(lop.profiler.RUN)
++        return result
++
++    if uses_aot:
++        # Return the module in boxed format required by AOT Autograd.
++        return functorch.compile.make_boxed_func(wrapper)
++    else:
++        return wrapper
+ 
+ def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+     """
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
+index 2dcddb8..fc3b5f9 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.py
+@@ -25,6 +25,7 @@
+ from .random_utils import is_random_op
+ from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitute_sympyfn
+ 
++import habana_frameworks.torch.low_overhead_profiler.profiler as lop
+ logger = get_compile_backend_logger()
+ enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
+ 
+@@ -63,6 +64,7 @@
+                 self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
+ 
+     def __call__(self, *args):
++        lop.emit_begin(lop.profiler.LAUNCH)
+         outputs = []
+         inputs = tuple(args)
+ 
+@@ -93,11 +95,13 @@
+         elif self._has_randoms:
+             inputs = (None, None) + inputs
+ 
+-        return graph_launch(
++        result = graph_launch(
+             recipe_id=self._recipe_id,
+             inputs=inputs,
+             outputs=outputs,
+         )
++        lop.emit_end(lop.profiler.LAUNCH)
++        return result
+ 
+     def check_for_random_ops(self):
+         for n in self._fx_module.graph.nodes:
+diff --git a/python_packages/habana_frameworks/torch/low_overhead_profiler/README.txt b/python_packages/habana_frameworks/torch/low_overhead_profiler/README.txt
+new file mode 100644
+index 0000000..6fa3608
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/low_overhead_profiler/README.txt
+@@ -0,0 +1,52 @@
++# Example usage in a python. Uses start/stop API and predefined user events (check bindings file for a list) that will be visible on trace.
++import os
++
++os.environ["PT_HPU_LAZY_MODE"] = "0"
++
++import torch
++import habana_frameworks.torch as ht
++import habana_frameworks.torch.core as htcore
++import habana_frameworks.torch.low_overhead_profiler.profiler as lop
++
++s0 = ht.hpu.Stream()
++s1 = ht.hpu.Stream()
++
++def my_func(x):
++    default_stream = ht.hpu.default_stream()
++    y = x.add(1.0)
++    
++    ht.hpu.set_stream(s0)
++    z = y.add(2.0)
++    z = z.mul(2.0)
++
++    ht.hpu.set_stream(s1)
++    w = y.add(2.0)
++    w = w.mul(2.0)
++    
++    ht.hpu.set_stream(default_stream)
++    s0.synchronize()
++    s1.synchronize()
++    
++    res = z + w
++    res = res.t()
++    
++    return res
++
++lop.start() 
++
++lop.emit_begin(lop.profiler.INIT)
++in0 = torch.rand(16, 16).to("hpu")
++lop.emit_end(lop.profiler.INIT)
++
++lop.emit_begin(lop.profiler.LOOP)
++for i in range(50):
++  lop.emit_begin(lop.profiler.ITERATION)
++  res = my_func(in0)
++  lop.emit_end(lop.profiler.ITERATION)
++lop.emit_end(lop.profiler.LOOP)
++
++lop.stop()
++lop.flush()
++
++print(res)
++
+diff --git a/python_packages/habana_frameworks/torch/low_overhead_profiler/__init__.py b/python_packages/habana_frameworks/torch/low_overhead_profiler/__init__.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/low_overhead_profiler/__init__.py
+diff --git a/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/CMakeLists.txt b/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/CMakeLists.txt
+new file mode 100644
+index 0000000..1883c39
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/CMakeLists.txt
+@@ -0,0 +1,19 @@
++# ##############################################################################
++# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
++# confidential information and is subject to the confidentiality and license
++# agreements under which it was provided.
++#
++# ##############################################################################
++cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
++set(TARGET_NAME "_lop_profiler_C")
++add_library(${TARGET_NAME} SHARED
++    bindings.cpp)
++target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
++
++set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
++target_link_libraries(${TARGET_NAME} PRIVATE bindings torch ${TORCH_PYTHON_LIBRARY})
++install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+diff --git a/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/bindings.cpp b/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/bindings.cpp
+new file mode 100644
+index 0000000..e3ae94f
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/low_overhead_profiler/csrc/bindings.cpp
+@@ -0,0 +1,70 @@
++#include <torch/extension.h>
++#include "pybind11/stl.h"
++#include "synapse_api.h"
++#include "pytorch_helpers/low_overhead_profiler/profiler.h"
++
++PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
++  m.doc() = "This module registers low overhead host profiler API";
++
++  m.def("_start_lo_host_profiler", []() {
++    LOP::ProfilerEngine::get_inst().enable();
++  });
++  m.def("_stop_lo_host_profiler", []() {
++    LOP::ProfilerEngine::get_inst().disable();
++  });
++  m.def("_flush_lo_host_profiler", []() {
++    LOP::ProfilerEngine::get_inst().flush();
++  });
++  m.def("_start_hw_profiler", []() {
++    if (synProfilerStart(synTraceDevice, 0) != synSuccess) {
++      std::cerr << "synProfilerStart failed" << std::endl;
++    }
++  });
++  m.def("_stop_hw_profiler", []() {
++    if (synProfilerStop(synTraceDevice, 0) != synSuccess) {
++      std::cerr << "synProfilerStop failed" << std::endl;
++    }
++  });
++  m.def("_flush_hw_profiler", []() {
++    if (synProfilerGetTrace(synTraceDevice, 0, synTraceFormatTEF, nullptr, nullptr, nullptr) != synSuccess) {
++      std::cerr << "synProfilerGetTrace failed" << std::endl;
++    }
++  });
++  m.def("_emit_begin_lop_event", [](uint32_t user_event_id) {
++    LOP::emit_event_by_id(true, 3, user_event_id);
++  });
++  m.def("_emit_end_lop_event", [](uint32_t user_event_id) {
++    LOP::emit_event_by_id(false, 3, user_event_id);
++  });
++
++  py::enum_<LOP::predefined_events_ids>(m, "event")
++    .value("TRAINING",          LOP::predefined_events_ids::TRAINING)
++    .value("VALIDATION",        LOP::predefined_events_ids::VALIDATION)
++    .value("TEST",              LOP::predefined_events_ids::TEST)
++    .value("INFERENCE",         LOP::predefined_events_ids::INFERENCE)
++    .value("FORWARD",           LOP::predefined_events_ids::FORWARD)
++    .value("BACKWARD",          LOP::predefined_events_ids::BACKWARD)
++    .value("OPTIMIZER",         LOP::predefined_events_ids::OPTIMIZER)
++    .value("EPOCH",             LOP::predefined_events_ids::EPOCH)
++    .value("LOOP",              LOP::predefined_events_ids::LOOP)
++    .value("LOOP_OUTER",        LOP::predefined_events_ids::LOOP_OUTER)
++    .value("LOOP_INNER",        LOP::predefined_events_ids::LOOP_INNER)
++    .value("MINIBATCH",         LOP::predefined_events_ids::MINIBATCH)
++    .value("ITERATION",         LOP::predefined_events_ids::ITERATION)
++    .value("SNAPSHOT_SAVE",     LOP::predefined_events_ids::SNAPSHOT_SAVE)
++    .value("SNAPSHOT_RESTORE",  LOP::predefined_events_ids::SNAPSHOT_RESTORE)
++    .value("COLLECTIVE",        LOP::predefined_events_ids::COLLECTIVE)
++    .value("RUN",               LOP::predefined_events_ids::RUN)
++    .value("LAUNCH",            LOP::predefined_events_ids::LAUNCH)
++    .value("GRAPH_COMPILE",     LOP::predefined_events_ids::GRAPH_COMPILE)
++    .value("INIT",              LOP::predefined_events_ids::INIT)
++    .value("SYNC",              LOP::predefined_events_ids::SYNC)
++    .value("CLEANUP",           LOP::predefined_events_ids::CLEANUP)
++    .value("BLOCK1",            LOP::predefined_events_ids::BLOCK1)
++    .value("BLOCK2",            LOP::predefined_events_ids::BLOCK2)
++    .value("BLOCK3",            LOP::predefined_events_ids::BLOCK3)
++    .value("BLOCK4",            LOP::predefined_events_ids::BLOCK4)
++    .value("BLOCK5",            LOP::predefined_events_ids::BLOCK5)
++    .export_values();
++
++}
+\ No newline at end of file
+diff --git a/python_packages/habana_frameworks/torch/low_overhead_profiler/profiler.py b/python_packages/habana_frameworks/torch/low_overhead_profiler/profiler.py
+new file mode 100644
+index 0000000..48bf573
+--- /dev/null
++++ b/python_packages/habana_frameworks/torch/low_overhead_profiler/profiler.py
+@@ -0,0 +1,27 @@
++import torch
++from enum import Enum
++import habana_frameworks.torch.utils._lop_profiler_C as profiler
++
++def start():
++    profiler._start_lo_host_profiler()
++
++def stop():
++    profiler._stop_lo_host_profiler()
++
++def flush():
++    profiler._flush_lo_host_profiler()
++
++def hw_start():
++    profiler._start_hw_profiler()
++
++def hw_stop():
++    profiler._stop_hw_profiler()
++
++def hw_flush():
++    profiler._flush_hw_profiler()
++
++def emit_begin(id):
++    profiler._emit_begin_lop_event(id)
++
++def emit_end(id):
++    profiler._emit_end_lop_event(id)
+\ No newline at end of file
+diff --git a/pytorch_helpers/habana_helpers/logging.h b/pytorch_helpers/habana_helpers/logging.h
+index 98b6c17..da8b21a 100644
+--- a/pytorch_helpers/habana_helpers/logging.h
++++ b/pytorch_helpers/habana_helpers/logging.h
+@@ -24,6 +24,7 @@
+ #include "backend/profiling/profiling.h"
+ #include "backend/synapse_helpers/env_flags.h"
+ #include "backend/synapse_helpers/runtime_tracing.h"
++#include "pytorch_helpers/low_overhead_profiler/profiler.h"
+ 
+ #include <fmt/ostream.h>
+ #include <fmt/ranges.h>
+@@ -379,7 +380,7 @@
+   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_LAZY_EAGER, __VA_ARGS__)
+ 
+ /************************TRACE MACROS************************************/
+-#define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
++#define PT_MOD_BEGIN(MOD) LOP_TRACE_FUNC_FAST()
+ 
+ #define PT_DEVICE_BEGIN PT_MOD_BEGIN(PT_DEVICE)
+ #define PT_KERNEL_BEGIN                                           \
+@@ -426,7 +427,7 @@
+     ptFuncLogger.emplace(#MOD, PNAME, NAME, isTraceLoggerEnabled); \
+   }
+ 
+-#define PT_MOD_TRACE(MOD, PNAME, NAME) PT_MOD_SCOPE(MOD, PNAME, NAME)
++#define PT_MOD_TRACE(MOD, PNAME, NAME) LOP_TRACE_FUNC_FAST()
+ 
+ #define PT_EAGER_TRACE PT_MOD_TRACE(PT_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+ #define PT_EAGER_TRACE_WITH_NAME(name) PT_MOD_TRACE(PT_EAGER, name, name)
+diff --git a/pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp b/pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+index 5d2a30b..9ccbfab 100644
+--- a/pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
++++ b/pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+@@ -41,7 +41,9 @@
+ template <template <typename> typename Queue, typename Task>
+ void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
+   try {
++    LOP::emit_event_fast(true, "ThreadPool task()");
+     task();
++    LOP::emit_event_fast(false, "ThreadPool task()");
+   } catch (const std::exception& e) {
+     if (propagate_exception_)
+       ex_ptr_ = std::current_exception();
+diff --git a/pytorch_helpers/low_overhead_profiler/profiler.cpp b/pytorch_helpers/low_overhead_profiler/profiler.cpp
+new file mode 100644
+index 0000000..61c5feb
+--- /dev/null
++++ b/pytorch_helpers/low_overhead_profiler/profiler.cpp
+@@ -0,0 +1,476 @@
++#include <immintrin.h>
++#include <x86intrin.h>
++#include <stdio.h>
++#include <thread>
++#include <list>
++#include <mutex>
++#include <vector>
++#include <cstring>
++#include <map>
++#include <unistd.h>
++#include <climits>
++#include <stdint.h>
++
++#include "profiler.h"
++
++#define EVENT_TABLE_SIZE 50000000
++
++// RING_SIZE HAVE TO BE POWER OF 2 - due to algorithm used later.
++#define LOP_RING_SIZE 0x80000
++
++namespace LOP {
++
++const std::map<predefined_events_ids, const char*> predefined_events_strings{
++    {predefined_events_ids::TRAINING,         "training"},
++    {predefined_events_ids::VALIDATION,       "validation"},
++    {predefined_events_ids::TEST,             "test"},
++    {predefined_events_ids::INFERENCE,        "inference"},
++    {predefined_events_ids::FORWARD,          "forward"},
++    {predefined_events_ids::BACKWARD,         "backward"},
++    {predefined_events_ids::OPTIMIZER,        "optimizer"},
++    {predefined_events_ids::EPOCH,            "epoch"},
++    {predefined_events_ids::LOOP,             "loop"},
++    {predefined_events_ids::LOOP_OUTER,       "loop_outer"},
++    {predefined_events_ids::LOOP_INNER,       "loop_inner"},
++    {predefined_events_ids::MINIBATCH,        "minibatch"},
++    {predefined_events_ids::ITERATION,        "iteration"},
++    {predefined_events_ids::SNAPSHOT_SAVE,    "snapshot_save"},
++    {predefined_events_ids::SNAPSHOT_RESTORE, "snapshot_restore"},
++    {predefined_events_ids::COLLECTIVE,       "collective"},
++    {predefined_events_ids::RUN,              "run"},
++    {predefined_events_ids::LAUNCH,           "launch"},
++    {predefined_events_ids::GRAPH_COMPILE,    "graph_compile"},
++    {predefined_events_ids::INIT,             "init"},
++    {predefined_events_ids::CLEANUP,          "cleanup"},
++    {predefined_events_ids::SYNC,             "sync"},
++    {predefined_events_ids::BLOCK1,           "block1"},
++    {predefined_events_ids::BLOCK2,           "block2"},
++    {predefined_events_ids::BLOCK3,           "block3"},
++    {predefined_events_ids::BLOCK4,           "block4"},
++    {predefined_events_ids::BLOCK5,           "block5"}
++};
++
++
++inline uint64_t barriered_rdtsc() {
++    uint64_t tsc;
++    __asm__ __volatile__(
++            "rdtscp\n\t"
++            "shl $32, %%rdx\n\t"
++            "or %%rdx, %%rax\n\t"
++            "lfence\n\t"
++            : "=a"(tsc)
++            :
++            : "%rcx", "%rdx", "memory");
++
++    return tsc;
++}
++
++ProfilerEngine::ProfilerEngine()
++: enabled(false),
++  flushed(false),
++  biggest_copy(0),
++  initialization_completed(false),
++  events_table(new Event[EVENT_TABLE_SIZE]),
++  events_counter(0),
++  running(false),
++  copying_worker(copying_handler, this)
++{
++    char* disable_string = std::getenv("LOP_DISABLE");
++    if (!disable_string || !static_cast<uint32_t>(std::stoi(disable_string))) {
++        std::chrono::nanoseconds time_1_ns(1);
++        std::chrono::nanoseconds time_1000_ns(1000);
++        auto pre_test1 = barriered_rdtsc();
++        for (int i=0; i<1000; ++i)
++            std::this_thread::sleep_for(time_1_ns);
++        auto post_test1 = barriered_rdtsc();
++        auto fragmented_test_result = post_test1 - pre_test1;
++
++        auto pre_test2 = barriered_rdtsc();
++        std::this_thread::sleep_for(time_1000_ns);
++        auto post_test2 = barriered_rdtsc();
++        auto consolidated_test_result = post_test2 - pre_test2;
++
++        auto overhead = (fragmented_test_result - consolidated_test_result) / 999;
++
++        std::chrono::milliseconds time_100_ms(100);
++        auto pre = barriered_rdtsc();
++        std::this_thread::sleep_for(time_100_ms);
++        auto post = barriered_rdtsc();
++        uint64_t tsc_frequency_per_second = (post-pre-overhead)*10;
++        this->ticks_per_ns_ratio = static_cast<double>(tsc_frequency_per_second)/1000.0/1000.0/1000.0;
++
++        printf("TSC freq: %luHz\n", tsc_frequency_per_second);
++        printf("          %f ticks per nanosecond\n", this->ticks_per_ns_ratio);
++
++        char* log_level_string = std::getenv("LOP_LOG_LEVEL");
++        if (log_level_string) {
++            this->env_log_level = static_cast<uint32_t>(std::stoi(log_level_string));
++        } else {
++            this->env_log_level = 3;
++        }
++
++        this->running = true;
++    }
++
++    this->initialization_completed = true;
++}
++
++void ProfilerEngine::flush() {
++    printf("ProfilerEngine::flush at PID:%u\n", getpid()); fflush(stdout);
++
++    if (this->flushed) {
++        printf("Tried to flush already flushed LOP. Doing nothing.");
++        return;
++    }
++
++    this->enabled = false;
++
++    // Allow copying thread to finish some of its work.
++    std::this_thread::sleep_for(std::chrono::milliseconds(10));
++
++    this->running = false;
++    this->copying_worker.join();
++
++    printf("BIGGEST COPY THAT OCCURED: %lu\n", this->biggest_copy);
++    printf("SMALLEST GAP THAT OCCURED: %lu\n", LOP_RING_SIZE - this->biggest_copy);
++    printf("TOTAL EVENTS: %lu\n", this->events_counter);
++
++    if (this->events_counter > 0) {
++        char name[50];
++        sprintf(name, "events_pid%u.json", getpid());
++        auto file = fopen(name, "w");
++        fprintf(file,"{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
++
++        // Find first event, timewise.
++        uint64_t tsc_base = std::numeric_limits<uint64_t>::max();
++        for (uint64_t i = 0; i < this->events_counter; ++i) {
++            auto& event = this->events_table[i];
++            if (event.timestamp < tsc_base) tsc_base = event.timestamp;
++        }
++
++        uint64_t time_base_ns = static_cast<uint64_t>(static_cast<double>(tsc_base) / this->ticks_per_ns_ratio);
++
++        auto pid = getpid();
++
++        for (uint64_t i = 0; i < this->events_counter; ++i) {
++            auto& event = this->events_table[i];
++            auto tsc_diff = event.timestamp - tsc_base;
++            auto time_ns = static_cast<uint64_t>(static_cast<double>(tsc_diff) / this->ticks_per_ns_ratio);
++
++            std::string name;
++            if (event.name) {
++                name = event.name;
++            } else {
++                // User provided his own ID.
++                auto search = predefined_events_strings.find(static_cast<predefined_events_ids>(event.user_event_id));
++                if (search != predefined_events_strings.end()) {
++                    // We have this event in our predefined list.
++                    name = search->second;
++                } else {
++                    // This event ID does not belong to our predefined list.
++                    name = "custom event id " + std::to_string(event.user_event_id);
++                }
++            }
++
++            if (name == "_internal_counter_event") {
++                std::string counter_name = std::to_string(event.thread_id);
++
++                fprintf(file,
++                    "{"
++                        "\"tid\":%s,"
++                        "\"pid\":\"counters\","
++                        "\"ts\":%lu.%03lu,"
++                        "\"name\":\"%s\","
++                        "\"ph\":\"C\","
++                        "\"args\":{"
++                            "\"ctr\":%u"
++                        "}"
++                    "},\n",
++                    counter_name.c_str(), time_ns/1000, time_ns%1000, counter_name.c_str(), event.user_event_id);
++            } else if (event.is_begin) {
++                if (i == 0) {
++                    fprintf(file,
++                        "{"
++                            "\"tid\":%u,"
++                            "\"pid\":%u,"
++                            "\"ts\":%lu.%03lu,"
++                            "\"name\":\"%s\","
++                            "\"ph\":\"B\","
++                            "\"args\":{"
++                                "\"begin_cpu\":%u,"
++                                "\"time_base\":%lu"
++                            "}"
++                        "},\n",
++                        event.thread_id, pid, time_ns/1000, time_ns%1000, name.c_str(), event.cpu_id, time_base_ns);
++                } else {
++                    fprintf(file,
++                        "{"
++                            "\"tid\":%u,"
++                            "\"pid\":%u,"
++                            "\"ts\":%lu.%03lu,"
++                            "\"name\":\"%s\","
++                            "\"ph\":\"B\","
++                            "\"args\":{"
++                                "\"begin_cpu\":%u"
++                            "}"
++                        "},\n",
++                        event.thread_id, pid, time_ns/1000, time_ns%1000, name.c_str(), event.cpu_id);
++                }
++            } else {
++                fprintf(file,
++                    "{"
++                        "\"tid\":%u,"
++                        "\"pid\":%u,"
++                        "\"ts\":%lu.%03lu,"
++                        "\"name\":\"%s\","
++                        "\"ph\":\"E\","
++                        "\"args\":{"
++                            "\"end_cpu\":%u"
++                        "}"
++                    "},\n",
++                    event.thread_id, pid, time_ns/1000, time_ns%1000, name.c_str(), event.cpu_id);
++            }
++
++        }
++
++        fprintf(file,"{}]}");
++        fclose(file);
++    }
++
++    delete[] this->events_table;
++    this->events_table = nullptr;
++
++    this->flushed = true;
++
++    printf("ProfilerEngine::flush finished\n"); fflush(stdout);
++}
++
++ProfilerEngine::~ProfilerEngine() {
++    printf("ProfilerEngine::~ProfilerEngine at PID:%u\n", getpid()); fflush(stdout);
++
++    if (!this->flushed) {
++        this->flush();
++    }
++
++    printf("ProfilerEngine::~ProfilerEngine finished\n"); fflush(stdout);
++}
++
++ProfilerEngine& ProfilerEngine::get_inst()
++{
++    static ProfilerEngine inst;
++    return inst;
++}
++
++void ProfilerEngine::add_ring_buffer(EventRingBuffer* ring_buffer) {
++    const std::lock_guard<std::mutex> lock(this->rings_mutex);
++    this->ring_buffers.push_back(ring_buffer);
++}
++
++void ProfilerEngine::remove_ring_buffer(EventRingBuffer* ring_buffer) {
++    const std::lock_guard<std::mutex> lock(this->rings_mutex);
++    this->ring_buffers.remove(ring_buffer);
++}
++
++void ProfilerEngine::copying_handler(ProfilerEngine* engine) {
++    while (!engine->initialization_completed)
++        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
++
++    bool limit_reached = false;
++    while (engine->running && !limit_reached) {
++        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
++        {
++            const std::lock_guard<std::mutex> lock(engine->rings_mutex);
++            for(EventRingBuffer* ring : engine->ring_buffers) {
++                // We want to read them exactly now and once, as END might increase in the meantime.
++                volatile auto begin = ring->b;
++                volatile auto end = ring->e;
++
++                if (begin < end) {
++                    // Single memcopy can handle it.
++                    auto num_of_elements = end - begin;
++
++                    if (engine->events_counter + num_of_elements > EVENT_TABLE_SIZE) {
++                        printf("Reached event limit. Bailing out.\n");
++                        limit_reached = true;
++                        break;
++                    }
++
++                    memcpy(engine->events_table + engine->events_counter, &ring->events[begin], num_of_elements * sizeof(Event));
++
++                    engine->events_counter += num_of_elements;
++                    ring->b = end;
++
++                    if (engine->biggest_copy < num_of_elements) engine->biggest_copy = num_of_elements;
++
++                } else if (begin > end) {
++                    // Two memcopies needed.
++                    auto num_of_elements1 = LOP_RING_SIZE - begin;
++                    auto num_of_elements2 = end;
++
++                    if (engine->events_counter + num_of_elements1 + num_of_elements2 > EVENT_TABLE_SIZE) {
++                        printf("Reached event limit. Bailing out.\n");
++                        limit_reached = true;
++                        break;
++                    }
++
++                    memcpy(engine->events_table + engine->events_counter, &ring->events[begin], num_of_elements1 * sizeof(Event));
++                    memcpy(engine->events_table + engine->events_counter + num_of_elements1, &ring->events[0], num_of_elements2 * sizeof(Event));
++
++                    engine->events_counter += num_of_elements1 + num_of_elements2;
++                    ring->b = end;
++
++                    if (engine->biggest_copy < (num_of_elements1 + num_of_elements2)) engine->biggest_copy = num_of_elements1 + num_of_elements2;
++                }
++            }
++        }
++
++    }
++}
++
++EventRingBuffer::EventRingBuffer() {
++    this->thread_id = pthread_self();
++    this->events = new Event[LOP_RING_SIZE];
++    ProfilerEngine::get_inst().add_ring_buffer(this);
++}
++
++EventRingBuffer::~EventRingBuffer() {
++    printf("EventRingBuffer::~EventRingBuffer at TID:%u\n", this->thread_id); fflush(stdout);
++    ProfilerEngine::get_inst().remove_ring_buffer(this);
++    if (this->events) {
++        delete[] this->events;
++        this->events = nullptr;
++    }
++
++    this->thread_id = -1;
++    printf("EventRingBuffer::~EventRingBuffer finished\n"); fflush(stdout);
++}
++
++void emit_event(bool is_begin, uint32_t log_level, const char* name)
++{
++    static thread_local EventRingBuffer event_ring_buffer;
++    Event* events_buffer = event_ring_buffer.events;
++    bool is_pointer_valid = events_buffer != nullptr;
++    bool is_enabled = ProfilerEngine::get_inst().is_enabled();
++    bool is_loglevel = ProfilerEngine::get_inst().is_loglevel(log_level);
++    if (is_pointer_valid & is_enabled & is_loglevel) {
++        uint64_t tsc = 0;
++        uint32_t aux = 0;
++        __asm__ __volatile__(
++            "rdtscp\n\t"
++            "shl $32, %%rdx\n\t"
++            "or %%rdx, %%rax\n\t"
++            : "=a"(tsc), "=c" (aux)
++            :
++            : "%rdx", "memory");
++
++        Event& new_event = events_buffer[event_ring_buffer.e];
++        new_event.timestamp = tsc;
++        new_event.name = name;
++        new_event.thread_id = event_ring_buffer.thread_id;
++        new_event.cpu_id = aux;
++        new_event.is_begin = is_begin;
++
++        // This would be more accurate as there would be less space for RDTSCP to slide around.
++        // but it would also incur constant penalty everywhere, effectively reducing profiling accuracy anyway.
++        // __asm__ __volatile__("lfence\n\t" ::: "memory"); 
++        // ...so, let's try below one, just to make sure compiler won't reorder these.
++        // It shouldn't be that bad, because:
++        // Last operation here is write and CPU will not do StoreStore reordering. Meaning RDTSCP could at worst scenario
++        // execute just before END pointer being incremented (because at that point write of TSC into structure
++        // must be already completed). And that is perfectly fine.
++        __asm__ __volatile__("" ::: "memory");
++
++        event_ring_buffer.e = (event_ring_buffer.e + 1) & (LOP_RING_SIZE-1);
++    }
++}
++
++void emit_event_fast(bool is_begin, const char* name)
++{
++    // This function is faster because it use lighter RDTSC instead of RDTSCP. It's latency is lower but it also
++    // does not make partial barrier like RDTSCP does. Caveat is that we no longer know the CPUs on which we took TSC.
++    // It also does not check whether event buffer is correct (so it's less reliable). It does not support log levels.
++    if (ProfilerEngine::get_inst().is_enabled()) {
++        static thread_local EventRingBuffer event_ring_buffer;
++        uint64_t tsc = 0;
++        __asm__ __volatile__(
++            "rdtsc\n\t"
++            "shl $32, %%rdx\n\t"
++            "or %%rdx, %%rax\n\t"
++            : "=a"(tsc)
++            :
++            : "%rdx", "memory");
++
++        Event& new_event = event_ring_buffer.events[event_ring_buffer.e];
++        new_event.timestamp = tsc;
++        new_event.name = name;
++        new_event.thread_id = event_ring_buffer.thread_id;
++        new_event.is_begin = is_begin;
++
++        __asm__ __volatile__("" ::: "memory");
++
++        event_ring_buffer.e = (event_ring_buffer.e + 1) & (LOP_RING_SIZE-1);
++    }
++}
++
++void emit_counter_event_fast(uint32_t ctr_id, uint32_t count)
++{
++    // This function is faster because it use lighter RDTSC instead of RDTSCP. It's latency is lower but it also
++    // does not make partial barrier like RDTSCP does. Caveat is that we no longer know the CPUs on which we took TSC.
++    // It also does not check whether event buffer is correct (so it's less reliable).
++    // It does not support log levels.
++    if (ProfilerEngine::get_inst().is_enabled()) {
++        static thread_local EventRingBuffer event_ring_buffer;
++        uint64_t tsc = 0;
++        __asm__ __volatile__(
++            "rdtsc\n\t"
++            "shl $32, %%rdx\n\t"
++            "or %%rdx, %%rax\n\t"
++            : "=a"(tsc)
++            :
++            : "%rdx", "memory");
++
++        Event& new_event = event_ring_buffer.events[event_ring_buffer.e];
++        new_event.timestamp = tsc;
++        new_event.thread_id = ctr_id;
++        new_event.name = "_internal_counter_event";
++        new_event.user_event_id = count; // let's reuse this field as a counter
++
++        __asm__ __volatile__("" ::: "memory");
++
++        event_ring_buffer.e = (event_ring_buffer.e + 1) & (LOP_RING_SIZE-1);
++    }
++}
++
++void emit_event_by_id(bool is_begin, uint32_t log_level, uint32_t user_event_id)
++{
++    static thread_local EventRingBuffer event_ring_buffer;
++    Event* events_buffer = event_ring_buffer.events;
++    bool is_pointer_valid = events_buffer != nullptr;
++    bool is_enabled = ProfilerEngine::get_inst().is_enabled();
++    bool is_loglevel = ProfilerEngine::get_inst().is_loglevel(log_level);
++    if (is_pointer_valid & is_enabled & is_loglevel) {
++        uint64_t tsc = 0;
++        uint32_t aux = 0;
++        __asm__ __volatile__(
++            "rdtscp\n\t"
++            "shl $32, %%rdx\n\t"
++            "or %%rdx, %%rax\n\t"
++            : "=a"(tsc), "=c" (aux)
++            :
++            : "%rdx", "memory");
++
++        Event& new_event = events_buffer[event_ring_buffer.e];
++        new_event.timestamp = tsc;
++        new_event.name = nullptr;
++        new_event.thread_id = event_ring_buffer.thread_id;
++        new_event.cpu_id = aux;
++        new_event.user_event_id = user_event_id;
++        new_event.is_begin = is_begin;
++
++        __asm__ __volatile__("" ::: "memory");
++
++        event_ring_buffer.e = (event_ring_buffer.e + 1) & (LOP_RING_SIZE-1);
++    }
++}
++
++};
+\ No newline at end of file
+diff --git a/pytorch_helpers/low_overhead_profiler/profiler.h b/pytorch_helpers/low_overhead_profiler/profiler.h
+new file mode 100644
+index 0000000..c94bdfe
+--- /dev/null
++++ b/pytorch_helpers/low_overhead_profiler/profiler.h
+@@ -0,0 +1,150 @@
++#include <thread>
++#include <list>
++#include <mutex>
++#include <climits>
++#include <stdint.h>
++
++#define LOP_TRACE_NAMED(x, l) LOP::ScopedProfiler tracer(x, l);
++#define LOP_TRACE_NAMED_FAST(x) LOP::FastScopedProfiler tracer(x);
++
++#define LOP_TRACE_FUNC(l) LOP_TRACE_NAMED(__PRETTY_FUNCTION__, l);
++#define LOP_TRACE_FUNC_FAST() LOP_TRACE_NAMED_FAST(__PRETTY_FUNCTION__);
++
++namespace LOP {
++
++enum predefined_events_ids : uint32_t {
++    TRAINING,
++    VALIDATION,
++    TEST,
++    INFERENCE,
++    FORWARD,
++    BACKWARD,
++    OPTIMIZER,
++    EPOCH,
++    LOOP,
++    LOOP_OUTER,
++    LOOP_INNER,
++    MINIBATCH,
++    ITERATION,
++    SNAPSHOT_SAVE,
++    SNAPSHOT_RESTORE,
++    COLLECTIVE,
++    RUN,
++    LAUNCH,
++    GRAPH_COMPILE,
++    INIT,
++    SYNC,
++    CLEANUP,
++    BLOCK1,
++    BLOCK2,
++    BLOCK3,
++    BLOCK4,
++    BLOCK5,
++};
++
++struct Event {
++    uint64_t timestamp;
++    const char* name;
++    uint32_t thread_id;
++    uint32_t cpu_id;
++    uint32_t user_event_id;
++    bool is_begin;
++};
++
++struct EventRingBuffer {
++    Event* events;
++    uint64_t b = 0;
++    uint64_t e = 0;
++    uint32_t thread_id = 0;
++
++    EventRingBuffer();
++    ~EventRingBuffer();
++};
++
++struct ProfilerEngine {
++
++    ProfilerEngine();
++    ~ProfilerEngine();
++
++    static ProfilerEngine& get_inst();
++
++    void add_ring_buffer(EventRingBuffer* ring_buffer);
++    void remove_ring_buffer(EventRingBuffer* ring_buffer);
++
++    inline bool is_enabled() { return this->enabled; }
++    inline bool is_loglevel(uint32_t log_level) { return this->env_log_level <= log_level; }
++    void enable() { if (this->running) this->enabled = true; }
++    void disable() { if (this->running) this->enabled = false; }
++    void flush();
++
++    static void copying_handler(ProfilerEngine* engine);
++
++    volatile bool enabled;
++    volatile bool flushed;
++
++    // Needed for ring buffer utilization statistics.
++    uint64_t biggest_copy;
++
++    volatile bool initialization_completed;
++    std::list<EventRingBuffer*> ring_buffers;
++    double ticks_per_ns_ratio;
++    std::mutex rings_mutex;
++    Event* events_table;
++    uint64_t events_counter;
++    volatile bool running;
++    std::thread copying_worker;
++    uint32_t env_log_level;
++};
++
++void emit_event(bool is_begin, uint32_t log_level, const char* name);
++void emit_event_fast(bool is_begin, const char* name);
++void emit_counter_event_fast(uint32_t ctr_id, uint32_t count);
++void emit_event_by_id(bool is_begin, uint32_t log_level, uint32_t user_event_id);
++
++class ScopedProfiler {
++    const char* name;
++    uint32_t log_level;
++
++public:
++    ScopedProfiler(const char* name, uint32_t log_level) {
++        this->name = name;
++        this->log_level = log_level;
++        emit_event(true, this->log_level, this->name);
++    }
++
++    ~ScopedProfiler() {
++        emit_event(false, this->log_level, this->name);
++    }
++};
++
++class FastScopedProfiler {
++    const char* name;
++
++public:
++    FastScopedProfiler(const char* name) {
++        this->name = name;
++        emit_event_fast(true, this->name);
++    }
++
++    ~FastScopedProfiler() {
++        emit_event_fast(false, this->name);
++    }
++};
++
++class FastManualProfiler {
++    const char* name;
++
++public:
++    FastManualProfiler(const char* name) {
++        this->name = name;
++        emit_event_fast(true, this->name);
++    }
++
++    ~FastManualProfiler() {}
++
++    void end() {
++        emit_event_fast(false, this->name);
++    }
++};
++
++}
+\ No newline at end of file
+diff --git a/pytorch_helpers/synapse_shim/syn_training_impl.cpp b/pytorch_helpers/synapse_shim/syn_training_impl.cpp
+index 8f5e3c6..fc2c2a6 100644
+--- a/pytorch_helpers/synapse_shim/syn_training_impl.cpp
++++ b/pytorch_helpers/synapse_shim/syn_training_impl.cpp
+@@ -15,25 +15,31 @@
+ #include "logging.h"
+ #include "partial_event_emulation.h"
+ #include "synapse_shim/synapse_api_shim.h"
++#include "low_overhead_profiler/profiler.h"
+ 
+ synStatus SYN_API_CALL synRecipeDestroy(synRecipeHandle recipeHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synRecipeDestroy(recipeHandle);
+ }
+ 
+ synStatus SYN_API_CALL
+ synSectionSetGroup(synSectionHandle sectionHandle, uint64_t sectionGroup) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionSetGroup(sectionHandle, sectionGroup);
+ }
+ 
+ synStatus SYN_API_CALL synInitialize() {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synInitialize();
+ }
+ 
+ synStatus SYN_API_CALL synDestroy() {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDestroy();
+ }
+ 
+ synStatus SYN_API_CALL synDeviceSynchronize(const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceSynchronize(deviceId);
+ }
+ 
+@@ -41,10 +47,12 @@
+     synStreamHandle* pStreamHandle,
+     const synDeviceId deviceId,
+     const uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synStreamCreateGeneric(pStreamHandle, deviceId, flags);
+ }
+ 
+ synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synStreamDestroy(streamHandle);
+ }
+ 
+@@ -64,15 +72,18 @@
+     const synStreamHandle streamHandle,
+     synEventHandle eventHandle,
+     const uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synStreamWaitEvent(streamHandle, eventHandle, flags);
+ }
+ 
+ synStatus SYN_API_CALL
+ synStreamSynchronize(const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synStreamSynchronize(streamHandle);
+ }
+ 
+ synStatus SYN_API_CALL synStreamQuery(const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synStreamQuery(streamHandle);
+ }
+ 
+@@ -80,23 +91,28 @@
+     synEventHandle* pEventHandle,
+     const synDeviceId deviceId,
+     const uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventCreate(pEventHandle, deviceId, flags);
+ }
+ 
+ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventDestroy(eventHandle);
+ }
+ 
+ synStatus SYN_API_CALL
+ synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventRecord(eventHandle, streamHandle);
+ }
+ 
+ synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventQuery(eventHandle);
+ }
+ 
+ synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventSynchronize(eventHandle);
+ }
+ 
+@@ -104,6 +120,7 @@
+     uint64_t* pMilliseconds,
+     const synEventHandle eventHandleStart,
+     const synEventHandle eventHandleEnd) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synEventElapsedTime(
+       pMilliseconds, eventHandleStart, eventHandleEnd);
+ }
+@@ -115,6 +132,7 @@
+     uint64_t pWorkspace,
+     const synRecipeHandle pRecipehandle,
+     uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synLaunch(
+       streamHandle,
+       launchTensorsInfo,
+@@ -127,6 +145,7 @@
+ synStatus SYN_API_CALL synWorkspaceGetSize(
+     uint64_t* pWorkspaceSize,
+     const synRecipeHandle recipeHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synWorkspaceGetSize(pWorkspaceSize, recipeHandle);
+ }
+ 
+@@ -136,6 +155,7 @@
+     const uint64_t size,
+     const uint64_t dst,
+     const synDmaDir direction) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synMemCopyAsync(streamHandle, src, size, dst, direction);
+ }
+ 
+@@ -146,47 +166,56 @@
+     const uint64_t* dst,
+     const synDmaDir direction,
+     const size_t numCopies) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synMemCopyAsyncMultiple(
+       streamHandle, src, size, dst, direction, numCopies);
+ }
+ 
+ synStatus SYN_API_CALL synDeviceGetCount(uint32_t* pCount) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetCount(pCount);
+ }
+ 
+ synStatus SYN_API_CALL synDeviceGetCountByDeviceType(
+     uint32_t* pCount,
+     const synDeviceType deviceType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetCountByDeviceType(pCount, deviceType);
+ }
+ 
+ synStatus SYN_API_CALL synDeviceAcquireByDeviceType(
+     synDeviceId* pDeviceId,
+     const synDeviceType deviceType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceAcquireByDeviceType(pDeviceId, deviceType);
+ }
+ 
+ synStatus SYN_API_CALL
+ synDeviceAcquireByModuleId(synDeviceId* pDeviceId, const synModuleId moduleId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceAcquireByModuleId(pDeviceId, moduleId);
+ }
+ 
+ synStatus SYN_API_CALL
+ synDeviceAcquire(synDeviceId* pDeviceId, const char* pciBus) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceAcquire(pDeviceId, pciBus);
+ }
+ 
+ synStatus SYN_API_CALL
+ synDriverGetVersion(char* pDriverVersion, const int len) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDriverGetVersion(pDriverVersion, len);
+ }
+ 
+ synStatus SYN_API_CALL
+ synDeviceGetName(char* pName, const int len, const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetName(pName, len, deviceId);
+ }
+ 
+ synStatus SYN_API_CALL synTensorDestroy(const synTensor tensor) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorDestroy(tensor);
+ }
+ 
+@@ -195,6 +224,7 @@
+     const char** tensorNames,
+     uint64_t* tensorIds,
+     const uint32_t numOfTensors) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorRetrieveIds(
+       pRecipeHandle, tensorNames, tensorIds, numOfTensors);
+ }
+@@ -203,37 +233,44 @@
+     synSectionHandle* sectionHandle,
+     uint64_t memoryAttributes,
+     const synGraphHandle graph) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionCreate(sectionHandle, memoryAttributes, graph);
+ }
+ 
+ synStatus SYN_API_CALL synSectionGetPersistent(
+     synSectionHandle sectionHandle,
+     bool* sectionIsPersistent) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionGetPersistent(sectionHandle, sectionIsPersistent);
+ }
+ 
+ synStatus SYN_API_CALL synSectionSetPersistent(
+     synSectionHandle sectionHandle,
+     bool sectionIsPersistent) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionSetPersistent(sectionHandle, sectionIsPersistent);
+ }
+ 
+ synStatus SYN_API_CALL
+ synSectionGetRMW(synSectionHandle sectionHandle, bool* sectionIsRMW) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionGetRMW(sectionHandle, sectionIsRMW);
+ }
+ 
+ synStatus SYN_API_CALL
+ synSectionSetRMW(synSectionHandle sectionHandle, bool sectionIsRMW) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionSetRMW(sectionHandle, sectionIsRMW);
+ }
+ 
+ synStatus SYN_API_CALL synSectionDestroy(synSectionHandle sectionHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionDestroy(sectionHandle);
+ }
+ 
+ synStatus SYN_API_CALL
+ synSectionSetConst(synSectionHandle sectionHandle, bool sectionIsConst) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synSectionSetConst(sectionHandle, sectionIsConst);
+ }
+ 
+@@ -250,6 +287,7 @@
+     const synSectionId sectionId,
+     const synSectionProp prop,
+     uint64_t* propertyPtr) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synRecipeSectionGetProp(
+       pRecipeHandle, sectionId, prop, propertyPtr);
+ }
+@@ -266,6 +304,7 @@
+     const char* pName,
+     const char** inputLayouts,
+     const char** outputLayouts) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synNodeCreate(
+       graphHandle,
+       pInputsTensorList,
+@@ -293,6 +332,7 @@
+     synNodeId* nodeUniqueId,
+     const char** inputLayouts,
+     const char** outputLayouts) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synNodeCreateWithId(
+       graphHandle,
+       pInputsTensorList,
+@@ -312,6 +352,7 @@
+     const synGraphHandle graphHandle,
+     const synNodeId nodeId,
+     const bool useDeterministic) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synNodeSetDeterministic(
+       graphHandle, nodeId, useDeterministic);
+ }
+@@ -322,6 +363,7 @@
+     const synNodeId* pBlockedNodesIdList,
+     const uint32_t numberblocking,
+     const uint32_t numberblocked) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synNodeDependencySet(
+       graphHandle,
+       pBlockingNodesIdList,
+@@ -343,6 +385,7 @@
+     const synGraphHandle graphHandle,
+     const char* pRecipeName,
+     const char* pBuildLog) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphCompile(
+       pRecipeHandle, graphHandle, pRecipeName, pBuildLog);
+ }
+@@ -352,6 +395,7 @@
+     const synGraphAttribute* attributes,
+     const uint64_t* values,
+     const uint32_t size) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphSetAttribute(GraphHandle, attributes, values, size);
+ }
+ 
+@@ -365,12 +409,14 @@
+ 
+ synStatus SYN_API_CALL
+ synGraphCreate(synGraphHandle* pGraphHandle, const synDeviceType deviceType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphCreate(pGraphHandle, deviceType);
+ }
+ 
+ synStatus SYN_API_CALL synGraphCreateEager(
+     synGraphHandle* pGraphHandle,
+     const synDeviceType deviceType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphCreateEager(pGraphHandle, deviceType);
+ }
+ 
+@@ -381,6 +427,7 @@
+     uint32_t* numTensors,
+     synNodeHandleMap* nodesMap,
+     uint32_t* numNodes) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphDuplicate(
+       graphHandle, newGraphHandle, tensorsMap, numTensors, nodesMap, numNodes);
+ }
+@@ -390,6 +437,7 @@
+ }
+ 
+ synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synGraphDestroy(graphHandle);
+ }
+ 
+@@ -398,6 +446,7 @@
+     const uint32_t value,
+     const size_t numOfElements,
+     const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synMemsetD32Async(
+       pDeviceMem, value, numOfElements, streamHandle);
+ }
+@@ -407,6 +456,7 @@
+     const unsigned char value,
+     const size_t numOfElements,
+     const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synMemsetD8Async(
+       pDeviceMem, value, numOfElements, streamHandle);
+ }
+@@ -416,6 +466,7 @@
+     const uint16_t value,
+     const size_t numOfElements,
+     const synStreamHandle streamHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synMemsetD16Async(
+       pDeviceMem, value, numOfElements, streamHandle);
+ }
+@@ -425,6 +476,7 @@
+     const uint64_t size,
+     const uint32_t flags,
+     void** buffer) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synHostMalloc(deviceId, size, flags, buffer);
+ }
+ 
+@@ -432,6 +484,7 @@
+     const synDeviceId deviceId,
+     const void* buffer,
+     const uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synHostFree(deviceId, buffer, flags);
+ }
+ 
+@@ -439,11 +492,13 @@
+     const synDeviceId deviceId,
+     const uint64_t size,
+     const void* buffer) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synHostMap(deviceId, size, buffer);
+ }
+ 
+ synStatus SYN_API_CALL
+ synHostUnmap(const synDeviceId deviceId, const void* buffer) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synHostUnmap(deviceId, buffer);
+ }
+ 
+@@ -453,6 +508,7 @@
+     uint64_t reqAddr,
+     const uint32_t flags,
+     uint64_t* buffer) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceMalloc(deviceId, size, reqAddr, flags, buffer);
+ }
+ 
+@@ -460,10 +516,12 @@
+     const synDeviceId deviceId,
+     const uint64_t buffer,
+     const uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceFree(deviceId, buffer, flags);
+ }
+ 
+ synStatus SYN_API_CALL synDeviceRelease(const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceRelease(deviceId);
+ }
+ 
+@@ -471,11 +529,13 @@
+     const synDeviceId deviceId,
+     uint64_t* free,
+     uint64_t* total) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetMemoryInfo(deviceId, free, total);
+ }
+ 
+ synStatus SYN_API_CALL
+ synDeviceGetInfo(const synDeviceId deviceId, synDeviceInfo* pDeviceInfo) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetInfo(deviceId, pDeviceInfo);
+ }
+ 
+@@ -486,11 +546,13 @@
+ 
+ synStatus SYN_API_CALL
+ synProfilerStart(const synTraceType type, const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synProfilerStart(type, deviceId);
+ }
+ 
+ synStatus SYN_API_CALL
+ synProfilerStop(const synTraceType type, const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synProfilerStop(type, deviceId);
+ }
+ 
+@@ -501,6 +563,7 @@
+     void* buffer,
+     size_t* size,
+     size_t* numEntries) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synProfilerGetTrace(
+       type, deviceId, format, buffer, size, numEntries);
+ }
+@@ -519,6 +582,7 @@
+ synStatus SYN_API_CALL synConfigurationSet(
+     const char* configurationName,
+     const char* configurationValue) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synConfigurationSet(configurationName, configurationValue);
+ }
+ 
+@@ -526,6 +590,7 @@
+     const char* configurationName,
+     char* configurationValue,
+     uint64_t size) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synConfigurationGet(
+       configurationName, configurationValue, size);
+ }
+@@ -533,12 +598,14 @@
+ synStatus SYN_API_CALL synRecipeSerialize(
+     const synRecipeHandle recipeHandle,
+     const char* recipeFileName) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synRecipeSerialize(recipeHandle, recipeFileName);
+ }
+ 
+ synStatus SYN_API_CALL synRecipeDeSerialize(
+     synRecipeHandle* pRecipeHandle,
+     const char* recipeFileName) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synRecipeDeSerialize(pRecipeHandle, recipeFileName);
+ }
+ 
+@@ -547,6 +614,7 @@
+     const synRecipeAttribute* recipeAttr,
+     const unsigned querySize,
+     const synRecipeHandle recipeHandle) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synRecipeGetAttribute(
+       retVal, recipeAttr, querySize, recipeHandle);
+ }
+@@ -556,6 +624,7 @@
+     const synDeviceAttribute* deviceAttr,
+     const unsigned querySize,
+     const synDeviceId deviceId) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synDeviceGetAttribute(
+       retVal, deviceAttr, querySize, deviceId);
+ }
+@@ -565,15 +634,18 @@
+     synGraphHandle graph,
+     synTensorType type,
+     const char* tensorName) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorHandleCreate(tensor, graph, type, tensorName);
+ }
+ 
+ synStatus SYN_API_CALL synProfilerGetCurrentTimeNS(uint64_t* nanoTime) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synProfilerGetCurrentTimeNS(nanoTime);
+ }
+ 
+ synStatus SYN_API_CALL
+ synProfilerAddCustomMeasurement(const char* description, uint64_t nanoTime) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synProfilerAddCustomMeasurement(description, nanoTime);
+ }
+ 
+@@ -581,6 +653,7 @@
+     synTensor tensor,
+     synSectionHandle section,
+     uint64_t byteOffset) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorAssignToSection(tensor, section, byteOffset);
+ }
+ 
+@@ -613,6 +686,7 @@
+     uint64_t size,
+     synDataType dataType,
+     bool copyBuffer) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetHostPtr(
+       tensor, hostPtr, size, dataType, copyBuffer);
+ }
+@@ -622,12 +696,14 @@
+     void** hostPtr,
+     uint64_t* size,
+     synDataType* dataType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorGetHostPtr(tensor, hostPtr, size, dataType);
+ }
+ 
+ synStatus SYN_API_CALL synConstTensorCreate(
+     synTensor* pTensor,
+     const synTensorDescriptor* descriptor) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synConstTensorCreate(pTensor, descriptor);
+ }
+ 
+@@ -636,6 +712,7 @@
+     const synTensorDescriptor* descriptor,
+     const synSectionHandle pSectionHandle,
+     const uint64_t sectionOffset) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorCreate(
+       pTensor, descriptor, pSectionHandle, sectionOffset);
+ }
+@@ -643,22 +720,26 @@
+ synStatus SYN_API_CALL synTensorSetPermutation(
+     synTensor tensor,
+     const synTensorPermutation* permutation) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetPermutation(tensor, permutation);
+ }
+ 
+ synStatus SYN_API_CALL
+ synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetAllowPermutation(tensor, allowPermutation);
+ }
+ 
+ synStatus SYN_API_CALL
+ synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorGetName(tensor, size, name);
+ }
+ 
+ synStatus SYN_API_CALL synTensorRetrieveLaunchAmount(
+     const synRecipeHandle pRecipeHandle,
+     uint32_t* numOfTensors) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorRetrieveLaunchAmount(pRecipeHandle, numOfTensors);
+ }
+ 
+@@ -666,6 +747,7 @@
+     const synRecipeHandle pRecipeHandle,
+     uint64_t* tensorsIds,
+     const uint32_t numOfTensors) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorRetrieveLaunchIds(
+       pRecipeHandle, tensorsIds, numOfTensors);
+ }
+@@ -674,6 +756,7 @@
+     const synRecipeHandle pRecipeHandle,
+     const uint32_t numOfTensors,
+     synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorRetrieveLaunchInfoById(
+       pRecipeHandle, numOfTensors, tensorsLaunchInfo);
+ }
+@@ -682,6 +765,7 @@
+     const synTensor tensor,
+     synTensorGeometry* geometry,
+     synGeometryType geometryType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorGetGeometry(tensor, geometry, geometryType);
+ }
+ 
+@@ -689,17 +773,20 @@
+     synTensor tensor,
+     const synTensorGeometry* geometry,
+     synGeometryType geometryType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetGeometry(tensor, geometry, geometryType);
+ }
+ 
+ synStatus SYN_API_CALL synTensorSetDeviceFullLayout(
+     synTensor tensor,
+     const synTensorDeviceFullLayout* layout) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetDeviceFullLayout(tensor, layout);
+ }
+ 
+ synStatus SYN_API_CALL
+ synTensorSetDeviceDataType(synTensor tensor, synDataType deviceDataType) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetDeviceDataType(tensor, deviceDataType);
+ }
+ 
+@@ -708,6 +795,7 @@
+     synQuantizationProperty prop,
+     void* propVal,
+     uint64_t propSize) {
++  LOP_TRACE_FUNC_FAST();
+   return syn_api->synTensorSetQuantizationData(tensor, prop, propVal, propSize);
+ }
+ 
+@@ -715,6 +803,7 @@
+     const synRecipeHandle recipeHandle,
+     uint32_t numOfExternalTensors,
+     uint64_t* tensorIds) {
++  LOP_TRACE_FUNC_FAST();
+   if (UsePartialEventEmulation()) {
+     auto& partial_event_emulation = PartialEventEmulation::Instance();
+     return partial_event_emulation.synTensorExtExtractExecutionOrder(
+@@ -729,6 +818,7 @@
+     size_t numOfEvents,
+     const synLaunchTensorInfo* launchTensorsInfo,
+     const synRecipeHandle recipeHandle) {
++  LOP_TRACE_FUNC_FAST();
+   if (UsePartialEventEmulation()) {
+     auto& partial_event_emulation = PartialEventEmulation::Instance();
+     return partial_event_emulation.synEventMapTensor(
+@@ -747,6 +837,7 @@
+     synEventHandle* eventHandleList,
+     const uint32_t numberOfEvents,
+     uint32_t flags) {
++  LOP_TRACE_FUNC_FAST();
+   if (UsePartialEventEmulation()) {
+     auto& partial_event_emulation = PartialEventEmulation::Instance();
+     return partial_event_emulation.synLaunchWithExternalEvents(
+@@ -771,6 +862,7 @@
+ }
+ 
+ synStatus SYN_API_CALL synTensorSetExternal(synTensor tensor, bool isExternal) {
++  LOP_TRACE_FUNC_FAST();
+   if (UsePartialEventEmulation()) {
+     auto& partial_event_emulation = PartialEventEmulation::Instance();
+     return partial_event_emulation.synTensorSetExternal(tensor, isExternal);
+@@ -780,6 +872,7 @@
+ 
+ synStatus SYN_API_CALL
+ synTensorGetExternal(const synTensor tensor, bool* isExternal) {
++  LOP_TRACE_FUNC_FAST();
+   if (UsePartialEventEmulation()) {
+     auto& partial_event_emulation = PartialEventEmulation::Instance();
+     return partial_event_emulation.synTensorGetExternal(tensor, isExternal);

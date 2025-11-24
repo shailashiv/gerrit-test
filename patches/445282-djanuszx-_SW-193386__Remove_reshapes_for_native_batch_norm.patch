@@ -1,0 +1,204 @@
+From 05cfab16c1719a8513c8f59f91a535727444623a Mon Sep 17 00:00:00 2001
+From: Damian Janusz <djanuszx@habana.ai>
+Date: Wed, 28 Aug 2024 09:26:52 +0300
+Subject: [PATCH] [SW-193386] Remove reshapes for native_batch_norm
+
+Remove reshapes for:
+_native_batch_norm_legit
+_native_batch_norm_legit_functional
+native_batch_norm
+
+Change-Id: I290bfe92e32979397462f02e4f87fab83ba108a6
+---
+
+diff --git a/hpu_ops/backend/batch_norm_gen.cpp b/hpu_ops/backend/batch_norm_gen.cpp
+index 3003168..3bb2a0f 100644
+--- a/hpu_ops/backend/batch_norm_gen.cpp
++++ b/hpu_ops/backend/batch_norm_gen.cpp
+@@ -282,11 +282,6 @@
+       std::string::npos;
+ }
+ 
+-bool is_no_reshape_op(const OpBackend& op) {
+-  return op.GetGuid().find("batch_norm_inf_reshape") != std::string::npos ||
+-      op.GetGuid().find("_native_batch_norm_legit.no_stats") != std::string::npos;
+-}
+-
+ std::vector<sh::tensor> handle_batch_norm_training_fwd(
+     OpBackend& op,
+     sh::graph& graph,
+@@ -344,63 +339,30 @@
+   bool is_functional = is_batch_norm_functional(op);
+ 
+   std::vector<sh::tensor> bn_out;
+-  if (is_no_reshape_op(op)) {
+-    auto input_4d_shape = input.pt_t.sizes().vec();
+-    bn_out = OpBackend::BuildNode(
+-        &op,
+-        graph,
+-        {get_guid_with_precision("batch_norm_reshape_fwd", op.ScalarType()),
+-         {input.syn_t, bias, weight, running_mean, running_var},
+-         {NodeAttr::NodeOutputAttr{
+-              input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
+-          NodeAttr::NodeOutputAttr{
+-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
+-          NodeAttr::NodeOutputAttr{
+-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
+-          is_functional
+-              ? NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
+-              : NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
+-          is_functional
+-              ? NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
+-              : NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+-         params.get(),
+-         params_size});
+-  } else {
+-    std::optional<sh::tensor> inputStorageOpt;
+-    const auto [input_4d, input_4d_shape] =
+-        transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
+-            op, graph, input, inputStorageOpt);
+-    const auto input_dim = input.pt_t.sizes().size();
+-    bn_out = OpBackend::BuildNode(
+-        &op,
+-        graph,
+-        {get_guid_with_precision("batch_norm_fwd", op.ScalarType()),
+-         {input_4d, bias, weight, running_mean, running_var},
+-         {NodeAttr::NodeOutputAttr{
+-              input_4d_shape,
+-              op.ScalarType(),
+-              (input_dim != 4) ? c10::nullopt : c10::optional<int>(0)},
+-          NodeAttr::NodeOutputAttr{
+-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
+-          NodeAttr::NodeOutputAttr{
+-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
+-          is_functional
+-              ? NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
+-              : NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
+-          is_functional
+-              ? NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
+-              : NodeAttr::
+-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+-         params.get(),
+-         params_size});
+-  }
++  auto input_4d_shape = input.pt_t.sizes().vec();
++  bn_out = OpBackend::BuildNode(
++      &op,
++      graph,
++      {get_guid_with_precision("batch_norm_reshape_fwd", op.ScalarType()),
++       {input.syn_t, bias, weight, running_mean, running_var},
++       {NodeAttr::NodeOutputAttr{
++            input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
++        NodeAttr::NodeOutputAttr{
++            out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
++        NodeAttr::NodeOutputAttr{
++            out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
++        is_functional
++            ? NodeAttr::
++                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
++            : NodeAttr::
++                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
++        is_functional
++            ? NodeAttr::
++                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
++            : NodeAttr::
++                  NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
++       params.get(),
++       params_size});
+ 
+   if (running_mean_opt.has_value() && not is_functional) {
+     op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
+@@ -668,6 +630,20 @@
+   const auto params = FillBatchNormFwdParams(stack, paramsSize);
+   const auto outShapes = BatchNormFwdOutputShape(stack);
+ 
++  auto inOutLayout = getSynapseLayout(input.pt_t.dim());
++
++  SetSynapseLayouts(
++      {inOutLayout,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
++      {inOutLayout,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
++       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
++
+   std::vector<sh::tensor> bnOut =
+       (is_training(training, runningMeanOpt.has_value())
+            ? handle_batch_norm_training_fwd
+@@ -682,8 +658,6 @@
+           params,
+           paramsSize,
+           outShapes);
+-
+-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
+ 
+   if (isOutputInfMode()) {
+     moveLastOutputTensorAtFront(*this);
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index ceda0b1..9a3b7dd 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -4749,9 +4749,6 @@
+       running_var: [Float]
+   op_backend: BatchNormOpBackend
+   out_ids: [0, 0, 0]
+-  synapse_layouts:
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+ 
+ _native_batch_norm_legit_no_training:
+   custom_fill_params: FillBatchNormNoTrainingFwdParams
+@@ -4824,9 +4821,6 @@
+   guid: _native_batch_norm_legit_functional
+   op_backend: BatchNormOpBackend
+   out_ids: [0, 0, 0, 0, 0]
+-  synapse_layouts:
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+ 
+ native_batch_norm:
+   custom_fill_params: FillBatchNormFwdParams
+@@ -4852,9 +4846,6 @@
+       running_var: [Float]
+   op_backend: BatchNormOpBackend
+   out_ids: [0, 0, 0]
+-  synapse_layouts:
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+   lazy:
+     acc_thread: true
+     override_fn: batch_norm_hpu_lazy
+@@ -4891,9 +4882,6 @@
+       save_mean: [Float]
+       save_invstd: [Float]
+   op_backend: BatchNormOpBackend
+-  synapse_layouts:
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+ 
+ native_batch_norm_backward:
+   custom_fill_params: FillBatchNormBwdParams
+diff --git a/tests/pytest_working/eager/test_hpu_native_batch_norm_out.py b/tests/pytest_working/eager/test_hpu_native_batch_norm_out.py
+index 5a8b652..5824fa9 100644
+--- a/tests/pytest_working/eager/test_hpu_native_batch_norm_out.py
++++ b/tests/pytest_working/eager/test_hpu_native_batch_norm_out.py
+@@ -17,7 +17,7 @@
+ if not is_gaudi1():
+     dtypes.append(torch.half)
+ 
+-shapes = [(2, 3, 4, 5), (4, 3, 8)]
++shapes = [(2, 3, 4, 5), (4, 3, 8), (3, 2, 4, 5, 2, 3)]
+ 
+ 
+ def fn(input, weight, bias, mean, var):

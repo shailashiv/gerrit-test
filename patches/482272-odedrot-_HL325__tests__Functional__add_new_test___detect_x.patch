@@ -1,0 +1,497 @@
+From 2bacf0a465bad340044ea474357aadaf98e86960 Mon Sep 17 00:00:00 2001
+From: Oded Rot <orot@habana.ai>
+Date: Mon, 19 May 2025 10:41:26 +0300
+Subject: [PATCH] [HL325][tests] Functional: add new test:  detect_xx_out (4 sensors) by i2c, set cpld to rma mode Functional: - add log print if device failed on sensors thresholds
+
+Change-Id: Id90c6972fbc497acd3cd659becca726025891400
+Signed-off-by: Oded Rot <orot@habana.ai>
+---
+
+diff --git a/json/tests/HL325/FT/config_ft.json b/json/tests/HL325/FT/config_ft.json
+index 4daba07..fd3ff66 100644
+--- a/json/tests/HL325/FT/config_ft.json
++++ b/json/tests/HL325/FT/config_ft.json
+@@ -22,6 +22,7 @@
+         "TestFwEepromValidateViaPcie",
+         "TestManfModeDebug",
+         "TestFunctional",
++        "TestDetectXXOut",
+         "TestSVHBER",
+         "TestPCIStress"
+       ],
+@@ -32,6 +33,7 @@
+         "TestFwEepromValidateViaPcie",
+         "TestManfModeDebug",
+         "TestFunctional",
++        "TestDetectXXOut",
+         "TestSVHBER"
+       ],
+       "HL325_ft2": [
+@@ -39,7 +41,8 @@
+         "TestPCILinkSpec",
+         "TestManfModeDebug",
+         "TestFT2",
+-        "TestCpldVersion"
++        "TestCpldVersion",
++        "TestDetectXXOut"
+       ],
+       "HL325_ft3": [
+         "TestInformation",
+diff --git a/json/tests/HL325/Testing_list.json b/json/tests/HL325/Testing_list.json
+index 6c05e14..2d1a32b 100644
+--- a/json/tests/HL325/Testing_list.json
++++ b/json/tests/HL325/Testing_list.json
+@@ -227,8 +227,9 @@
+         "325_FT_CHK22": "TEST tests/HL325/test_functional.py::TestFunctional::test_serdes_bw #RESULTS_PASS#",
+         "325_FT_CHK23": "TEST tests/HL325/test_functional.py::TestFunctional::test_power_stress_serdes #RESULTS_PASS#",
+         "325_FT_CHK24": "TEST tests/HL325/test_functional.py::TestFunctional::test_analyze_global_result #RESULTS_PASS#",
+-        "325_FT_CHK25": "TEST tests/HL325/test_svh_ber.py::TestSVHBER::test_svh_ber #RESULTS_PASS#",
+-        "325_FT_Total_Items": "25"
++        "325_FT_CHK25": "TEST tests/HL325/test_detect_xx_out.py::TestDetectXXOut::test_detect_xx_out_values #RESULTS_PASS#",
++        "325_FT_CHK26": "TEST tests/HL325/test_svh_ber.py::TestSVHBER::test_svh_ber #RESULTS_PASS#",
++        "325_FT_Total_Items": "26"
+     },
+     "HL325_ft1": {
+         "325_FT1_CHK1": "TEST tests/HL325/test_information.py::TestInformation::test_information #RESULTS_PASS#",
+@@ -243,8 +244,9 @@
+         "325_FT1_CHK10": "TEST tests/HL325/test_functional.py::TestFunctional::test_hl_qual_functional #RESULTS_PASS#",
+         "325_FT1_CHK11": "TEST tests/HL325/test_functional.py::TestFunctional::test_resnet50_training_accuracy #RESULTS_PASS#",
+         "325_FT1_CHK12": "TEST tests/HL325/test_functional.py::TestFunctional::test_analyze_global_result #RESULTS_PASS#",
+-        "325_FT1_CHK13": "TEST tests/HL325/test_svh_ber.py::TestSVHBER::test_svh_ber #RESULTS_PASS#",
+-        "325_FT1_Total_Items": "13"
++        "325_FT1_CHK13": "TEST tests/HL325/test_detect_xx_out.py::TestDetectXXOut::test_detect_xx_out_values #RESULTS_PASS#",
++        "325_FT1_CHK14": "TEST tests/HL325/test_svh_ber.py::TestSVHBER::test_svh_ber #RESULTS_PASS#",
++        "325_FT1_Total_Items": "14"
+     },
+     "HL325_ft2": {
+         "325_FT2_CHK1": "TEST tests/HL325/test_information.py::TestInformation::test_information #RESULTS_PASS#",
+@@ -307,7 +309,8 @@
+         "325_BI_CHK21": "TEST tests/HL325/test_functional.py::TestFunctional::test_power_stress_serdes #RESULTS_PASS#",
+         "325_BI_CHK22": "TEST tests/HL325/test_functional.py::TestFunctional::test_analyze_global_result #RESULTS_PASS#",
+         "325_BI_CHK23": "TEST tests/HL325/test_svh_ber.py::TestSVHBER::test_svh_ber #RESULTS_PASS#",
+-        "325_BI_Total_Items": "23"
++        "325_BI_CHK24": "TEST tests/HL325/test_detect_xx_out.py::TestDetectXXOut::test_detect_xx_out_values #RESULTS_PASS#",
++        "325_BI_Total_Items": "24"
+     },
+     "HL325_fru_eeprom_ft": {
+         "325_FRU_EEPROM_FT_CHK1": "TEST tests/HL325/test_information.py::TestInformation::test_information #RESULTS_PASS#",
+diff --git a/tests/HL325/test_detect_xx_out.py b/tests/HL325/test_detect_xx_out.py
+new file mode 100644
+index 0000000..d8729fd
+--- /dev/null
++++ b/tests/HL325/test_detect_xx_out.py
+@@ -0,0 +1,388 @@
++"""
++****************************************************************************
++* Copyright (C) 2022 HabanaLabs, Ltd.
++* All Rights Reserved.
++*
++* Unauthorized copying of this file, via any medium is strictly prohibited.
++* Proprietary and confidential.
++****************************************************************************
++"""
++help_dict = {'Owner':'Oded Rot',
++'required OS system':' Linux or Windows',
++'required connection ':' usb, i2c',
++'num_of_devices':'json/tests/HL325/tests_options.json',
++}
++
++import logging
++import pytest
++import hw_manager
++from tests.test_base import TestBase
++from hw_manager.interfaces.usb_i2c import UsbI2c
++from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
++from setup_manager import options
++
++# Logging Manipulation
++log_manager = options.get_log_manager()
++
++# Main Logger
++logger = logging.getLogger(__name__)
++
++
++@pytest.mark.HL325_ft
++@pytest.mark.HL325_ft1
++@pytest.mark.HL325_bi
++class TestDetectXXOut(TestBase):
++    usb_elements = None
++    pci_to_mezz = {}
++    mezz_to_pci = {}
++    pci_to_mezz_log_format = {}
++    pcie_mezz_map = {}
++
++    @classmethod
++    def setup_class(cls):
++        # Global Status
++        cls.test_code = 'DETECT XX OUT'
++
++        # Get Test-Options
++        hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get Test Options')
++        cls.test_options = hw_manager.get_test_options()
++
++        hlsa_logger(level='debug', ident='Description', operation=f'Get Command Line Controls')
++        cls.host = hw_manager.get_machine_component("pci_machine")
++        cls.device_cli = cls.host.get_control(hw_manager.controls.device_cli)
++
++        cls.mcp_first_module_id_idx = cls.test_options.mcp_first_module_id_idx
++        if cls.test_options.station_setup_module == 'SA_FT':
++            cls.ft_jig_sensors = True
++            cls.mcp_connected = True
++            cls.mcp_first_module_id_idx = 1
++            cls.bmc_fan = False
++            cls.bmc_monitors = False
++            cls.set_log_by_mezz = False
++
++        elif cls.test_options.station_setup_module == 'SA':
++            cls.ft_jig_sensors = False
++            cls.mcp_connected = True
++            cls.mcp_first_module_id_idx = 0
++            cls.bmc_fan = False
++            cls.bmc_monitors = False
++            cls.set_log_by_mezz = False
++
++        elif cls.test_options.station_setup_module == 'HLB':
++            cls.ft_jig_sensors = False
++            cls.mcp_connected = False
++            cls.mcp_first_module_id_idx = 0
++            cls.bmc_monitors = True
++            cls.bmc_fan = True
++            cls.set_log_by_mezz = True
++            cls.test_options.number_of_OAM = cls.test_options.num_of_devices
++
++        cls.pci_to_mezz = {}
++        cls.mezz_to_pci = {}
++        cls.pci_to_mezz_log_format = {}
++        cls.pcie_mezz_map = {}
++
++        cls.sve_run = cls.host.get_control(hw_manager.controls.sve_soc)
++        cls.device_mapper = hw_manager.device_mappers.SVE(cls)
++        cls.pci_to_mezz, cls.mezz_to_pci = cls.device_mapper.create_pci_mezz_mappings(
++            mcp_first_module_id_idx=cls.mcp_first_module_id_idx, enable_load_driver=True)
++
++        cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
++
++        for pci in cls.connected_pcie_devices:
++            cls.pci_to_mezz_log_format[pci] = pci
++            if cls.set_log_by_mezz:
++                mezz = cls.pci_to_mezz[f'{pci}']
++                if mezz is not None and mezz != 'N/A':
++                    cls.pci_to_mezz_log_format[pci] = 'DUT_' + str(mezz + 1)
++
++        if cls.mcp_connected:
++            cls.usb_devices = int(UsbI2c.get_num_devices() / 2)
++            cls.expected_devices_usb = cls.test_options.num_of_devices
++            hlsa_checker.check_values_is_equal(cls.usb_devices, expected_value=cls.expected_devices_usb,
++                                               ident='Description',
++                                               operation=f'Getting USB Devices', ignore_assert=True,
++                                               fail_log_level='warning')
++            cls.usb_elements = {}
++            for device_idx in range(cls.mcp_first_module_id_idx,
++                                    cls.expected_devices_usb + cls.mcp_first_module_id_idx):
++                cls.usb_elements[device_idx] = {}
++                hlsa_logger(level='info', ident='Description',
++                            operation='Setup Device Index: (%d/%d) -' % (device_idx, cls.usb_devices),
++                            result='SUCCESS')
++                try:
++                    hlsa_logger(level='debug', ident='Description', operation='Get DUT (Device Index: %d)' % device_idx)
++                    cls.usb_elements[device_idx]['device'] = hw_manager.get_dut_component(device_idx)
++
++                    hlsa_logger(level='debug', ident='Description',
++                                operation='Get TCA9546A (Device Index: %d)' % device_idx)
++                    cls.usb_elements[device_idx]['tca9546'] = cls.usb_elements[device_idx]['device'].get_component(
++                        hw_manager.components.TCA9546A)
++                    cls.usb_elements[device_idx]['tca9546_registers'] = cls.usb_elements[device_idx][
++                        'tca9546'].get_control(
++                        hw_manager.controls.usb_i2c_registers)
++                    cls.usb_elements[device_idx]['tca9546_json_regs'] = cls.usb_elements[device_idx]['tca9546'].spec
++
++                    hlsa_logger(level='debug', ident='Description', operation='Get MACHX05')
++                    cls.usb_elements[device_idx]['machx05'] = cls.usb_elements[device_idx]['device'].get_component(
++                        hw_manager.components.MACHX05)
++                    cls.usb_elements[device_idx]['machx05_registers'] = cls.usb_elements[device_idx][
++                        'machx05'].get_control(
++                        hw_manager.controls.usb_i2c_registers)
++                    cls.usb_elements[device_idx]['machx05_json_regs'] = cls.usb_elements[device_idx]['machx05'].spec
++
++                    # Get OAM_CONTROLLER from HL325 object
++                    hlsa_logger(level='debug', ident='Description', operation='Get OAM_CONTROLLER from HL325 object')
++
++                    cls.usb_elements[device_idx]['oam_controller'] = cls.usb_elements[device_idx][
++                        'device'].get_component(
++                        hw_manager.components.OAM_CONTROLLER)
++                    cls.usb_elements[device_idx]['oam_controller_signals'] = cls.usb_elements[device_idx][
++                        'oam_controller'].spec.OAM_signals
++                    cls.en_54_obj = cls.usb_elements[device_idx]['oam_controller_signals'].en_54v
++
++                    # Get fan out HL325S object
++                    hlsa_logger(level='info', ident='Description', operation='Get Fan Control (MAX6639)')
++                    cls.usb_elements[device_idx]['max6639'] = cls.usb_elements[device_idx]['device'].get_component(
++                        hw_manager.components.MAX6639)
++
++                except Exception as exception:
++                    hlsa_logger(level='warning', ident='Description',
++                                operation='Test Initialization Failure (USB Device Index %d)' % device_idx,
++                                read_value='Exception: %s' % str(exception), result='FAIL')
++
++        # Get Station Options
++        hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get Station Options')
++        cls.station_options = hw_manager.get_station_options()
++
++        # Init devices Dict
++        cls.devices = {}
++
++        # Ref des Dict
++        cls.component_ref_des_dict = {}
++
++        # Incorrect Number of Devices
++        hlsa_checker.check_values_is_equal(cls.usb_devices, expected_value=cls.expected_devices_usb,
++                                           ident='Description',
++                                           operation=f'Getting USB Devices')
++        cls.mcp_first_module_id_idx = cls.test_options.mcp_first_module_id_idx
++        if cls.test_options.station_setup_module == 'SA_FT':
++            cls.mcp_first_module_id_idx = 1  # MCP0_<module_id>
++
++        # Iterate Through USB Devices
++        for device_idx in range(cls.mcp_first_module_id_idx, cls.expected_devices_usb + cls.mcp_first_module_id_idx):
++            # Init Device's Dict
++            cls.devices[device_idx] = {}
++            hlsa_logger(level='info', ident='Description', test_code=cls.test_code,
++                        operation='Setup Device Index: (%d/%d) -' % (
++                        device_idx, cls.expected_devices_usb + cls.mcp_first_module_id_idx),
++                        result='SUCCESS')
++            try:
++                # Get DUT
++                hlsa_logger(level='debug', ident='Description', test_code=cls.test_code,
++                            operation='Get DUT (Device Index: %d)' % device_idx)
++                cls.devices[device_idx]['device'] = hw_manager.get_dut_component(device_idx)
++
++                # Get MACHX05
++                hlsa_logger(level='debug', ident='Description', test_code=cls.test_code,
++                            operation='Get MACHX05 (Device Index: %d)' % device_idx)
++                cls.devices[device_idx]['machx05'] = cls.devices[device_idx]['device'].get_component(
++                    hw_manager.components.MACHX05)  # todo, write machx05.py in hw_manager
++                cls.devices[device_idx]['machx05_registers'] = cls.devices[device_idx]['machx05'].get_control(
++                    hw_manager.controls.usb_i2c_registers)
++                cls.devices[device_idx]['machx05_json_regs'] = cls.devices[device_idx][
++                    'machx05'].spec  # todo, need to define HL325_spec.json in tests.HL325.dut_spec
++
++                # Get L_ASC10_0 component
++                hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get ASC')
++                cls.devices[device_idx]['HL325_asc_1'] = cls.devices[device_idx]['device'].get_component(
++                    hw_manager.components.L_ASC10, comp_identifier='1')
++
++                # Get L_ASC10_1 component
++                hlsa_logger(level='debug', ident='Description', test_code=cls.test_code, operation='Get ASC')
++                cls.devices[device_idx]['HL325_asc_2'] = cls.devices[device_idx]['device'].get_component(
++                    hw_manager.components.L_ASC10, comp_identifier='2')
++
++                # Get ref des Dict
++                if not cls.component_ref_des_dict:
++                    cls.component_ref_des_dict = cls.devices[device_idx][
++                        'device'].spec.definitions.component_reference_designators
++
++            # pylint:disable=broad-except
++            except Exception as exception:
++                hlsa_logger(level='error', ident='Description', test_code=cls.test_code,
++                            operation='[Multi-CPLD Version] Test Initialization Failure (Device Index %d)' % device_idx,
++                            read_value='Exception: %s' % str(exception), result='FAIL')
++                pytest.fail()
++
++    @classmethod
++    def test_detect_xx_out_values(cls):
++        test_status = True
++        for pci_addr in cls.connected_pcie_devices:
++            log_manager.log_browser(cls.pci_to_mezz_log_format[pci_addr])
++            mezz = cls.pci_to_mezz[pci_addr]
++            if mezz:
++                mezz = int(cls.pci_to_mezz[pci_addr])
++
++                # CPLD RMA mode
++                cls._cpld_rma_mode_set(mezz, rma_mode='enable')
++
++                status = cls._check_detect_xx_out(device_idx=mezz)
++                hlsa_checker.check_status_is_true(status, ident='Description', operation='Check DETECT_XX_OUT corners',
++                                                  mezzanine=mezz)
++                if not status and cls.pci_to_mezz[pci_addr]:
++                    log_manager.update_status_false(cls.pci_to_mezz_log_format[pci_addr])
++                    test_status = False
++            else:
++                log_manager.update_status_false(cls.pci_to_mezz_log_format[pci_addr])
++                test_status = False
++
++        log_manager.log_browser()
++        assert test_status
++
++    @classmethod
++    def _check_detect_xx_out(cls, device_idx=None):
++        if not device_idx:
++            return False
++
++        detect_xx_out_status = True
++        cls.usb_elements[device_idx]['HL325_asc_list'] = [
++            cls.usb_elements[device_idx]['device'].get_component(hw_manager.components.L_ASC10,
++                                                                 comp_identifier='1'),
++            cls.usb_elements[device_idx]['device'].get_component(hw_manager.components.L_ASC10,
++                                                                 comp_identifier='2')]
++        cls.usb_elements[device_idx]['HL325_asc_inst'] = cls.usb_elements[device_idx]['HL325_asc_list'][
++            0].get_control(hw_manager.controls.usb_i2c_instructions)
++        cls.usb_elements[device_idx]['HL325_asc_json_inst'] = cls.usb_elements[device_idx]['HL325_asc_list'][0].spec
++
++        # route I2C from soc
++        status = cls.usb_elements[device_idx]['machx05'].route_i2c_from_bmc_to_cpld()
++        hlsa_checker.check_status_is_true(status, ident='Description', operation='route I2C from bmc')
++
++        cls.usb_elements[device_idx]['vmon_list'] = cls.usb_elements[device_idx]['HL325_asc_list'][
++            0].definitions.VMONS.keys()
++
++        for iteration in range(1):
++            try:
++                status = cls.usb_elements[device_idx]['machx05_registers'].write_bit(
++                    cls.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg,
++                    cls.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg.bits.DETECT_XX_OUT_MUX_EN.
++                    index, 1)
++                hlsa_checker.check_status_is_true(status, ident='Description', test_code='VMON',
++                                                  mezzanine=device_idx,
++                                                  operation='Write machx05.configuration3_reg.bits.DETECT_XX_OUT_MUX_EN Bit '
++                                                            'value 1')
++
++                cls.vmon_list = cls.usb_elements[device_idx]['HL325_asc_list'][0].definitions.VMONS.keys()
++                cls.vmon_list = [s for s in cls.vmon_list if 'DETECT_XX_OUT' in s]
++
++                detect_xx_out_min = 2.2
++                detect_xx_out_max = 2.7
++
++                for vmon in cls.vmon_list:
++                    HL_vmon = getattr(cls.usb_elements[device_idx]['HL325_asc_list'][0].definitions.VMONS, vmon)
++                    vmon_id = HL_vmon['name']
++                    asc_id = HL_vmon['ASC']
++                    data = str(
++                        bin(cls.usb_elements[device_idx]['machx05_registers'].read(
++                            cls.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg)).split('b')[
++                            1].zfill(8))
++                    hlsa_checker.check_value_is_not_none(data, ident='Description', test_code='VMON',
++                                                         operation='Read machx05.configuration3_reg')
++
++                    new_data = str(bin(HL_vmon.sel_value).split('b')[1].zfill(2))
++                    data = new_data + data[2:]
++
++                    status = cls.usb_elements[device_idx]['machx05_registers'].write(
++                        cls.usb_elements[device_idx]['machx05_json_regs'].configuration3_reg, int(data, 2))
++                    hlsa_checker.check_status_is_true(status, ident='Description', test_code='VMON',
++                                                      operation='Write machx05.configuration3_reg.bits.'
++                                                                'DETECT_XX_OUT_SEL value %s' % int(data, 2))
++
++                    value = cls.usb_elements[device_idx]['HL325_asc_list'][HL_vmon.ASC - 1].get_vmon(HL_vmon)
++
++                    if value is not None:
++                        status = hlsa_checker.check_values_in_range(value, ident='Description', test_code='VMON',
++                                                                    operation='Get %s Voltage at %s in asc#%s ' % (
++                                                                        str(vmon), str(vmon_id), str(asc_id)),
++                                                                    units='Volt', min_expected=detect_xx_out_min,
++                                                                    max_expected=detect_xx_out_max)
++                        if not status:
++                            detect_xx_out_status = False
++                    else:
++                        detect_xx_out_status = False
++            except Exception as exception:
++                hlsa_logger(level='warning', ident='Description',
++                            operation=f'Exception during _check_DETECT_XX_OUT for device {device_idx}: {exception}')
++
++        cls.usb_elements[device_idx]['machx05'].reset_route_i2c_setting()
++        return detect_xx_out_status
++
++    @classmethod
++    def _cpld_rma_mode_set(cls, device_idx, rma_mode='enable', test_code=''):
++        # Get Signals
++        cls.module_id_signal = cls.usb_elements[device_idx]['oam_controller_signals'].MODULE_ID_RMA
++        cls.manf_mode_signal = cls.usb_elements[device_idx]['oam_controller_signals'].MANF_MODE
++
++        if rma_mode == 'enable':
++            cls.module_id_value_to_set = cls.test_options['module_id_value_to_set']
++            cls.manf_mode_value_to_set = cls.test_options['manf_mode_value_to_set']
++
++        if rma_mode == 'disable':
++            cls.module_id_value_to_set = 0
++            cls.manf_mode_value_to_set = 1
++
++        # Set HL325s TCA9546 Ch0
++        status = cls.usb_elements[device_idx]['tca9546_registers'].write(cls.usb_elements[device_idx]
++                                                                         ['tca9546_json_regs'].CH0)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Write TCA9546 to CH0', mezzanine=device_idx)
++
++        # Get Initial Signals Values
++        module_id_original_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.module_id_signal)
++        hlsa_checker.check_value_is_not_none(module_id_original_value, ident='Description', test_code=test_code,
++                                             operation='Get Initial Module ID Signal')
++
++        manf_id_original_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.manf_mode_signal)
++        hlsa_checker.check_value_is_not_none(manf_id_original_value, ident='Description', test_code=test_code,
++                                             operation='Get Initial Manf_Mode Signal')
++
++        # Change Signal Values For Set Card On Manf Mode
++
++        # Set Signal On Module_ID
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.module_id_signal,
++                                                                           cls.module_id_value_to_set)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Module_ID Signal', read_value=cls.module_id_value_to_set)
++
++        # Set Signal On Manf_Mode To Opposite For Ensure Output
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.manf_mode_signal,
++                                                                           cls.manf_mode_value_to_set ^ 1)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Manf_Mode Signal Opposite Value(Validation)',
++                                          read_value=cls.manf_mode_value_to_set ^ 1)
++
++        # Set Signal On Manf_Mode To Correct Value For Unlock Card
++        status = cls.usb_elements[device_idx]['oam_controller'].set_signal(cls.manf_mode_signal,
++                                                                           cls.manf_mode_value_to_set)
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code=test_code,
++                                          operation='Set Manf_Mode Signal Right Value',
++                                          read_value=cls.manf_mode_value_to_set)
++
++        # Get Signals To Validate The Changes
++        module_id_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.module_id_signal)
++        hlsa_checker.check_value_is_not_none(module_id_value, ident='Value', test_code=test_code,
++                                             operation='Module_ID Signal After Change')
++
++        manf_mode_value = cls.usb_elements[device_idx]['oam_controller'].get_signal(cls.manf_mode_signal)
++        hlsa_checker.check_value_is_not_none(manf_mode_value, ident='Value', test_code=test_code,
++                                             operation='Manf_Mode Signal After Change')
++
++        if manf_mode_value == cls.manf_mode_value_to_set and module_id_value == cls.module_id_value_to_set:
++            hlsa_logger(level='info', ident='Description', test_code=test_code,
++                        operation=f'Card On Manf Mode Debug State {rma_mode}', result='SUCCESS')
++            return True
++        else:
++            hlsa_logger(level='error', ident='Description', test_code=test_code,
++                        operation='Card Not On Manf Mode Debug State', result='FAIL')
++            return False
+diff --git a/tests/HL325/test_functional.py b/tests/HL325/test_functional.py
+index 1cbd60b..236b5c0 100644
+--- a/tests/HL325/test_functional.py
++++ b/tests/HL325/test_functional.py
+@@ -287,7 +287,7 @@
+ 
+             hlsa_logger(level='info', ident='Description',
+                         operation=f'Reset all devices using hl-fw-loader ')
+-            cls.driver_cli.execute_command("sudo hl-fw-loader -R -y")
++            cls.device_cli.reset_device_fw_loader()
+             time.sleep(10)
+ 
+ 
+@@ -4371,9 +4371,9 @@
+             if not (sensor_monitor_status and jig_monitor_status):
+                 self.Devices[device]['functional_tests'][self.test_name] = {'status': '#RESULTS_FAILED#'}
+                 all_devices_status = False
+-                hlsa_checker.check_status_is_true(sensor_monitor_status and jig_monitor_status, ident='Description',
+-                                                  operation=f'Device sensors and monitors status', ignore_assert=True,
+-                                                  dev_address=device)
++            hlsa_checker.check_status_is_true(sensor_monitor_status and jig_monitor_status, ident='Description',
++                                              operation=f'Device sensors and monitors status', ignore_assert=True,
++                                              dev_address=device)
+ 
+         if not all_devices_status:
+             self._print_data_from_supported_monitors()

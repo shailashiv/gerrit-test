@@ -1,0 +1,319 @@
+From 1a258cb13565765b9da83fda77a5881b939b0942 Mon Sep 17 00:00:00 2001
+From: Sanyog Kale <skale@habana.ai>
+Date: Fri, 08 Nov 2024 07:57:05 +0200
+Subject: [PATCH] pwrbrk delayed
+
+Change-Id: Ie3c948db0b8b7afee4937f8f2430c6d777269e2b
+---
+
+diff --git a/boards/arc/hl_gaudi3/hl_gaudi3_pid_asic_defconfig b/boards/arc/hl_gaudi3/hl_gaudi3_pid_asic_defconfig
+index 0554763..91174d2 100644
+--- a/boards/arc/hl_gaudi3/hl_gaudi3_pid_asic_defconfig
++++ b/boards/arc/hl_gaudi3/hl_gaudi3_pid_asic_defconfig
+@@ -53,6 +53,7 @@
+ CONFIG_LIBEEPROM=y
+ CONFIG_EEPROM_USE_BOOTINFO=y
+ CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=1280
++CONFIG_ISR_STACK_SIZE=1768
+ CONFIG_PSOC_STM_TRACE_LEVEL=2
+ CONFIG_HL_GAC=y
+ CONFIG_SPI_NOR_SFDP_RUNTIME=y
+diff --git a/drivers/clock_control/clock_control_hl_pll.c b/drivers/clock_control/clock_control_hl_pll.c
+index df33902..386076c 100644
+--- a/drivers/clock_control/clock_control_hl_pll.c
++++ b/drivers/clock_control/clock_control_hl_pll.c
+@@ -74,6 +74,8 @@
+ };
+ 
+ static struct pwrbrk_db pwrbrk_db;
++static struct pwrbrk_db pwrbrk_db_delayed;
++
+ static cb_func pwrbrk_cb;
+ 
+ #ifdef CONFIG_CLOCK_CONTROL_HL_PLL_V2
+@@ -749,57 +751,11 @@
+ static void hl_pll_get_fuse_data(__unused const struct device *dev) {}
+ #endif
+ 
+-static int pwrbrk_prepare_regs(const struct device *dev)
+-{
+-	int reg_base_idx;
+-	struct hl_pll_regs *reg_base;
+-	const struct hl_pll_drv_cfg_info *config = DEV_CFG(dev);
+-
+-	if (config->is_pwrbrk) {
+-		if (pwrbrk_db.num_devs >= ARRAY_SIZE(pwrbrk_db.devs)) {
+-			LOG_ERR("Not enough space in pwrbrk devs %ld", ARRAY_SIZE(pwrbrk_db.devs));
+-			return 1;
+-		}
+-
+-		pwrbrk_db.devs[pwrbrk_db.num_devs] = dev;
+-		pwrbrk_db.num_devs++;
+-
+-		if (pwrbrk_db.num_base + config->num_base >= ARRAY_SIZE(pwrbrk_db.base)) {
+-			LOG_ERR("pwrbrk base array is too small %ld", ARRAY_SIZE(pwrbrk_db.base));
+-			return 1;
+-		}
+-
+-		for (reg_base_idx = 0; reg_base_idx < config->num_base; reg_base_idx++) {
+-			reg_base = (struct hl_pll_regs *)config->base[reg_base_idx];
+-			pwrbrk_db.base[pwrbrk_db.num_base] = (mem_addr_t)reg_base;
+-			pwrbrk_db.num_base++;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-void post_pwrbrk_entry(bool is_entry)
+-{
+-	int i, j;
+-	const struct hl_pll_drv_cfg_info *config;
+-	LOG_ERR("%s is_entry: %d", __func__, is_entry);
+-	/* Now, after critical time section is done, update using driver's API */
+-	for (i = 0; i < pwrbrk_db.num_devs; i++) {
+-		config = DEV_CFG(pwrbrk_db.devs[i]);
+-
+-		for (j = 0; j < config->num_base; j++)
+-			hl_pll_switch_clk(pwrbrk_db.devs[i], true, is_entry, j);
+-	}
+-
+-	pwrbrk_db.on_pwrbrk = is_entry;
+-}
+-
+ #ifdef CONFIG_HL_DUP_ENG_DRIVER
+ static int pwrbrk_prepare_dup_eng(void)
+ {
+ 	int ret;
+-
++	LOG_ERR("In %s", __func__);
+ 	ret = hl_dup_program_address(DUP_ENG_DEV_INST, DUP_MULTICAST, PWRBRK_GROUP_ID,
+ 				     (uint32_t *)pwrbrk_db.base, pwrbrk_db.num_base);
+ 	if (ret) {
+@@ -809,6 +765,25 @@
+ 
+ 	ret = hl_dup_program_mask(DUP_ENG_DEV_INST, PWRBRK_GROUP_ID,
+ 				  GEN_BIT_MASK(pwrbrk_db.num_base));
++	if (ret)
++		LOG_ERR("%s: Failed to program mask in dup engine ret=%d", __func__, ret);
++
++	return ret;
++}
++
++static int pwrbrk_prepare_dup_eng_delayed(void)
++{
++	int ret;
++	LOG_ERR("In %s", __func__);
++	ret = hl_dup_program_address(DUP_ENG_DEV_INST, DUP_MULTICAST, PWRBRK_GROUP_ID,
++				     (uint32_t *)pwrbrk_db_delayed.base, pwrbrk_db_delayed.num_base);
++	if (ret) {
++		LOG_ERR("%s: Failed to program address in dup engine ret=%d", __func__, ret);
++		return ret;
++	}
++
++	ret = hl_dup_program_mask(DUP_ENG_DEV_INST, PWRBRK_GROUP_ID,
++				  GEN_BIT_MASK(pwrbrk_db_delayed.num_base));
+ 	if (ret)
+ 		LOG_ERR("%s: Failed to program mask in dup engine ret=%d", __func__, ret);
+ 
+@@ -850,6 +825,124 @@
+ }
+ #endif
+ 
++static int pwrbrk_prepare_regs(const struct device *dev)
++{
++	int reg_base_idx;
++	struct hl_pll_regs *reg_base;
++	const struct hl_pll_drv_cfg_info *config = DEV_CFG(dev);
++
++	if (config->is_pwrbrk) {
++		if (!config->is_pwrbrk_delayed) {
++			LOG_ERR("non delayed pwrbrk devs: %s", dev->name);
++			if (pwrbrk_db.num_devs >= ARRAY_SIZE(pwrbrk_db.devs)) {
++				LOG_ERR("Not enough space in pwrbrk devs %ld", ARRAY_SIZE(pwrbrk_db.devs));
++				return 1;
++			}
++
++			pwrbrk_db.devs[pwrbrk_db.num_devs] = dev;
++			pwrbrk_db.num_devs++;
++
++			if (pwrbrk_db.num_base + config->num_base >= ARRAY_SIZE(pwrbrk_db.base)) {
++				LOG_ERR("pwrbrk base array is too small %ld", ARRAY_SIZE(pwrbrk_db.base));
++				return 1;
++			}
++
++			for (reg_base_idx = 0; reg_base_idx < config->num_base; reg_base_idx++) {
++				reg_base = (struct hl_pll_regs *)config->base[reg_base_idx];
++				pwrbrk_db.base[pwrbrk_db.num_base] = (mem_addr_t)reg_base;
++				pwrbrk_db.num_base++;
++			}
++		} else {
++			LOG_ERR("delayed pwrbrk devs: %s", dev->name);
++			if (pwrbrk_db_delayed.num_devs >= ARRAY_SIZE(pwrbrk_db_delayed.devs)) {
++				LOG_ERR("Not enough space in pwrbrk devs %ld", ARRAY_SIZE(pwrbrk_db_delayed.devs));
++				return 1;
++			}
++
++			pwrbrk_db_delayed.devs[pwrbrk_db_delayed.num_devs] = dev;
++			pwrbrk_db_delayed.num_devs++;
++
++			if (pwrbrk_db_delayed.num_base + config->num_base >= ARRAY_SIZE(pwrbrk_db_delayed.base)) {
++				LOG_ERR("pwrbrk base array is too small %ld", ARRAY_SIZE(pwrbrk_db_delayed.base));
++				return 1;
++			}
++
++			for (reg_base_idx = 0; reg_base_idx < config->num_base; reg_base_idx++) {
++				reg_base = (struct hl_pll_regs *)config->base[reg_base_idx];
++				pwrbrk_db_delayed.base[pwrbrk_db_delayed.num_base] = (mem_addr_t)reg_base;
++				pwrbrk_db_delayed.num_base++;
++			}
++		}
++	}
++
++	return 0;
++}
++
++void post_pwrbrk_entry(bool is_entry)
++{
++	int i, j;
++	const struct hl_pll_drv_cfg_info *config;
++	LOG_ERR("%s entry: is_entry7.1: %d pwrbrk_db.num_devs: %d delayed.num_devs:%d",
++	__func__, is_entry, pwrbrk_db.num_devs, pwrbrk_db_delayed.num_devs);
++
++	/* Now, after critical time section is done, update using driver's API */
++	if (is_entry) {
++		//LOG_ERR("programming compute pll to ref at entry");
++		for (i = 0; i < pwrbrk_db.num_devs; i++) {
++			LOG_ERR("configuring dev: %s", pwrbrk_db.devs[i]->name);
++			config = DEV_CFG(pwrbrk_db.devs[i]);
++
++			for (j = 0; j < config->num_base; j++)
++				hl_pll_switch_clk(pwrbrk_db.devs[i], true, is_entry, j);
++		}
++	}
++
++	pwrbrk_db.on_pwrbrk = is_entry;
++
++	
++	if (is_entry) {
++		LOG_ERR("sleep for 100ms and then perform pwrbrk entry of delayed components %lld", k_uptime_get());
++		k_msleep(100);
++		LOG_ERR("start pwrbrk %lld", k_uptime_get());
++	}
++	
++	if (is_entry) {
++		LOG_ERR("programming delayed pwrbrk pll with dup engine");
++		pwrbrk_prepare_dup_eng_delayed();
++		pwrbrk_entry_direct();
++	}
++	
++	for (i = 0; i < pwrbrk_db_delayed.num_devs; i++) {
++		LOG_ERR("configuring delayed dev: %s", pwrbrk_db_delayed.devs[i]->name);
++		config = DEV_CFG(pwrbrk_db_delayed.devs[i]);
++
++		for (j = 0; j < config->num_base; j++)
++			hl_pll_switch_clk(pwrbrk_db_delayed.devs[i], true, is_entry, j);
++	}
++	pwrbrk_db_delayed.on_pwrbrk = is_entry;
++
++	if (!is_entry) {
++		LOG_ERR("sleep for 100ms and then perform pwrbrk exit of compute %lld", k_uptime_get());
++		k_msleep(100);
++		LOG_ERR("start pwrbrk %lld", k_uptime_get());
++	}
++
++	if (!is_entry) {
++		LOG_ERR("programming compute pll to POR at exit");
++		for (i = 0; i < pwrbrk_db.num_devs; i++) {
++			config = DEV_CFG(pwrbrk_db.devs[i]);
++
++			for (j = 0; j < config->num_base; j++)
++				hl_pll_switch_clk(pwrbrk_db.devs[i], true, is_entry, j);
++		}
++	}
++
++	LOG_ERR("%s entry: is_entry7.1: %d pwrbrk_db.num_devs: %d delayed.num_devs:%d",
++	__func__, is_entry, pwrbrk_db.num_devs, pwrbrk_db_delayed.num_devs);
++}
++
++
++
+ struct pwrbrk_data {
+ 	struct gpio_callback cb;
+ 	struct pid_table *platdata;
+@@ -878,8 +971,11 @@
+ 
+ 	LOG_ERR("%s is_entry: %d", __func__, is_entry);
+ 	hl_early_write_resp(true);
+-	if (is_entry)
++	if (is_entry) {
++		pwrbrk_prepare_dup_eng();
+ 		pwrbrk_entry_direct();
++	}
++
+ 	hl_early_write_resp(false);
+ 
+ 
+@@ -978,6 +1074,7 @@
+ 	data->max_rate = config->max_rate;
+ 
+ 	if (clock_control_is_pwrbrk_supported(dev)) {
++		LOG_ERR("In clock_control_is_pwrbrk_supported");
+ 		if (!pwrbrk_init_done) {
+ 			pwrbrk_init_done = 1;
+ 			hl_gpio_pwrbrk_init();
+@@ -1134,6 +1231,7 @@
+ 		.max_rate = hl_pll_##inst##_max_rate,			\
+ 		.skip_init = DT_INST_PROP(inst, skip_init),		\
+ 		.is_pwrbrk = DT_INST_PROP(inst, pwrbrk),		\
++		.is_pwrbrk_delayed = DT_INST_PROP(inst, pwrbrk_delayed),\
+ 		.ras_index = DT_INST_PROP(inst, ras_index),		\
+ 		.coefficients = hl_pll_##inst##_coefficients,		\
+ 		.div_fact = {						\
+diff --git a/dts/arc/hl_gaudi3_pid.dtsi b/dts/arc/hl_gaudi3_pid.dtsi
+index 7c782cd..9881922 100644
+--- a/dts/arc/hl_gaudi3_pid.dtsi
++++ b/dts/arc/hl_gaudi3_pid.dtsi
+@@ -336,6 +336,7 @@
+ 	status = "okay";
+ 	skip_init;
+ 	pwrbrk;
++	pwrbrk_delayed;
+ };
+ 
+ &clk_hbm_dcore {
+@@ -422,6 +423,7 @@
+ 	status = "okay";
+ 	skip_init;
+ 	pwrbrk;
++	pwrbrk_delayed;
+ };
+ 
+ &i2c0 {
+diff --git a/dts/bindings/clock/hl,pll.yaml b/dts/bindings/clock/hl,pll.yaml
+index e762282..e7b6b72 100644
+--- a/dts/bindings/clock/hl,pll.yaml
++++ b/dts/bindings/clock/hl,pll.yaml
+@@ -48,6 +48,10 @@
+       required: false
+       default: 0
+       description: PLL index reported in RAS
++    pwrbrk_delayed:
++      type: boolean
++      required: false
++      description: clock included in pwrbrk with delayed configuration
+ 
+ clock-cells:
+   - div_val
+diff --git a/include/drivers/clock_control/hl_pll.h b/include/drivers/clock_control/hl_pll.h
+index 768fc5b..3e83810 100644
+--- a/include/drivers/clock_control/hl_pll.h
++++ b/include/drivers/clock_control/hl_pll.h
+@@ -75,6 +75,7 @@
+ 	uint32_t div_num;
+ 	bool skip_init;
+ 	bool is_pwrbrk;
++	bool is_pwrbrk_delayed;
+ 	int ras_index;
+ 	const uint32_t *coefficients;
+ 	uint32_t div_fact[HL_PLL_DIV_SIZE];

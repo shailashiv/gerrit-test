@@ -1,0 +1,35 @@
+From 7624de3f6a290c454bab203064a79e371743c871 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Wed, 14 May 2025 19:56:17 +0300
+Subject: [PATCH] [SW-0] fix no best update option
+
+Change-Id: I42fe84e38fd16b69027754ff57f11ea0acaf117c
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+---
+
+diff --git a/dockerfiles/pytorch/Dockerfile.rhel9.2 b/dockerfiles/pytorch/Dockerfile.rhel9.2
+index 07a358c..00bc7e5 100644
+--- a/dockerfiles/pytorch/Dockerfile.rhel9.2
++++ b/dockerfiles/pytorch/Dockerfile.rhel9.2
+@@ -31,7 +31,7 @@
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
+ 
+-RUN dnf update -y && dnf install --nobest --allowerasing -y \
++RUN dnf update --nobest -y && dnf install --nobest --allowerasing -y \
+         cairo-devel \
+         curl \
+         gperftools-devel \
+diff --git a/dockerfiles/pytorch/Dockerfile.rhel9.4 b/dockerfiles/pytorch/Dockerfile.rhel9.4
+index 64035d3..19ec001 100644
+--- a/dockerfiles/pytorch/Dockerfile.rhel9.4
++++ b/dockerfiles/pytorch/Dockerfile.rhel9.4
+@@ -31,7 +31,7 @@
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
+ 
+-RUN dnf update -y && dnf install --nobest --nodocs --setopt=install_weak_deps=false --allowerasing -y \
++RUN dnf update --nobest -y && dnf install --nobest --nodocs --setopt=install_weak_deps=false --allowerasing -y \
+         cairo-devel \
+         gperftools-devel \
+         iproute \

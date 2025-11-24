@@ -1,0 +1,64 @@
+From c15f872c2379b650e47c657f1e41acb10e9c931f Mon Sep 17 00:00:00 2001
+From: Sanyog Kale <skale@habana.ai>
+Date: Tue, 05 Nov 2024 15:37:54 +0200
+Subject: [PATCH] pwrbrk entry exit
+
+Change-Id: I154b50b5f82c5072fac3a044cdaf05f548076040
+---
+
+diff --git a/drivers/clock_control/clock_control_hl_pll.c b/drivers/clock_control/clock_control_hl_pll.c
+index 3eb5263..df33902 100644
+--- a/drivers/clock_control/clock_control_hl_pll.c
++++ b/drivers/clock_control/clock_control_hl_pll.c
+@@ -20,7 +20,7 @@
+ #include <hl_devs.h>
+ #include <hl_fw_if.h>
+ 
+-#define LOG_PWRBRK_SWITCH(is_entry)	LOG_WRN("pwrbrk: switched to %s", is_entry ?\
++#define LOG_PWRBRK_SWITCH(is_entry)	LOG_ERR("pwrbrk: switched to %s", is_entry ?\
+ 					"Ref" : "Normal")
+ 
+ #define LOG_LEVEL CONFIG_CLOCK_CONTROL_LOG_LEVEL
+@@ -783,7 +783,7 @@
+ {
+ 	int i, j;
+ 	const struct hl_pll_drv_cfg_info *config;
+-
++	LOG_ERR("%s is_entry: %d", __func__, is_entry);
+ 	/* Now, after critical time section is done, update using driver's API */
+ 	for (i = 0; i < pwrbrk_db.num_devs; i++) {
+ 		config = DEV_CFG(pwrbrk_db.devs[i]);
+@@ -818,7 +818,7 @@
+ void pwrbrk_entry_direct(void)
+ {
+ 	int ret;
+-
++	LOG_ERR("%s via dup", __func__);
+ 	ret = hl_dup_program_data(DUP_ENG_DEV_INST, DUP_MULTICAST, PWRBRK_GROUP_ID,
+ 					mmPLL_CTRL_DIV_SEL_0, HL_PLL_REF_CLK);
+ 	if (ret)
+@@ -840,7 +840,7 @@
+ 	int i;
+ 	int num_regs = pwrbrk_db.num_base;
+ 	struct hl_pll_regs *reg_base;
+-
++	LOG_ERR("%s via regwrite ", __func__);
+ 	/* code is optimized for minimal timing */
+ 	for (i = 0; i < num_regs; i++) {
+ 		reg_base = (struct hl_pll_regs *)pwrbrk_db.base[i];
+@@ -876,6 +876,7 @@
+ {
+ 	bool is_entry = is_on_pwrbrk_entry_mode();
+ 
++	LOG_ERR("%s is_entry: %d", __func__, is_entry);
+ 	hl_early_write_resp(true);
+ 	if (is_entry)
+ 		pwrbrk_entry_direct();
+@@ -893,6 +894,7 @@
+ 	int ret = 0;
+ 	bool is_entry = is_on_pwrbrk_entry_mode();
+ 
++	LOG_ERR("%s is_entry: %d", __func__, is_entry);
+ 	handle_power_break_switch();
+ 	new_pol = is_entry ? GPIO_INT_EDGE_RISING : GPIO_INT_EDGE_FALLING;
+ 	gpio_pin_interrupt_configure(port, PWRBRK_GPIO_PIN, new_pol);

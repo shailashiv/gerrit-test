@@ -1,0 +1,21 @@
+From 31a452560145d3dfc82a75226b6097a09a3233f3 Mon Sep 17 00:00:00 2001
+From: haochen <haochen@habana.ai>
+Date: Thu, 07 Nov 2024 16:36:16 +0200
+Subject: [PATCH] [SW-200644] mark grad view only on 4D or 5D tensors
+
+Change-Id: Icf25f476f32666b6743142bafe27f8efc0226fdb
+---
+
+diff --git a/habana_eager/eager_exec.cpp b/habana_eager/eager_exec.cpp
+index 0eb821a..40915f8 100644
+--- a/habana_eager/eager_exec.cpp
++++ b/habana_eager/eager_exec.cpp
+@@ -993,6 +993,8 @@
+   auto& t = m_inputs.back().toTensor();
+   if (!t.is_contiguous())
+     return;
++  if (t.dim() != 4 && t.dim() != 5)
++    return;
+   auto tmeta{habana::get_tensor_extra_meta(t)};
+   if (!tmeta->is_view_tensor())
+     return;

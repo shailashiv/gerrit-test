@@ -1,0 +1,97 @@
+From b7bbaba1c61ca0cba974b6b9c9032cb3d035f853 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 08 Oct 2024 07:35:46 +0300
+Subject: [PATCH] [FSW-0] draft patch for building pid
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I0b5c568cf7546c3ca5e314f72254cbc4eb541e9c
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-local.mk b/board/habanalabs/fs1_arc/fs1-local.mk
+index 005d03f..3da8e3d 100644
+--- a/board/habanalabs/fs1_arc/fs1-local.mk
++++ b/board/habanalabs/fs1_arc/fs1-local.mk
+@@ -1,7 +1,7 @@
+ ARCBOOT_OVERRIDE_SRCDIR = $(TOPDIR)/../arcboot
+ BAREMETAL_OVERRIDE_SRCDIR = $(TOPDIR)/../preboot
+ ZEPHYR_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr
+-PID_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/arcpid
++PID_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/reset/app/io
+ MGMT_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/arcmgmt
+ MGMT_COMPUTE_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/arcmgmt/app/compute
+ EVENT_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/arcevent
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index 1c259f3..e80168b 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -21,6 +21,7 @@
+ PREBOOT_COMPUTE_BINFILE=${PREBOOT_COMPUTE_BINFILE:-preboot_compute.bin}
+ PCIE_PHY_BINFILE=${PCIE_PHY_BINFILE:-pcie_phy_fw.bin}
+ ZEPHYR_DSM_BINFILE=${ZEPHYR_DSM_BINFILE:-zephyr_dsm.bin}
++ZEPHYR_MGMT_BINFILE=${ZEPHYR_MGMT_BINFILE:-zephyr_mgmt.bin}
+ 
+ #SECURITY_BOOT_MODE
+ SECURE_BOOT=1
+@@ -417,6 +418,13 @@
+ 		# convert preboot application to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_ccm_hex.sh preboot.bin
+ 		mv iccm0_*.hex ${HEXS_DIR}
++
++		# Convert SPI flash bin image into Palladium hex format
++		hl_pldm_flash_hex spi-flash ${BINS_DIR}/${DEV_PREFIX}-spi-flash.bin.nocrc ${HEXS_DIR}
++
++		# for zephyr_dsm binary
++		swap_file ${ZEPHYR_MGMT_BINFILE} ${ZEPHYR_MGMT_BINFILE}.orig.be
++		hl_pldm_hex zephyr_mgmt ${ZEPHYR_MGMT_BINFILE}.orig.be 1 ${HEXS_DIR}
+ 	fi
+ 
+ 	if [ -f "${KEY_BASE}/spi-flash-layout-validator.sh" ]; then
+@@ -425,5 +433,6 @@
+ 					  ${BINS_DIR}/${DEV_PREFIX}-preboot.bin.${ENDIANNESS} \
+ 					  ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.${ENDIANNESS} \
+ 					  ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.${ENDIANNESS}
++
+ 	fi
+ popd
+diff --git a/configs/fs1_arc_asic_defconfig b/configs/fs1_arc_asic_defconfig
+index e0a1e83..2c586e5 100644
+--- a/configs/fs1_arc_asic_defconfig
++++ b/configs/fs1_arc_asic_defconfig
+@@ -31,3 +31,4 @@
+ BR2_PACKAGE_ARCBOOT=y
+ BR2_PACKAGE_PREBOOT_COMPUTE=y
+ BR2_PACKAGE_RESET_COMPUTE=y
++BR2_PACKAGE_PID=y
+diff --git a/package/mgmt/mgmt.mk b/package/mgmt/mgmt.mk
+index 93173c5..f0eccac 100644
+--- a/package/mgmt/mgmt.mk
++++ b/package/mgmt/mgmt.mk
+@@ -137,6 +137,7 @@
+ 
+ define MGMT_INSTALL_TARGET_CMDS
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(MGMT_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.bin $(BINS_DIR)/zephyr_$(MGMT_APP_NAME).bin
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.stat $(STATS_DIR)/zephyr_$(MGMT_APP_NAME).stat
+ endef
+ 
+diff --git a/package/pid/pid.mk b/package/pid/pid.mk
+index 46035fb..5210148 100644
+--- a/package/pid/pid.mk
++++ b/package/pid/pid.mk
+@@ -2,7 +2,7 @@
+ PID_APP_NAME = pid
+ PID_DEPENDENCIES = host-cmake host-lzop host-lz4
+ PID_APP_MODULES = mbedtls boot_info eeprom
+-PID_SRCDIR = $(EMBEDDED_DIR)/zephyr-apps/arcpid
++PID_SRCDIR = $(EMBEDDED_DIR)/zephyr-apps/reset/app/io
+ PID_ZEPHYR_SRCDIR = $(EMBEDDED_DIR)/zephyr
+ 
+ PID_CONF_APP_OPTS =
+@@ -128,7 +128,6 @@
+ endef
+ 
+ define PID_CONFIGURE_CMDS
+-	@$(call PID_CREATE_HL_VERSION)
+ 	$(PID_CONF_ENV) $(HOST_DIR)/bin/cmake $(PID_CONF_OPTS) -S $(PID_BUILD_DIR) -B $(PID_BUILD_DIR)/build
+ endef
+ 

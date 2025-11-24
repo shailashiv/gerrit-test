@@ -1,0 +1,3335 @@
+From 8d56794f3c3881f16d9fe07ce1efcad495efe83e Mon Sep 17 00:00:00 2001
+From: Itamar Assaf <iassaf@habana.ai>
+Date: Tue, 31 Dec 2024 14:01:12 +0200
+Subject: [PATCH] [SIV:5927] clearing phy, mc and common for clear slate
+
+Change-Id: Icd180797e9a9122fec830ba02c6d572b4bfd4b1b
+Signed-off-by: Itamar Assaf <iassaf@habana.ai>
+---
+
+diff --git a/drivers/hbm/fs/common/common.c b/drivers/hbm/fs/common/common.c
+index 1595641..5703abd 100644
+--- a/drivers/hbm/fs/common/common.c
++++ b/drivers/hbm/fs/common/common.c
+@@ -10,8 +10,8 @@
+ 
+ struct hl_hbm_info hbm_info;
+ struct gaudi3_hbm hbm_cfg;
+-const uint32_t hbm_ch_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
+-const uint32_t phy_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
++const uint32_t hbm_ch_map[] = {/* TBD */};
++const uint32_t phy_map[] = {/* TBD */};
+ 
+ 
+ enum hbm_pll_freqs freq_to_enum(uint32_t freq)
+@@ -49,86 +49,25 @@
+ 
+ int phy_poll_on_training(uint32_t hbm_dev)
+ {
+-	int rc;
+-	/* set different time parameters depending on PLDM use or real time */
+-	uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
+-	uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
+-	uint32_t reg_val = 0;
+-
+-	/* preforming phy polling including timeout */
+-	rc = PHY_POLLING_TIMEOUT(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS),
+-				 reg_val, (reg_val & HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M),
+-				 sleep, timeout);
+-
+-	if (rc) {
+-		LOG_ERR("HBM%d Timeout while polling for training FSM completion. TrainStatus: 0x%x",
+-			hbm_dev, reg_val);
+-		rc = STATUS_FAIL;
+-	}
+-
+-	return rc;
++	return STATUS_FAIL;
+ }
+ 
+ int hbm_reset(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val, train_fsm_status_valid;
+-
+-	/* set trainrun + train_set_mode values both for asserting and status */
+-	reg_val = HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRUN_M |
+-		HBM_PHY_P0_MASTER_TRAINCTRL_DRAMINITRESET_M;
+-	train_fsm_status_valid = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M |
+-		HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITRSTDONE_M;
+-
+-	/*  assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val);
+-
+-	/* de-assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val & ~(1ULL))
+-	;
+-
+-	/* check polling doesn't reach timeout */
+-	if (phy_poll_on_training(hbm_dev))
+-		return STATUS_FAIL;
+-
+-	/* check train fsm status to ensure hbm reset properly*/
+-	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS));
+-	if (reg_val != train_fsm_status_valid) {
+-		LOG_ERR("HBM%d - FAILED to reset HBM device. TrainStatus: 0x%x", hbm_dev,
+-			    reg_val);
+-		return STATUS_FAIL;
+-	}
+-
+-	return STATUS_PASS;
++	return STATUS_FAIL;
+ }
+ 
+ int hbm_mrs(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val, train_fsm_status_valid;
+ 
+ 	/* set trainrun + trainreset values both for asserting and status */
+-	reg_val = HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRUN_M |
+-		HBM_PHY_P0_MASTER_TRAINCTRL_DRAMINITMRS_M;
+-	train_fsm_status_valid = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M |
+-		HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITMRSDONE_M;
+-
+ 
+ 	/* assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val);
+ 
+ 	/* de-assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val & ~(1ULL));
+ 
+ 	/* check polling doesn't reach timeout */
+-	if (phy_poll_on_training(hbm_dev))
+-		return STATUS_FAIL;
+ 
+ 	/* check train fsm status to ensure mod registers set properly*/
+-	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS));
+-	if (reg_val != train_fsm_status_valid) {
+-		LOG_ERR("HBM%d - FAILED to set mode registers. TrainStatus: 0x%x", hbm_dev,
+-			reg_val);
+-		return STATUS_FAIL;
+-	}
+-
+-	return STATUS_PASS;
++return STATUS_FAIL;
+ }
+diff --git a/drivers/hbm/fs/mc/mc.c b/drivers/hbm/fs/mc/mc.c
+index ed66c9d..e149872 100644
+--- a/drivers/hbm/fs/mc/mc.c
++++ b/drivers/hbm/fs/mc/mc.c
+@@ -4,40 +4,40 @@
+ 
+ static const uint32_t hbm_order_per_die_val[] = {
+ 
+-	[die0_hbm0] = 0x1,
+-	[die0_hbm1] = 0x2,
+-	[die0_hbm2] = 0x4,
+-	[die0_hbm3] = 0x8,
+-	[die1_hbm4] = 0x8,
+-	[die1_hbm5] = 0x4,
+-	[die1_hbm6] = 0x2,
+-	[die1_hbm7] = 0x1,
++	[die0_hbm0] = /* TBD */,
++	[die0_hbm1] = /* TBD */,
++	[die0_hbm2] = /* TBD */,
++	[die0_hbm3] = /* TBD */,
++	[die1_hbm4] = /* TBD */,
++	[die1_hbm5] = /* TBD */,
++	[die1_hbm6] = /* TBD */,
++	[die1_hbm7] = /* TBD */,
+ };
+ static const uint32_t ieee1500_wdr_len_t[] = {
+-	[ieee1500_bypass] = 1,						/* BYPASS */
+-	[ieee1500_extest_rx] = 215,					/* EXTEST_RX */
+-	[ieee1500_extest_tx] = 215,					/* EXTEST_TX */
+-	[ieee1500_intest_rx] = 0,					/* INTEST_RX */
+-	[ieee1500_intest_tx] = 0,					/* INTEST_TX */
+-	[ieee1500_hbm_reset] = 1,					/* HBM_RESET */
+-	[ieee1500_mbist] = 375,						/* MBIST */
+-	[ieee1500_soft_repair] = 22,				/* SOFT_REPAIR */
+-	[ieee1500_hard_repair] = 22,				/* HARD_REPAIR */
+-	[ieee1500_dword_misr] = 320,				/* DWORD_MISR */
+-	[ieee1500_aword_misr] = 30,					/* AWORD_MISR */
+-	[ieee1500_channel_id] = 1,					/* CHANNEL_ID */
+-	[ieee1500_misr_mask] = 72,					/* MISR_MASK */
+-	[ieee1500_aword_misr_config] = 8,			/* AWORD_MISR_CONFIG */
+-	[ieee1500_device_id] = 82,					/* DEVICE_ID */
+-	[ieee1500_temperature] = 8,					/* TEMPERATURE */
+-	[ieee1500_mode_register_dump_set] = 128,	/* MODE_REGISTER_DUMP_SET */
+-	[ieee1500_read_lfsr_compare_sticky] = 175,	/* READ_LFSR_COMPARE_STICKY */
+-	[ieee1500_soft_lane_repair] = 72,			/* SOFT_LANE_REPAIR */
+-	[ieee1500_hard_lane_repair] = 72,			/* HARD_LANE_REPAIR */
+-	[ieee1500_mbist_a6] = 2077,					/* MBIST_A6 */
+-	[ieee1500_mbist_a7] = 301,					/* MBIST_A7 */
+-	[ieee1500_tmrs_gen] = 37,					/* TMRS_GEN */
+-	[ieee1500_fuse_scan] = 26,					/* ROWS_FUSE_SCAN */
++	[ieee1500_bypass] = /* TBD */,						/* BYPASS */
++	[ieee1500_extest_rx] = /* TBD */,					/* EXTEST_RX */
++	[ieee1500_extest_tx] = /* TBD */,					/* EXTEST_TX */
++	[ieee1500_intest_rx] = /* TBD */,					/* INTEST_RX */
++	[ieee1500_intest_tx] = /* TBD */,					/* INTEST_TX */
++	[ieee1500_hbm_reset] = /* TBD */,					/* HBM_RESET */
++	[ieee1500_mbist] = /* TBD */,						/* MBIST */
++	[ieee1500_soft_repair] = /* TBD */,				/* SOFT_REPAIR */
++	[ieee1500_hard_repair] = /* TBD */,				/* HARD_REPAIR */
++	[ieee1500_dword_misr] = /* TBD */,				/* DWORD_MISR */
++	[ieee1500_aword_misr] = /* TBD */,					/* AWORD_MISR */
++	[ieee1500_channel_id] = /* TBD */,					/* CHANNEL_ID */
++	[ieee1500_misr_mask] = /* TBD */,					/* MISR_MASK */
++	[ieee1500_aword_misr_config] = /* TBD */,			/* AWORD_MISR_CONFIG */
++	[ieee1500_device_id] = /* TBD */2,					/* DEVICE_ID */
++	[ieee1500_temperature] = /* TBD */,					/* TEMPERATURE */
++	[ieee1500_mode_register_dump_set] = /* TBD */,	/* MODE_REGISTER_DUMP_SET */
++	[ieee1500_read_lfsr_compare_sticky] = /* TBD */,	/* READ_LFSR_COMPARE_STICKY */
++	[ieee1500_soft_lane_repair] = /* TBD */,			/* SOFT_LANE_REPAIR */
++	[ieee1500_hard_lane_repair] = /* TBD */,			/* HARD_LANE_REPAIR */
++	[ieee1500_mbist_a6] = /* TBD */,					/* MBIST_A6 */
++	[ieee1500_mbist_a7] = /* TBD */,					/* MBIST_A7 */
++	[ieee1500_tmrs_gen] = /* TBD */,					/* TMRS_GEN */
++	[ieee1500_fuse_scan] = /* TBD */,					/* ROWS_FUSE_SCAN */
+ };
+ 
+ static int mc_p1500_get_wdr_len(enum ieee1500_instruction inst, enum ieee1500_op op,
+@@ -50,18 +50,12 @@
+ 	 * In case of WIR only cmd wdr len is a don't care, set to 0
+ 	 * In any other case the wdr len depends only on the instruction as defined in the spec.
+ 	 */
+-	if ((op == wir_read || op == read_only) && inst == ieee1500_mbist_a6) {
+-		wdr_len = (mbist_mode == MBIST_MODE_PBT) ? MBIST_PBT_RESULT_SIZE :
+-			MBIST_LEGACY_RESULT_SIZE;
+-	} else
+-		wdr_len = ieee1500_wdr_len_t[inst];
++
+ 
+ 	/*
+ 	 * PLDM bug, IEEE1500 returns -1 bit (MSB) unless WDR len is configured +1
+ 	 * TODO - remove once solved by cadence
+ 	 */
+-	if (pldm)
+-		wdr_len++;
+ 
+ 	return wdr_len;
+ }
+@@ -75,133 +69,42 @@
+ 	 * Read instructions - WDR registers should be read after calling this function
+ 	 * WIR only instructions - WDR is not needed
+ 	 */
+-	uint64_t timeout = (pldm) ? (PLDM_TIMEOUT) : PHY_TIMEOUT_US;
+-	int remain_wdr_bits;
+-	uint32_t rc, hbm_offset = CALC_HBM_OFFSET(hbm_dev), reg_val = 0, wdr_ptr_idx = 0, reg_poll,
+-		 trig_bit, sleep = (pldm) ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US, wir_conf_ch,
+-		 wdr_regs_count, wdr_regs_total, wso_ch_offset, wdr_idx, ch_idx, auto_temp_val,
+-		 wso_offset, wdr_offset, wso_addr, cmd_addr;
+ 
+ 	/*
+ 	 * Check if auto temp is enabled (since it is using ieee1500 bus) and if so fail the current
+ 	 * ieee1500 cmd to avoid collision on the ieee1500 bus
+ 	 */
+-	auto_temp_val = HBM_RREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_P1500_AUTO_TMP) + hbm_offset,
+-				   POLL_WR_INFLIGHT);
+-	if (auto_temp_val & HBM_CENTRAL_P1500_AUTO_TMP_ENABLE_M) {
+-		LOG_ERR("HBM%d IEEE15000 instruction FAILED - auto temperature is enabled\n",
+-			hbm_dev);
+-		return STATUS_FAIL;
+-	}
+-
+-	cmd_addr = D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_P1500_INST_CMD);
+-	wso_addr = D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_P1500_WSO_DATA_0);
+-
+-	remain_wdr_bits = mc_p1500_get_wdr_len(inst, op, mbist_mode);
+-	wdr_regs_total = CEIL(remain_wdr_bits, BITS_PER_REG32);
+ 
+ 	/* Initial trig bit is set to start and then configured according to OP and INST */
+-	trig_bit = HBM_CENTRAL_P1500_INST_CMD_START_M;
+ 	/* In case of fuse scan only broadcast is allowed as ch inst for both cmds wir read/write */
+-	wir_conf_ch = (inst == ieee1500_fuse_scan ? BROADCAST_CH : ch);
+ 	/* Configure WIR[11:0] - {ch[11:8], instruction[7:0]} */
+-	reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_WIR_M,
+-			      inst | (wir_conf_ch << P1500_INST_CMD_WIR_CH_S));
+ 	/* Configure the OP - WIR only / WIR read / WIR read only / WIR write / WIR write only */
+-	reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_OP_M, op);
+ 
+ 	/* Handle the ieee1500 cmd according to OP */
+-	if (op == wir_only) {
+ 		/* trigger IEEE1500 transaction with no WDR use in case of WIR only cmd */
+-		reg_val |= trig_bit;
+ 		/* No WDR is needed for WIR only cmd hence, we need to set last data bit */
+-		reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_LAST_DATA_M, 0x1);
+ 
+-		CFG_WREG32(cmd_addr + hbm_offset, reg_val);
+ 		/* Polling on start bit, should be set to 0 once ieee1500 cmd is done */
+-		rc = HBM_POLLING_TIMEOUT(hbm_offset + cmd_addr, reg_poll,
+-					 ((reg_poll & HBM_CENTRAL_P1500_INST_CMD_START_M) == 0x0),
+-					 sleep, timeout);
+-		if (rc) {
+-			LOG_ERR("HBM%d IEEE15000 instruction code: 0x%x op code: 0x%x failed\n",
+-				hbm_dev, inst, op);
+-			return STATUS_FAIL;
+-		}
+-	} else if (op == wir_write || op == write_only) {
+-		while (remain_wdr_bits > 0) {
+ 			/* Set WDR length to 0 and reconfigure WDR length */
+-			reg_val &= ~HBM_CENTRAL_P1500_INST_CMD_WDR_LEN_M;
+-			reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_WDR_LEN_M,
+-					      MIN(remain_wdr_bits, MC_P1500_WDR_SIZE_MAX) - 1);
+-
+-			wdr_regs_count = CEIL(MIN(remain_wdr_bits, MC_P1500_WDR_SIZE_MAX),
+-					      BITS_PER_REG32);
+ 			/* Loading WDR via WSI regs */
+-			for (wdr_idx = 0; wdr_idx < wdr_regs_count; wdr_idx++) {
+-				CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_P1500_WSI_DATA_0) +
+-					   hbm_offset + wdr_idx * BYTE_OFFSET,
+-					   *(wdr_ptr + wdr_ptr_idx));
+-				wdr_ptr_idx++;
+-			}
+ 
+ 			/*
+ 			 * In case we are left with less then 128 bit(max ieee1500 bus size)
+ 			 * need to set last data cmd bit
+ 			 */
+-			if (remain_wdr_bits <= MC_P1500_WDR_SIZE_MAX)
+-				reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_LAST_DATA_M, 0x1);
+ 
+ 			/* trigger IEEE1500 transaction after loading WDR using WSI DATA regs */
+-			reg_val |= trig_bit;
+-			CFG_WREG32(cmd_addr + hbm_offset, reg_val);
+ 
+ 			/* Polling on start/pause bit in case less/more then 128 bits remained */
+-			rc = HBM_POLLING_TIMEOUT(hbm_offset + cmd_addr, reg_poll,
+-					((remain_wdr_bits <= MC_P1500_WDR_SIZE_MAX) ?
+-					((reg_poll & HBM_CENTRAL_P1500_INST_CMD_START_M) == 0x0) :
+-					((FIELD_GET(HBM_CENTRAL_P1500_INST_CMD_PAUSE_M,
+-					reg_poll)) == 0x1)), sleep, timeout);
+-
+-			if (rc) {
+-				LOG_ERR("HBM%d IEEE15000 instruction code: 0x%x op code: 0x%x failed\n",
+-					hbm_dev, inst, op);
+-				return STATUS_FAIL;
+-			}
+-			trig_bit = HBM_CENTRAL_P1500_INST_CMD_RESUME_M;
+-			remain_wdr_bits -= MC_P1500_WDR_SIZE_MAX;
+-		}
+-	} else if (op == wir_read || op == read_only) {
+-		while (remain_wdr_bits > 0) {
+ 			/* Set WDR length to 0 and reconfigure WDR length */
+-			reg_val &= ~HBM_CENTRAL_P1500_INST_CMD_WDR_LEN_M;
+-			reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_WDR_LEN_M,
+-					      MIN(remain_wdr_bits, MC_P1500_WDR_SIZE_MAX) - 1);
+-
+-			wdr_regs_count = CEIL(MIN(remain_wdr_bits, MC_P1500_WDR_SIZE_MAX),
+-					      BITS_PER_REG32);
+ 			/*
+ 			 * In case we are left with less then 128 bit(max ieee1500 bus size)
+ 			 * need to set last data cmd bit
+ 			 */
+-			if (remain_wdr_bits <= MC_P1500_WDR_SIZE_MAX)
+-				reg_val |= FIELD_PREP(HBM_CENTRAL_P1500_INST_CMD_LAST_DATA_M, 0x1);
+ 
+ 			/* trigger IEEE1500 transaction before reading WDR using WSO DATA regs */
+-			reg_val |= trig_bit;
+-			CFG_WREG32(cmd_addr + hbm_offset, reg_val);
+ 
+ 			/* Polling on start/pause bit in case less/more then 128 bits remained */
+-			rc = HBM_POLLING_TIMEOUT(hbm_offset + cmd_addr, reg_poll,
+-					((remain_wdr_bits <= MC_P1500_WDR_SIZE_MAX) ?
+-					((reg_poll & HBM_CENTRAL_P1500_INST_CMD_START_M) == 0x0) :
+-					((FIELD_GET(HBM_CENTRAL_P1500_INST_CMD_PAUSE_M,
+-					reg_poll)) == 0x1)), sleep, timeout);
+-
+-			if (rc) {
+-				LOG_ERR("HBM%d IEEE15000 instruction code: 0x%x op code: 0x%x failed\n",
+-					hbm_dev, inst, op);
+-				return STATUS_FAIL;
+-			}
+ 
+ 			/*
+ 			 * IEEE1500 WSO output, 128bit in 4 regs, are per channel
+@@ -213,43 +116,10 @@
+ 			 * channel per channel group(0/1/4/5, 2/3/6/7). reading only 1 out of 4
+ 			 * outputs according to ch input givent in the original cmd.
+ 			 */
+-			if (inst == ieee1500_fuse_scan) {
+-				wso_ch_offset = hbm_offset + ch * 4 * BYTE_OFFSET;
+-				wdr_ptr[wdr_ptr_idx] = HBM_RREG32(wso_addr + wso_ch_offset,
+-								  NO_POLL_WR_INFLIGHT);
+-			}
+ 
+ 			/* Specific channel */
+-			else if (ch != BROADCAST_CH) {
+-				wso_ch_offset = hbm_offset + ch * 4 * BYTE_OFFSET;
+-				for (wdr_idx = 0; wdr_idx < wdr_regs_count; wdr_idx++) {
+-					wso_offset = wso_ch_offset + wdr_idx * BYTE_OFFSET;
+-					wdr_offset = wdr_ptr_idx + wdr_idx;
+-					*((uint32_t *)(wdr_ptr + wdr_offset)) =
+-								HBM_RREG32(wso_addr + wso_offset,
+-									NO_POLL_WR_INFLIGHT);
+-				}
+-			}
+ 			/* All channels (broadcast) */
+-			else {
+ 				/* Read values in order by ch: 0,1...7  */
+-				for (ch_idx = 0; ch_idx < HBM_PHY_CHANNELS_NUM; ch_idx++) {
+-					wso_ch_offset = hbm_offset + ch_idx * 4 * BYTE_OFFSET;
+-					for (wdr_idx = 0; wdr_idx < wdr_regs_count; wdr_idx++) {
+-						wso_offset = wso_ch_offset + wdr_idx * BYTE_OFFSET;
+-						wdr_offset = wdr_ptr_idx + wdr_idx +
+-							     ch_idx * wdr_regs_total;
+-						*((uint32_t *)(wdr_ptr + wdr_offset)) =
+-								HBM_RREG32(wso_addr + wso_offset,
+-									NO_POLL_WR_INFLIGHT);
+-					}
+-				}
+-			}
+-			wdr_ptr_idx += wdr_regs_count;
+-			trig_bit = HBM_CENTRAL_P1500_INST_CMD_RESUME_M;
+-			remain_wdr_bits -= MC_P1500_WDR_SIZE_MAX;
+-		}
+-	}
+ 
+ 	return STATUS_PASS;
+ }
+@@ -257,7 +127,6 @@
+ static uint32_t mc_p1500_trigger_soft_lane_repair(int hbm_dev, uint32_t ch, uint32_t *dw_remap_info,
+ 			  uint32_t aw_remap_info)
+ {
+-	uint32_t wdr[HBM_REMAP_REGS_SIZE], rc;
+ 
+ 	/*
+ 	 * remap data is 72 bits (3 wdr registers) aranged as follow:
+@@ -269,109 +138,31 @@
+ 	 * hence the following parsing for 1 aword and 4 dwords per channel
+ 	 */
+ 
+-	wdr[0] = dw_remap_info[0] | FIELD_PREP(0xffff0000, dw_remap_info[1]);
+-	wdr[1] = FIELD_PREP(WDR_LANE_REPIAR_AW_ROW_REMAP,
+-			    FIELD_GET(HBM_PHY_CHANNELS_CH0_AW_AWREMAP_ROWREMAP_M,
+-			    aw_remap_info)) |
+-		 FIELD_GET(HBM_PHY_CHANNELS_CH0_AW_AWREMAP_COLREMAP_M, aw_remap_info);
+-	wdr[1] |= FIELD_PREP(0xffff00, dw_remap_info[2]) | FIELD_PREP(0xff000000, dw_remap_info[3]);
+-	wdr[2] = FIELD_GET(0xff00, dw_remap_info[3]);
+-
+-	rc = mc_p1500_inst(hbm_dev, ch, ieee1500_soft_lane_repair, wir_write, wdr, 0);
+-	if (rc) {
+-		LOG_ERR("HBM%d CH%d: IEEE1500 soft lane repair write instruction FAILED",
+-			hbm_dev, ch);
+-		return STATUS_FAIL;
+-	}
+-
+ 	return STATUS_PASS;
+ }
+ 
+ uint32_t align_hbm_lane_remap(int hbm_dev, uint32_t ch, struct lane_remap_info *remap_info)
+ {
+-	uint32_t rc, offset, dw;
+-
+-	for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-		if (remap_info->dw_remap_fix_code[ch][dw] != DW_DEFAULT_REMAP_CODE) {
+-			LOG_INF("HBM%d CH%d DW%d valid remap code:0x%x, updating PHY remap reg",
+-				hbm_dev, ch, dw, remap_info->dw_remap_fix_code[ch][dw]);
+-			offset = ch * PHY_CH_OFFSET + dw * PHY_DW_OFFSET;
+-			hbm_phy_write(hbm_dev,
+-				      D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DWREMAP)
+-				      + offset, remap_info->dw_remap_fix_code[ch][dw]);
+-		}
+-	}
+-
+-	if (remap_info->aw_remap_fix_code[ch] != AW_DEFAULT_REMAP_CODE) {
+-		offset = ch * PHY_CH_OFFSET;
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_AWREMAP)
+-			      + offset, remap_info->aw_remap_fix_code[ch]);
+-	}
+-
+-	rc = mc_p1500_trigger_soft_lane_repair(hbm_dev, ch, remap_info->dw_remap_fix_code[ch],
+-					       remap_info->aw_remap_fix_code[ch]);
+-	if (rc) {
+-		LOG_ERR("HBM%d CH%d PHY IO-DC soft lane repair after EXTEST FAILED", hbm_dev, ch);
+-		return STATUS_FAIL;
+-	}
+-	LOG_INF("HBM%d CH%d PHY IO-DC soft lane repair after EXTEST DONE", hbm_dev, ch);
+ 
+ 	return STATUS_PASS;
+ }
+ 
+ int mc_mrs_cmd(uint32_t hbm_dev, uint32_t mc_idx, uint8_t mr_num, uint8_t mr_val)
+ {
+-	int rc;
+-	uint32_t poll1, poll2, poll3, val, timeout = pldm ? PLDM_TIMEOUT : MC_MRS_US;
+-	uint32_t auto_pwr_mode, mc_offset = CALC_HBM_OFFSET(hbm_dev) + mc_idx * MC_OFFSET;
+ 
+ 	/* Temporarily disable AutoPwr modes */
+-	auto_pwr_mode = HBM_RREG32(D0_HBM0_MC0_REG(mmMC_CH_AUTO_PWR_EN) + mc_offset,
+-				   NO_POLL_WR_INFLIGHT);
+-	CFG_WREG32(D0_HBM0_MC0_REG(mmMC_CH_AUTO_PWR_EN) + mc_offset, 0x0);
+ 
+ 	/* Setup the MC MRS register */
+-	val = FIELD_PREP(MC_CH_SEQ_MRS_CMD_NUM_M, mr_num) |
+-	      FIELD_PREP(MC_CH_SEQ_MRS_CMD_VAL_M, mr_val);
+-	CFG_WREG32(D0_HBM0_MC0_REG(mmMC_CH_SEQ_MRS) + mc_offset, val);
+ 
+ 	/* Verify there are no background operations by MC */
+-	rc = HBM_POLLING_TIMEOUT(D0_HBM0_MC0_REG(mmMC_CH_SEQ_MRS_COMMAND_TRIG) + mc_offset, poll1,
+-				   ((poll1 & MC_CH_SEQ_MRS_COMMAND_TRIG_VAL_M) == 0),
+-				   MC_MRS_INTERVAL_US, timeout);
+ 
+-	rc |= HBM_POLLING_TIMEOUT(D0_HBM0_MC0_REG(mmMC_CH_SEQ_PWR_COMMAND_TRIG) + mc_offset, poll2,
+-				  ((poll2 & MC_CH_SEQ_PWR_COMMAND_TRIG_VAL_M) == 0),
+-				  MC_MRS_INTERVAL_US, timeout);
+ 
+-	rc |= HBM_POLLING_TIMEOUT(D0_HBM0_MC0_REG(mmMC_CH_SEQ_PWR) + mc_offset, poll3,
+-				  ((poll3 & MC_CH_SEQ_PWR_STATE_M) == 0), MC_MRS_INTERVAL_US,
+-				  timeout);
+-	if (rc) {
+-		LOG_ERR("MC MRS command FAILED (HBM%d MC%d) ", hbm_dev, mc_idx);
+-		LOG_ERR("- Timeout while polling for idle state: MRS_COMMAND_TRIG=0x%08x, ",
+-			    poll1);
+-		LOG_ERR("PWR_COMMAND_TRIG=0x%08x, PWR_STATE=0x%08x\n", poll2, poll3);
+-		return STATUS_FAIL;
+-	}
+ 
+ 	/* Trigger MRS command */
+-	CFG_WREG32(D0_HBM0_MC0_REG(mmMC_CH_SEQ_MRS_COMMAND_TRIG) + mc_offset, 0x1);
+ 
+ 	/* Poll for MRS completion */
+-	rc = HBM_POLLING_TIMEOUT(D0_HBM0_MC0_REG(mmMC_CH_SEQ_MRS_COMMAND_TRIG) + mc_offset, poll1,
+-				 ((poll1 & MC_CH_SEQ_MRS_COMMAND_TRIG_VAL_M) == 0),
+-				 MC_MRS_INTERVAL_US, timeout);
+-	if (rc) {
+-		LOG_ERR("MC MRS command FAILED (HBM%d MC%d) ", hbm_dev, mc_idx);
+-		LOG_ERR("- Timeout while polling for MRS completion: MRS_COMMAND_TRIG=0x%08x\n",
+-		       poll1);
+-		return STATUS_FAIL;
+-	}
+ 
+ 	/* Restore AutoPwr mode */
+-	if (auto_pwr_mode)
+-		CFG_WREG32(D0_HBM0_MC0_REG(mmMC_CH_AUTO_PWR_EN) + mc_offset, auto_pwr_mode);
+ 
+ 	return STATUS_PASS;
+ }
+@@ -380,301 +171,42 @@
+ /* mc config functions */
+ static void mc_axis_init(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	uint32_t reg_val;
+-
+-	reg_val = FIELD_PREP(MC_CH_AXIS_CLIP_SIZE_WCLIP_0_M, 0x3c);
+-	reg_val |= FIELD_PREP(MC_CH_AXIS_CLIP_SIZE_WCLIP_1_M, 0x3c);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXIS_CLIP_SIZE), reg_val);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_ECC_CFG), hbm_cfg.ecc_enable);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_CMN_REG(mmMC_CMN_HCON_AXIS_RD_MAX_INFLIGHT), 0xc8);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_STALL_CNT_FORCE_TH), 0x20);
+ 	/*
+ 	 * due to HW issue , when there is a high rate of partial writes (many concurrent RMW
+ 	 * operations), the read response path can get blocked which leads to a deadlock.
+ 	 * proposed WA is to decrease the amount of write credits by 2. SW-154537.
+ 	 */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_CMN_REG(mmMC_CMN_HCON_AXIS_WR_MAX_CRED),
+-		   HBM_WR_MAX_CRED);
+ }
+ 
+ static void mc_scheduler_init(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+ 
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_PFETCH_OPEN_SCORE), 0x96);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_PFETCH_CLOSED_SCORE), 0x96);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_REF_ARB_TH_VAL), 0xffff);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SAT_MED_RPSB), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SAT_HIGH_RPSB), 0x3);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_MIN_SATURATED), 0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_SAT_MED_RPSB), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_SAT_HIGH_RPSB), 0x3);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_MIN_SATURATED), 0x14);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_ALMOST_EMPTY_LEVEL), 0x5);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_ALMOST_EMPTY_LEVEL), 0x202);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RWS_CNT), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_SEQ_REQ_CNT), 0x1);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_0), 0x80);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_1), 0x168);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_2), 0x1b8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_3), 0x1ff);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_QOS_ALMOST_FULL_TH_0), 0x1e);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_QOS_ALMOST_FULL_TH_1), 0x1e);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_QOS_ALMOST_FULL_TH_2), 0x1e);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_QOS_ALMOST_FULL_TH_3), 0x1e);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_QOS_ALMOST_FULL_TH), 0x1e);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RDB_CREDIT_INIT), 0x40);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS0_SCORE_1),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS1_SCORE_1),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS2_SCORE_1),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS3_SCORE_1),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS0_SCORE_2),
+-											0x50);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS1_SCORE_2),
+-											0x50);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS2_SCORE_2),
+-											0x50);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS3_SCORE_2),
+-											0x50);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS0_SCORE_3),
+-											0x82);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS1_SCORE_3),
+-											0x82);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS2_SCORE_3),
+-											0x82);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_QOS3_SCORE_3),
+-											0x82);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_LATENCY_LEVEL_SAT_SCORE),
+-											0xc8);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_OPEN_PAGE_SCORE), 0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_OPEN_PAGE_SCORE), 0x32);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SID_SCORE), 0xf0);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_BG_SCORE), 0xd2);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_BG_SCORE), 0xd2);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_MIN_STREAM_LENGTH), 0x1ff);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_SWITCH_OCCUPANCY_LEVEL_QOS_0),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_SWITCH_OCCUPANCY_LEVEL_QOS_1),
+-											0x32);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_WR_MIN_STREAM_LENGTH), 0x30);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS0_0),
+-											0x168);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS0_1),
+-											0x1b8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS1_0),
+-											0x168);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS1_1),
+-											0x1b8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS2_0),
+-											0x168);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS2_1),
+-											0x1b8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS3_0),
+-											0x168);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_LEVEL_QOS3_1),
+-											0x1b8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_LATENCY_MAX), 0x1ff);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS0_0),
+-											0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS0_1),
+-											0xf);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS1_0),
+-											0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS1_1),
+-											0xf);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS2_0),
+-											0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS2_1),
+-											0xf);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS3_0),
+-											0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_RD_SWITCH_OCCUPANCY_LEVEL_QOS3_1),
+-											0xf);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_RSCH_MAX_PAGE), 0x1f);
+ }
+-
+ static void mc_sequencer_init(uint32_t hbm_dev)
+ {
+-	uint32_t i, hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+ 
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TWTR_S),
+-								hbm_cfg.mc_ac_param.twtr_s);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TWTR_L),
+-								hbm_cfg.mc_ac_param.twtr_l);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TWTP),
+-								hbm_cfg.mc_ac_param.twtp);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRTW),
+-								hbm_cfg.mc_ac_param.trtw);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRAS),
+-								hbm_cfg.mc_ac_param.tras);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRTP),
+-								hbm_cfg.mc_ac_param.trtp);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRP),
+-								hbm_cfg.mc_ac_param.trp);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRRD_L),
+-								hbm_cfg.mc_ac_param.trrd_l);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRRD_S),
+-								hbm_cfg.mc_ac_param.trrd_s);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TFAW),
+-								hbm_cfg.mc_ac_param.tfaw);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TCCD_L),
+-								hbm_cfg.mc_ac_param.tccd_l);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TCCD_R),
+-								hbm_cfg.mc_ac_param.tccd_r);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRCD_RD),
+-								hbm_cfg.mc_ac_param.trcd_rd);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRCD_WR),
+-								hbm_cfg.mc_ac_param.trcd_wr);
+-
+-	for (i = 0; i < MC_TREFI_REGS_NUM; i++) {
+-		CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TREFI_0) +
+-					(i * BYTE_OFFSET), hbm_cfg.mc_ac_param.trefi[i]);
+-	}
+-
+-	for (i = 0; i < MC_TREFISB_ADJ_REGS_NUM; i++) {
+-		CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TREFISB_ADJ_0) +
+-					(i * BYTE_OFFSET), hbm_cfg.mc_ac_param.trefisb_adj[i]);
+-	}
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TREFI_TH), 0x3e8);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRFC), hbm_cfg.mc_ac_param.trfc);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRFCSB),
+-								hbm_cfg.mc_ac_param.trfcsb);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TWTRAP),
+-								hbm_cfg.mc_ac_param.twtrap);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TCKSRE),
+-								hbm_cfg.mc_ac_param.tcksre);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TCKSRX),
+-								hbm_cfg.mc_ac_param.tcksrx);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TCKPDE),
+-								hbm_cfg.mc_ac_param.tckpde);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TXS), hbm_cfg.mc_ac_param.txs);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TXP), hbm_cfg.mc_ac_param.txp);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TRREFD),
+-								hbm_cfg.mc_ac_param.trrefd);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_TMOD), hbm_cfg.mc_ac_param.tmod);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_REFSB_CNT_URGENT_TH), 0x8);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_REFSB_BURST_NUM_URGENT), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_REFSB_CNT_HYSTERIC_TH), 0x1c);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_REFSB_BURST_NUM_HYSTERIC), 0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_CATTRIP_THROT_EN), 0x1);
+-	/* C bus queue */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_CBQ_FIFO_FULL_TH), 0xa);
+ }
+ 
+ static void mc_dfi_master_init(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	uint32_t reg_val, cke_flip_val;
+-
+-	reg_val = FIELD_PREP(MC_CH_DFI_MC_CHANNEL_CFG_PC1_CBUS_CYC_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_MC_CHANNEL_CFG_T_AXI_WR_CYC_M, 0x2);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_MC_CHANNEL_CFG), reg_val);
+-
+-	reg_val = FIELD_PREP(MC_CH_DFI_PHY_CFG_CH_PC_GRANT_SEL_VEC_M, 0xa69);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_CH_PC_GRANT_ENABLE_VEC_M, 0xfff);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_CH_PC_GRANT_ENABLE_VEC_M, 0xfff);
+ 	/* Keep CKE on it's current cfg asserted/not for MC reset without HBM Init from start */
+-	cke_flip_val = FIELD_GET(MC_CH_DFI_PHY_CFG_CH_DFI_TRIGGER_CKE_FLIP_M,
+-	 HBM_RREG32(D0_HBM0_MC0_REG(mmMC_CH_DFI_PHY_CFG_CH), POLL_WR_INFLIGHT));
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_CH_DFI_TRIGGER_CKE_FLIP_M, cke_flip_val);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_CFG_CH), reg_val);
+-
+-	reg_val = FIELD_PREP(MC_CH_DFI_PHY_CFG_DFI_ECC_ENABLE_M, hbm_cfg.ecc_enable);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_PARITY_RL_M, 0x2);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_T_RD_DATA_EN_M, hbm_cfg.phy_ac_param.trd_data_en);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_T_PHY_WR_DATA_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_T_PHY_WR_LAT_M, hbm_cfg.phy_ac_param.tphy_wr_lat);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_RD_DQ_PARITY_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_WR_DBI_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_RD_DBI_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_PHY_UPDATE_DLY_T_M, 0x5);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_CFG), reg_val);
+-
+-	reg_val = FIELD_PREP(MC_CH_DFI_PHY_CFG_2_CTRLUPD_MAX_T_M,
+-			     hbm_cfg.phy_ac_param.ctrlupd_max_t);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_CA_PARITY_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_WR_DQ_PARITY_ENABLE_M, 0x1);
+ 	/* Disable address XOR in PLDM mode */
+-	if (!pldm)
+-		reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_DFI_ADDRESS_XOR_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_DFI_MC_PHY_UPD_INTERVAL_M, 0x3e8);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_DFI_PHY_RESET_DONE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_DFI_LP_ENABLE_M, 0x1);
+-	reg_val |= FIELD_PREP(MC_CH_DFI_PHY_CFG_2_DFI_LP_WAKEUP_M, 0xf);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_CFG_2), reg_val);
+ }
+ 
+ /* Those configurations are done according to SCRAMBLING NOC_SOL_Setting revision 0.10 */
+ static void mc_addr_map_init(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev), ba_0, ba_1, col_3, col_4;
+ 
+ 	/*
+ 	 * Modify BA_0/1 and COL_3/4 is done according to 8/7 active HBM devices (binning) or to
+ 	 * single die mode for PLDM
+ 	 */
+-	if (hbm_info.num_active_hbm == GAUDI3_NUM_OF_HBMS - 1) {
+-		ba_0 = 0xa;
+-		ba_1 = 0xb;
+-		col_3 = 0x8;
+-		col_4 = 0x9;
+-	} else {
+-		ba_0 = 0x8;
+-		ba_1 = 0xa;
+-		col_3 = 0x9;
+-		col_4 = 0xb;
+-	}
+-
+ 	/* Banks: BA[0-1] -> BA[0-1], BA[2-3] -> BG[0-1] */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_BA_0), ba_0);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_BA_1), ba_1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_BG_0), 0xc);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_BG_1), 0xf);
+-
+ 	/* Columns: COL[0-2] are kept at reset value - 0x5/0x6/0x7 */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_COL_3), col_3);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_COL_4), col_4);
+ 
+ 	/* Rows */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_0), 0xd);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_1), 0x10);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_2), 0x11);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_3), 0x12);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_4), 0x13);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_5), 0x14);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_6), 0x15);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_7), 0x16);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_8), 0x17);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_9), 0x18);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_10), 0x19);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_11), 0x1a);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_12), 0x1b);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_13), 0x1c);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_ROW_14), 0x1d);
+ 
+ 	/* SID: SID[1] is kept in reset value - 0x3f*/
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_AXI_ADMAP_SID_0), 0xe);
+ }
+ 
+ void mc_config(uint32_t hbm_dev)
+@@ -690,111 +222,39 @@
+ 
+ static void mc_enable_interrupts(uint32_t hbm_dev)
+ {
+-	uint32_t i, cmn_offset, hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-
+ 	/* Clear SEI & SPI Interrupts - clear on read */
+-	for (i = 0; i < NUM_CMN_PER_HBM; i++) {
+-		cmn_offset = hbm_offset + (i * HBM_CMN_OFFSET);
+-		HBM_RREG32(cmn_offset + D0_HBM0_CMN01_INTR_REG(mmMC_CMN_INTR_SEI0_STATUS),
+-									NO_POLL_WR_INFLIGHT);
+-		HBM_RREG32(cmn_offset + D0_HBM0_CMN01_INTR_REG(mmMC_CMN_INTR_SEI1_STATUS),
+-									NO_POLL_WR_INFLIGHT);
+-		HBM_RREG32(cmn_offset + D0_HBM0_CMN01_INTR_REG(mmMC_CMN_INTR_SPI_STATUS),
+-									NO_POLL_WR_INFLIGHT);
+-	}
+ 
+ 	/* Enable Interrupts */
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_ECC_SEC_THLD), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_CMN_INTR_REG(mmMC_CMN_INTR_SEI0_MASK), 0x0);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_CMN_INTR_REG(mmMC_CMN_INTR_SEI1_MASK), 0x0);
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_CMN_INTR_REG(mmMC_CMN_INTR_SPI_MASK),
+-		   MC_CMN_INTR_SPI_MASK_IEEE1500_OP_COMPLETE_M |
+-		   MC_CMN_INTR_SPI_MASK_IEEE1500_OP_PAUSED_M);
+ }
+ 
+ static void dfi_enable_cattrip(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val;
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-
+-	reg_val = HBM_RREG32(D0_HBM0_MC0_REG(mmMC_CH_DFI_PHY_CFG_2) + hbm_offset,
+-										POLL_WR_INFLIGHT);
+-	reg_val |= MC_CH_DFI_PHY_CFG_2_DFI_CATTRIP_ENABLE_M;
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_CFG_2), reg_val);
+ }
+ 
+ void open_traffic(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-
+-	if (hbm_cfg.dfi_phy_update)
+-		hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DFIPHYUPD), 0xf);
+-
+-	dfi_enable_cattrip(hbm_dev);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_SEQ_REF_MODE), 0x2);
+-
+-	mc_enable_interrupts(hbm_dev);
+-
+ 	/* Secured + Privilliged */
+-	CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_APB_PPROT_PRIV_ONLY) + hbm_offset, 0x1);
+ }
+ 
+ 
+ /* This function is raising write protect for the HBM eFuse via the ieee1500 interface */
+ void hbm_efuse_write_protect(uint32_t hbm_dev)
+ {
+-	uint32_t wdr[2];
+ 
+ 	/* TMRS Safety Key */
+-	wdr[0] = 0x0;
+-	wdr[1] = 0x1e;
+-	mc_p1500_inst(hbm_dev, BROADCAST_CH, ieee1500_tmrs_gen, wir_write, wdr, MBIST_MODE_OFF);
+-	k_busy_wait(MC_P1500_EFUSE_WP_US);
+ 
+ 	/* TMRS B-065 (TMRS lock) */
+-	wdr[0] = 0x08020001;
+-	wdr[1] = 0x10;
+-	mc_p1500_inst(hbm_dev, 0x0, ieee1500_tmrs_gen, wir_write, wdr, MBIST_MODE_OFF);
+-	k_busy_wait(MC_P1500_EFUSE_WP_US);
+ 
+ 	/* TMRS B-454 (Prevent base die rupture) */
+-	wdr[0] = 0x04010010;
+-	wdr[1] = 0x10;
+-	mc_p1500_inst(hbm_dev, 0x0, ieee1500_tmrs_gen, wir_write, wdr, MBIST_MODE_OFF);
+-	k_busy_wait(MC_P1500_EFUSE_WP_US);
+-
+ 	/* Bypass */
+-	wdr[0] = 0x0;
+-	wdr[1] = 0x0;
+-	mc_p1500_inst(hbm_dev, BROADCAST_CH, ieee1500_bypass, wir_write, wdr, MBIST_MODE_OFF);
+-	k_busy_wait(MC_P1500_EFUSE_WP_US);
+ }
+ 
+ /* hbm api functions */
+ 
+ void mc_reset(uint32_t hbm_dev)
+ {
+-	uint32_t rst_idx, die_offset = (hbm_dev / GAUDI3_NUM_OF_HBMS_PER_DIE) * DIE_OFFSET;
+-
+-	if (pldm)
+-		return;
+ 
+ 	/* Clear all PSOC Reset configuration units to avoid doing reset to other units */
+-	for (rst_idx = 0; rst_idx <= PSOC_RST_UNIT_NUM; rst_idx++)
+-		CFG_WREG32(D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_PSOC_UNIT_RST) + die_offset +
+-			   rst_idx * BYTE_OFFSET, 0x0);
+-
+ 	/* Reset MC */
+-	CFG_WREG32(D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_HBM_MC_UNIT_RST) + die_offset,
+-		   hbm_order_per_die_val[hbm_dev]);
+-
+-	CFG_WREG32(D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_UNIT_RST_N) + die_offset, 0x1);
+-	k_msleep(MC_RST_DELAY_MS);
+-
+ 	/* Clear reset */
+-	CFG_WREG32(D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_UNIT_RST_N) + die_offset, 0x0);
+-	CFG_WREG32(D0_PSOC_RESET_CONF_REG(mmPSOC_RESET_CONF_HBM_MC_UNIT_RST) + die_offset, 0x0);
+ }
+diff --git a/drivers/hbm/fs/phy/phy.c b/drivers/hbm/fs/phy/phy.c
+index 6cbb2b31..ca3b66f 100644
+--- a/drivers/hbm/fs/phy/phy.c
++++ b/drivers/hbm/fs/phy/phy.c
+@@ -33,82 +33,33 @@
+ static uint8_t phy_get_chiplet_type_and_offset(uint32_t addr)
+ {
+ 	uint8_t chiplet_type;
+-
+ 	/* Checks if in range of Master Base */
+-	if (IN_RANGE(addr, mmD0_HBM0_PHY_P0_MASTER_BASE, mmD0_HBM0_PHY_P0_INITENG_BASE - 1)) {
+-		chiplet_type = PHY_CHIPLET_MASTER;
+-		phy_access.offset = PHY_CHIPLET_MASTER_OFFSET;
+ 	/* Checks if in range of Initeng Base */
+-	} else if (IN_RANGE(addr, mmD0_HBM0_PHY_P0_INITENG_BASE, mmD0_HBM1_MC0_BASE - 1)) {
+-		chiplet_type = PHY_CHIPLET_INITENG;
+-		phy_access.offset = PHY_CHIPLET_INITENG_OFFSET;
+ 	/* Checks if in range of MC Base */
+-	} else {
+-		chiplet_type = PHY_CHIPLET_CH;
+-		phy_access.offset = PHY_CHIPLET_CH_OFFSET;
+-	}
+-
+ 	return chiplet_type;
+ }
+ 
+ inline void hbm_phy_write(uint32_t hbm_dev, uint32_t addr, uint32_t val)
+ {
+-	uint8_t chiplet_type;
+-	uint32_t phy_addr, hbm_offset, reg_val;
+-
+-	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	phy_addr = hbm_offset + addr - phy_access.offset;
+ 
+ 	/* Set chiplet type only if needed */
+-	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+-	if (chiplet_type != phy_access.chiplet) {
+-		phy_access.chiplet = chiplet_type;
+-		reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+-		reg_val |= phy_access.chiplet;
+-		CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) +
+-									hbm_offset, reg_val);
+-	}
+ 
+ 	/* Writes to phy address */
+-	CFG_WREG32(phy_addr, val);
+ }
+ 
+ inline uint32_t hbm_phy_read(uint32_t hbm_dev, uint32_t addr)
+ {
+ 	uint8_t chiplet_type;
+-	uint32_t phy_addr, hbm_offset, reg_val;
++
+ 
+ 	/* Calculating phy address */
+-	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	phy_addr = hbm_offset + addr - phy_access.offset;
+ 
+ 	/* set chiplet type only if needed */
+-	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+-	if (chiplet_type != phy_access.chiplet) {
+-		phy_access.chiplet = chiplet_type;
+-		reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+-		reg_val |= phy_access.chiplet;
+-		CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) +
+-									hbm_offset, reg_val);
+-	}
+-
+ 	/* Reads from phy address */
+-	return HBM_RREG32(phy_addr, POLL_WR_INFLIGHT);
+ }
+ 
+ static uint32_t read_hbm_lane_remap(int hbm_dev, struct lane_remap_info *remap_info)
+ {
+-	uint32_t wdr[HBM_REMAP_REGS_SIZE], val, rc, ch, dw;
+-
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		/* Gets ieee1500 lane repair read instructions to wdr */
+-		rc = mc_p1500_inst(hbm_dev, ch, ieee1500_soft_lane_repair, wir_read, wdr, 0);
+-		if (rc) {
+-			LOG_ERR("HBM%d CH%d: IEEE1500 soft lane repair read instruction FAILED",
+-				hbm_dev, ch);
+-			return STATUS_FAIL;
+-		}
+-
+ 		/*
+ 		 * remap data is 72 bits (3 wdr registers) aranged as follow:
+ 		 * dw0 -> wdr[0][0:15]
+@@ -118,38 +69,11 @@
+ 		 * dw3 -> wdr[1][56:63], wdr[2][64:71]
+ 		 * hence the following parsing for 1 aword and 4 dwords per channel
+ 		 */
+-
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			if (dw == 0)
+-				val = FIELD_GET(WDR_DW0_FIELD_MASK, wdr[0]);
+-			else if (dw == 1)
+-				val = FIELD_GET(WDR_DW1_FIELD_MASK, wdr[0]);
+-			else if (dw == 2)
+-				val = FIELD_GET(WDR_DW2_FIELD_MASK, wdr[1]);
+-			else {
+-				val = FIELD_GET(WDR_DW3_FIELD_MASK, wdr[1]) |
+-				       FIELD_PREP(WDR_DW3_FIELD_PREP, FIELD_GET(WDR_DW3_FIELD_PREPMASK, wdr[2]));
+-			}
+-			remap_info->dw_remap_code[ch][dw] = val;
+-		}
+-
+-		remap_info->aw_remap_code[ch] = FIELD_GET(WDR_LANE_REPIAR_AW_ROW_REMAP, wdr[1]) |
+-					  FIELD_PREP(HBM_PHY_CHANNELS_CH0_AW_AWREMAP_COLREMAP_M,
+-					  FIELD_GET(WDR_LANE_REPIAR_AW_COL_REMAP, wdr[1]));
+-	}
+ 	return STATUS_PASS;
+ }
+ 
+ static void phy_set_pstate(uint32_t hbm_dev, enum phy_pstate pstate)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	uint32_t reg_val;
+-
+-	phy_access.pstate = pstate;
+-	reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+-	reg_val |= phy_access.chiplet;
+-	CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) + hbm_offset,
+-											reg_val);
+ }
+ 
+ static void set_instr_dly(uint32_t *instr_dly)
+@@ -165,7 +89,7 @@
+ 		instr_dly[0] = 0xfa0;
+ 		instr_dly[1] = 0x190;
+ 		instr_dly[2] = 0xc8;
+-		break; /* This was missing. any reason? */
++		break;
+ 
+ 	case HBM_PLL_1800:
+ 	default:
+@@ -177,23 +101,10 @@
+ }
+ static void phy_preload_initeng(uint32_t hbm_dev)
+ {
+-	uint32_t instr_dly[3];
+ 
+ 	/* Program Disable flags for initeng groups */
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDISABLEFLAG0), 0xfff0);
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDISABLEFLAG1), 0xffff);
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDISABLEFLAG2), 0xfff0);
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDISABLEFLAG3), 0xffef);
+ 
+ 	/* Program DFI Frequency mappings */
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDFIFREQXLAT0), 0x3210);
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDFIFREQXLAT7), 0x4000);
+ 
+ 	/* Program INITENG instructions delays according to:
+ 	 * INITSEQDLY0 for all PSTATE - 10 * freq / 4 for PLL Tlock of 10us
+@@ -201,369 +112,67 @@
+ 	 * INITSEQDLY2 for all PSTATE - 0.5 * freq / 4 for PLL Tlock of 10us
+ 	 */
+ 
+-	set_instr_dly(instr_dly);
+-
+-	phy_set_pstate(hbm_dev, BCAST);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDLY0_P0),
+-										instr_dly[0]);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDLY1_P0),
+-										instr_dly[1]);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDLY2_P0),
+-										instr_dly[2]);
+-
+ 	/* Program Pre sequencer instructions */
+-	phy_set_pstate(hbm_dev, PSTATE_0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQPRE0S2),
+-											0x400);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQPRE1S2),
+-											0x400);
+ }
+ // #region debug prints
+ static void debug_print_mrs(uint32_t hbm_dev)
+ {
+-	uint32_t i;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	HBM_DBG("\nHBM%d Mode Registers (MR) configurations:", hbm_dev);
+-	for (i = 0; i < PHY_MASTER_MR_REGS_NUM; i++) {
+-		HBM_DBG("HBM%d MR%d: 0x%x", hbm_dev, i,
+-			hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR0)
+-									+ (i * BYTE_OFFSET)));
+-	}
+-	HBM_DBG("\n");
+ }
+ static void debug_print_pub_dramtiming(uint32_t hbm_dev)
+ {
+-	uint32_t i;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	HBM_DBG("\nHBM%d Dram Timing parameters configurations:", hbm_dev);
+-	for (i = 0; i < PHY_MASTER_DRAMTIMING_REGS_NUM; i++) {
+-		HBM_DBG("HBM%d DramTiming%d: 0x%x", hbm_dev, i,
+-			hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING0)
+-				+ (i * BYTE_OFFSET)));
+-	}
+-	HBM_DBG("\n");
+ }
+ static void debug_print_train_param_status(uint32_t hbm_dev, uint32_t train_status,
+ 					   enum train_params train_param)
+ {
+-	uint32_t train_done_mask, train_err_mask;
+-	char *status_str, *train_param_str;
+-
+-	switch (train_param) {
+-	case TRAIN_CA:
+-		train_param_str = "CA";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCADONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCAERR_M;
+-		break;
+-	case TRAIN_RD_LAT:
+-		train_param_str = "RD LAT";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLERR_M;
+-		break;
+-	case TRAIN_RD_EYE:
+-		train_param_str = "RD EYE";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEERR_M;
+-		break;
+-	case TRAIN_VREF:
+-		train_param_str = "VREF";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFERR_M;
+-		break;
+-	case TRAIN_WR_EYE:
+-		train_param_str = "WR EYE";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEERR_M;
+-		break;
+-
+-	default:
+-		LOG_ERR("No such train param num %d, FAILED", train_param);
+-		break;
+-	}
+-
+-	if ((train_status & train_done_mask) && !(train_status & train_err_mask))
+-		status_str = "PASSED";
+-	else
+-		status_str = "FAILED";
+-
+-	HBM_DBG("HBM%d %s training %s", hbm_dev, train_param_str, status_str);
+ }
+ static void debug_print_training_status(uint32_t hbm_dev)
+ {
+-	uint32_t train_status, train_ctrl;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	train_status = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS)) &
+-				    PHY_TRAINSTATUS_M;
+-	train_ctrl = hbm_phy_read(hbm_dev,  D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL));
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINCAEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_CA);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRLEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_LAT);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINREYEEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_EYE);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINVREFEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_VREF);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINWEYEEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_WR_EYE);
+ }
+ void debug_print_pub_deviceid(uint32_t hbm_dev)
+ {
+-	uint32_t i;
+ 
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	HBM_DBG("\nHBM%d DramDeviceId CSRs:", hbm_dev);
+-	for (i = 0; i < PHY_MASTER_DRAMDEVICEID_REGS_NUM; i++) {
+-		HBM_DBG("DramDeviceId%d: 0x%x", i, hbm_phy_read(hbm_dev,
+-		      D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMDEVICEID0) + (i * BYTE_OFFSET)));
+-	}
+-	HBM_DBG("\n");
+ }
+ // #endregion
+ 
+ // region phy configs
+ static void phy_config_mode_registers(uint32_t hbm_dev)
+ {
+-	const uint32_t mr3_tras_mask = 0x3f, mr4_parity_lat_mask = 0xc, mr4_ext_wl_mask = 0x10,
+-		       mr4_ext_rl_mask = 0x20, mr4_ecc_mask = 0x3;
+-	uint32_t reg_val;
+-	bool ext_wl = hbm_cfg.phy_ac_param.wr_lat > 8, ext_rl = hbm_cfg.phy_ac_param.rd_lat > 33;
+ 
+ 	/* PHY mode registers */
+ 	/* wr_dbi, rd_dbi, TCSR, dq_rd_par, dq_wr_par, ca_par - ALL ENABLED */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR0), 0x77);
+ 
+ 	/* Drive strength & write recovery */
+-	reg_val = FIELD_PREP(0xe0, hbm_cfg.hbm_io_drive);
+-	reg_val |= FIELD_PREP(0x1f, hbm_cfg.phy_ac_param.twr);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR1), reg_val);
+ 
+ 	/* WL & RL */
+-	reg_val = FIELD_PREP(0x7, ext_wl ? hbm_cfg.phy_ac_param.wr_lat - 9 :
+-			      hbm_cfg.phy_ac_param.wr_lat - 1);
+-	reg_val |= FIELD_PREP(0xf8, ext_rl ? hbm_cfg.phy_ac_param.rd_lat - 34 :
+-			      hbm_cfg.phy_ac_param.rd_lat - 2);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR2), reg_val);
+ 
+ 	/* tRAS, BG enable, BL 4 */
+-	reg_val = 0xc0;
+-	reg_val |= FIELD_PREP(mr3_tras_mask, hbm_cfg.mc_ac_param.tras * HDR_TO_SDR);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR3), reg_val);
+ 
+ 	/* ECC cfg, extended RL/WL bits, parity latency */
+-	reg_val = FIELD_PREP(mr4_ecc_mask, hbm_cfg.ecc_enable ? 0x3 : 0x0);
+-	reg_val |= FIELD_PREP(mr4_ext_wl_mask, ext_wl ? 1 : 0);
+-	reg_val |= FIELD_PREP(mr4_ext_rl_mask, ext_rl ? 1 : 0);
+-	reg_val |= FIELD_PREP(mr4_parity_lat_mask, hbm_cfg.phy_ac_param.parity_lat);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MR4), reg_val);
+ 
+ 	/* DramParam0/1 */
+-	reg_val = 0x1;		/* BL = 4 */
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM0_P0_READLATENCY_M,
+-				ext_rl ? hbm_cfg.phy_ac_param.rd_lat - 34 :
+-				hbm_cfg.phy_ac_param.rd_lat - 2);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM0_P0_WRITELATENCY_M,
+-				ext_wl ? hbm_cfg.phy_ac_param.wr_lat - 9 :
+-				hbm_cfg.phy_ac_param.wr_lat - 1);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM0_P0_PARITYLATENCY_M,
+-				hbm_cfg.phy_ac_param.parity_lat);
+-	hbm_phy_write(hbm_dev,
+-	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM0_P0), reg_val);
+-
+-	reg_val = 0x01c;	/* Enable rd/wr/cmd parity */
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_EXTREADLATENCY_M,
+-				!!ext_rl);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_EXTWRITELATENCY_M,
+-				!!ext_wl);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_READDBI_M,
+-				hbm_cfg.dbi_enable);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_WRITEDBI_M,
+-				hbm_cfg.dbi_enable);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_ECC_M,
+-				hbm_cfg.ecc_enable);
+-	reg_val |= FIELD_PREP(HBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0_WRITEDATAMASK_M,
+-				0x1);
+-	hbm_phy_write(hbm_dev,
+-	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0), reg_val);
+ }
+ 
+ static void phy_config_dram_timing(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val;
+ 
+ 	/* For CK freq <= 1800MHz */
+-	reg_val = (pldm) ? 0x28 : 0x57e4;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING0), reg_val);
+-	reg_val = (pldm) ? 0x50 : 0xdbba;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING1), reg_val);
+-
+-	reg_val = 0x1000;	/* Flashbolt tMRD = 8nCK for all CK values*/
+-	reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING2_TINIT5_M,
+-			      hbm_cfg.hbm_ac_param.tinit5);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING2), reg_val);
+-
+-	reg_val = FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING3_TMOD_M,
+-			      hbm_cfg.hbm_ac_param.tmod);
+-	reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING3_TXS_M,
+-			      (hbm_cfg.mc_ac_param.txs + 1) * HDR_TO_SDR);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING3), reg_val);
+-
+-	reg_val = FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING4_TWTR_M,
+-			      hbm_cfg.hbm_ac_param.twtr_l);
+-	reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING4_TCKSRE_M,
+-			      (hbm_cfg.mc_ac_param.tcksre + 1) * HDR_TO_SDR);
+-	reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_DRAMTIMING4_TRCD_M,
+-			      hbm_cfg.mc_ac_param.trcd_rd);
+ 	/* tRCD is the only MC timing parmeter given in SDR. No need to convert */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING4), reg_val);
+-
+-	reg_val = FIELD_PREP(0x1f, hbm_cfg.mc_ac_param.trp * HDR_TO_SDR);
+-	reg_val |= FIELD_PREP(0xffe0, hbm_cfg.phy_ac_param.t_pwreset);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING5), reg_val);
+-
+ 	/* tCCDS, tCCDL, tCCDR - from Flashbolt spec. Frequency independent */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMTIMING8), 0x72);
+ }
+ 
+ static void phy_config_zq_cal(uint32_t hbm_dev, enum drive_strength phy_drive_strength)
+ {
+-	uint32_t reg_val, numerator, denominator, base;
+ 
+ 	/* Set numerator, denominator and base to determine the phy drive strength */
+-	switch (phy_drive_strength) {
+-	case DRIVE_STRENGTH_6MA:
+-		numerator = 1;
+-		denominator = 1;
+-		base = 16;
+-		break;
+-	case DRIVE_STRENGTH_9MA:
+-		numerator = 3;
+-		denominator = 2;
+-		base = 16;
+-		break;
+-	case DRIVE_STRENGTH_15MA:
+-		numerator = 14;
+-		denominator = 5;
+-		base = 16;
+-		break;
+-	case DRIVE_STRENGTH_18MA:
+-		numerator = 7;
+-		denominator = 2;
+-		base = 16;
+-		break;
+-	case DRIVE_STRENGTH_12MA:
+-	default:
+-		numerator = 15;
+-		denominator = 7;
+-		base = 16;
+-		break;
+-	}
+-
+-	if (hbm_cfg.fast_zq_cal) {
+ 		/* Set LinearSearchStep and CalNumVotes*/
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALMISC), 0x8);
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALMISC2), 0x2);
+-
+-		reg_val = hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALSCALECTRL));
+-		reg_val &= ~(HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALENUM_M |
+-			    HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALEDEN_M |
+-			    HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALEBASE_M);
+-		reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALENUM_M,
+-				      numerator);
+-		reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALEDEN_M,
+-				      denominator);
+-		reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_CALSCALECTRL_CALSCALEBASE_M,
+-				      base);
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALSCALECTRL),
+-											reg_val);
+-
+-		reg_val = FIELD_PREP(HBM_PHY_P0_MASTER_CALINITVALS_CALINITNINT_M, 0x28);
+-		reg_val |= FIELD_PREP(HBM_PHY_P0_MASTER_CALINITVALS_CALINITPEXT_M, 0x14);
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALINITVALS),
+-											reg_val);
+-	}
+-
+-	switch (hbm_cfg.ck_freq) {
+-	case HBM_PLL_1200:
+-		break;
+-
+-	case HBM_PLL_1600:
+-		hbm_phy_write(hbm_dev,
+-				D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALCMPSTARTUPTIME_P0), 1603);
+-		hbm_phy_write(hbm_dev,
+-				D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALSAMPLETIME_P0), 321);
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALOFFSETSAMPLETIME_P0), 241);
+-		break;
+-
+-	case HBM_PLL_1800:
+-	default:
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALCMPSTARTUPTIME_P0), 1812);
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALSAMPLETIME_P0), 363);
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CALOFFSETSAMPLETIME_P0), 272);
+-		break;
+-	}
+ }
+ 
+ static void phy_config_internal_pll(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val;
+-
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_PLLCTRL4_P0), 0xd8);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_PLLCTRL0), 0x86);
+-
+-	reg_val = (hbm_cfg.ck_freq == HBM_PLL_1200) ? 0x225 : 0xa25;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_PLLTESTMODE_P0), reg_val);
+-
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_PLLCTRL2_P0), 0x18);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_PLLCTRL1_P0), 0x21);
+ }
+ 
+ static void phy_config_lcdl_cal(uint32_t hbm_dev)
+ {
+-	uint32_t reg_val;
+-
+-	hbm_phy_write(hbm_dev,
+-	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_LCDLGAINCTL_P0), 0x62);
+-
+-	switch (hbm_cfg.ck_freq) {
+-	case HBM_PLL_1200:
+-		reg_val = 0x22c;
+-		break;
+-	case HBM_PLL_1600:
+-		reg_val = 0x1a0;
+-		break;
+-	case HBM_PLL_1800:
+-	default:
+-		reg_val = 0x172;
+-		break;
+-	}
+-
+-	hbm_phy_write(hbm_dev,
+-	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_LCDLLOCKPARAM_P0), reg_val);
+-
+-	hbm_phy_write(hbm_dev,
+-	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_LCDLTRAINPARAM),
+-			 hbm_cfg.phy_ac_param.extend_phased_time);
+ }
+ // #endregion
+ static void phy_load_initeng(uint32_t hbm_dev)
+@@ -574,112 +183,48 @@
+ 	/* Writing to Address CalRun */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=CalRun,*/
+ 	/* DATA=1, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG0S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG0S1),
+-											0x0268);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG0S2),
+-											0x8410);
+ 
+ 	/* Set     [0]=>CalRun   = 1'b0, Clear CalRun */
+ 	/* Writing to Address CalRun */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=CalRun*/
+ 	/* DATA=0, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG1S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG1S1),
+-											0x0268);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG1S2),
+-											0x8410);
+ 
+ 	/* Set   [7:0]=>TxRxPtrInit = 8'bff, stopping the fifo pointers */
+ 	/* Writing to Address TxRdPtrInit */
+ 	/* INSTR = OP=WRITE, GRP=1, FLAG=CONT, ADDR=TxRdPtrInit*/
+ 	/* DATA=0xff, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG2S0),
+-											0x07f8);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG2S1),
+-											0x0368);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG2S2),
+-											0x8c10);
+ 
+ 	/* Set     [3]=>PllOutBypEn = 1'b1, Put pll in bypass */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=1, FLAG=CONT, ADDR=PllCtrl0, */
+ 	/* DATA=0x0086, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG3S0),
+-											0x0430);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG3S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG3S2),
+-											0x8c10);
+ 
+ 	/* Set   [7:0]=>DfiInitComplete = 80x0 for all channels */
+ 	/* Writing to Address DfiInitComplete */
+ 	/* INSTR = OP=WRITE, GRP=1, FLAG=CONT, ADDR=DfiInitComplete, */
+ 	/* DATA=0,      DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG4S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG4S1),
+-											0x0220);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG4S2),
+-											0x8c10);
+ 
+ 	/* Part 2 - LP3(S3)  Entry Sequence */
+ 
+ 	/* Waiting for 64 cycles before LP3 entry */
+ 	/* INSTR = OP=NOP,   GRP=3, FLAG=CONT, DELAY_L=16 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG5S0),
+-											0x0010);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG5S1),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG5S2),
+-											0x1c00);
+ 
+ 	/* Set   [7:0]=>TxRxPtrInit       = 8'bff, stopping the fifo pointers*/
+ 	/* Writing to Address TxRdPtrInit */
+ 	/* INSTR = OP=WRITE, GRP=3, FLAG=CONT, ADDR=TxRdPtrInit*/
+ 	/* DATA=0xff, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG6S0),
+-											0x07ff);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG6S1),
+-											0x0368);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG6S2),
+-											0x9c10);
+-
+-	/* Set [5]=>PllBypClkSel = 1'b1   [3]=>PllOutBypEn = 1'b1*/
+-	/* Put pll in bypass */
+-	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=3, FLAG=CONT, ADDR=PllCtrl0 */
+ 	/* DATA=0x0096, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG7S0),
+-											0x04b0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG7S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG7S2),
+-											0x9c10);
+ 
+ 	/* Reset   [0]=>PllPwrDn          = 1'b1,  Pll in Power Down */
+ 	/* Writing to Address PllPwrDn */
+ 	/* INSTR = OP=WRITE, GRP=3, FLAG=CONT, ADDR=PllPwrDn */
+ 	/* DATA=1, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG8S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG8S1),
+-											0x0338);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG8S2),
+-											0x9c10);
+ 
+ 	/* Set   [7:0]=>DfiInitComplete   = 80x0,  for all channels */
+ 	/* Writing to Address DfiInitComplete */
+ 	/* INSTR = OP=WRITE, GRP=3, FLAG=CONT, ADDR=DfiInitComplete */
+ 	/* DATA=0,      DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG9S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG9S1),
+-											0x0220);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG9S2),
+-											0x9c10);
+ 
+ 	/* Part 3 - Wait instruction for Detecting Start De-assertion of LP2 */
+ 	/* and LP3 exit */
+@@ -687,12 +232,6 @@
+ 	/* Adding Wait instruction which will wait here for the Start to be */
+ 	/* de-asserted */
+ 	/* INSTR = OP=WAIT,  GRP=0, FLAG=CONT, DELAY_L=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG10S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG10S1),
+-											0x0001);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG10S2),
+-											0x0400);
+ 
+ 	/* Part 4 - LP3(S3) Exit  Sequence */
+ 
+@@ -700,12 +239,6 @@
+ 	/* Writing to Address DfiInitComplete */
+ 	/* INSTR = OP=WRITE, GRP=3, FLAG=CONT, ADDR=DfiInitComplete */
+ 	/* DATA=0xff,   DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG11S0),
+-											0x07f8);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG11S1),
+-											0x0220);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG11S2),
+-											0x9c10);
+ 
+ 	/* Part 5 - LP2 Exit Sequence + Dfi Initialization */
+ 
+@@ -713,343 +246,141 @@
+ 	/* Writing to Address PState */
+ 	/* INSTR = OP=WRVAL, GRP=2, FLAG=CONT, ADDR=PState */
+ 	/* REGSEL=0, DELAY_S=3 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG12S0),
+-											0x0003);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG12S1),
+-											0x006a);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG12S2),
+-											0x1410);
+-
+ 	/* Set   [2:0]=>InitSeqWaitCondSel = 3'b4,  */
+ 	/* Configure to wait for Impedance Calibration Done */
+ 	/* Writing to Address InitSeqWaitCondSel */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=InitSeqWaitCondSel */
+ 	/* DATA=4, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG13S0),
+-											0x0020);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG13S1),
+-											0x0788);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG13S2),
+-											0x8448);
+ 
+ 	/* Waiting for 1us before de-asserting PwrDn or Standby */
+ 	/* INSTR = OP=NOP_R, GRP=0, FLAG=CONT, REGSEL=1 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG14S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG14S1),
+-											0x0004);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG14S2),
+-											0x0400);
+ 
+ 	/* Reset   [0]=>PllPwrDn    = 1'b0, Pll out of power down */
+ 	/* Writing to Address PllPwrDn */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=PllPwrDn */
+ 	/* DATA=0, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG15S0),
+-											0x0007);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG15S1),
+-											0x0338);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG15S2),
+-											0x8410);
+ 
+ 	/* Reset   [0]=>PllStandby  = 1'b0,  Pll out of standby */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=1, FLAG=CONT, ADDR=PllCtrl0 */
+ 	/* DATA=0x0086,   DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG16S0),
+-											0x0437);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG16S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG16S2),
+-0x8c10);
+ 
+ 	/* Set     [5]=>GearShit = 1'b1 and [3]=>Preset = 1'b1 */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=PllCtrl0 */
+ 	/* DATA=0x00AE,   DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG17S0),
+-											0x0570);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG17S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG17S2),
+-											0x9410);
+-
+ 	/* Waiting for 1us before de-asserting Preset */
+ 	/* INSTR = OP=NOP_R, GRP=2, FLAG=CONT, REGSEL=1 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG18S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG18S1),
+-											0x0004);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG18S2),
+-											0x1400);
+ 
+ 	/* Reset   [3]=>Preset = 1'b0 */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=PllCtrl0 */
+ 	/* DATA=0x00A6,   DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG19S0),
+-											0x0530);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG19S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG19S2),
+-											0x9410);
+ 
+ 	/* Waiting for 0.5us before de-asserting Gearshift */
+ 	/* INSTR = OP=NOP_R, GRP=2, FLAG=CONT, REGSEL=2 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG20S0),
+-											0x0010);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG20S1),
+-											0x0004);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG20S2),
+-											0x1400);
+-
+ 	/* Reset  [5]=>Gearshift = 1'b0 */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=PllCtrl0 */
+ 	/* DATA=0x0086,   DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG21S0),
+-											0x0430);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG21S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG21S2),
+-											0x9410);
+ 
+ 	/* Waiting for 10us for the PLL to lock */
+ 	/* INSTR = OP=NOP_R, GRP=0, FLAG=CONT, REGSEL=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG22S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG22S1),
+-											0x0004);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG22S2),
+-											0x0400);
+ 
+ 	/* Waiting for 0.5us for the Pll to lock */
+ 	/* INSTR = OP=NOP_R, GRP=1, FLAG=CONT, REGSEL=2 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG23S0),
+-											0x0010);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG23S1),
+-											0x0004);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG23S2),
+-											0x0c00);
+ 
+ 	/* Reset   [2]=>PllBypMode = 1'b1, Pull pll out of bypass */
+ 	/* Writing to Address PllCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=PllCtrl0, BYPDAT=0x0096 */
+ 	/* DATA=0x0082, DELAY_S=0 */
+-	if (pldm)
+ 		/* PLL bypass */
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG24S0), 0x04b0);
+-	else
+-		hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG24S0), 0x0410);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG24S1),
+-											0x02d0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG24S2),
+-											0x9410);
+ 
+ 	/* Adding Wait instruction which will wait here for the */
+ 	/* ZQ Calibration to be done */
+ 	/* INSTR = OP=WAIT,  GRP=0, FLAG=CONT, DELAY_L=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG25S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG25S1),
+-											0x0001);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG25S2),
+-											0x0400);
+ 
+ 	/* Set   [2:0]=>InitSeqWaitCondSel = 3'b7,  Configure to wait for */
+ 	/* LCDL Calibration Done */
+ 	/* Writing to Address InitSeqWaitCondSel */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=InitSeqWaitCondSel */
+ 	/* DATA=7, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG26S0),
+-											0x0038);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG26S1),
+-											0x0788);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG26S2),
+-											0x9448);
+ 
+ 	/* Set     [0]=>PClkEnAsyncCtrl = 1'b1 */
+ 	/* Writing to Address ClockingCtrl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=ClockingCtrl */
+ 	/* DATA=1, DELAY_S=3 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG27S0),
+-											0x000b);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG27S1),
+-											0x0040);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG27S2),
+-											0x9410);
+ 
+ 	/* Set     Set [0]=>LcdlResetRelock = 1'b1 */
+ 	/* Writing to Address LcdlControl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=LcdlControl */
+ 	/* DATA=1, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG28S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG28S1),
+-											0x0208);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG28S2),
+-											0x9410);
+ 
+ 	/* Set     [1]=>LcdlTrackEnCtrl = 1'b1 */
+ 	/* Writing to Address ClockingCtrl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=ClockingCtrl */
+ 	/* DATA=3, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG29S0),
+-											0x0018);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG29S1),
+-											0x0040);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG29S2),
+-											0x9410);
+ 
+ 	/* Reset   Set [0]=>LcdlResetRelock = 1'b0 */
+ 	/* Writing to Address LcdlControl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=LcdlControl */
+-	/* DATA=0, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG30S0),
+-											0x0007);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG30S1),
+-											0x0208);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG30S2),
+-											0x9410);
+ 
+ 	/* Adding Wait instruction which will wait here for the LCDL */
+ 	/* Calibration to be done */
+ 	/* INSTR = OP=WAIT,  GRP=2, FLAG=CONT, DELAY_L=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG31S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG31S1),
+-											0x0001);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG31S2),
+-											0x1400);
+ 
+ 	/* Reset   [1]=>LcdlTrackEnCtrl = 1'b0 */
+ 	/* Writing to Address ClockingCtrl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=ClockingCtrl */
+ 	/* DATA=1, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG32S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG32S1),
+-											0x0040);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG32S2),
+-											0x9410);
+ 
+ 	/* Reset   [0]=>PclkEnAsyncCtrl = 1'b0 */
+ 	/* Writing to Address ClockingCtrl */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=ClockingCtrl */
+ 	/* DATA=0, DELAY_S=3 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG33S0),
+-											0x0003);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG33S1),
+-											0x0040);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG33S2),
+-											0x9410);
+ 
+ 	/* Waiting for 24 cycles to allow Calibration to complete final cycle */
+ 	/* INSTR = OP=NOP,   GRP=2, FLAG=CONT, DELAY_L=6 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG34S0),
+-											0x0006);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG34S1),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG34S2),
+-											0x1400);
+ 
+ 	/* Set   [7:0]=>TxRxPtrInit = 8'b0 , starting the fifo pointers */
+ 	/* Writing to Address TxRdPtrInit */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=TxRdPtrInit */
+ 	/* DATA=0, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG35S0),
+-											0x0007);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG35S1),
+-											0x0368);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG35S2),
+-											0x9410);
+ 
+ 	/* Waiting for 68 cycles (for Rx I/O power-up) before triggering */
+ 	/* reset rxdat fifos */
+ 	/* INSTR = OP=NOP,   GRP=2, FLAG=CONT, DELAY_L=17 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG36S0),
+-											0x0011);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG36S1),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG36S2),
+-											0x1400);
+ 
+ 	/* Set [0]=>PLLockDone = 1'b1 */
+ 	/* Writing to Address PorControl */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=PorControl */
+ 	/* DATA=0x0001, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG37S0),
+-											0x0008);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG37S1),
+-											0x0360);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG37S2),
+-											0x8410);
+ 
+ 	/* Write CmdSeqReg0 Instruction cmd=FIFO_RST, addr=DWORD DATA RX */
+ 	/* Writing to Address CmdSeqReg0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=CmdSeqReg0 */
+ 	/* DATA=0x00B6, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG38S0),
+-											0x05b0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG38S1),
+-											0x0070);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG38S2),
+-											0x9410);
+-
+ 	/* Set CmdSeqRun=1, CmdSeqStartAddr=0, CmdSeqStopAddr=0 */
+ 	/* Writing to Address CmdSeqCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=CmdSeqCtrl0 */
+ 	/* DATA=0x0001, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG39S0),
+-											0x000f);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG39S1),
+-											0x00f0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG39S2),
+-											0x9410);
+-
+ 	/* Set CmdSeqRun=0, CmdSeqStartAddr=0, CmdSeqStopAddr=0 */
+ 	/* Writing to Address CmdSeqCtrl0 */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=CmdSeqCtrl0 */
+ 	/* DATA=0x0000, DELAY_S=7 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG40S0),
+-											0x0007);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG40S1),
+-											0x00f0);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG40S2),
+-											0x9410);
+ 
+ 	/* Waiting for 68 cycles to allow CmdSeq time to complete */
+ 	/* INSTR = OP=NOP,   GRP=2, FLAG=CONT, DELAY_L=17 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG41S0),
+-											0x0011);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG41S1),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG41S2),
+-											0x1400);
+ 
+ 	/* Set     [1]=>LcdlTrackEnCtrl = 1'b1 */
+ 	/* Writing to Address ClockingCtrl  */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=ClockingCtrl */
+ 	/* DATA=2, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG42S0),
+-											0x0010);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG42S1),
+-											0x0040);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG42S2),
+-											0x9410);
+ 
+ 	/* Set   [7:0]=>DfiInitComplete = 80xff for all channels */
+ 	/* Writing to Address DfiInitComplete */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=DfiInitComplete */
+ 	/* DATA=0xff, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG43S0),
+-											0x07f8);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG43S1),
+-											0x0220);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG43S2),
+-											0x9410);
+ 
+ 	/* Part 6 - Enabling LP2 sequence */
+ 
+@@ -1058,78 +389,29 @@
+ 	/* Writing to Address InitSeqWaitCondSel */
+ 	/* INSTR = OP=WRITE, GRP=2, FLAG=CONT, ADDR=InitSeqWaitCondSel */
+ 	/* DATA=2, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG44S0),
+-											0x0010);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG44S1),
+-											0x0788);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG44S2),
+-											0x9448);
+ 
+ 	/* Set  [15:0]=>InitSeqDisableFlag = 160xfff0 */
+ 	/* Writing to Address InitSeqDisableFlag1 */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=InitSeqDisableFlag1 */
+ 	/* DATA=0xfff0, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG45S0),
+-											0xff80);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG45S1),
+-											0x06ff);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG45S2),
+-											0x8448);
+ 
+ 	/* Set  [15:0]=>InitSeqDisableFlag = 160xffff */
+ 	/* Writing to Address InitSeqDisableFlag0 */
+ 	/* INSTR = OP=WRITE, GRP=0, FLAG=CONT, ADDR=InitSeqDisableFlag0 */
+ 	/* DATA=0xffff, DELAY_S=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG46S0),
+-											0xfff8);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG46S1),
+-											0x06f7);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG46S2),
+-											0x8448);
+ 
+ 	/* Terminating by setting the Terminate Flag to 0 */
+ 	/* INSTR = OP=NOP,   GRP=0, FLAG=TERM, DELAY_L=0 */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG47S0),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG47S1),
+-											0x0000);
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQREG47S2),
+-											0x0000);
+ }
+ 
+ static void phy_clear_errors(uint32_t hbm_dev)
+ {
+-	hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DATACTRL),
+-						HBM_PHY_CHANNELS_CH_BCAST_AW_DATACTRL_CLRSTATUS_M);
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DATACTRL), 0x0);
+-
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_LANEREPAIRCTRL), 0x1,
+-		    HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRCLRSTATUS_M);
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_LANEREPAIRCTRL), 0x0,
+-		    HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRCLRSTATUS_M);
+ }
+ 
+ static int phy_error_aword(uint32_t hbm_dev, uint32_t ch)
+ {
+ 	int rc = STATUS_PASS;
+-	uint32_t reg_val, ch_offset = ch * PHY_CH_OFFSET;
+-
+-	reg_val = hbm_phy_read(hbm_dev,
+-		D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_AWDATABITERR0) + ch_offset);
+-	if (reg_val) {
+-		HBM_DBG("CH%d AwDataBitErr0: 0x%x", ch, reg_val);
+-		rc++;
+-	}
+-
+-	reg_val = hbm_phy_read(hbm_dev,
+-		D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_AWDATABITERR1) + ch_offset);
+ 	/* Skip ARFU[1] & ARFU[3] */
+-	if (reg_val != 0x28 && reg_val != 0) {
+-		HBM_DBG("CH%d AwDataBitErr1: 0x%x", ch, reg_val);
+-		rc++;
+-	}
+ 
+ 	return rc;
+ }
+@@ -1137,26 +419,6 @@
+ static int phy_error_dword(uint32_t hbm_dev, uint32_t ch, uint32_t dw)
+ {
+ 	int rc = STATUS_PASS;
+-	uint32_t byte, reg_val, ch_offset = ch * PHY_CH_OFFSET;
+-	uint32_t dw_offset = ch_offset + dw * PHY_DW_OFFSET;
+-
+-	reg_val = hbm_phy_read(hbm_dev,
+-		D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DWDATASTATUS0) + dw_offset);
+-
+-	if (reg_val & HBM_PHY_CHANNELS_CH0_DW0_DWDATASTATUS0_DWDATAERR_M) {
+-		HBM_DBG("Errors found on CH%d DW%d. DwDataStatus0: 0x%x", ch, dw, reg_val);
+-		for (byte = 0; byte < 4; byte++) {
+-			reg_val = hbm_phy_read(hbm_dev,
+-			D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DWDB0DATABITERR)
+-					       + dw_offset + byte * BYTE_OFFSET);
+-			if (!reg_val)
+-				continue;
+-
+-			HBM_DBG("      %sCH%d DW%d byte%d DataBitErr: 0x%x", SPACES10, ch, dw, byte,
+-				      reg_val);
+-		}
+-		rc = STATUS_FAIL;
+-	}
+ 
+ 	return rc;
+ }
+@@ -1165,158 +427,40 @@
+ static int phy_error(uint32_t hbm_dev)
+ {
+ 	int size = 0, rc = STATUS_PASS;
+-	uint32_t reg_val, temp_err, cattrip_err, ch_idx, dw_idx;
+-	char str[100] = {0};
+-
+-	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CHNSTATUS));
+-	if (reg_val) {
+-		size += snprintk(str + size, sizeof(str) - size,
+-				 "HBM%d PHY errors found on channels: ", hbm_dev);
+-		for (ch_idx = 0; ch_idx < HBM_PHY_CHANNELS_NUM; ch_idx++) {
+-			if (reg_val & BIT(ch_idx))
+-				size += snprintk(str + size, sizeof(str) - size, "%d ", ch_idx);
+-		}
+-		HBM_DBG("%s", str);
+-	}
+-
+-	for (ch_idx = 0; ch_idx < HBM_PHY_CHANNELS_NUM; ch_idx++) {
+-		rc |= phy_error_aword(hbm_dev, ch_idx);
+-
+-		for (dw_idx = 0; dw_idx < HBM_CHANNEL_DWORDS_NUM; dw_idx++)
+-			rc |= phy_error_dword(hbm_dev, ch_idx, dw_idx);
+ 
+ 		/* TEMP[2:0] and CATTRRIP */
+-		reg_val = hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_WSOREADSTATUS));
+-		temp_err = FIELD_GET(HBM_PHY_P0_MASTER_WSOREADSTATUS_TEMPERR_M, reg_val);
+-		cattrip_err = FIELD_GET(HBM_PHY_P0_MASTER_WSOREADSTATUS_CATTRIPERR_M, reg_val);
+-		if (temp_err || cattrip_err) {
+ 			/* This is due to Cadance known design bug, Jira - [SW-93017] */
+-			if (!pldm) {
+-				LOG_ERR("Errors found on MIDSTACK signals: HBM%d CH%d TempERR: 0x%x, CattripERR: 0x%x",
+-					hbm_dev, ch_idx, temp_err, cattrip_err);
+-				rc |= STATUS_FAIL;
+-			}
+-		}
+-	}
+-
+-	phy_clear_errors(hbm_dev);
+ 
+ 	return rc;
+ }
+ 
+ int phy_test_loopback(uint32_t hbm_dev)
+ {
+-	int rc;
+-	uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
+-	uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
+-	uint32_t val, bist_status_valid;
+-
+-	if (!PHY_LOOPBACK_EN)
+-		return STATUS_PASS;
+ 
+ 	/* Fix density on PUB DeviceId CSR - 16Gb per channel */
+-	if (pldm)
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_DRAMDEVICEID4),
+-											0xA100);
+-
+-	bist_status_valid = HBM_PHY_P0_MASTER_BISTSTATUS_BISTDONE_M |
+-			    HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBDWDONE_M |
+-			    HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBAWDONE_M;
+-	if (!pldm)
+-		bist_status_valid |= HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBDWTRAINEYEDONE_M |
+-				     HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBDWTRAINRDLATDONE_M |
+-				     HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBAWTRAINEYEDONE_M |
+-				     HBM_PHY_P0_MASTER_BISTSTATUS_BISTLBAWTRAINRDLATDONE_M;
+ 
+ 	/* loads the EXTEST_RX command through the P1500
+ 	 * in order to tristate the DRAM outputs
+ 	 */
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MASTERCTRL), 0x1,
+-		    HBM_PHY_P0_MASTER_MASTERCTRL_TRISTATEDRAMEN_M);
+-
+-	k_msleep(PHY_LOOPBACK_TIMEOUT_MS);
+-
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MASTERCTRL), 0x0,
+-		    HBM_PHY_P0_MASTER_MASTERCTRL_TRISTATEDRAMEN_M);
+ 
+ 	/* BistTrainNumWords = 12; BistMode = concurrent AW/DW */
+-	val = FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTMODE_M, 0x3);
+-	val |= FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTTRAINNUMWORDS_M, 0xc);
+ 
+-	if (!pldm) {
+ 		/* AWORD and DWORD read latency and eye training */
+-		val |= FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTAWTRAINRDLATEN_M, 0x1);
+-		val |= FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTAWTRAINEYEEN_M, 0x1);
+-		val |= FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTDWTRAINEYEEN_M, 0x1);
+-		val |= FIELD_PREP(HBM_PHY_P0_MASTER_BISTCTRL0_BISTDWTRAINRDLATEN_M, 0x1);
+-	}
+ 
+ 	/* Trigger BIST run */
+-	val |= HBM_PHY_P0_MASTER_BISTCTRL0_BISTINSTR_M;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_BISTCTRL0), val);
+ 
+ 	/* Reset BIST trigger */
+-	val ^= HBM_PHY_P0_MASTER_BISTCTRL0_BISTINSTR_M;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_BISTCTRL0), val);
+ 
+-	rc = PHY_POLLING_TIMEOUT(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_BISTSTATUS), val,
+-				 (val & HBM_PHY_P0_MASTER_BISTSTATUS_BISTDONE_M), sleep, timeout);
+ 
+-	if (rc) {
+-		LOG_ERR("Timeout while waiting for PHY loopback BIST to complete");
+-		return STATUS_FAIL;
+-	}
+ 
+-	if (val != bist_status_valid) {
+-		LOG_ERR("HBM%d PHY loopback BIST failed. BistStatus: 0x%x", hbm_dev, val);
+-		phy_error(hbm_dev);
+-		return STATUS_FAIL;
+-	}
+ 
+ 	/* Should be considered only if BISTSTATUS showed erros */
+-	if (phy_error(hbm_dev))
+-		LOG_ERR("Loopback passed but mismatches have been FOUND");
+-
+-	phy_clear_errors(hbm_dev);
+-	HBM_DBG("HBM%d PHY internal loopback PASSED. BistStatus: 0x%x", hbm_dev, val);
+ 
+ 	return STATUS_PASS;
+ }
+ 
+ int phy_trigger_lanerepair_fsm(uint32_t hbm_dev, uint32_t ctrl, uint32_t expected_status)
+ {
+-	uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
+-	uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
+-	uint32_t reg_val;
+-	int rc;
+-
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_LANEREPAIRCTRL), ctrl);
+-	ctrl ^= HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRRUN_M;
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_LANEREPAIRCTRL), ctrl);
+-
+-	rc = PHY_POLLING_TIMEOUT(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_LANEREPAIRSTATUS),
+-				 reg_val,
+-				 (reg_val & HBM_PHY_P0_MASTER_LANEREPAIRSTATUS_LANEREPAIRDONE_M),
+-				 sleep, timeout);
+-
+-	if (rc) {
+-		LOG_ERR("Timeout while polling for PHY LaneRepair FSM completion");
+-		return STATUS_FAIL;
+-	}
+-
+-	if (reg_val != expected_status) {
+-		LOG_ERR("HBM%d LANEREPAIR FSM failed. LaneRepairCtrl = 0x%x. LaneRepairStatus = 0x%x",
+-			hbm_dev, expected_status, reg_val);
+-		phy_error(hbm_dev);
+-		return STATUS_FAIL;
+-	}
+-
+-	if (phy_error(hbm_dev)) {
+-		LOG_ERR("Broken lanes were detected during LaneRepair FSM operation. LaneRepairStatus = 0x%x",
+-			reg_val);
+-		return STATUS_FAIL;
+-	}
+ 
+ 	return STATUS_PASS;
+ }
+@@ -1324,24 +468,7 @@
+ 
+ static int poll_on_phy_init(uint32_t hbm_dev)
+ {
+-	int rc;
+-	uint32_t mc_offset, mc_idx, hbm_offset = CALC_HBM_OFFSET(hbm_dev), reg_val = 0;
+-	uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
+-	uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
+ 
+-	for (mc_idx = 0; mc_idx < GAUDI3_NUM_OF_MC_PER_HBM; mc_idx++) {
+-		mc_offset = hbm_offset + mc_idx * MC_OFFSET;
+-		rc = HBM_POLLING_TIMEOUT(D0_HBM0_MC0_REG(mmMC_CH_DFI_PHY_INIT_COMPLETE) + mc_offset,
+-					 reg_val,
+-					 ((reg_val & MC_CH_DFI_PHY_INIT_COMPLETE_VAL_M) == 0x1),
+-					 sleep, timeout);
+-
+-		if (rc) {
+-			LOG_ERR("Timeout while polling on HBM%d dfi_init_complete assertion",
+-				hbm_dev);
+-			return STATUS_FAIL;
+-		}
+-	}
+ 
+ 	return STATUS_PASS;
+ }
+@@ -1352,582 +479,97 @@
+  */
+ int phy_dfi_init(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+ 
+ 	/* Disable PHY updates */
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DFIPHYUPD), 0x0);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_INIT_START), 0x1);
+-
+-	k_busy_wait(PHY_INIT_START_US);
+-
+-	if (poll_on_phy_init(hbm_dev))
+-		return STATUS_FAIL;
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_BCAST_MC_REG(mmMC_CH_DFI_PHY_INIT_START), 0x0);
+ 
+ 	return STATUS_PASS;
+ }
+ 
+ inline void hbm_phy_rmw(uint32_t hbm_dev, uint32_t addr, uint32_t val, uint32_t mask)
+ {
+-	uint8_t chiplet_type;
+-	uint32_t phy_addr, hbm_offset, reg_val;
+ 
+-	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+-	phy_addr = hbm_offset + addr - phy_access.offset;
+-
+-	/* set chiplet type only if needed */
+-	if (chiplet_type != phy_access.chiplet) {
+-		phy_access.chiplet = chiplet_type;
+-		reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+-		reg_val |= phy_access.chiplet;
+-		CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) +
+-									hbm_offset, reg_val);
+-	}
+-	HBM_RMWREG32(phy_addr, val, mask, POLL_WR_INFLIGHT);
+ }
+ 
+ 
+ void phy_reset(uint32_t hbm_dev)
+ {
+-	uint32_t hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+ 
+ 	/* Cold reset */
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_POWERGOOD), 0x0);
+ 	/* Warm reset */
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_HBMPHY_RESET), 0x1);
+ 	/* APB */
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_PRESETN), 0x0);
+ 	/* DFI */
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_DFI_RESET_N), 0x0);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_POWERGOOD), 0x1);
+ 
+ 	/* 64 DfiClks */
+-	k_busy_wait(PHY_POWERGOOD_US);
+-
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_HBMPHY_RESET), 0x0);
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_PRESETN), 0x1);
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_DFI_RESET_N), 0x1);
+ 	/* Secured + Privilliged */
+-#if defined(CONFIG_SVE_FLAVOR_HOST_DIRECT) || defined(CONFIG_SVE_FLAVOR_HOST_INDIRECT)
+ 	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_PPROT_PIN), 0x0);
+-#else
+-	CFG_WREG32(hbm_offset + D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_PPROT_PIN), 0x1);
+-#endif
+ }
+ 
+ /* returns the precentage of the eye relative to 1UI */
+ static int calc_eye_ratio_ui(uint16_t min_reg, uint16_t max_reg)
+ {
+-	if (!min_reg && !max_reg)
+-		return 0;
+-
+-	if (min_reg & BIT(RD_EYE_PREV_UI))
+-		return ((NUM_TAPS_PER_1UI - (min_reg & RD_EYE_MIN_DLY_M) + max_reg + 1) * 100) /
+-			 NUM_TAPS_PER_1UI;
+-	/* else */
+-	return ((max_reg - min_reg + 1) * 100) / NUM_TAPS_PER_1UI;
+ }
+ 
+ static void debug_print_lcdls_1ui(uint32_t hbm_dev)
+ {
+-	int size = 0, str_len = 500;
+-	uint32_t ch_offset, offset, ch, dw;
+-	char *s = NULL;
+-
+-	if (!hl_hbm_open_dbg_prints || !PRINT_LCDL_1UI_EN)
+-		return;
+-
+-	s = k_calloc(str_len, sizeof(char));
+-	if (!s) {
+-		LOG_ERR("Failed to allocate kernel memory for print LCDLs 1UI results");
+-		return;
+-	}
+-
+-	HBM_DBG("\n%s<0> *** HBM%d LCDLs 1UI ***", SPACES40, hbm_dev);
+-	HBM_DBG("  CH   :%sAddress/Command %s   CK", SPACES10, SPACES5);
+-	HBM_DBG("  ---- : ---------------------------------------");
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		ch_offset = ch * PHY_CH_OFFSET;
+-		HBM_DBG("  CH-%d :     %s0x%03x  %s0x%03x", ch, SPACES10,
+-			hbm_phy_read(hbm_dev,
+-	D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXACLCDL1UI) + ch_offset), SPACES10,
+-			hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXCKLCDL1UI) + ch_offset));
+-	}
+-
+-	HBM_DBG("\n     CH%s%s%sDW-0%s%s%sDW-1%s%s%s  DW-2%s%s%sDW-3", SPACES10,
+-		      SPACES10, SPACES5, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10,
+-		      SPACES10, SPACES10, SPACES10);
+-
+-	HBM_DBG(" ----- : --------%s---%s---%s---%s--", DASHES30, DASHES30, DASHES30, DASHES30);
+-	HBM_DBG("%s%s%s %s   %s %s   %s %s   %s",
+-		SPACES10, SPACES5, UI_PRINT_HEADER, SPACES5, UI_PRINT_HEADER, SPACES5,
+-		UI_PRINT_HEADER, SPACES5, UI_PRINT_HEADER);
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		ch_offset = ch * PHY_CH_OFFSET;
+-		size = 0;
+-		size += snprintk(s + size, str_len - size, "      ");
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			offset = ch_offset + dw * PHY_DW_OFFSET;
+-			size += snprintk(s + size, str_len - size,
+-					 " 0x%02x      0x%02x      0x%02x        ",
+-					 hbm_phy_read(hbm_dev,
+-			      D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKLCDL1UI) +
+-						      offset),
+-					 hbm_phy_read(hbm_dev,
+-			      D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNLCDL1UI) +
+-						      offset),
+-					 hbm_phy_read(hbm_dev,
+-			      D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQLCDL1UI) +
+-						      offset));
+-		}
+-		HBM_DBG("  CH-%d :%s", ch, s);
+-	}
+-
+-	k_free(s);
+ }
+ 
+ 
+ static void print_training_dw(uint32_t hbm_dev, struct dw_training *dw_res)
+ {
+-	int size = 0, str_len = 500;
+-	uint32_t ratio = 0, dw_res_offset, ratio_sum = 0, ratio_min = 100, ch, pc, dw;
+-	char *s = NULL;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	s = k_calloc(str_len, sizeof(char));
+-	if (!s) {
+-		LOG_ERR("Failed to allocate kernel memory for print training results");
+-		return;
+-	}
+-
+-	HBM_DBG("\n%s<2> *** HBM%d DWORDs DFIM read latency ***", SPACES40, hbm_dev);
+-	HBM_DBG("   CH%sDW-0  DW-1  DW-2  DW-3", SPACES10);
+-	HBM_DBG("  ----- : -------------------------------------");
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		size = 0;
+-		size += snprintk(s + size, str_len - size, "      ");
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			size += snprintk(s + size, str_len - size, "0x%02x  ",
+-					 dw_res[ch * HBM_CHANNEL_DWORDS_NUM + dw].rx.read_latency);
+-		}
+-		HBM_DBG("   CH-%d :%s", ch, s);
+-	}
+-
+-	HBM_DBG("\n\n%s<3> *** HBM%d DWORDs RDQS rising edge delay ***",
+-		SPACES40, hbm_dev);
+-	HBM_DBG("  %s%sDW-0%s%s%sDW-1%s%s%sDW-2%s%s%sDW-3",
+-		SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10,
+-		SPACES10, SPACES10, SPACES10);
+-	HBM_DBG(" ----- : --------------------------------------------------------------------------------------------------------------------------------");
+-	HBM_DBG("  CH   :  result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max",
+-		SPACES5, SPACES5, SPACES5);
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		size = 0;
+-		size += snprintk(s + size, str_len - size, "  CH-%d :", ch);
+-		for (pc = 0;  pc < NUM_PC_PER_CH; pc++) {
+-			dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + pc * NUM_PC_PER_CH;
+ 			/* 1st DWORD */
+-			ratio = dw_res[dw_res_offset].rx.rdqs_rise.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].rx.rdqs_rise.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].rx.rdqs_rise.min,
+-					 dw_res[dw_res_offset].rx.rdqs_rise.max);
+ 			/* 2nd DWORD */
+-			dw_res_offset++;
+-			ratio = dw_res[dw_res_offset].rx.rdqs_rise.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].rx.rdqs_rise.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].rx.rdqs_rise.min,
+-					 dw_res[dw_res_offset].rx.rdqs_rise.max);
+-		}
+-		HBM_DBG("%s", s);
+-	}
+-
+-	HBM_DBG("\n\n%s<4> *** HBM%d DWORDs RDQS falling edge delay ***",
+-		SPACES40, hbm_dev);
+-	HBM_DBG("  %s%sDW-0%s%s%sDW-1%s%s%sDW-2%s%s%sDW-3",
+-		SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10,
+-		SPACES10, SPACES10, SPACES10);
+-	HBM_DBG(" ----- : --------------------------------------------------------------------------------------------------------------------------------");
+-	HBM_DBG("  CH   :  result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max",
+-		SPACES5, SPACES5, SPACES5);
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		size = 0;
+-		size += snprintk(s + size, str_len - size, "  CH-%d :", ch);
+-		for (pc = 0;  pc < NUM_PC_PER_CH; pc++) {
+-			dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + pc * NUM_PC_PER_CH;
+-			/* 1st DWORD */
+-			ratio = dw_res[dw_res_offset].rx.rdqs_fall.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].rx.rdqs_fall.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].rx.rdqs_fall.min,
+-					 dw_res[dw_res_offset].rx.rdqs_fall.max);
+-			/* 2nd DWORD */
+-			dw_res_offset++;
+-			ratio = dw_res[dw_res_offset].rx.rdqs_fall.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].rx.rdqs_fall.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].rx.rdqs_fall.min,
+-					 dw_res[dw_res_offset].rx.rdqs_fall.max);
+-		}
+-		HBM_DBG("%s", s);
+-	}
+-
+-	HBM_DBG("\n%s%s%s%sFor all DWORDs - RD eye avg ratio: %d%% RD eye min ratio: %d%%\n",
+-		SPACES10, SPACES10, SPACES10, SPACES5, ratio_sum /
+-		(NUM_RDQS_EDGES * NUM_DW_PER_HBM), ratio_min);
+-
+-	ratio_sum = 0;
+-	ratio_min = 100;
+-
+-	HBM_DBG("\n%s<5> *** HBM%d DWORDs DQ transmit delay ***",
+-		SPACES40, hbm_dev);
+-	HBM_DBG("  %s%sDW-0%s%s%sDW-1%s%s%sDW-2%s%s%sDW-3", SPACES10, SPACES10, SPACES10,
+-		      SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10, SPACES10,
+-		      SPACES10);
+-	HBM_DBG(" ----- : --------------------------------------------------------------------------------------------------------------------------------");
+-	HBM_DBG("  CH   :  result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max%s result (ratio)   Min  -  Max",
+-		SPACES5, SPACES5, SPACES5);
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		size = 0;
+-		size += snprintk(s + size, str_len - size, "  CH-%d :", ch);
+-		for (pc = 0;  pc < NUM_PC_PER_CH; pc++) {
+-			dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + pc * NUM_PC_PER_CH;
+-			/* 1st DWORD */
+-			ratio = dw_res[dw_res_offset].tx.dq.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].tx.dq.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].tx.dq.min,
+-					 dw_res[dw_res_offset].tx.dq.max);
+-			/* 2nd DWORD */
+-			dw_res_offset++;
+-			ratio = dw_res[dw_res_offset].tx.dq.ratio_1ui;
+-			ratio_sum += ratio;
+-			ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-			size += snprintk(s + size, str_len - size,
+-					 "   0x%02x   (%02d%%)    0x%02x - 0x%02x    ",
+-					 dw_res[dw_res_offset].tx.dq.final,
+-					 ratio,
+-					 dw_res[dw_res_offset].tx.dq.min,
+-					 dw_res[dw_res_offset].tx.dq.max);
+-		}
+-		HBM_DBG("%s", s);
+-	}
+-
+-	HBM_DBG("\n%s%s%s%sFor all DWORDs - WR eye avg ratio: %d%% WR eye min ratio: %d%%\n",
+-		SPACES10, SPACES10, SPACES10, SPACES5, ratio_sum / NUM_DW_PER_HBM, ratio_min);
+-
+-	k_free(s);
+-}
+-
+-static void print_training_ca(uint32_t hbm_dev, struct lcdl *ca_res, uint32_t *ck_res)
+-{
+-	int ratio = 0, ratio_sum = 0, ratio_min = 100;
+-	uint32_t ch;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	HBM_DBG("\n\n%s<1> *** HBM%d Command-Address transmit delay ***", SPACES40, hbm_dev);
+-	HBM_DBG("  CH   :   result (ratio)%sMin  -  Max", SPACES5);
+-	HBM_DBG(" ----- : -------------------------------------");
+-
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		ratio = ca_res[ch].ratio_1ui;
+-		ratio_sum += ratio;
+-		ratio_min = ratio < ratio_min ? ratio : ratio_min;
+-		HBM_DBG("  CH-%d :    0x%02x   (%02d%%)      0x%02x - 0x%02x",
+-			ch,
+-			ca_res[ch].final,
+-			ratio,
+-			ca_res[ch].min,
+-			ca_res[ch].max);
+-	}
+-	HBM_DBG("\n%s%s%s%sFor all Channels - CA eye avg ratio: %d%% CA eye min ratio: %d%%\n",
+-		      SPACES10, SPACES10, SPACES10, SPACES5, ratio_sum / HBM_PHY_CHANNELS_NUM,
+-		      ratio_min);
+ }
+ 
+ static void print_training_vref(uint32_t hbm_dev, struct vref_training *vref_res)
+ {
+ 	/* Ignore PHY VREF training results for other training types */
+-	if (hbm_cfg.train_cfg.training_type != TRAIN_TYPE_HW_ONLY)
+-		return;
+-
+-	HBM_DBG("<6> VREF training\n");
+-	HBM_DBG("VREF-Min = 0x%04x       VREF-Max = 0x%04x\n", vref_res->min, vref_res->max);
+ }
+ 
+ static int phy_get_training_results(uint32_t hbm_dev)
+ {
+-	struct vref_training *vref_res = NULL;
+-	struct dw_training *dw_res = NULL;
+-	struct lcdl *ca_res = NULL;
+-	int rc = STATUS_PASS, fail_cntr = 0;
+-	uint32_t *ck_res = NULL, ch_offset, dw_offset, dw_res_offset, reg_val, ch, dw;
+-
+-	ca_res = k_calloc(HBM_PHY_CHANNELS_NUM, sizeof(struct lcdl));
+-	ck_res = k_calloc(HBM_PHY_CHANNELS_NUM, sizeof(uint32_t));
+-	dw_res = k_calloc(HBM_PHY_CHANNELS_NUM * HBM_CHANNEL_DWORDS_NUM,
+-			  sizeof(struct dw_training));
+-	vref_res = k_calloc(HBM_PHY_CHANNELS_NUM, sizeof(uint32_t));
+-	if (!dw_res || !ca_res  || !ck_res || !vref_res) {
+-		LOG_ERR("Failed to allocate kernel memory for HW training results");
+-		rc = STATUS_FAIL;
+-		goto free_train_mem;
+-	}
+-
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		ch_offset = ch * PHY_CH_OFFSET;
+ 
+ 		/* Command Address */
+-		ca_res[ch].min = hbm_phy_read(hbm_dev,
+-		      D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXACMINDLY) + ch_offset);
+-		ca_res[ch].max = hbm_phy_read(hbm_dev,
+-		      D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXACMAXDLY) + ch_offset);
+-		ca_res[ch].final = hbm_phy_read(hbm_dev,
+-		D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXACDLY_P0) + ch_offset);
+-
+-		ca_res[ch].ratio_1ui = calc_eye_ratio_ui(ca_res[ch].min, ca_res[ch].max);
+-		if (ca_res[ch].ratio_1ui < PHY_MIN_TRAINING_EYE_TH)
+-			fail_cntr++;
+ 
+ 		/* CK */
+-		ck_res[ch] = hbm_phy_read(hbm_dev,
+-		  D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_TXCKDLY_P0) +  ch_offset);
+-
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			dw_offset = ch_offset + dw * PHY_DW_OFFSET;
+-			dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + dw;
+ 
+ 			/* Read latency */
+-			dw_res[dw_res_offset].rx.read_latency =
+-				hbm_phy_read(hbm_dev,
+-		     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DFIMRL_P0) + dw_offset);
+ 
+ 			/* Write eye */
+-			dw_res[dw_res_offset].tx.dq.min =
+-				hbm_phy_read(hbm_dev,
+-		     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMINDLY) + dw_offset);
+-			dw_res[dw_res_offset].tx.dq.max =
+-				hbm_phy_read(hbm_dev,
+-		     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMAXDLY) + dw_offset);
+-			dw_res[dw_res_offset].tx.dq.final =
+-				hbm_phy_read(hbm_dev,
+-		     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQDLY_P0) + dw_offset);
+-			dw_res[dw_res_offset].tx.wdqs.final =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQSDLY_P0) + dw_offset);
+-			dw_res[dw_res_offset].tx.dq.ratio_1ui =
+-					calc_eye_ratio_ui(dw_res[dw_res_offset].tx.dq.min,
+-							  dw_res[dw_res_offset].tx.dq.max);
+-			if (dw_res[dw_res_offset].tx.dq.ratio_1ui < PHY_MIN_TRAINING_EYE_TH)
+-				fail_cntr++;
++
+ 
+ 			/* Read eye */
+-			dw_res[dw_res_offset].rx.rdqs_rise.min =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMINDLY) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_rise.max =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMAXDLY) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_rise.final =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKDLY_P0) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_fall.min =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMINDLY) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_fall.max =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMAXDLY) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_fall.final =
+-				hbm_phy_read(hbm_dev,
+-	     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNDLY_P0) + dw_offset);
+-			dw_res[dw_res_offset].rx.rdqs_rise.ratio_1ui =
+-					calc_eye_ratio_ui(dw_res[dw_res_offset].rx.rdqs_rise.min,
+-							  dw_res[dw_res_offset].rx.rdqs_rise.max);
+-			if (dw_res[dw_res_offset].rx.rdqs_rise.ratio_1ui < PHY_MIN_TRAINING_EYE_TH)
+-				fail_cntr++;
+-
+-			dw_res[dw_res_offset].rx.rdqs_fall.ratio_1ui =
+-					calc_eye_ratio_ui(dw_res[dw_res_offset].rx.rdqs_fall.min,
+-							  dw_res[dw_res_offset].rx.rdqs_fall.max);
+-
+-			if (dw_res[dw_res_offset].rx.rdqs_fall.ratio_1ui < PHY_MIN_TRAINING_EYE_TH)
+-				fail_cntr++;
+-		}
+-	}
+-
+-	if (fail_cntr) {
+-		LOG_ERR("\nHBM%d - %d violations of eye width (<%d%%)", hbm_dev, fail_cntr,
+-			    PHY_MIN_TRAINING_EYE_TH);
+-	}
+ 
+ 	/* VREF */
+-	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_VREFINDACSTATUS));
+-	vref_res->min = FIELD_GET(HBM_PHY_P0_MASTER_VREFINDACSTATUS_GLOBALVREFINDACMIN_M,
+-				  reg_val);
+-	vref_res->max = FIELD_GET(HBM_PHY_P0_MASTER_VREFINDACSTATUS_GLOBALVREFINDACMAX_M,
+-				  reg_val);
+-
+-	HBM_DBG("\nMiscStatus: 0x%x", hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_MISCSTATUS)));
+-	HBM_DBG("\nChnStatus: 0x%x", hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CHNSTATUS)));
+-
+-	debug_print_lcdls_1ui(hbm_dev);
+-	print_training_ca(hbm_dev, ca_res, ck_res);
+-	print_training_dw(hbm_dev, dw_res);
+-	print_training_vref(hbm_dev, vref_res);
+-
+-free_train_mem:
+-	k_free(ca_res);
+-	k_free(ck_res);
+-	k_free(dw_res);
+-	k_free(vref_res);
+-
+-	return rc;
++	return STATUS_FAIL
+ }
+ 
+ static void phy_set_read_latency(uint32_t hbm_dev, uint16_t rd_lat)
+ {
+-	uint32_t dw_offset, ch, dw;
+ 
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			dw_offset =  ch * PHY_CH_OFFSET + dw * PHY_DW_OFFSET;
+-			hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DFIMRL_P0) + dw_offset,
+-				      rd_lat & HBM_PHY_CHANNELS_CH0_DW0_DFIMRL_P0_VAL_M);
+-		}
+-	}
+ }
+ 
+ static void phy_set_vref(uint32_t hbm_dev, uint8_t vref_val)
+ {
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_VREFINGLOBAL_P0), vref_val,
+-		    HBM_PHY_P0_MASTER_VREFINGLOBAL_P0_GLOBALVREFINDAC_M);
+-	/* VREF settling time is up to 2.5us */
+-	k_busy_wait(PHY_VREF_SETTLING_US);
++
+ }
+ 
+ static uint32_t get_avg_eye_ratio(uint32_t hbm_dev)
+ {
+-	uint32_t dw_rise_edge_ratio, dw_fall_edge_ratio, offset, phy_ch, dw, sum_eyes_ratios = 0;
+ 
+-	for (phy_ch = 0; phy_ch < HBM_PHY_CHANNELS_NUM; phy_ch++) {
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			offset = phy_ch * PHY_CH_OFFSET + dw * PHY_DW_OFFSET;
+-			dw_rise_edge_ratio =
+-				calc_eye_ratio_ui(hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMINDLY) +
+-					     offset),
+-				hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMAXDLY) +
+-					     offset));
+-			dw_fall_edge_ratio =
+-				calc_eye_ratio_ui(hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMINDLY) +
+-					     offset),
+-				hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMAXDLY) +
+-					     offset));
+-			sum_eyes_ratios += dw_rise_edge_ratio + dw_fall_edge_ratio;
+-		}
+-	}
+-
+-	return sum_eyes_ratios / (HBM_PHY_CHANNELS_NUM * HBM_CHANNEL_DWORDS_NUM * NUM_RDQS_EDGES);
+ }
+ 
+ static void hbm_set_vref(uint32_t hbm_dev, enum hbm_vref vref_val)
+ {
+-	uint32_t mc;
+-	const uint8_t vref_mr = 15;
+ 
+-	for (mc = 0; mc < GAUDI3_NUM_OF_MC_PER_HBM; mc++) {
+-		mc_mrs_cmd(hbm_dev, mc, vref_mr, vref_val);
+-	}
+ }
+ 
+ 
+ static int phy_trigger_hw_training(uint32_t hbm_dev)
+ {
+-	uint32_t train_ctrl, train_status_valid, reg_val;
+-	int rc;
+-
+-	train_status_valid = 1 << HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_S |
+-			     (hbm_cfg.train_cfg.train_ca <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCADONE_S) |
+-			     (hbm_cfg.train_cfg.train_rl <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLDONE_S) |
+-			     (hbm_cfg.train_cfg.train_rdeye <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEDONE_S) |
+-			     (hbm_cfg.train_cfg.train_vref <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFDONE_S) |
+-			     (hbm_cfg.train_cfg.train_wreye <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEDONE_S) |
+-			     (hbm_cfg.train_cfg.hbm_reset <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITRSTDONE_S) |
+-			     (hbm_cfg.train_cfg.mrs <<
+-			      HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITMRSDONE_S);
+-
+-	train_ctrl = hbm_cfg.train_cfg.training_type == TRAIN_TYPE_SEMI_AUTO ? 1 : 0;
+-	hbm_phy_rmw(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCFG), train_ctrl,
+-		    HBM_PHY_P0_MASTER_TRAINCFG_RDLATTRAINMODE_M);
+-
+-	train_ctrl = 1 << HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRUN_S |
+-		     (hbm_cfg.train_cfg.train_ca << HBM_PHY_P0_MASTER_TRAINCTRL_TRAINCAEN_S) |
+-		     (hbm_cfg.train_cfg.train_rl << HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRLEN_S) |
+-		     (hbm_cfg.train_cfg.train_rdeye <<
+-		      HBM_PHY_P0_MASTER_TRAINCTRL_TRAINREYEEN_S) |
+-		     (hbm_cfg.train_cfg.train_vref <<
+-		      HBM_PHY_P0_MASTER_TRAINCTRL_TRAINVREFEN_S) |
+-		     (hbm_cfg.train_cfg.train_wreye <<
+-		      HBM_PHY_P0_MASTER_TRAINCTRL_TRAINWEYEEN_S);
+ 
+ 	/* trigger H/W training */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), train_ctrl);
+-
+ 	/* de-assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), train_ctrl & (~1));
+ 
+-	rc = phy_poll_on_training(hbm_dev);
+-	if (rc)
+-		return rc;
+-
+-	reg_val = hbm_phy_read(hbm_dev,
+-			D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS)) & PHY_TRAINSTATUS_M;
+-	if (reg_val != train_status_valid)
+-		return STATUS_FAIL;
+ 
+ 	return STATUS_PASS;
+ }
+@@ -1935,283 +577,37 @@
+ 
+ static int semi_auto_read_training(uint32_t hbm_dev)
+ {
+-	uint32_t phy_vref, dev_avg_eye_ratio, sum_valid_vref_eyes = 0,
+-		weighted_sum_valid_vref_eyes = 0, passing_regions_cnt = 0,
+-		opt_phy_vref, valid_vref_start = UINT32_MAX, valid_vref_end = UINT32_MAX,
+-		passing_region_size = 0, passing_region_max = 0, final_opt_vref = DEFAULT_PHY_VREF,
+-		phy_vref_valid_ratio = 0, training_fail_cnt = 0;
+-	bool training_fail;
+-#if defined(CONFIG_HBM_CHARACTERIZATION)
+-	struct hl_hbm_drv_data *drv_data = HBM_DRV_DATA(DEVICE_DT_GET(DT_DRV_INST(0)));
+-	struct single_hbm_train_result *single_hbm_res = &(drv_data->train_res->hbm_dev_tr_res[hbm_dev]);
+-#endif
+ 
+-	int rc;
+ 
+ 	/* Enable RD training only */
+-	hbm_cfg.train_cfg.hbm_reset = 0;
+-	hbm_cfg.train_cfg.mrs = 0;
+-	hbm_cfg.train_cfg.train_ca = 0;
+-	hbm_cfg.train_cfg.train_rl = 0;
+-	hbm_cfg.train_cfg.train_rdeye = 1;
+-	hbm_cfg.train_cfg.train_vref = 0;
+-	hbm_cfg.train_cfg.train_wreye = 0;
+ 
+-	for (phy_vref = 1; phy_vref <= PHY_VREF_OPTIONS; phy_vref++) {
+-		phy_set_vref(hbm_dev, phy_vref);
+-		training_fail = phy_trigger_hw_training(hbm_dev);
+ 		/*if training_fail....*/
+-		training_fail |= hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CHNSTATUS));
+ 
+-		if (training_fail || phy_vref == PHY_VREF_OPTIONS) {
+-			if (valid_vref_start != UINT32_MAX) {
+ 				/* Passing region had ended. Calculate relevant parameters */
+-				valid_vref_end = phy_vref - 1;
+-				passing_region_size = valid_vref_end - valid_vref_start + 1;
+-				opt_phy_vref = weighted_sum_valid_vref_eyes / sum_valid_vref_eyes;
+-				passing_regions_cnt++;
+-				HBM_DBG("Passing region #%d: Range: (%d - %d), Optimal PHY VREF: (%d)",
+-					passing_regions_cnt, valid_vref_start, valid_vref_end,
+-					opt_phy_vref);
+-				#if defined(CONFIG_HBM_CHARACTERIZATION)
+-					single_hbm_res->rd_vref.max =  valid_vref_end;
+-					single_hbm_res->rd_vref.min =  valid_vref_start;
+-				#endif
+-				if (passing_region_size > passing_region_max) {
+-					passing_region_max = passing_region_size;
+-					final_opt_vref = opt_phy_vref;
+-					#if defined(CONFIG_HBM_CHARACTERIZATION)
+-					single_hbm_res->opt_dr_rd_vref = final_opt_vref;
+-					#endif
+-				}
++
+ 				/* Initialize to reset value for next possible passing region */
+-				valid_vref_start = UINT32_MAX;
+-				weighted_sum_valid_vref_eyes = 0;
+-				sum_valid_vref_eyes = 0;
+-			}
+-			training_fail_cnt++;
+-			continue;
+-		}
++
+ 
+ 		/* If we got here, read-eye training passed with current PHY VREF */
+-		dev_avg_eye_ratio = get_avg_eye_ratio(hbm_dev);
+-
+ 		/* Should not occur, but still protect against it */
+-		if (dev_avg_eye_ratio == 0)
+-			continue;
+ 
+ 		/* Set passing region start */
+-		if (valid_vref_start == UINT32_MAX)
+-			valid_vref_start = phy_vref;
+-
+-		sum_valid_vref_eyes += dev_avg_eye_ratio;
+-		weighted_sum_valid_vref_eyes += phy_vref * dev_avg_eye_ratio;
+-		#if defined(CONFIG_HBM_CHARACTERIZATION)
+-
+-		uint32_t ch_offset, dw_offset, dw_res_offset, ch, dw;
+-		for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-			ch_offset = ch * PHY_CH_OFFSET;
+-
+-			for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-				dw_offset = ch_offset + dw * PHY_DW_OFFSET;
+-				dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + dw;
+-				LOG_INF("driver read: HBM = %d", hbm_dev);
+-				LOG_INF("VREF = %d", phy_vref);
+-				LOG_INF("DW = %d", dw+ch*HBM_CHANNEL_DWORDS_NUM);
+-				single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].min = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMINDLY) + dw_offset);
+-			    single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].max = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKMAXDLY) + dw_offset);
+-			    single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].final = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKDLY_P0) + dw_offset);
+-			    single_hbm_res->rd_fall[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].min = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMINDLY) + dw_offset);
+-				single_hbm_res->rd_fall[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].max = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNMAXDLY) + dw_offset);
+-			    single_hbm_res->rd_fall[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].final = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_RXCLKNDLY_P0) + dw_offset);
+-				// LOG_INF("dw_offset = %d", dw_offset);
+-				LOG_INF("rd_rise:min(HEX) = %x", single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].min);
+-				LOG_INF("rd_rise:min(converted) = %d", sign_conversion(single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].min));
+-				LOG_INF("rd_rise:max = %d", single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].max);
+-				LOG_INF("rd_rise:final = %d", single_hbm_res->rd_rise[dw+ch*HBM_CHANNEL_DWORDS_NUM][phy_vref-1].final);
+-			}
+-		}
+-		#endif
+-    }
+-
+-	if (training_fail_cnt == PHY_VREF_OPTIONS) {
+-		LOG_ERR("HBM%d - Training FSM failed for all PHY VREF values", hbm_dev);
+-		return STATUS_FAIL;
+-	}
+-
+-	phy_vref_valid_ratio = (passing_region_max * 100 + PHY_VREF_OPTIONS/2) / PHY_VREF_OPTIONS;
+-	if (phy_vref_valid_ratio < PHY_VREF_RATIO_TH) {
+-		LOG_INF("HBM%d PHY VREF passing regsion of %d%% does NOT meet TH(%d%%)",
+-			hbm_dev, phy_vref_valid_ratio, PHY_VREF_RATIO_TH);
+-	}
+-
+-	phy_set_vref(hbm_dev, final_opt_vref);
+ 
+ 	/* Train read eye again with optimal PHY VREF */
+-	rc = phy_trigger_hw_training(hbm_dev);
+-	debug_print_training_status(hbm_dev);
+-	if (rc)
+-		return rc;
+-
+ 	/* Train read latency with optimal PHY VREF */
+-	hbm_cfg.train_cfg.train_rl = 1;
+-	hbm_cfg.train_cfg.train_rdeye = 0;
+-	rc = phy_trigger_hw_training(hbm_dev);
+-	debug_print_training_status(hbm_dev);
+-	if (rc)
+-		return rc;
+-	HBM_DBG("Final PHY VREF: %d. Passing region size: %u\n", final_opt_vref,
+-		passing_region_max);
+-
+ 	return STATUS_PASS;
+ }
+ 
+ static int semi_auto_write_training(uint32_t hbm_dev)
+ {
+-	uint32_t phy_ch, dw, offset, dev_avg_eye_ratio, sum_dev_eyes_ratios = 0, hbm_vref,
+-		opt_hbm_vref = UINT32_MAX, max_dev_avg_eye_ratio = 0, training_fail_cnt = 0;
+-	bool training_fail;
+-	int rc;
+-#if defined(CONFIG_HBM_CHARACTERIZATION)
+-	struct hl_hbm_drv_data *drv_data = HBM_DRV_DATA(DEVICE_DT_GET(DT_DRV_INST(0)));
+-	struct single_hbm_train_result *single_hbm_res = &(drv_data->train_res->hbm_dev_tr_res[hbm_dev]);
+-#endif
+-
+-	hbm_cfg.train_cfg.hbm_reset = 0;
+-	hbm_cfg.train_cfg.mrs = 0;
+-	hbm_cfg.train_cfg.train_ca = 0;
+-	hbm_cfg.train_cfg.train_rl = 0;
+-	hbm_cfg.train_cfg.train_rdeye = 0;
+-	hbm_cfg.train_cfg.train_vref = 0;
+-	hbm_cfg.train_cfg.train_wreye = 1;
+-
+-	for (hbm_vref = 0; hbm_vref < HBM_VREF_STEPS; hbm_vref++) {
+-		hbm_set_vref(hbm_dev, hbm_vref);
+-
+-		training_fail = phy_trigger_hw_training(hbm_dev);
+-		training_fail |= hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CHNSTATUS));
+-		if (training_fail) {
+-			training_fail_cnt++;
+-			continue;
+-		}
+ 
+ 		/* If we got here, write-eye training passed with current HBM VREF
+ 		 * we sum TX-DQ eyes ratio for all DWORDS in the HBM device
+ 		 */
+-		for (phy_ch = 0; phy_ch < HBM_PHY_CHANNELS_NUM; phy_ch++) {
+-			for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-				offset = phy_ch * PHY_CH_OFFSET + dw * PHY_DW_OFFSET;
+-				sum_dev_eyes_ratios +=
+-					calc_eye_ratio_ui(hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMINDLY) +
+-						     offset),
+-					hbm_phy_read(hbm_dev,
+-			     D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMAXDLY) +
+-						     offset));
+-			}
+-		}
+-
+-		dev_avg_eye_ratio = sum_dev_eyes_ratios / (HBM_PHY_CHANNELS_NUM *
+-				    HBM_CHANNEL_DWORDS_NUM);
+-		if (dev_avg_eye_ratio == 0)
+-			continue;
+ 
+ 		/* Select the HBM VREF value that produces the widest average write-eye */
+-		if (dev_avg_eye_ratio > max_dev_avg_eye_ratio) {
+-			max_dev_avg_eye_ratio = dev_avg_eye_ratio;
+-			opt_hbm_vref = hbm_vref;
+-		}
+ 
+-		sum_dev_eyes_ratios = 0;
+-
+-		#if defined(CONFIG_HBM_CHARACTERIZATION)
+-		uint32_t ch_offset, dw_offset, dw_res_offset, ch, dw;
+-		static int min_flag= 0;
+-
+-		if(!min_flag) { /* if we got here that means it's the first VREF value for training */
+-			min_flag = 1;
+-			single_hbm_res->wr_vref.min = hbm_vref;
+-		}
+-
+-		for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-			ch_offset = ch * PHY_CH_OFFSET;
+-			/*Check with Yoav: about the the relative 0 to each result*/
+-			for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-				dw_offset = ch_offset + dw * PHY_DW_OFFSET;
+-				dw_res_offset = ch * HBM_CHANNEL_DWORDS_NUM + dw;
+-				single_hbm_res->wr[dw+ch*HBM_CHANNEL_DWORDS_NUM][hbm_vref].min = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMINDLY) + dw_offset);
+-			    single_hbm_res->wr[dw+ch*HBM_CHANNEL_DWORDS_NUM][hbm_vref].max = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQMAXDLY) + dw_offset);
+-			    single_hbm_res->wr[dw+ch*HBM_CHANNEL_DWORDS_NUM][hbm_vref].final = hbm_phy_read(hbm_dev,D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_TXDQDLY_P0) + dw_offset);
+-			}
+-		}
+-		#endif
+-	}
+-	#if defined(CONFIG_HBM_CHARACTERIZATION)
+-	single_hbm_res->wr_vref.max =  hbm_vref - 1;
+-	single_hbm_res->opt_dr_wr_vref = opt_hbm_vref;
+-	#endif
+-
+-	if (training_fail_cnt == HBM_VREF_STEPS) {
+-		LOG_ERR("HBM%d - Training FSM failed for all HBM VREF values", hbm_dev);
+-		return STATUS_FAIL;
+-	}
+-
+-	hbm_set_vref(hbm_dev, opt_hbm_vref);
+-
+-	/* Train write eye again with optimal HBM VREF */
+-	rc = phy_trigger_hw_training(hbm_dev);
+-	debug_print_training_status(hbm_dev);
+-	if (rc)
+-		return rc;
+-
+-	HBM_DBG("Final HBM VREF: %d",	opt_hbm_vref);
+-	return STATUS_PASS;
+-}
+-
+-static int semi_auto_training(uint32_t hbm_dev)
+-{
+-	//int rc, get_training_rc; //not relevant for HBM_CHARACTERIZATION
+-	int rc;
+-
+-	/* Set initial DFIMRL manually */
+-	phy_set_read_latency(hbm_dev, DEFAULT_RD_LAT);
+-
+-	/* Enable CA training only */
+-	hbm_cfg.train_cfg.hbm_reset = 0;
+-	hbm_cfg.train_cfg.mrs = 0;
+-	hbm_cfg.train_cfg.train_ca = 1;
+-	hbm_cfg.train_cfg.train_rl = 0;
+-	hbm_cfg.train_cfg.train_rdeye = 0;
+-	hbm_cfg.train_cfg.train_vref = 0;
+-	hbm_cfg.train_cfg.train_wreye = 0;
+-	rc = phy_trigger_hw_training(hbm_dev);
+-	debug_print_training_status(hbm_dev);
+-	if (rc) {
+-		LOG_ERR("HBM%d semi auto CA training FAILED", hbm_dev);
+-		goto exit;
+-	}
+-
+-	rc = semi_auto_read_training(hbm_dev);
+-	if (rc) {
+-		LOG_ERR("HBM%d semi auto read training FAILED", hbm_dev);
+-		goto exit;
+-	}
+-
+-	rc = semi_auto_write_training(hbm_dev);
+-	if (rc) {
+-		LOG_ERR("HBM%d semi auto write training FAILED", hbm_dev);
+-		goto exit;
+-	}
+-
+-exit:
+-	rc = phy_get_training_results(hbm_dev);
+-	if (rc) {
+-		LOG_ERR("HBM%d semi auto get training results FAILED", hbm_dev);
+-	}
+-
+-	return rc;
++	return STATUS_FAIL
+ }
+ 
+ int phy_training(uint32_t hbm_dev)
+@@ -2219,55 +615,12 @@
+ 	int rc;
+ 
+ 	/* Training is not supported on PLDM HBM model or Coral Sim */
+-	if (pldm)
+-		return STATUS_PASS;
+ 
+ 	/* Common training configuration */
+-	hbm_phy_write(hbm_dev,
+-		D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_CMDREPEAT), hbm_cfg.train_cfg.cmd_repeat);
+-	hbm_phy_rmw(hbm_dev,
+-		D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCFG), hbm_cfg.train_cfg.data_pattern,
+-		    HBM_PHY_P0_MASTER_TRAINCFG_TRAINDATAPATTERN_M);
+ 
+-	switch (hbm_cfg.train_cfg.training_type) {
+-	case TRAIN_TYPE_HW_ONLY:
+-		hbm_cfg.train_cfg.hbm_reset = 0;
+-		hbm_cfg.train_cfg.mrs = 0;
+-		hbm_cfg.train_cfg.train_ca = 1;
+-		hbm_cfg.train_cfg.train_rl = 1;
+-		hbm_cfg.train_cfg.train_rdeye = 1;
+-		hbm_cfg.train_cfg.train_vref = 1;
+-		hbm_cfg.train_cfg.train_wreye = 1;
+ 		/* Increase vref settling time delay */
+-		hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_VREFSETTLINGTIME_P0),
+-											0x1194);
+ 
+-		rc = phy_trigger_hw_training(hbm_dev);
+-		if (rc)
+-			LOG_ERR("\nHBM%d HW training FAILED\n", hbm_dev);
+-
+-		debug_print_training_status(hbm_dev);
+-		rc = phy_get_training_results(hbm_dev);
+-		if (rc)
+-			LOG_ERR("\nHBM%d HW training FAILED to get results", hbm_dev);
+-		break;
+-
+-	case TRAIN_TYPE_SEMI_AUTO:
+-		rc = semi_auto_training(hbm_dev);
+-		if (rc)
+-			LOG_ERR("\nHBM%d semi auto training FAILED\n", hbm_dev);
+-		break;
+-
+-	case TRAIN_TYPE_SW:
+ 		/* TODO - implement SW training based on MCBIST */
+-		LOG_ERR("software training is not supported");
+-		rc = STATUS_FAIL;
+-		break;
+-
+-	default:
+-		LOG_ERR("Un-supported training type!");
+-		rc = STATUS_FAIL;
+-	}
+ 
+ 	return rc;
+ }
+@@ -2275,9 +628,6 @@
+ 
+ static uint32_t phy_io_dc_analyzer(int hbm_dev, struct lane_remap_info *remap_info, bool *slr_is_needed)
+ {
+-	uint32_t ch, dw, bpair_idx, aw_idx, mask, offset, curr_remap_code, hbm_remap_code,
+-		 phy_remap_code, rc = STATUS_PASS;
+-	bool new_broken_lanes_found = false, new_broken_lane_fix, valid_fix, burnt_efuse_fix;
+ 
+ 	/*
+ 	 * Cases for remap code(HBM eFuse, PHY remap after EXTEST) where options are
+@@ -2295,167 +645,35 @@
+ 	 */
+ 
+ 	/* Recheck PHY remap AW values after EXTEST for new broken lanes */
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		slr_is_needed[ch] = false;
+-		offset = ch * PHY_CH_OFFSET;
+-		curr_remap_code = hbm_phy_read(hbm_dev,
+-					D0_HBM0_PHY_P0_CH0_AW_REG(mmHBM_PHY_CHANNELS_CH0_AW_AWREMAP)
+-					+ offset);
+-		for (aw_idx = 0; aw_idx < AW_BUS_TYPE_NUM; aw_idx++) {
+-			mask = LANE_REMAP_MASK << aw_idx;
+-			hbm_remap_code = FIELD_GET(mask, remap_info->aw_remap_code[ch]);
+-			phy_remap_code = FIELD_GET(mask, curr_remap_code);
+ 
+ 			/* Fix is hard lane repair done on ATE or default value */
+-			valid_fix = (hbm_remap_code == phy_remap_code);
+ 			/* Fix is due to new broken lane that was detected during EXTEST */
+-			new_broken_lane_fix = (phy_remap_code != LANE_REMAP_DEFAULT_CODE &&
+-					hbm_remap_code != phy_remap_code);
+ 			/* Fix is due to burnt eFuse bug */
+-			burnt_efuse_fix = (hbm_remap_code != LANE_REMAP_DEFAULT_CODE &&
+-					phy_remap_code == LANE_REMAP_DEFAULT_CODE);
+-
+-			if (valid_fix)
+-				continue;
+-			else if (new_broken_lane_fix) {
+-				LOG_INF("HBM%d CH%d AW new remap code: 0x%02x original remap code: 0x%02x",
+-					hbm_dev, ch, curr_remap_code,
+-					remap_info->aw_remap_code[ch]);
+-				new_broken_lanes_found = true;
+-				if (!DRIVER_SLR_EN)
+-					rc = STATUS_FAIL;
+-			} else if (burnt_efuse_fix) {
+-				LOG_INF("HBM%d CH%d AW need to perform SLR due to bad AW eFuse value",
+-					hbm_dev, ch);
+-				slr_is_needed[ch] = true;
+-			} else {
+-				LOG_INF("HBM%d CH%d Invalid AW state during IO-DC analyzer - AW new remap code: 0x%02x original remap code: 0x%02x",
+-					hbm_dev, ch, curr_remap_code,
+-					remap_info->aw_remap_code[ch]);
+-				rc = STATUS_FAIL;
+-			}
+-		}
+-	}
+ 
+ 	/* Recheck PHY remap DW values after EXTEST for new broken lanes */
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+-			offset = ch * PHY_CH_OFFSET + dw * PHY_DW_OFFSET;
+-			curr_remap_code = hbm_phy_read(hbm_dev,
+-				      D0_HBM0_PHY_P0_CH0_DW0_REG(mmHBM_PHY_CHANNELS_CH0_DW0_DWREMAP)
+-				      + offset);
+-			for (bpair_idx = 0; bpair_idx < BYTE_PAIRS_PER_DW; bpair_idx++) {
+-				mask = LANE_BPAIR_REMAP_MASK << (8 * bpair_idx);
+-				hbm_remap_code = FIELD_GET(mask, remap_info->dw_remap_code[ch][dw]);
+-				phy_remap_code = FIELD_GET(mask, curr_remap_code);
+ 
+ 				/* Fix is hard lane repair done on ATE or default value */
+-				valid_fix = (hbm_remap_code == phy_remap_code);
+ 				/* Fix is due to new broken lane that was detected during EXTEST */
+-				new_broken_lane_fix = (phy_remap_code !=
+-								LANE_REMAP_BPAIR_DEFAULT_CODE &&
+-						       hbm_remap_code != phy_remap_code);
+ 				/* Fix is due to burnt eFuse bug */
+-				burnt_efuse_fix = (hbm_remap_code != LANE_REMAP_BPAIR_DEFAULT_CODE
+-						&& phy_remap_code == LANE_REMAP_BPAIR_DEFAULT_CODE);
+ 
+-				if (valid_fix)
+-					continue;
+-				else if (new_broken_lane_fix) {
+-					LOG_INF("HBM%d CH%d DW%d new remap code: 0x%04x original remap code: 0x%04x",
+-						hbm_dev, ch, dw, curr_remap_code,
+-						remap_info->dw_remap_code[ch][dw]);
+-					new_broken_lanes_found = true;
+-					if (!DRIVER_SLR_EN)
+-						rc = STATUS_FAIL;
+-				} else if (burnt_efuse_fix) {
+-					LOG_INF("HBM%d CH%d DW%d need to perform SLR due to bad DW eFuse value",
+-						hbm_dev, ch, dw);
+-					slr_is_needed[ch] = true;
+-				} else {
+-					LOG_INF("HBM%d CH%d DW%d Invalid DW state during IO-DC analyzer - DW new remap code: 0x%04x original remap code: 0x%04x",
+-						hbm_dev, ch, dw, curr_remap_code,
+-						remap_info->dw_remap_code[ch][dw]);
+-					rc = STATUS_FAIL;
+-				}
+-			}
+-		}
+-	}
+-
+-	if (new_broken_lanes_found)
+-		LOG_ERR("HBM%d PHY IO-DC test FAILED: found new broken lanes", hbm_dev);
+-
+-	return rc;
++	return STATUS_FAIL;
+ }
+ 
+ /* SW WA for SIV-1361, avoid updating remap for invalid remap code*/
+ 
+ int phy_test_io_dc(uint32_t hbm_dev)
+ {
+-	struct lane_remap_info remap_info;
+-	uint32_t ch, lanerepair_ctrl, lanerepair_status;
+-	int rc;
+-	bool slr_is_needed[HBM_PHY_CHANNELS_NUM];
+ 
+ 	/* Read and store PHY remapping info */
+-	rc = read_hbm_lane_remap(hbm_dev, &remap_info);
+-	if (rc) {
+-		LOG_ERR("HBM%d PHY IO-DC read and validate hbm lane remap before EXTEST FAILED",
+-			hbm_dev);
+-		return rc;
+-	}
++
++
+ 
+ 	/* Validating that all PHY remap info is valid due to SIV-1361 */
+-	validate_hbm_lane_remap(hbm_dev, &remap_info);
+ 
+ 	/* EXTEST */
+-	lanerepair_ctrl = HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRRUN_M	|
+-		HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIREXTESTEN_M		|
+-		HBM_PHY_P0_MASTER_LANEREPAIRCTRL_DRAMPOWERUPRSTEN_M		|
+-		HBM_PHY_P0_MASTER_LANEREPAIRCTRL_DWREMAPMODE_M			|
+-		HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRREMAPEN_M;
+-
+-	lanerepair_status = HBM_PHY_P0_MASTER_LANEREPAIRSTATUS_LANEREPAIRDONE_M		|
+-		HBM_PHY_P0_MASTER_LANEREPAIRSTATUS_LANEREPAIREXTESTDONE_M		|
+-		HBM_PHY_P0_MASTER_LANEREPAIRSTATUS_LANEREPAIRREMAPDONE_M;
+ 
+ 	/* PLDM HBM model doesn't support Tx on Rx-only IOs (nor Rx on Tx-only) */
+-	if (!pldm)
+-		lanerepair_ctrl |= HBM_PHY_P0_MASTER_LANEREPAIRCTRL_EXTESTRXDIFFOUTEN_M		|
+-			HBM_PHY_P0_MASTER_LANEREPAIRCTRL_EXTESTTXDIFFINEN_M			|
+-			HBM_PHY_P0_MASTER_LANEREPAIRCTRL_EXTESTRXOUTEN_M			|
+-			HBM_PHY_P0_MASTER_LANEREPAIRCTRL_EXTESTTXINEN_M;
+-
+-	if (DRIVER_SLR_EN) {
+-		lanerepair_ctrl |= HBM_PHY_P0_MASTER_LANEREPAIRCTRL_LANEREPAIRSOFTEN_M;
+-		lanerepair_status |= HBM_PHY_P0_MASTER_LANEREPAIRSTATUS_LANEREPAIRSOFTDONE_M;
+-	}
+-
+-	rc = phy_trigger_lanerepair_fsm(hbm_dev, lanerepair_ctrl, lanerepair_status);
+-	if (rc) {
+-		LOG_ERR("HBM%d PHY IO-DC test FAILED", hbm_dev);
+-		return rc;
+-	}
+-
+-	rc = phy_io_dc_analyzer(hbm_dev, &remap_info, slr_is_needed);
+-	if (rc) {
+-		LOG_ERR("HBM%d PHY IO-DC anlalyze results after EXTEST FAILED", hbm_dev);
+-		return rc;
+-	}
+-
+-	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+-		if (slr_is_needed[ch]) {
+-			rc = align_hbm_lane_remap(hbm_dev, ch, &remap_info);
+-			if (rc) {
+-				LOG_ERR("HBM%d PHY IO-DC align hbm remap after EXTEST FAILED",
+-					hbm_dev);
+-				return rc;
+-			}
+-		}
+-	}
+-
+-	HBM_DBG("HBM%d PHY IO-DC test PASSED", hbm_dev);
+-	return rc;
++	return STATUS_FAIL;
+ }
+ 
+ void phy_init_config(uint32_t hbm_dev)

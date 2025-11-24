@@ -1,0 +1,185 @@
+From 14c8ca626a0e586087e5a490325981d64d7cbac5 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Wed, 26 Mar 2025 08:56:56 +0200
+Subject: [PATCH] [SW-190031] boot_desc: add boot_desc_init/release
+
+As part of moving duplicated boot_desc implementation
+and variations from the applications and unifying
+it, this patch adds the boot_desc_init/release
+code to the cmn-lib projects, so that they can be used
+as generic function for all projects.
+Also, it adds free/alloc callbacks which are used
+in the generic code.
+
+Change-Id: Id791604bc4f8b9ba83ca328a66f151f7c788f569
+Signed-off-by: Ariel Aviad <aaviad@habana.ai>
+---
+
+diff --git a/include/lib_common.h b/include/lib_common.h
+index 3f1070e..7b2c55a 100644
+--- a/include/lib_common.h
++++ b/include/lib_common.h
+@@ -10,6 +10,24 @@
+ 
+ #define MULTI_CSUM_BOOT_VER	3
+ 
++typedef uint32_t * (*alloc_desc_offset)(uint32_t count);
++typedef uint8_t * (*alloc_image_desc)(uint32_t size, uint32_t *desc_offs);
++typedef void (*free_desc_offs)(uint32_t *desc_offs);
++typedef void (*free_image_desc)(uint8_t *img_descs);
++
++enum boot_ptrs_type {
++	BOOT_PTRS_FW,
++	BOOT_PTRS_EROM,
++	BOOT_PTRS_MAX_NUM
++};
++
++struct boot_desc_func {
++	alloc_desc_offset alloc_desc_offset;
++	alloc_image_desc alloc_image_desc;
++	free_desc_offs free_desc_offs;
++	free_image_desc free_image_desc;
++};
++
+ u64 get_64bit_addr_from_32bit_addr(uintptr_t base);
+ u32 fs1_get_arc_addr_from_64bit(u64 addr);
+ int hw_mem_copy(uint64_t src, uint64_t dst, uint32_t size, bool is_hbw, bool const_data);
+@@ -21,6 +39,8 @@
+ void boot_desc_print_magic(char *name, struct hl_fw_boot_magic *magic);
+ bool boot_desc_img_desc_is_valid(struct hl_fw_img_desc *img_desc);
+ bool is_legacy_boot_descs(struct hl_fw_boot_ptrs *boot_ptrs);
++void boot_desc_release(void);
++int boot_desc_init(enum boot_ptrs_type ptrs_type);
+ 
+ #define EMB_NOT_IMPLEMENTED_WARN(val)\
+ 	{EMB_LOG_RAW_WRN(__func__);\
+diff --git a/lib/common/boot_desc.c b/lib/common/boot_desc.c
+index e85f828..6f043d3 100644
+--- a/lib/common/boot_desc.c
++++ b/lib/common/boot_desc.c
+@@ -18,8 +18,6 @@
+ #include <boot_desc.h>
+ #include <spi_flash.h>
+ 
+-#define BOOT_PTRS_SZ		sizeof(struct hl_fw_boot_ptrs)
+-
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+ 
+@@ -39,7 +37,20 @@
+ #include <uart.h>
+ #endif
+ 
++#include <lib_common.h>
+ #include <emb_cmn_log.h>
++#include <boot_desc.h>
++
++#define BOOT_PTRS_SZ		sizeof(struct hl_fw_boot_ptrs)
++
++static struct hl_fw_boot_ptrs boot_ptrs;
++static uint8_t *img_descs;
++
++#define LEGACY_IMAGE_DESCRIPTOR_SIZE	220
++#define HL_EROM_BOOT_PTRS_BASE		0
++
++
++struct boot_desc_func boot_desc_func;
+ 
+ void boot_desc_print_magic(char *name, struct hl_fw_boot_magic *magic)
+ {
+@@ -74,3 +85,95 @@
+ }
+ 
+ __weak bool is_legacy_boot_descs(struct hl_fw_boot_ptrs *boot_ptrs) { return false; }
++
++static enum boot_ptrs_type last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++
++void register_boot_desc(struct boot_desc_func *func)
++{
++	boot_desc_func.alloc_desc_offset = func->alloc_desc_offset;
++	boot_desc_func.alloc_image_desc = func->alloc_image_desc;
++	boot_desc_func.free_desc_offs = func->free_desc_offs;
++	boot_desc_func.free_image_desc = func->free_image_desc;
++}
++
++void boot_desc_release(void)
++{
++	if (!img_descs)
++		return;
++
++	boot_desc_func.free_image_desc(img_descs);
++	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++	img_descs = NULL;
++}
++
++int boot_desc_init(enum boot_ptrs_type ptrs_type)
++{
++	unsigned int count, i;
++	u32 ptr_base, spi_off;
++	u32 *desc_offs;
++	u8 *descs_ptr;
++
++	if (ptrs_type == last_ptrs_initialized)
++		return boot_ptrs.count;
++
++	ptr_base = (ptrs_type == BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;
++
++	/* Read the main boot pointers structure */
++	spi_flash_copy(&boot_ptrs, ptr_base, BOOT_PTRS_SZ, "BOOT PTRS");
++	if (boot_ptrs.version > 0) {
++		if (boot_ptrs.boot_ptrs_sz > BOOT_PTRS_SZ)
++			EMB_LOG_WRN("boot_ptrs size is bigger than expected");
++	}
++	boot_desc_print_magic("FW boot PTRs", &boot_ptrs.magic);
++
++	if (boot_ptrs.magic.val != HL_FW_BOOT_MAGIC)
++		goto err_exit;
++
++	count = boot_ptrs.count;
++
++	desc_offs = boot_desc_func.alloc_desc_offset(count);
++	if (!desc_offs)
++		goto err_exit;
++
++	if (is_legacy_boot_descs(&boot_ptrs)) {
++		/*
++		 * In legacy boot ptrs meta data structure the last member is "count", the legacy
++		 * offsets array starts where the "pub_key_sz" member is.
++		 */
++		spi_off = ptr_base + offsetof(struct hl_fw_boot_ptrs, pub_key_sz);
++		/* legacy descriptors don't have size field. so constant value is used */
++		boot_ptrs.img_desc_sz = LEGACY_IMAGE_DESCRIPTOR_SIZE;
++	} else {
++		spi_off = ptr_base + boot_ptrs.offset2array;
++	}
++
++	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * count, "DESC OFFS");
++
++	img_descs = boot_desc_func.alloc_image_desc((count * boot_ptrs.img_desc_sz), desc_offs);
++	if (!img_descs)
++		goto err_exit;
++
++	/* Read all descriptors */
++	for (i = 0; i < count; i++) {
++		spi_off = ptr_base + desc_offs[i];
++		descs_ptr = img_descs + i * boot_ptrs.img_desc_sz;
++		spi_flash_copy(descs_ptr, spi_off, boot_ptrs.img_desc_sz, "IMG DESC");
++		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)descs_ptr)) {
++			EMB_LOG_HEX_ERR("Bad boot descriptor: %d", i);
++			boot_desc_func.free_desc_offs(desc_offs);
++			goto err_exit;
++		}
++	}
++
++	boot_desc_func.free_desc_offs(desc_offs);
++	last_ptrs_initialized = ptrs_type;
++
++	return count;
++
++err_exit:
++	boot_desc_release();
++	memset(&boot_ptrs, 0, sizeof(boot_ptrs));
++	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
++
++	return 0;
++}

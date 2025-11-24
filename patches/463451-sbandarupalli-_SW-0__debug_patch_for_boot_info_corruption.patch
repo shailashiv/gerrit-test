@@ -1,0 +1,28 @@
+From d6e8014607803e732a8d685443246bee7d8a875f Mon Sep 17 00:00:00 2001
+From: Sailaja <sbandarupalli@habana.ai>
+Date: Sun, 24 Nov 2024 08:17:26 +0200
+Subject: [PATCH] [SW-0] debug patch for boot info corruption
+
+Dont merge
+
+Change-Id: I5e5c75fb8f5fc6a317f96cbf7258af66f165adad
+Signed-off-by: Sailaja <sbandarupalli@habana.ai>
+---
+
+diff --git a/lib/common/cmd_module.c b/lib/common/cmd_module.c
+index 82466e2..5eaa5ad 100644
+--- a/lib/common/cmd_module.c
++++ b/lib/common/cmd_module.c
+@@ -49,6 +49,12 @@
+ 
+ static void cmd_module_common_shutdown(enum shutdown_watchdog_op watchdog_op)
+ {
++	LOG_ERR("cold flops0 %0x", sys_read32(0xFC48B060));
++	LOG_ERR("cold flops1 %0x", sys_read32(0xFC48B064));
++	LOG_ERR("cold flops2 %0x", sys_read32(0xFC48B068));
++	LOG_ERR("cold flops3 %0x", sys_read32(0xFC48B06C));
++	LOG_ERR("SPSRAM content : %0x %0x %0x %0x", sys_read32(0x23120000), sys_read32(0x23120004),
++				sys_read32(0x23120008), sys_read32(0x2312000c));
+ 	arch_irq_lock();
+ 	if (watchdog_op == SHUTDOWN_MODE_SET_LOAD_IMAGE_TIMEOUT)
+ 		preboot_arm_watchdog_for_fit_image_run();

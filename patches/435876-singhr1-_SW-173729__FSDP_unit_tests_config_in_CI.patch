@@ -1,0 +1,106 @@
+From 5766b53b69032a7af2bd4aaed0998bb939fb544a Mon Sep 17 00:00:00 2001
+From: Rahul Singh <rasingh@habana.ai>
+Date: Fri, 19 Jul 2024 11:09:38 +0300
+Subject: [PATCH] [SW-173729] FSDP unit tests config in CI
+
+Change-Id: Ib3fffa7739b06c949441813ada06d4b3e1a73ee4
+---
+
+diff --git a/.ci/pipelines/tests/fsdp_uts.yml b/.ci/pipelines/tests/fsdp_uts.yml
+index 9ab3e05..334057b 100644
+--- a/.ci/pipelines/tests/fsdp_uts.yml
++++ b/.ci/pipelines/tests/fsdp_uts.yml
+@@ -1,69 +1,20 @@
+ common:
+   testRepos:
+-    - habanalabs
+-    - automation
+-    - pytorch-training-tests
+-    - pytorch-integration
+-    - event_tests_plugin
+-    - model_garden
+-    - pytorch-fork
+-    - deepspeed-fork
+-    - fairseq-fork
+-    - optimum-habana-fork
++    - repository: habanalabs
++    - repository: automation
++    - repository: pytorch-training-tests
++    - repository: pytorch-integration
++    - repository: pytorch-fork
+   dependencies:
+-    - LKD
+-    - HL_THUNK
+-    - SPECS
+-    - SPECS_EXTERNAL
+-    - SYNAPSE
+-    - HCL
+-    - SYNAPSE_PROFILER
+-    - SYNAPSE_UTILS
+     - COMPLEX_GUID
+-    - CORAL_SIM
+-    - TPCSIM
+-    - TENSORFLOW_TRAINING
+-    - TENSORFLOW_TRAINING_TESTS
+-    - HOROVOD_FORK
+-    - TPC_KERNELS
+-    - CODEC
+-    - MEDIA
+-    - HABANA_REGS_CLI
+-    - SIVAL
+-    - SIVAL2
+-    - SWTOOLS_SDK
+-    - AEON
+-    - TPC_LLVM
+-    - TPC_SCALAR
+-    - TPC_SCALAR_KERNELS
+-    - KINETO
+-    - EVENT_TESTS
+-    - SPARTA
+-    - DEMOS
+-    - QUAL
+-    - SPECS_H9
+-    - RDMA_CORE
+-    - MULTINODE_TESTS
+-    - HABANAQA_FRAMEWORK_FEATURES
+-    - HABANAQA_CORE
+-    - HABANAQA_SYNAPSE
+-    - MODELS_ORANGE
+-    - HABANAQA_MEDIA
+-    - HABANAQA_SYNAPSE_FEATURES
+-    - FAIRSEQ_FORK
+-    - HUDA
+-    - NIC_KMD
+-    - MODEL_GARDEN
+-    - PYTORCH_MODULES
++    - HCL
++    - HL_THUNK
+     - PT_FORK
+-    - DEEPSPEED_FORK
+-    - SYNAPSE_GC_TPC_TESTS
+-    - HABANAQA_INFERENCE
+-    - HABANAQA_HCCL
+-    - HLML
+-    - MEGATRON_DEEPSPEED_FORK
+-    - DEEPSPEED_EXAMPLES_FORK
+-    - TPC_FUSER
++    - RDMA_CORE
++    - SWTOOLS_SDK
++    - SYNAPSE
++    - SYNAPSE_UTILS
++    - TPC_KERNELS
+   config:
+     testCommand: "${HABANA_SOFTWARE_STACK}/pytorch-training-tests/tests/torch_training_tests/scripts/run_fsdp_uts.sh"
+     loadLKD: true
+@@ -79,9 +30,9 @@
+     Install Python test dependencies:
+       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
+     Update PyTorch module:
+-        command: 'install_pytorch_whls; python3 -m pip install --upgrade ${MEDIA_RELEASE_BUILD}/pkgs/*.whl'
++        command: 'install_pytorch_whls'
+ testsMap:
+-  Test_gaudi2_asic_fsdp_uts:
++  Test_pytorch_modules_gaudi2_asic_8cards_fsdp_uts:
+     stages:
+       Run fsdp uts:
+         filter:

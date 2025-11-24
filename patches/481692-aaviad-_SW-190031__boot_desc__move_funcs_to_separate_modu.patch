@@ -1,0 +1,563 @@
+From 5961bc76bffa7bbca76a6be05a95d5ec87fe23fa Mon Sep 17 00:00:00 2001
+From: Ariel Aviad <aaviad@habana.ai>
+Date: Thu, 12 Jun 2025 14:26:15 +0300
+Subject: [PATCH] [SW-190031] boot desc: move funcs to separate module
+
+This patch removes some boot descriptor functions
+and uses the boot descriptor module functions
+instead
+The functions to move are:
+boot_desc_init()
+boot_desc_get_img_desc()
+boot_desc_release()
+dev_spec_get_img_desc()
+
+Change-Id: I783bd6e1af025ece5bdb7e58f74fa9ba4bf21e38
+Signed-off-by: Ariel Aviad <aaviad@habana.ai>
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c9d4182..fd26e41 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -84,6 +84,9 @@
+ emb_common_mod/lib/
+ emb_common_mod/lib/common/
+ emb_common_mod/lib/preboot/
++${ZEPHYR_MODULES_DIR}/boot_desc/include
++${ZEPHYR_MODULES_DIR}/boot_desc/lib/zephyr/
++${ZEPHYR_MODULES_DIR}/boot_desc/arch/${HL_DEVICE}
+ )
+ 
+ if(CONFIG_USE_WATCHDOG_TIMER_API)
+@@ -122,6 +125,9 @@
+ zephyr_library_sources(emb_common_mod/lib/preboot/fit_load.c)
+ zephyr_library_sources(emb_common_mod/arch/${HL_DEVICE}/common.c)
+ zephyr_library_sources(emb_common_mod/arch/${HL_DEVICE}/${TARGET}.c)
++zephyr_library_sources(${ZEPHYR_MODULES_DIR}/boot_desc/lib/zephyr/boot_desc.c)
++zephyr_library_sources(${ZEPHYR_MODULES_DIR}/boot_desc/arch/${HL_DEVICE}/common.c)
++
+ zephyr_library_sources_ifdef(CONFIG_USE_WATCHDOG_TIMER_API ${ZEPHYR_MODULES_DIR}/common/lib/watchdog/watchdog_timer.c)
+ 
+ if (${HL_DEVICE} STREQUAL "gaudi3")
+diff --git a/app/io/preboot.c b/app/io/preboot.c
+index dd1bd65..a71d32c 100644
+--- a/app/io/preboot.c
++++ b/app/io/preboot.c
+@@ -606,6 +606,11 @@
+ 	mem_info_init();
+ }
+ 
++static void preboot_boot_desc_init(void)
++{
++	boot_desc_heap_set(&mem_heap_main);
++}
++
+ void preboot_finalize_fw_info(void)
+ {
+ 	u64 cpu_boot_reg = cpu_boot_err_get_all();
+@@ -701,7 +706,8 @@
+ 	preboot_heap_init();
+ 
+ 	preboot_boot_info_init();
+-
++	/* This must be after preboot_heap_init because it's using the heap */
++	preboot_boot_desc_init();
+ 	hl_dev_pll_init();
+ 
+ 	preboot_cond_arc_reset();
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index 690bcd8..33914a3 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -521,20 +521,6 @@
+ 	return preboot_plat_binning_init();
+ }
+ 
+-u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-			  enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	/* TODO: use stable index when bootinfo implementation is final in arcboot */
+-	desc->spi_offset = img_desc->spi_offset[0];
+-	desc->img_size = img_desc->size;
+-	desc->loadaddr = ((u64)img_desc->load_high << 32) | img_desc->load_low;
+-	desc->desc_ver = img_desc->desc_ver;
+-	desc->crc32 = img_desc->crc32;
+-	memcpy(desc->chksum, img_desc->chksum, ARRAY_SIZE(desc->chksum));
+-
+-	return 0;
+-}
+-
+ /*
+  * TODO: implement this function properly (halt, reset, release reset, scrub memories) using CPU
+  * parameters from fit file, as required in FSW-8421
+diff --git a/arch/gaudi2/common/common.c b/arch/gaudi2/common/common.c
+index f82c46c..4dd22a6 100644
+--- a/arch/gaudi2/common/common.c
++++ b/arch/gaudi2/common/common.c
+@@ -1271,13 +1271,13 @@
+ 	void *fit;
+ 	const char *buf;
+ 
+-	num = _boot_desc_init(BOOT_PTRS_EROM);
++	num = boot_desc_init(BOOT_PTRS_EROM);
+ 	if (num < EROM_FIT_IMG_NUM) {
+ 		LOG_ERR("EROM data fit is missing");
+ 		return 1;
+ 	}
+ 
+-	idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, EROM_FIT_IMG_NUM, IMG_IDX_AUTO, &desc);
++	idx = boot_desc_get_img_desc(FLOPS_UPD_NOOP, EROM_FIT_IMG_NUM, IMG_IDX_AUTO, &desc);
+ 	if (idx < 0) {
+ 		LOG_ERR("EROM data fit desc error");
+ 		return 1;
+@@ -1333,30 +1333,6 @@
+ 		return false;
+ 
+ 	return true;
+-}
+-
+-u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-			  enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	u32 idx = img_desc->idx;
+-
+-	if (upd_status == FLOPS_UPD_PENDING)
+-		idx = (idx + 1) % 2;
+-
+-	LOG_INF("using index: 0x%08x", idx);
+-
+-	desc->spi_offset = img_desc->offset[idx];
+-	desc->img_size = img_desc->size[idx];
+-	desc->loadaddr = ((u64)img_desc->load_high[idx] << 32) | img_desc->load_low[idx];
+-	desc->desc_ver = img_desc->desc_ver;
+-	if (desc->desc_ver >= MULTI_CSUM_BOOT_VER)
+-		memcpy(desc->chksum, img_desc->chksum2[idx],
+-			ARRAY_SIZE(desc->chksum));
+-	else
+-		memcpy(desc->chksum, img_desc->chksum[idx],
+-			ARRAY_SIZE(desc->chksum));
+-
+-	return idx;
+ }
+ 
+ bool watchdog_watch_threads(void)
+diff --git a/arch/gaudi2/common/validate_fw.c b/arch/gaudi2/common/validate_fw.c
+index 4d1b653..1d50aa3 100644
+--- a/arch/gaudi2/common/validate_fw.c
++++ b/arch/gaudi2/common/validate_fw.c
+@@ -204,8 +204,8 @@
+ 	struct boot_desc desc;
+ 	int idx, err = 0;
+ 
+-	_boot_desc_init(BOOT_PTRS_EROM);
+-	idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_index, IMG_IDX_AUTO, &desc);
++	boot_desc_init(BOOT_PTRS_EROM);
++	idx = boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_index, IMG_IDX_AUTO, &desc);
+ 	if (idx < 0) {
+ 		LOG_ERR("EROM img desc %s not present", info->img_name);
+ 		return 1;
+@@ -218,7 +218,7 @@
+ 
+ 	err = validate_spi_img(desc.spi_offset, desc.img_size, info->img_name);
+ 	LOG_INF("%s:\t%s", info->img_name, err ? "BAD" : "Ok");
+-	_boot_desc_release();
++	boot_desc_release();
+ 
+ 	return err;
+ }
+diff --git a/arch/gaudi3/arc/common.c b/arch/gaudi3/arc/common.c
+index 4645142..0f03c46 100644
+--- a/arch/gaudi3/arc/common.c
++++ b/arch/gaudi3/arc/common.c
+@@ -969,47 +969,6 @@
+ 	return (load_type == FIT_LOAD_TYPE_RUN_N_EXTEND);
+ }
+ 
+-u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-			  enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	u32 idx;
+-
+-	switch (sel_idx_mode) {
+-	case IMG_IDX_0:
+-		idx = 0;
+-		break;
+-	case IMG_IDX_1:
+-		idx = 1;
+-		break;
+-	case IMG_IDX_AUTO:
+-	default:
+-		idx = img_desc->idx;
+-		if (upd_status == FLOPS_UPD_PENDING)
+-			idx = (idx + 1) % 2;
+-		break;
+-	}
+-
+-	LOG_INF("using index: 0x%08x", idx);
+-
+-	desc->spi_offset = img_desc->offset[idx];
+-	desc->img_size = img_desc->size[idx];
+-	desc->loadaddr = ((u64)img_desc->load_high[idx] << 32) | img_desc->load_low[idx];
+-	desc->desc_ver = img_desc->desc_ver;
+-	if (desc->desc_ver >= MULTI_CSUM_BOOT_VER)
+-		memcpy(desc->chksum, img_desc->chksum2[idx],
+-			ARRAY_SIZE(desc->chksum));
+-	else
+-		memcpy(desc->chksum, img_desc->chksum[idx],
+-			ARRAY_SIZE(desc->chksum));
+-
+-	if (desc->desc_ver >= DESC_VER_BOOT_VER)
+-		memcpy(desc->version, img_desc->version, HL_IMG_VERSION_SIZE);
+-	else
+-		memset(desc->version, 0, HL_IMG_VERSION_SIZE);
+-
+-	return idx;
+-}
+-
+ u8 lkd_dev_spec_get_module_type(void)
+ {
+ 	if (hl_is_card_type_pcie())
+diff --git a/arch/gaudi3/common/common.c b/arch/gaudi3/common/common.c
+index 7dad0f6..d34199c 100644
+--- a/arch/gaudi3/common/common.c
++++ b/arch/gaudi3/common/common.c
+@@ -524,20 +524,20 @@
+ {
+ 	int idx, err = 1;
+ 
+-	idx = _boot_desc_init(BOOT_PTRS_EROM);
++	idx = boot_desc_init(BOOT_PTRS_EROM);
+ 	if (!idx) {
+ 		LOG_ERR("Boot desc init for eROM is failed");
+ 		return err;
+ 	}
+ 
+-	idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, EROM_RECOVERY_IDX, IMG_IDX_AUTO,
++	idx = boot_desc_get_img_desc(FLOPS_UPD_NOOP, EROM_RECOVERY_IDX, IMG_IDX_AUTO,
+ 				     (struct boot_desc *)desc);
+ 	if (idx == HL_FW_IMG_NOT_FOUND)
+ 		LOG_ERR("Fecthing eROM recovery image descriptor failed");
+ 	else
+ 		err = 0; // No error
+ 
+-	_boot_desc_release();
++	boot_desc_release();
+ 	return err;
+ }
+ 
+diff --git a/arch/gaudi3/common/validate_fw.c b/arch/gaudi3/common/validate_fw.c
+index 52676ec..34e4bbd 100644
+--- a/arch/gaudi3/common/validate_fw.c
++++ b/arch/gaudi3/common/validate_fw.c
+@@ -127,9 +127,9 @@
+ 	int err;
+ 	uint32_t idx;
+ 
+-	_boot_desc_init(BOOT_PTRS_EROM);
++	boot_desc_init(BOOT_PTRS_EROM);
+ 	for (i = 0; i < sizeof(erom_img_data) / sizeof(struct fw_img_info); i++) {
+-		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_img_data[i].type,
++		idx = boot_desc_get_img_desc(FLOPS_UPD_NOOP, erom_img_data[i].type,
+ 						erom_img_data[i].idx_sel_mode, &desc);
+ 		if (idx == HL_FW_IMG_NOT_FOUND) {
+ 			LOG_ERR("EROM image %s not found", erom_img_data[i].img_name);
+@@ -150,7 +150,7 @@
+ 		}
+ 	}
+ 
+-	_boot_desc_release();
++	boot_desc_release();
+ 	return 0;
+ }
+ 
+@@ -191,9 +191,9 @@
+ 	int err = 0;
+ 	uint32_t idx;
+ 
+-	_boot_desc_init(BOOT_PTRS_FW);
++	boot_desc_init(BOOT_PTRS_FW);
+ 	for (i = 0; i < sizeof(fw_img_data) / sizeof(struct fw_img_info); i++) {
+-		idx = _boot_desc_get_img_desc(FLOPS_UPD_NOOP, fw_img_data[i].type,
++		idx = boot_desc_get_img_desc(FLOPS_UPD_NOOP, fw_img_data[i].type,
+ 						fw_img_data[i].idx_sel_mode, &desc);
+ 		if (idx == HL_FW_IMG_NOT_FOUND) {
+ 			LOG_ERR("FW image %s not found", fw_img_data[i].img_name);
+@@ -241,7 +241,7 @@
+ 		}
+ 	}
+ 
+-	_boot_desc_release();
++	boot_desc_release();
+ 	return 0;
+ }
+ 
+diff --git a/arch/jgs/arc/common.c b/arch/jgs/arc/common.c
+index 4aafdbc..978f360 100644
+--- a/arch/jgs/arc/common.c
++++ b/arch/jgs/arc/common.c
+@@ -426,20 +426,6 @@
+ 	return preboot_plat_binning_init();
+ }
+ 
+-u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-			  enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	/* TODO: use stable index when bootinfo implementation is final in arcboot */
+-	desc->spi_offset = img_desc->spi_offset[0];
+-	desc->img_size = img_desc->size;
+-	desc->loadaddr = ((u64)img_desc->load_high << 32) | img_desc->load_low;
+-	desc->desc_ver = img_desc->desc_ver;
+-	desc->crc32 = img_desc->crc32;
+-	memcpy(desc->chksum, img_desc->chksum, ARRAY_SIZE(desc->chksum));
+-
+-	return 0;
+-}
+-
+ /*
+  * TODO: implement this function properly (halt, reset, release reset, scrub memories) using CPU
+  * parameters from fit file, as required in FSW-8421
+diff --git a/include/boot_desc.h b/include/boot_desc.h
+deleted file mode 100644
+index 9cc0753..0000000
+--- a/include/boot_desc.h
++++ /dev/null
+@@ -1,76 +0,0 @@
+-/* SPDX-License-Identifier:     Apache-2.0
+- *
+- * Copyright (C) 2017-2020 HabanaLabs Ltd.
+- * All Rights Reserved.
+- *
+- */
+-#ifndef _BOOT_DESC_H_
+-#define _BOOT_DESC_H_
+-
+-#include <preboot.h>
+-#include <hl_fw_if.h>
+-#include <hl_fw_upd_if.h>
+-#include <hl_boot_desc.h>
+-#include <sha.h>
+-
+-#define HL_FW_IMG_NOT_FOUND	((u32)-1)
+-#define MULTI_CSUM_BOOT_VER	3
+-#define DESC_VER_BOOT_VER	5
+-
+-enum boot_ptrs_type {
+-	BOOT_PTRS_FW,
+-	BOOT_PTRS_EROM,
+-	BOOT_PTRS_MAX_NUM
+-};
+-
+-struct boot_desc {
+-	u32 desc_ver;
+-	u32 spi_offset;
+-	u32 img_size;
+-	u64 loadaddr;
+-	u8 chksum[SHA_SUM_LEN];
+-	u32 crc32;
+-	u8 version[HL_IMG_VERSION_SIZE];
+-};
+-
+-enum img_idx {
+-	IMG_IDX_0,
+-	IMG_IDX_1,
+-	IMG_IDX_AUTO
+-};
+-
+-/*
+- * boot_desc_init() - read and initialize the boot image pointers structures
+- *
+- * @ptrs_type	- type of boot descriptors to look for (FW/EROM/etc..)
+- *
+- * Returns: the amount of images available, or 0 - no images available - legacy
+- */
+-int _boot_desc_init(enum boot_ptrs_type ptrs_type);
+-
+-/*
+- * _boot_desc_get_img_desc() - get the struct boot_desc of the requested image
+- *
+- * @upd_status	- FLOPS_UPD_PENDING - for modifiable image offset,
+- *		  other values - for stable image offset
+- * @type	- the image type to look for
+- * @sel_idx_mode	- Idx selection: first, second or current
+- * @desc	- pointer to the struct boot_desc for placing the image data
+- *
+- * Returns:
+- * On success: the index of the image to load
+- * On failure: (u32)-1 (no image by the requested type)
+- */
+-u32 _boot_desc_get_img_desc(enum fw_post_reset_cmd upd_status, enum hl_fw_img_type type,
+-				enum img_idx sel_idx_mode, struct boot_desc *desc);
+-
+-/*
+- * _boot_desc_release() - releases dynamic memory, allocated by boot_desc_init()
+- *
+- */
+-void _boot_desc_release(void);
+-bool _dev_spec_img_desc_is_valid(struct hl_fw_img_desc *img_desc);
+-u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-			  enum img_idx sel_idx_mode, struct boot_desc *desc);
+-
+-#endif /* _BOOT_DESC_H_ */
+diff --git a/lib/boot_desc.c b/lib/boot_desc.c
+deleted file mode 100644
+index 51193bc..0000000
+--- a/lib/boot_desc.c
++++ /dev/null
+@@ -1,156 +0,0 @@
+-// SPDX-License-Identifier:     Apache-2.0
+-/*
+- * Copyright (C) 2017-2020 HabanaLabs Ltd.
+- * All Rights Reserved.
+- *
+- */
+-#include <stdint.h>
+-#include <string.h>
+-#include <stdbool.h>
+-#include <stdint.h>
+-#include <preboot.h>
+-#include <hl_fw_upd_if.h>		/* requires stdint.h */
+-#include <hl_boot_desc.h>
+-#include <common.h>
+-#include <lib_common.h>
+-#include <zephyr/sys/util.h>
+-#include <memory.h>
+-
+-#include "boot_desc.h"
+-#include <spi_flash.h>
+-
+-#define BOOT_PTRS_SZ		sizeof(struct hl_fw_boot_ptrs)
+-
+-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+-#include <zephyr/logging/log.h>
+-
+-LOG_MODULE_REGISTER(boot_desc);
+-
+-static struct hl_fw_boot_ptrs boot_ptrs;
+-static uint8_t *img_descs;
+-
+-static enum boot_ptrs_type last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
+-
+-void _boot_desc_release(void)
+-{
+-	if (!img_descs)
+-		return;
+-
+-	sys_heap_free(&mem_heap_main, img_descs);
+-	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
+-	img_descs = NULL;
+-}
+-
+-#define LEGACY_IMAGE_DESCRIPTOR_SIZE	220
+-
+-int _boot_desc_init(enum boot_ptrs_type ptrs_type)
+-{
+-	unsigned int count, i;
+-	u32 ptr_base, spi_off;
+-	u32 *desc_offs;
+-	u8 *descs_ptr;
+-
+-	if (ptrs_type == last_ptrs_initialized)
+-		return boot_ptrs.count;
+-
+-	ptr_base = (ptrs_type == BOOT_PTRS_FW) ? HL_FW_BOOT_PTRS_BASE : HL_EROM_BOOT_PTRS_BASE;
+-
+-	/* Read the main boot pointers structure */
+-	spi_flash_copy(&boot_ptrs, ptr_base, BOOT_PTRS_SZ, "BOOT PTRS");
+-	if (boot_ptrs.version > 0) {
+-		if (boot_ptrs.boot_ptrs_sz > BOOT_PTRS_SZ)
+-			LOG_WRN("boot_ptrs size is bigger than expected");
+-	}
+-	boot_desc_print_magic("FW boot PTRs", &boot_ptrs.magic);
+-
+-	if (boot_ptrs.magic.val != HL_FW_BOOT_MAGIC)
+-		goto err_exit;
+-
+-	count = boot_ptrs.count;
+-
+-	desc_offs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, count * sizeof(u32));
+-	if (!desc_offs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
+-		goto err_exit;
+-	}
+-
+-	if (is_legacy_boot_descs(&boot_ptrs)) {
+-		/*
+-		 * In legacy boot ptrs meta data structure the last member is "count", the legacy
+-		 * offsets array starts where the "pub_key_sz" member is.
+-		 */
+-		spi_off = ptr_base + offsetof(struct hl_fw_boot_ptrs, pub_key_sz);
+-		/* legacy descriptors don't have size field. so constant value is used */
+-		boot_ptrs.img_desc_sz = LEGACY_IMAGE_DESCRIPTOR_SIZE;
+-	} else {
+-		spi_off = ptr_base + boot_ptrs.offset2array;
+-	}
+-
+-	spi_flash_copy(desc_offs, spi_off, sizeof(u32) * count, "DESC OFFS");
+-
+-	img_descs = sys_heap_aligned_alloc(&mem_heap_main, SZ_16, count * boot_ptrs.img_desc_sz);
+-	if (!img_descs) {
+-		LOG_ERR("%s: Failed in alloc\n", __func__);
+-		sys_heap_free(&mem_heap_main, desc_offs);
+-		goto err_exit;
+-	}
+-
+-	/* Read all descriptors */
+-	for (i = 0; i < count; i++) {
+-		spi_off = ptr_base + desc_offs[i];
+-		descs_ptr = img_descs + i * boot_ptrs.img_desc_sz;
+-		spi_flash_copy(descs_ptr, spi_off, boot_ptrs.img_desc_sz, "IMG DESC");
+-		if (!boot_desc_img_desc_is_valid((struct hl_fw_img_desc *)descs_ptr)) {
+-			LOG_ERR("Bad boot descriptor: %d", i);
+-			sys_heap_free(&mem_heap_main, desc_offs);
+-			goto err_exit;
+-		}
+-	}
+-	sys_heap_free(&mem_heap_main,  (void *)desc_offs);
+-	last_ptrs_initialized = ptrs_type;
+-
+-	return count;
+-
+-err_exit:
+-	_boot_desc_release();
+-	memset(&boot_ptrs, 0, sizeof(boot_ptrs));
+-	last_ptrs_initialized = BOOT_PTRS_MAX_NUM;
+-
+-	return 0;
+-}
+-
+-__weak u32 _dev_spec_get_img_desc(struct hl_fw_img_desc *img_desc, enum fw_post_reset_cmd upd_status,
+-				 enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	LOG_ERR("%s not implemented\n", __func__);
+-
+-	return 0;
+-}
+-
+-u32 _boot_desc_get_img_desc(enum fw_post_reset_cmd upd_status,  enum hl_fw_img_type type,
+-				enum img_idx sel_idx_mode, struct boot_desc *desc)
+-{
+-	int i;
+-	struct hl_fw_img_desc *img_desc;
+-	u32 ret;
+-
+-	/*
+-	 * struct hl_fw_img_desc is used for parsing the descriptor fields, but developer must
+-	 * take the descriptor version into account in order to know which fields are available
+-	 */
+-	for (i = 0; i < boot_ptrs.count; i++) {
+-		img_desc = (struct hl_fw_img_desc *)(img_descs + i * boot_ptrs.img_desc_sz);
+-
+-		if (img_desc->magic.type != type)
+-			continue;
+-
+-		LOG_INF("Looking for image type: %d - found!", type);
+-
+-		ret = _dev_spec_get_img_desc(img_desc, upd_status, sel_idx_mode, desc);
+-
+-		return ret;
+-	}
+-
+-	LOG_ERR("image type: %d - not found!", type);
+-	return HL_FW_IMG_NOT_FOUND;
+-}

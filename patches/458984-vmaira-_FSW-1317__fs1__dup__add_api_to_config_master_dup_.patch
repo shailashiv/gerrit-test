@@ -1,0 +1,165 @@
+From 47df19977874706b25fc27a0e90e259300419309 Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Mon, 28 Oct 2024 12:01:50 +0200
+Subject: [PATCH] [FSW-1317] fs1: dup: add api to config master dup grp
+
+In FS1, we need to configure 160 instances of CU_RRTR rate limiters on
+the compute die. Since FS1 dup groups support broadcasting to only 32
+addresses, multiple dup groups are required. To speeden up the
+configuration, a master dup group is used to broadcast writes from ARC
+to the multiple dup groups, which then broadcast to the rate limiter
+registers.
+
+This patch adds an API to configure addresses to the master dup group.
+
+Change-Id: I6a20a067623023a30d504c69fab932ae0198df84
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/drivers/misc/dup/common/dup_drv.c b/drivers/misc/dup/common/dup_drv.c
+index 584edbb..c7c57ef 100644
+--- a/drivers/misc/dup/common/dup_drv.c
++++ b/drivers/misc/dup/common/dup_drv.c
+@@ -164,12 +164,17 @@
+ 				uint16_t offset, uint32_t push_data)
+ {
+ 	uint32_t data_push_base, lbw_count, reg_val;
+-	struct dup_drv_data *drv_data = DUP_DRV_DATA(dev);
+-	volatile struct dup_eng_region_reg_map *region_reg_map = DUP_REGION_REG_MAP(drv_data);
+-	volatile struct dup_eng_cmn_reg_map *cmn_reg_map = DUP_CMN_REG_MAP(drv_data);
++	struct dup_drv_data *drv_data;
++
++	volatile struct dup_eng_region_reg_map *region_reg_map;
++	volatile struct dup_eng_cmn_reg_map *cmn_reg_map;
+ 
+ 	if (dev == NULL)
+-		return -EINVAL;
++		return -ENODEV;
++
++	drv_data = DUP_DRV_DATA(dev);
++	region_reg_map = DUP_REGION_REG_MAP(drv_data);
++	cmn_reg_map = DUP_CMN_REG_MAP(drv_data);
+ 
+ 	if (group >= drv_data->grp_info.num_of_groups)
+ 		return -ENOTSUP;
+@@ -224,12 +229,62 @@
+ 	return 0;
+ }
+ 
++static int dup_prog_master_grp_addr(const struct device *dev, uint8_t group,
++					uint32_t *dup_group_id_list, uint8_t group_num)
++{
++	int ret, i;
++	uint32_t grp_reg_idx, dup_grp_push_addr_base;
++	struct dup_drv_data *drv_data;
++	volatile struct dup_eng_region_reg_map *region_reg_map;
++
++	if (dev == NULL)
++		return -ENODEV;
++
++	drv_data = DUP_DRV_DATA(dev);
++	region_reg_map = DUP_REGION_REG_MAP(drv_data);
++
++	if (dup_group_id_list == NULL)
++		return -EINVAL;
++
++	if (group_num == 0) {
++		LOG_ERR("dup eng config skipped due to zero addresses to configure");
++		return -EINVAL;
++	}
++
++	if (group >= drv_data->grp_info.num_of_groups) {
++		LOG_ERR("unsupported dup group received: %d", group);
++		return -ENOTSUP;
++	}
++
++	if ((drv_data->ip_ops->validate_address_num == NULL) ||
++		(drv_data->ip_ops->get_group_address_register_offset == NULL)) {
++		LOG_ERR("dup ip ops not defined");
++		return -ENOTSUP;
++	}
++
++	ret = drv_data->ip_ops->validate_address_num(&drv_data->grp_info, group, group_num);
++	if (ret)
++		return ret;
++
++	grp_reg_idx = drv_data->ip_ops->get_group_address_register_offset(&drv_data->grp_info,
++				 group);
++
++	for (i = 0; i < group_num; i++) {
++		dup_grp_push_addr_base = (drv_data->dup_push_addr_base +
++			dup_group_id_list[i] * DUP_GROUP_MMIO_RANGE) & DUP_ENG_DUP_ADDR_GR_VAL_M;
++		region_reg_map->dup_addr_gr[grp_reg_idx + i] = dup_grp_push_addr_base;
++	}
++
++	return 0;
++}
++
+ static struct dup_driver_api dup_drv_api = {
+ 	.get_info = dup_get_info,
+ 	.get_num_of_addresses = dup_get_num_of_addresses,
+ 	.prog_grp_addr = dup_prog_grp_addr,
+ 	.prog_mask = dup_prog_mask,
+-	.prog_data = dup_prog_data
++	.prog_data = dup_prog_data,
++	.prog_master_grp_addr = dup_prog_master_grp_addr
+ };
+ 
+ static int dup_eng_init(const struct device *dev)
+diff --git a/include/drivers/misc/dup/common/dup_api.h b/include/drivers/misc/dup/common/dup_api.h
+index 9ea83f9..8e3801b 100644
+--- a/include/drivers/misc/dup/common/dup_api.h
++++ b/include/drivers/misc/dup/common/dup_api.h
+@@ -72,6 +72,21 @@
+ 					uint8_t group, uint32_t *addr, uint8_t addr_num);
+ 
+ /**
++ * @typedef dup_master_prog_address_t
++ *
++ * @brief Callback API for programming addresses to dup group that broadcasts to other dup groups
++ *
++ * @param dev pointer to the device object
++ * @param group master group identifier
++ * @param dup_group_id_list pointer to list of groups to which data needs to broadcasted
++ * @param group_num number of groups passed in the list
++ *
++ * @return 0 on success, 1 on failure
++ */
++typedef int (*dup_master_prog_address_t)(const struct device *dev, uint8_t group,
++					uint32_t *dup_group_id_list, uint8_t group_num);
++
++/**
+  * @typedef dup_prog_mask_t
+  *
+  * @brief Callback API for programming group addresses mask
+@@ -103,6 +118,7 @@
+ 	dup_get_info_t get_info;
+ 	dup_get_num_of_addresses_t get_num_of_addresses;
+ 	dup_prog_address_t prog_grp_addr;
++	dup_master_prog_address_t prog_master_grp_addr;
+ 	dup_prog_mask_t prog_mask;
+ 	dup_prog_data_t prog_data;
+ };
+@@ -151,6 +167,22 @@
+ 	return api->prog_grp_addr(dev, mode, group, addr, addr_num);
+ }
+ 
++__syscall int dup_master_program_address(const struct device *dev, uint8_t group,
++					uint32_t *addr, uint8_t addr_num);
++
++static inline int z_impl_dup_master_program_address(const struct device *dev,
++							uint8_t group, uint32_t *addr,
++							uint8_t addr_num)
++{
++	const struct dup_driver_api *api =
++		(const struct dup_driver_api *)dev->api;
++
++	if (api->prog_master_grp_addr == NULL)
++		return -ENOTSUP;
++
++	return api->prog_master_grp_addr(dev, group, addr, addr_num);
++}
++
+ __syscall int dup_program_mask(const struct device *dev, uint8_t group, uint64_t mask);
+ 
+ static inline int z_impl_dup_program_mask(const struct device *dev, uint8_t group,

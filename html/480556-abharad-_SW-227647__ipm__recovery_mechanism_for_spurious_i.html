@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 480556: [SW-227647] ipm: recovery mechanism for spurious intr</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 480556: [SW-227647] ipm: recovery mechanism for spurious intr</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-27 04:43:01.468000000</p>
+            <p><strong>Updated:</strong> 2025-05-27 12:36:56.343000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-227647] ipm: recovery mechanism for spurious intr
+
+This patch adds folllowing recovery mechanism:
+1. Adds 3 rechecks after getting spurious intr.
+2. If rechecks also fail, ignore the sequence number
+and processes the msg irrspectively.
+
+Change-Id: I9635bbfe2e47cf3a4e822b85c1ad3ea6f50ba2aa
+Signed-off-by: Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Tamal Saha: +0, Jenkins EMB Service Account: +0, Akshay Pradip Bharad: +0</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>drivers/ipm/ipm_hl.c</code> (M) +33 -12</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/drivers/ipm/ipm_hl.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -17,6 +17,8 @@</span>
+<span class="diff-ctx"> #define LOG_MODULE_NAME			ipm_hl</span>
+<span class="diff-ctx"> LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_IPM_LOG_LEVEL);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+#define IPM_ISR_FETCH_RETRY_COUNT 3</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> /*</span>
+<span class="diff-ctx">  * Beware that this function is called from ISR. It processes the message and</span>
+<span class="diff-ctx">  * sends an ACK to the sender.</span>
+<span class="diff-hunk">@@ -45,7 +47,7 @@</span>
+<span class="diff-ctx">  * and process it. If the message is not found, it returns false.</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static bool find_and_process_message(const struct device *dev)</span>
+<span class="diff-add">+static int find_and_process_message(const struct device *dev, bool ignore_seq_no)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	const struct ipm_hl_config *config = DEV_CFG(dev);</span>
+<span class="diff-ctx"> 	struct ipm_hl_data *data = DEV_DATA(dev);</span>
+<span class="diff-hunk">@@ -57,9 +59,9 @@</span>
+<span class="diff-ctx"> 			   (i * data-&gt;chunk_hdr_sz));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 		if ((msg-&gt;busy) &amp;&amp; (!msg-&gt;ack)) {</span>
+<span class="diff-del">-			if (msg-&gt;seq_no == data-&gt;rx_ctrl-&gt;ci) {</span>
+<span class="diff-add">+			if (msg-&gt;seq_no == data-&gt;rx_ctrl-&gt;ci || ignore_seq_no) {</span>
+<span class="diff-ctx"> 				process_message(dev, msg);</span>
+<span class="diff-del">-				return true;</span>
+<span class="diff-add">+				return 0;</span>
+<span class="diff-ctx"> 			} else {</span>
+<span class="diff-ctx"> 				LOG_DBG(&quot;Out of Order Msg. seq_no: %d expected: %d&quot;,</span>
+<span class="diff-ctx"> 					msg-&gt;seq_no, data-&gt;rx_ctrl-&gt;ci);</span>
+<span class="diff-hunk">@@ -72,9 +74,9 @@</span>
+<span class="diff-ctx"> 						(i * config-&gt;rx.data_chunk_size));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 		if ((msg-&gt;busy) &amp;&amp; (!msg-&gt;ack)) {</span>
+<span class="diff-del">-			if (msg-&gt;seq_no == data-&gt;rx_ctrl-&gt;ci) {</span>
+<span class="diff-add">+			if (msg-&gt;seq_no == data-&gt;rx_ctrl-&gt;ci || ignore_seq_no) {</span>
+<span class="diff-ctx"> 				process_message(dev, msg);</span>
+<span class="diff-del">-				return true;</span>
+<span class="diff-add">+				return 0;</span>
+<span class="diff-ctx"> 			} else {</span>
+<span class="diff-ctx"> 				LOG_DBG(&quot;Out of Order Msg. seq_no: %d expected: %d&quot;,</span>
+<span class="diff-ctx"> 					msg-&gt;seq_no, data-&gt;rx_ctrl-&gt;ci);</span>
+<span class="diff-hunk">@@ -82,23 +84,42 @@</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	LOG_WRN(&quot;Spurious interrupt received. PI: %d, CI: %d&quot;,</span>
+<span class="diff-del">-		data-&gt;rx_ctrl-&gt;pi, data-&gt;rx_ctrl-&gt;ci);</span>
+<span class="diff-del">-	return false;</span>
+<span class="diff-add">+	if (!ignore_seq_no) {</span>
+<span class="diff-add">+		LOG_WRN(&quot;Spurious interrupt received. PI: %d, CI: %d&quot;,</span>
+<span class="diff-add">+			data-&gt;rx_ctrl-&gt;pi, data-&gt;rx_ctrl-&gt;ci);</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return -ENOMSG;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> void ipm_hl_isr(const struct device *dev)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct ipm_hl_data *data = DEV_DATA(dev);</span>
+<span class="diff-del">-	uint32_t num_of_msgs = data-&gt;rx_ctrl-&gt;pi - data-&gt;rx_ctrl-&gt;ci;</span>
+<span class="diff-add">+	uint32_t num_of_msgs = 0;</span>
+<span class="diff-add">+	bool err, ignore_seq_no = false;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	uint8_t retry = IPM_ISR_FETCH_RETRY_COUNT;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	/* Try a few times to catch up in case of race with producer */</span>
+<span class="diff-add">+	do {</span>
+<span class="diff-add">+		num_of_msgs = data-&gt;rx_ctrl-&gt;pi - data-&gt;rx_ctrl-&gt;ci;</span>
+<span class="diff-add">+		if (num_of_msgs &gt; 0) {</span>
+<span class="diff-add">+			break;</span>
+<span class="diff-add">+		}</span>
+<span class="diff-add">+		k_busy_wait(1);</span>
+<span class="diff-add">+	} while (retry--);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	if (num_of_msgs == 0) {</span>
+<span class="diff-ctx"> 		LOG_WRN(&quot;Spurious interrupt received&quot;);</span>
+<span class="diff-del">-		return;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	while (num_of_msgs &gt; 0) {</span>
+<span class="diff-del">-		if (!find_and_process_message(dev)) {</span>
+<span class="diff-add">+	if (num_of_msgs != 1) {</span>
+<span class="diff-add">+		ignore_seq_no = true;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	while (num_of_msgs &gt; 0 || ignore_seq_no) {</span>
+<span class="diff-add">+		err = find_and_process_message(dev, ignore_seq_no);</span>
+<span class="diff-add">+		if (err || ignore_seq_no) {</span>
+<span class="diff-ctx"> 			break;</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-ctx"> 		num_of_msgs = data-&gt;rx_ctrl-&gt;pi - data-&gt;rx_ctrl-&gt;ci;</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:43:01.468000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:55:36.268000000)</span><pre>Patch Set 2: Commit message was updated.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:55:46.952000000)</span><pre>Patch Set 3: Patch Set 2 was rebased</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:56:23.279000000)</span><pre>Patch Set 4: Patch Set 3 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 04:56:31.943000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36146/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 04:56:32.223000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8071/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 04:59:33.058000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7272/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 04:59:33.066000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6607/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:02:51.759000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22409/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:02:51.780000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24881/ (3/3)</pre></div><div class="message"><strong>Tamal Saha</strong> <span class="date">(2025-05-27 05:03:47.296000000)</span><pre>Patch Set 1:
+
+(4 comments)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 05:10:26.340000000)</span><pre>Patch Set 5: Commit message was updated.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 05:10:32.218000000)</span><pre>Patch Set 5:
+
+(3 comments)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 05:35:10.671000000)</span><pre>Uploaded patch set 6.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:35:17.432000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8073/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:35:17.477000000)</span><pre>Patch Set 6: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36148/ (1/3)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 05:35:33.430000000)</span><pre>Patch Set 7: Patch Set 6 was rebased</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:35:42.431000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8074/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:35:42.466000000)</span><pre>Patch Set 7: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36149/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:35:50.132000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22411/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:35:50.138000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24883/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:36:00.327000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24881/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24881/ )
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27037/ )
+
+Calling Pipeline was cancelled ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27037/ )
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27037/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27037/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22409/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36146/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 05:36:28.546000000)</span><pre>Patch Set 7:
+
+(2 comments)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:37:31.500000000)</span><pre>Patch Set 6: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22411/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22411/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24883/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24883/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36148/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36148/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:38:26.185000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7274/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:38:26.205000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6609/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:39:13.619000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7275/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:39:13.631000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6610/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:40:10.269000000)</span><pre>Patch Set 4: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7272/ : ABORTED
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6703/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6703/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8071/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6607/ : SUCCESS</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 05:40:16.534000000)</span><pre>Patch Set 7: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7274/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6705/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8074/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6609/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:41:09.850000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22412/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 05:41:09.851000000)</span><pre>Patch Set 7:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24884/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 06:15:08.321000000)</span><pre>Patch Set 6: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8073/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7275/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6610/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 07:34:50.343000000)</span><pre>Patch Set 7: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24884/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24884/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/48051/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22412/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36149/ : SUCCESS</pre></div><div class="message"><strong>Shivani Raval</strong> <span class="date">(2025-05-27 10:32:08.658000000)</span><pre>Patch Set 8: Patch Set 7 was rebased</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:32:19.104000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36187/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:32:19.137000000)</span><pre>Patch Set 8: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8105/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:34:45.532000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7304/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 10:34:45.541000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6632/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:37:50.190000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22439/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 10:37:50.203000000)</span><pre>Patch Set 8:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24919/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-27 11:10:12.066000000)</span><pre>Patch Set 8: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/8105/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/7304/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6632/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 12:36:56.343000000)</span><pre>Patch Set 8: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24919/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27073/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/48129/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22439/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36187/ : SUCCESS</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>/COMMIT_MSG</h4><ul><li><strong>Tamal Saha</strong> (Line 10): typo</li><li><strong>Akshay Pradip Bharad</strong> (Line 10): Done</li></ul></div><div class="file-comments"><h4>drivers/ipm/ipm_hl.c</h4><ul><li><strong>Tamal Saha</strong> (Line 62): Is it possible to keep the body same as previous, change/update only if condition</li><li><strong>Akshay Pradip Bharad</strong> (Line 62): I have modified the return values for better readability</li><li><strong>Akshay Pradip Bharad</strong> (Line 62): General guideline we follow is return 0 if success. original code voids the guideline</li><li><strong>Tamal Saha</strong> (Line 99): MACRO!</li><li><strong>Akshay Pradip Bharad</strong> (Line 99): Done</li><li><strong>Tamal Saha</strong> (Line 107): Will be there any latency impact?</li><li><strong>Akshay Pradip Bharad</strong> (Line 107): This wait is only in failure condition. num_of_msgs is always expected to be &gt; 1 unless we hit spurious intr.</li></ul></div></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,733 @@
+From 4b3e1192da2efbe2d774f3e6cccd3e37b10b9acc Mon Sep 17 00:00:00 2001
+From: Rajesh Sanga <rsanga@habana.ai>
+Date: Wed, 29 Jan 2025 10:11:49 +0200
+Subject: [PATCH] [SW-218143] Fix the SUSE, rhel9.4 and U22 issues
+
+Change-Id: I6ffafe5a53d0981e2e856825b7dee94f471b6234
+Signed-off-by: Rajesh Sanga <rsanga@habana.ai>
+---
+
+diff --git a/dockerfiles/base/Dockerfile.amzn2 b/dockerfiles/base/Dockerfile.amzn2
+index 249898d..5c84b1e 100644
+--- a/dockerfiles/base/Dockerfile.amzn2
++++ b/dockerfiles/base/Dockerfile.amzn2
+@@ -105,7 +105,7 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/Dockerfile.debian10.10 b/dockerfiles/base/Dockerfile.debian10.10
+index e2a5e67..22a2971 100644
+--- a/dockerfiles/base/Dockerfile.debian10.10
++++ b/dockerfiles/base/Dockerfile.debian10.10
+@@ -150,7 +150,7 @@
+ RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.8 2 && \
+     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
+ 
+-RUN python3 -m pip install pip==23.3.1 setuptools==67.3.3 wheel==0.38.4
++RUN python3 -m pip install pip==23.3.1 setuptools==79.0.1 wheel==0.38.4
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/Dockerfile.rhel8.6 b/dockerfiles/base/Dockerfile.rhel8.6
+index b382a05..9f3c6f5 100644
+--- a/dockerfiles/base/Dockerfile.rhel8.6
++++ b/dockerfiles/base/Dockerfile.rhel8.6
+@@ -10,76 +10,70 @@
+ ARG REVISION
+ ARG REPO_NAME=hl-rhel-prerel
+ ARG PYPI_REPO_NAME=pypi-virtual
+-
+ # for RHEL certification
+ LABEL vendor="Habanalabs Ltd."
+ LABEL release="${VERSION}-${REVISION}"
+-
+ COPY LICENSE /licenses/
+-
+-RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+-    dnf clean all && rm -rf /var/cache/yum
+-
+-RUN echo "[rhelmirror]" > /etc/yum.repos.d/rhelmirror.repo && \
+-    echo "name=Habana RH8 baseos repo" >> /etc/yum.repos.d/rhelmirror.repo && \
+-    echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat8-mirror" >> /etc/yum.repos.d/rhelmirror.repo && \
+-    echo 'gpgcheck=0'  >> /etc/yum.repos.d/rhelmirror.repo && \
+-    echo 'enable=1'  >> /etc/yum.repos.d/rhelmirror.repo
+-
+ RUN dnf install -y \
+-    clang \
+-    cmake3 \
+-    cpp \
+-    gcc \
+-    gcc-c++ \
+-    glibc \
+-    glibc-headers \
+-    glibc-devel \
+-    jemalloc \
+-    libarchive \
+-    libksba \
+-    unzip \
+-    llvm \
+-    lsof \
+-    python3.11-devel \
+-    python3.11-pip \
+-    bzip2 \
+-    bzip2-devel \
+-    openssh-clients \
+-    libjpeg-devel \
+-    openssh-server \
+-    redhat-lsb-core \
+-    wget \
+-    git \
+-    mesa-libGL \
+-    iproute \
+-    python3-dnf-plugin-versionlock && \
+-    # update pkgs (except OS version) for resolving potentials CVEs
++        python3-dnf-plugin-versionlock && \
+     dnf versionlock add redhat-release* && \
+-    dnf update -y && \
+-    dnf clean all && rm -rf /var/cache/yum && \
++    dnf clean all
++RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
++    dnf clean all
++RUN echo "[rhelmirror]" > /etc/yum.repos.d/habana.repo && \
++    echo "name=Habana RH8 repo" >> /etc/yum.repos.d/habana.repo && \
++    echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat8-mirror" >> /etc/yum.repos.d/habana.repo && \
++    echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo && \
++    echo 'enable=1'  >> /etc/yum.repos.d/habana.repo && \
++    echo "[epel8mirror]" >> /etc/yum.repos.d/habana.repo && \
++    echo "name=epel 8 repo" >> /etc/yum.repos.d/habana.repo && \
++    echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel8-mirror" >> /etc/yum.repos.d/habana.repo && \
++    echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
++RUN dnf update -y && dnf install -y \
++        bzip2 \
++        bzip2-devel \
++        clang \
++        cmake3 \
++        cpp \
++        gcc \
++        gcc-c++ \
++        git \
++        glibc \
++        glibc-devel \
++        glibc-headers \
++        iproute \
++        jemalloc \
++        libarchive \
++        libjpeg-devel \
++        libksba \
++        llvm \
++        lsof \
++        mesa-libGL \
++        openssh-clients \
++        openssh-server \
++        python3.11-devel \
++        python3.11-pip \
++        redhat-lsb-core \
++        unzip \
++        wget && \
++    dnf clean all && \
+     rm -f /etc/ssh/ssh_host_*_key*
+-
+ # CVE-2023-47038 RHSA-2024:3128
+-RUN dnf module reset perl -y && \
+-    dnf module enable perl:5.32 -y  && \
+-    dnf --allowerasing module install perl:5.32 -y && \
+-    dnf clean all && rm -rf /var/cache/yum
+-
++RUN dnf module reset -y perl && \
++    dnf module enable -y perl:5.32 && \
++    dnf module install -y --allowerasing perl:5.32 && \
++    dnf clean all
+ COPY install_efa.sh .
+-RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
++RUN ./install_efa.sh && rm install_efa.sh && rm -f /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+ ENV OPENMPI_VERSION=4.1.6
+-ENV LIBFABRIC_VERSION="1.20.0"
+-ENV LIBFABRIC_ROOT="/opt/habanalabs/libfabric-${LIBFABRIC_VERSION}"
+ ENV MPI_ROOT=/opt/habanalabs/openmpi
+-ENV LD_LIBRARY_PATH=$LIBFABRIC_ROOT/lib:${MPI_ROOT}/lib:/usr/lib/habanalabs:$LD_LIBRARY_PATH
+-ENV PATH=${LIBFABRIC_ROOT}/bin:${MPI_ROOT}/bin:$PATH
++ENV LD_LIBRARY_PATH=${MPI_ROOT}/lib:/usr/lib/habanalabs:$LD_LIBRARY_PATH
++ENV PATH=${MPI_ROOT}/bin:$PATH
+ ENV OPAL_PREFIX=${MPI_ROOT}
+ ENV MPICC=${MPI_ROOT}/bin/mpicc
+ ENV RDMAV_FORK_SAFE=1
+ ENV FI_EFA_USE_DEVICE_RDMA=0
+ ENV OMPI_MCA_btl=^openib
+-
+ RUN echo "[habanalabs]" > /etc/yum.repos.d/habanalabs.repo && \
+     echo "name=Habana RH8 Linux repo" >> /etc/yum.repos.d/habanalabs.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/${REPO_NAME}/8/8.6/testing" >> /etc/yum.repos.d/habanalabs.repo && \
+@@ -94,51 +88,32 @@
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/centos8-org-powertools-mirror" >> /etc/yum.repos.d/rhelmirror.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/rhelmirror.repo && \
+     echo 'enable=1'  >> /etc/yum.repos.d/rhelmirror.repo
+-
+ RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 && \
+     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1 && \
+     alternatives --set python3 /usr/bin/python3.11
+-
+-RUN yum install -y habanalabs-rdma-core-"$VERSION"-"$REVISION".el8 \
+-    habanalabs-thunk-"$VERSION"-"$REVISION".el8 \
+-    habanalabs-firmware-tools-"$VERSION"-"$REVISION".el8 \
+-    habanalabs-graph-"$VERSION"-"$REVISION".el8 && \
+-    rm -f /etc/yum.repos.d/habanalabs.repo && rm -f /etc/yum.repos.d/rhelmirror.repo && rm -rf /tmp/* && \
+-    dnf clean all && rm -rf /var/cache/yum
+-
+-RUN rpm -V habanalabs-rdma-core && rpm -V habanalabs-thunk && rpm -V habanalabs-firmware-tools && rpm -V habanalabs-graph
+-
++RUN dnf install -y \
++        habanalabs-rdma-core-"$VERSION"-"$REVISION".el8 \
++        habanalabs-thunk-"$VERSION"-"$REVISION".el8 \
++        habanalabs-firmware-tools-"$VERSION"-"$REVISION".el8 \
++        habanalabs-graph-"$VERSION"-"$REVISION".el8 && \
++    dnf clean all && \
++    rm -f /etc/yum.repos.d/habanalabs.repo && rm -f /etc/yum.repos.d/rhelmirror.repo
+ # There is no need to store pip installation files inside docker image
+ ENV PIP_NO_CACHE_DIR=on
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ ENV RDMA_CORE_ROOT=/opt/habanalabs/rdma-core/src
+ ENV RDMA_CORE_LIB=${RDMA_CORE_ROOT}/build/lib
+-
+-RUN wget -nv -O /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 https://github.com/ofiwg/libfabric/releases/download/v${LIBFABRIC_VERSION}/libfabric-${LIBFABRIC_VERSION}.tar.bz2 && \
+-    cd /tmp/ && tar xf /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 && \
+-    cd /tmp/libfabric-${LIBFABRIC_VERSION} && \
+-    ./configure --prefix=$LIBFABRIC_ROOT --enable-psm3-verbs --enable-verbs=yes --with-synapseai=/usr && \
+-    make && make install && cd / && rm -rf /tmp/libfabric-${LIBFABRIC_VERSION}.tar.bz2 /tmp/libfabric-${LIBFABRIC_VERSION}
+-
+ RUN wget -q -O /tmp/openmpi-${OPENMPI_VERSION}.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.gz && \
+     tar -xzf /tmp/openmpi-${OPENMPI_VERSION}.tar.gz -C /tmp && \
+     cd /tmp/openmpi-${OPENMPI_VERSION} && \
+-    ./configure --prefix=${MPI_ROOT} --with-libfabric=$LIBFABRIC_ROOT --with-verbs && \
++    ./configure --prefix=${MPI_ROOT} --with-verbs && \
+     make -j$(nproc) && make install && cd / && rm -rf /tmp/openmpi-${OPENMPI_VERSION}.tar.gz /tmp/openmpi-${OPENMPI_VERSION}
+-
+-RUN wget -nv -O /tmp/main.zip https://github.com/HabanaAI/hccl_ofi_wrapper/archive/refs/heads/main.zip && \
+-    unzip /tmp/main.zip -d /tmp && \
+-    cd /tmp/hccl_ofi_wrapper-main && \
+-    make && cp -f libhccl_ofi_wrapper.so /usr/lib/habanalabs/libhccl_ofi_wrapper.so && \
+-    cd / && \
+-    rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+-
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade protobuf
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+-
+ # SSH configuration necessary to support mpi-operator v2
+ RUN mkdir -p /var/run/sshd && \
+     sed -i 's/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g' /etc/ssh/ssh_config && \
+@@ -146,7 +121,6 @@
+     echo "    UserKnownHostsFile /dev/null" >> /etc/ssh/ssh_config && \
+     sed -i 's/#\(StrictModes \).*/\1no/g' /etc/ssh/sshd_config && \
+     mkdir -p /var/run/sshd && echo "/usr/sbin/sshd -p 3022" | tee -a ~/.bashrc
+-
+ ENV GC_KERNEL_PATH=/usr/lib/habanalabs/libtpc_kernels.so
+ ENV HABANA_LOGS=/var/log/habana_logs/
+ ENV HABANA_SCAL_BIN_PATH=/opt/habanalabs/engines_fw
+diff --git a/dockerfiles/base/Dockerfile.rhel9.2 b/dockerfiles/base/Dockerfile.rhel9.2
+index b7302ec..9b4d904 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.2
++++ b/dockerfiles/base/Dockerfile.rhel9.2
+@@ -126,7 +126,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3.10 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3.10 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3.10 -m pip install --upgrade protobuf
+ 
+ RUN ln -s /usr/bin/python3 /usr/bin/python
+ 
+diff --git a/dockerfiles/base/Dockerfile.rhel9.4 b/dockerfiles/base/Dockerfile.rhel9.4
+index 2fcc195..5ee32da 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.4
++++ b/dockerfiles/base/Dockerfile.rhel9.4
+@@ -22,55 +22,63 @@
+     dnf versionlock add redhat-release* && \
+     dnf clean all
+ 
+-RUN dnf update -y && dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
++RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+     dnf clean all
+ 
+-RUN echo "[rhelmirror]" >> /etc/yum.repos.d/habana.repo && \
++RUN echo "[rhelmirror]" > /etc/yum.repos.d/habana.repo && \
+     echo "name=Habana RH9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo && \
++    echo 'enable=1'  >> /etc/yum.repos.d/habana.repo && \
+     echo "[epel9mirror]" >> /etc/yum.repos.d/habana.repo && \
+     echo "name=epel 9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
+ 
+ RUN dnf update -y && dnf install -y \
+-    clang \
+-    cmake3 \
+-    cpp \
+-    gcc \
+-    gcc-c++ \
+-    glibc \
+-    glibc-headers \
+-    glibc-devel \
+-    jemalloc \
+-    libarchive \
+-    libksba \
+-    unzip \
+-    llvm \
+-    lsof \
+-    python3-devel \
+-    openssh-clients \
+-    openssl-1:3.0.7-28.el9_4 \
+-    openssl-devel-1:3.0.7-28.el9_4 \
+-    libjpeg-devel \
+-    openssh-server \
+-    lsb_release \
+-    wget \
+-    git \
+-    libffi-devel \
+-    bzip2 \
+-    bzip2-devel \
+-    zlib-devel \
+-    mesa-libGL \
+-    iproute \
+-    python3.11 \
+-    python3.11-pip \
+-    python3.11-devel \
+-    python3.11-rpm \
+-    ffmpeg-free \
+-    perl-Net-SSLeay-1.92-2.el9 && \
+-    dnf versionlock add openssl* libcurl-minimal-7.76.1-29.el9_4.1 curl-minimal-7.76.1-29.el9_4.1 libcurl-devel-7.76.1-29.el9_4.1 ima-evm-utils python3-rpm rpm* perl-Net-SSLeay && \
++        bzip2 \
++        bzip2-devel \
++        clang \
++        cmake3 \
++        cpp \
++        ffmpeg-free \
++        gcc \
++        gcc-c++ \
++        git \
++        glibc \
++        glibc-devel \
++        glibc-headers \
++        iproute \
++        jemalloc \
++        libarchive \
++        libffi-devel \
++        libjpeg-devel \
++        libksba \
++        llvm \
++        lsb_release \
++        lsof \
++        mesa-libGL \
++        openssh-clients \
++        openssh-server \
++        openssl \
++        openssl-devel \
++        perl-Net-SSLeay-1.92-2.el9 \
++        python3-devel \
++        python3.11 \
++        python3.11-devel \
++        python3.11-pip \
++        python3.11-rpm \
++        unzip \
++        wget \
++        zlib-devel && \
++    dnf versionlock add \
++        curl-minimal-7.76.1-29.el9_4.1 \
++        ima-evm-utils \
++        libcurl-devel-7.76.1-29.el9_4.1 \
++        libcurl-minimal-7.76.1-29.el9_4.1 \
++        perl-Net-SSLeay \
++        python3-rpm \
++        rpm* && \
+     dnf clean all && \
+     rm -f /etc/ssh/ssh_host_*_key*
+ 
+@@ -101,20 +109,20 @@
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/${REPO_NAME}/9/9.4/testing" >> /etc/yum.repos.d/habanalabs.repo && \
+     echo "gpgcheck=0" >> /etc/yum.repos.d/habanalabs.repo
+ 
+-RUN dnf install -y habanalabs-rdma-core-"$VERSION"-"$REVISION".el9 \
+-    habanalabs-thunk-"$VERSION"-"$REVISION".el9 \
+-    habanalabs-firmware-tools-"$VERSION"-"$REVISION".el9 \
+-    habanalabs-graph-"$VERSION"-"$REVISION".el9 && \
++RUN dnf install -y \
++        habanalabs-rdma-core-"$VERSION"-"$REVISION".el9 \
++        habanalabs-thunk-"$VERSION"-"$REVISION".el9 \
++        habanalabs-firmware-tools-"$VERSION"-"$REVISION".el9 \
++        habanalabs-graph-"$VERSION"-"$REVISION".el9 && \
++    dnf clean all && \
+     chmod +t /var/log/habana_logs && \
+-    rm -f /etc/yum.repos.d/habanalabs.repo && rm -f /etc/yum.repos.d/habana.repo && \
+-    dnf clean all
++    rm -f /etc/yum.repos.d/habanalabs.repo /etc/yum.repos.d/habana.repo
+ 
+ RUN rpm -V habanalabs-rdma-core && rpm -V habanalabs-thunk && rpm -V habanalabs-firmware-tools && rpm -V habanalabs-graph
+ 
+-# There is no need to store pip installation files inside docker image
+-ENV PIP_NO_CACHE_DIR=on
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
++ENV PIP_NO_CACHE_DIR=on
+ ENV RDMA_CORE_ROOT=/opt/habanalabs/rdma-core/src
+ ENV RDMA_CORE_LIB=${RDMA_CORE_ROOT}/build/lib
+ 
+@@ -137,11 +145,12 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3.11 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade protobuf
+ 
+ RUN ln -s /usr/bin/python3 /usr/bin/python
+ 
+-RUN python3.11 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
++RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+ 
+ # SSH configuration necessary to support mpi-operator v2
+diff --git a/dockerfiles/base/Dockerfile.suse15.5 b/dockerfiles/base/Dockerfile.suse15.5
+index 6eecfe4..1a25fbf 100644
+--- a/dockerfiles/base/Dockerfile.suse15.5
++++ b/dockerfiles/base/Dockerfile.suse15.5
+@@ -25,9 +25,12 @@
+     echo "gpgcheck=0" >> /etc/zypp/repos.d/OpenSUSISrc.repo && \
+     echo "repo_gpgcheck=0" >> /etc/zypp/repos.d/OpenSUSISrc.repo
+ 
+-# RUN zypper addrepo -f https://"${ARTIFACTORY_URL}"/artifactory/sles15-mirror/ habana-sles15-mirror && \
+-#     echo "gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo && \
+-#     echo "repo_gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo
++RUN zypper addrepo -f https://"${ARTIFACTORY_URL}"/artifactory/sles15-mirror/ habana-sles15-mirror && \
++    echo "gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo && \
++    echo "repo_gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo
++
++# Make the priority of 'SLE_BCI' equal with OPENSUSI & habana-sles15-mirror
++RUN zypper mr -p 99 SLE_BCI
+ 
+ RUN zypper update -y && zypper install -y --allow-downgrade \
+         clang \
+@@ -39,6 +42,8 @@
+         glibc-devel \
+         iproute \
+         jemalloc \
++        kernel-devel \
++        kernel-macros \
+         lbzip2 \
+         libarchive-devel \
+         libffi-devel \
+@@ -55,13 +60,11 @@
+         openssl-devel \
+         python311 \
+         python311-devel \
+-        python311-pip \
+         unzip \
+         wget \
+         zlib-devel && \
+     zypper clean && \
+-    rm -f /etc/ssh/ssh_host_*_key* && \
+-    rm -f /etc/zypp/repos.d/habana-sles15-mirror.repo
++    rm -f /etc/ssh/ssh_host_*_key*
+ 
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+@@ -71,7 +74,11 @@
+     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1 && \
+     alternatives --set python3 /usr/bin/python3.11
+ 
+-RUN python3 -m pip install setuptools==75.1.0 wheel==0.44.0
++RUN wget https://bootstrap.pypa.io/get-pip.py && \
++    python3 get-pip.py && \
++    rm -f get-pip.py && \
++    python3 -m pip install setuptools wheel && \
++    python3 -m pip install --upgrade protobuf
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.tencentos3.1 b/dockerfiles/base/Dockerfile.tencentos3.1
+index 861c207..2cab050 100644
+--- a/dockerfiles/base/Dockerfile.tencentos3.1
++++ b/dockerfiles/base/Dockerfile.tencentos3.1
+@@ -121,7 +121,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade protobuf
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/Dockerfile.ubuntu20.04 b/dockerfiles/base/Dockerfile.ubuntu20.04
+index 74da3a6..a10fb53 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu20.04
++++ b/dockerfiles/base/Dockerfile.ubuntu20.04
+@@ -58,7 +58,8 @@
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ 
+-RUN python3 -m pip install pip==23.3.1 setuptools==67.3.3 wheel==0.38.4
++RUN python3 -m pip install pip==23.3.1 setuptools==79.0.1 wheel==0.38.4 && \
++    python3 -m pip install --upgrade protobuf
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.ubuntu22.04 b/dockerfiles/base/Dockerfile.ubuntu22.04
+index 283bbf0..0552f8e 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu22.04
++++ b/dockerfiles/base/Dockerfile.ubuntu22.04
+@@ -52,6 +52,9 @@
+     libkrb5-3 \
+     libgnutls30 \
+     wget && \
++    apt-get update && \
++    apt-get upgrade -y libtasn1-6 && \
++    apt-get install --only-upgrade libc-bin libc-dev-bin libc6 libk5crypto3 libc6-i386 libcap2 libcap2-bin libcdt5 libcgraph6 libctf-nobfd0 libctf0 vim -y && \
+     apt-get autoremove && apt-get clean && \
+     rm -f /etc/ssh/ssh_host_*_key*
+ 
+@@ -60,7 +63,8 @@
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade protobuf
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.ubuntu22.04-py311 b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+index 9c05755..1fdb5e3 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu22.04-py311
++++ b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+@@ -56,10 +56,12 @@
+     apt-get install -y software-properties-common && \
+     add-apt-repository -y ppa:deadsnakes/ppa && \
+     apt-get update && \
++    apt-get upgrade -y libtasn1-6 && \
+     apt-get install -y \
+         python3.11 \
+         python3.11-dev \
+         python3.11-venv && \
++    apt-get install --only-upgrade libc-bin libc-dev-bin libc6 libk5crypto3 libc6-i386 libcap2 libcap2-bin libcdt5 libcgraph6 libctf-nobfd0 libctf0 vim -y && \
+     apt-get autoremove && apt-get clean && \
+     rm -f /etc/ssh/ssh_host_*_key*
+ 
+@@ -68,8 +70,8 @@
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ 
+-RUN python3.10 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3.11 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0
++RUN python3.10 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3.11 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0
+ 
+ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 && \
+     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
+@@ -128,7 +130,7 @@
+     # safety scans fixes
+     python3 -m pip install --upgrade cryptography oauthlib PyJWT zipp && \
+     # pygo-object dependencies
+-    python3 -m pip install --upgrade meson pycairo
++    python3 -m pip install --upgrade meson pycairo protobuf
+ 
+ # SSH configuration necessary to support mpi-operator v2
+ RUN mkdir -p /var/run/sshd && \
+diff --git a/dockerfiles/base/Dockerfile.ubuntu24.04 b/dockerfiles/base/Dockerfile.ubuntu24.04
+index 0ebbc20..d122ae5 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu24.04
++++ b/dockerfiles/base/Dockerfile.ubuntu24.04
+@@ -52,6 +52,7 @@
+     libkrb5-3 \
+     libgnutls30 \
+     wget && \
++    apt-get update && apt-get upgrade -y libtasn1-6 && \
+     apt-get autoremove && apt-get clean && \
+     rm -f /etc/ssh/ssh_host_*_key*
+ 
+@@ -60,7 +61,8 @@
+ ENV PIP_DEFAULT_TIMEOUT=1000
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ 
+-RUN python3 -m pip install pip==24.0 setuptools==75.1.0 wheel==0.42.0 --break-system-packages
++RUN python3 -m pip install pip==24.0 setuptools==79.0.1 wheel==0.42.0 --break-system-packages && \
++    python3 -m pip install --upgrade protobuf --break-system-packages
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/pytorch/Dockerfile.rhel9.2 b/dockerfiles/pytorch/Dockerfile.rhel9.2
+index 0a07bdb..686ac2f 100644
+--- a/dockerfiles/pytorch/Dockerfile.rhel9.2
++++ b/dockerfiles/pytorch/Dockerfile.rhel9.2
+@@ -14,16 +14,12 @@
+ ARG ARTIFACTORY_URL
+ ARG PT_BUILD_REPO
+ ARG PYPI_REPO_NAME
+-
+-# for RHEL certification
++ARG TORCH_TYPE
+ LABEL name="PyTorch Installer"
+ LABEL summary="Habanalabs PyTorch installer layer for RHEL9.2"
+ LABEL description="Image with pre installed Habanalabs packages for PyTorch"
+-
+ ENV PYTHONPATH=/root:/usr/lib/habanalabs/
+-
+-# Add own mirror repo
+-RUN echo "[rhelmirror]" >> /etc/yum.repos.d/habana.repo && \
++RUN echo "[rhelmirror]" > /etc/yum.repos.d/habana.repo && \
+     echo "name=Habana RH9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo && \
+@@ -31,28 +27,24 @@
+     echo "name=epel 9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
+-
+-RUN dnf install --allowerasing -y \
+-        curl \
++RUN dnf update -y && dnf install --nobest --allowerasing -y \
+         cairo-devel \
+-        numactl-devel \
++        curl \
++        gperftools-devel \
+         iproute \
+-        which \
+-        zlib-devel \
++        jq \
+         lapack-devel \
+-        openblas-devel \
+         numactl \
+-        gperftools-devel && \
++        numactl-devel \
++        openblas-devel \
++        which \
++        zlib-devel && \
+     dnf clean all
+-
+ COPY install_packages.sh .
+-
+ RUN ./install_packages.sh && rm -f install_packages.sh && \
+     /sbin/ldconfig && echo "source /etc/profile.d/habanalabs.sh" >> ~/.bashrc
+-
+ # Set LD_PRELOAD after all required installations to
+ # avoid warnings during docker creation
+ ENV LD_PRELOAD=/lib64/libtcmalloc.so.4
+ ENV TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=7516192768
+-
+-RUN rm -f /etc/yum.repos.d/habana.repo
++RUN rm -f /etc/yum.repos.d/habana.repo
+\ No newline at end of file
+diff --git a/dockerfiles/pytorch/Dockerfile.rhel9.4 b/dockerfiles/pytorch/Dockerfile.rhel9.4
+index 0aec7c7..e227084 100644
+--- a/dockerfiles/pytorch/Dockerfile.rhel9.4
++++ b/dockerfiles/pytorch/Dockerfile.rhel9.4
+@@ -14,16 +14,12 @@
+ ARG ARTIFACTORY_URL
+ ARG PT_BUILD_REPO
+ ARG PYPI_REPO_NAME
+-
+-# for RHEL certification
++ARG TORCH_TYPE
+ LABEL name="PyTorch Installer"
+ LABEL summary="Habanalabs PyTorch installer layer for RHEL9.4"
+ LABEL description="Image with pre installed Habanalabs packages for PyTorch"
+-
+ ENV PYTHONPATH=/root:/usr/lib/habanalabs/
+-
+-# Add own mirror repo
+-RUN echo "[rhelmirror]" >> /etc/yum.repos.d/habana.repo && \
++RUN echo "[rhelmirror]" > /etc/yum.repos.d/habana.repo && \
+     echo "name=Habana RH9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/redhat9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo && \
+@@ -31,27 +27,23 @@
+     echo "name=epel 9 repo" >> /etc/yum.repos.d/habana.repo && \
+     echo "baseurl=https://${ARTIFACTORY_URL}/artifactory/epel9-mirror" >> /etc/yum.repos.d/habana.repo && \
+     echo 'gpgcheck=0'  >> /etc/yum.repos.d/habana.repo
+-
+-RUN dnf update -y && dnf install --nodocs --setopt=install_weak_deps=false --allowerasing -y \
++RUN dnf update -y && dnf install --nobest --nodocs --setopt=install_weak_deps=false --allowerasing -y \
+         cairo-devel \
+-        numactl-devel \
++        gperftools-devel \
+         iproute \
+-        which \
+-        zlib-devel \
++        jq \
+         lapack-devel \
+-        openblas-devel \
+         numactl \
+-        gperftools-devel && \
++        numactl-devel \
++        openblas-devel \
++        which \
++        zlib-devel && \
+     dnf clean all
+-
+ COPY install_packages.sh .
+-
+ RUN ./install_packages.sh && rm -f install_packages.sh && \
+     /sbin/ldconfig && echo "source /etc/profile.d/habanalabs.sh" >> ~/.bashrc
+-
+ # Set LD_PRELOAD after all required installations to
+ # avoid warnings during docker creation
+ ENV LD_PRELOAD=/lib64/libtcmalloc.so.4
+ ENV TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=7516192768
+-
+-RUN rm -f /etc/yum.repos.d/habana.repo
++RUN rm -f /etc/yum.repos.d/habana.repo
+\ No newline at end of file
+diff --git a/dockerfiles/pytorch/Dockerfile.suse15.5 b/dockerfiles/pytorch/Dockerfile.suse15.5
+index 2c1d794..2266a16 100644
+--- a/dockerfiles/pytorch/Dockerfile.suse15.5
++++ b/dockerfiles/pytorch/Dockerfile.suse15.5
+@@ -14,6 +14,7 @@
+ ARG ARTIFACTORY_URL
+ ARG PT_BUILD_REPO
+ ARG PYPI_REPO_NAME
++ARG TORCH_TYPE
+ 
+ # for RHEL certification
+ LABEL name="PyTorch Installer"
+@@ -22,17 +23,13 @@
+ 
+ ENV PYTHONPATH=/root:/usr/lib/habanalabs/
+ 
+-# RUN zypper addrepo -f https://"${ARTIFACTORY_URL}"/artifactory/sles15-mirror/ habana-sles15-mirror && \
+-#     echo "gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo && \
+-#     echo "repo_gpgcheck=0" >> /etc/zypp/repos.d/habana-sles15-mirror.repo
+-
+ RUN zypper update -y && zypper install -y --allow-downgrade \
+         cairo-devel \
+         gperftools-devel \
++        jq \
+         lapack-devel \
+         numactl && \
+-    zypper clean && \
+-    rm -f /etc/zypp/repos.d/habana-sles15-mirror.repo
++    zypper clean
+ 
+ COPY install_packages.sh .
+ 
+diff --git a/dockerfiles/triton/Dockerfile b/dockerfiles/triton/Dockerfile
+index e16ec64..b8b1bad 100644
+--- a/dockerfiles/triton/Dockerfile
++++ b/dockerfiles/triton/Dockerfile
+@@ -57,7 +57,7 @@
+     apt-get clean && rm -rf /var/lib/apt/lists/*
+ 
+ RUN python3 -m pip install pip==24.2 --disable-pip-version-check && \
+-    python3 -m pip install setuptools==75.1.0 --disable-pip-version-check && \
++    python3 -m pip install setuptools==79.0.1 --disable-pip-version-check && \
+     python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple --disable-pip-version-check
+ 

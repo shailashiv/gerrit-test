@@ -1,0 +1,430 @@
+From 63e5f75f2188ef49e0d70f62f537f5a57dc97dca Mon Sep 17 00:00:00 2001
+From: Kacper Pietkun <kpietkun@habana.ai>
+Date: Tue, 15 Oct 2024 09:41:36 +0300
+Subject: [PATCH] [SW-201531] delete deprecated PT_HPU_RECIPE_CACHE env variables
+
+Change-Id: Ib77ba11698dab0d606c382ea0300cb68f495cb5a
+---
+
+diff --git a/backend/kernel/hpu_recipe_cache.cpp b/backend/kernel/hpu_recipe_cache.cpp
+index 9e54e42..1a95d62 100644
+--- a/backend/kernel/hpu_recipe_cache.cpp
++++ b/backend/kernel/hpu_recipe_cache.cpp
+@@ -219,9 +219,10 @@
+ }
+ 
+ void RecipeCacheLRU::InitDiskCache() {
+-  // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
+-  if (!recipe_cache_config_.path().empty())
++  // Set disk_cache_ if recipe cache directory path is defined via PT_HPU_RECIPE_CACHE_CONFIG
++  if (!recipe_cache_config_.path().empty()) {
+     disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
++  }
+ }
+ 
+ void RecipeCacheLRU::ResetDiskCache() {
+@@ -241,6 +242,19 @@
+   }
+ }
+ 
++void RecipeCacheLRU::UpdateCachePath(const std::string& new_path) {
++
++  std::vector<std::string> split_config = serialization::RecipeCacheConfig::split_params(GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
++  split_config[0] = new_path;
++  std::ostringstream oss;
++  std::copy(split_config.begin(), split_config.end(), std::ostream_iterator<std::string>(oss, ","));
++  std::string new_config = oss.str();
++  new_config = new_config.empty() ? new_config : new_config.substr(0, new_config.length() - 1);
++
++  SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, new_config.c_str(), 1);
++  recipe_cache_config_.reload();
++}
++
+ void RecipeCacheLRU::SetHostMemoryThreshold(uint32_t host_memory_threshold) {
+   if (!GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT)) {
+     SET_ENV_FLAG_NEW(
+diff --git a/backend/kernel/hpu_recipe_cache.h b/backend/kernel/hpu_recipe_cache.h
+index ae8ec5e..12bfba3 100644
+--- a/backend/kernel/hpu_recipe_cache.h
++++ b/backend/kernel/hpu_recipe_cache.h
+@@ -67,6 +67,10 @@
+     return list_.size();
+   }
+ 
++  std::string get_cache_path() {
++    return recipe_cache_config_.path();
++  }
++
+   void clear() {
+     std::lock_guard<std::mutex> lg(mutex_);
+     map_.clear();
+@@ -92,6 +96,7 @@
+   void ResetDiskCache();
+   void DeleteDiskCache();
+   void FlushDiskCache();
++  void UpdateCachePath(const std::string& new_path);
+   void Serialize();
+   void Deserialize();
+ 
+diff --git a/backend/synapse_helpers/device.cpp b/backend/synapse_helpers/device.cpp
+index 25b1e20..6ff71d8 100644
+--- a/backend/synapse_helpers/device.cpp
++++ b/backend/synapse_helpers/device.cpp
+@@ -206,8 +206,6 @@
+     // Make sure to update the user docs, if new flag is added.
+     // NOTE: Only flags represented in env_flags.h are logged.
+     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_MODE)
+-    PRINT_ENV_FLAG_DEFAULT(PT_RECIPE_CACHE_PATH)
+-    PRINT_ENV_FLAG_DEFAULT(PT_CACHE_FOLDER_DELETE)
+     PRINT_ENV_FLAG_DEFAULT(PT_HPU_RECIPE_CACHE_CONFIG)
+     PRINT_ENV_FLAG_DEFAULT(PT_HPU_MAX_COMPOUND_OP_SIZE)
+     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_ACC_PAR_MODE)
+diff --git a/pytorch_helpers/habana_helpers/habana_serialization/const_section.cpp b/pytorch_helpers/habana_helpers/habana_serialization/const_section.cpp
+index 84e4dd2..039113d 100644
+--- a/pytorch_helpers/habana_helpers/habana_serialization/const_section.cpp
++++ b/pytorch_helpers/habana_helpers/habana_serialization/const_section.cpp
+@@ -20,6 +20,7 @@
+ #include "backend/helpers/runtime_config.h"
+ #include "backend/synapse_helpers/env_flags.h"
+ #include "habana_helpers/logging.h"
++#include "recipe_cache_config.h"
+ 
+ #if !defined __GNUC__ || __GNUC__ >= 8
+ #include <filesystem>
+@@ -91,11 +92,12 @@
+       CONST_SECTION_DATA_SUFFIX;
+ }
+ 
++
+ std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
+     int const_id,
+     const size_t key) {
+-  std::string path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+-  auto full_path = path + "/" + std::to_string(key) + "_" +
++  std::string cache_path = RecipeCacheConfig::split_params(GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG))[0];
++  auto full_path = cache_path + "/" + std::to_string(key) + "_" +
+       CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
+       CONST_SECTION_DATA_SUFFIX;
+   return full_path;
+diff --git a/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/cache_file_handler.h b/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/cache_file_handler.h
+index 048965b..cc43ef7 100644
+--- a/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/cache_file_handler.h
++++ b/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/cache_file_handler.h
+@@ -47,9 +47,9 @@
+ 
+  private:
+   int local_rank, rank;
+-  // Updated once during Construction using env: PT_RECIPE_CACHE_PATH
++  // Updated once during Construction using env: PT_HPU_RECIPE_CACHE_CONFIG
+   std::string cache_path;
+-  // Updated once during Construction using env: PT_CACHE_FOLDER_SIZE_MB
++  // Updated once during Construction using env: PT_HPU_RECIPE_CACHE_CONFIG
+   uint64_t maxFolderSize;
+ 
+   std::mutex mtx;
+@@ -58,7 +58,7 @@
+   std::optional<uint64_t> getMaxFolderSize() {
+     // Due to the fact that eviction is performed after recipe storing, there is
+     // a chance to exceed the disk cache size defined by user via
+-    // PT_CACHE_FOLDER_SIZE_MB. In order to avoid such a scenario the max size
++    // PT_HPU_RECIPE_CACHE_CONFIG. In order to avoid such a scenario the max size
+     // is limited to the 99% of defined threshold.
+     constexpr double threshold_prescaler = 0.99;
+ 
+diff --git a/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/recipe_cache_config.h b/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/recipe_cache_config.h
+index 8406788..a185776 100644
+--- a/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/recipe_cache_config.h
++++ b/pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/recipe_cache_config.h
+@@ -26,9 +26,9 @@
+   bool delete_on_init() const;
+   void disable_delete_on_init();
+   unsigned cache_dir_max_size_mb() const;
++  static std::vector<std::string> split_params(const std::string& config);
+ 
+  private:
+-  std::vector<std::string> split_params(const std::string& config);
+   std::string cache_directory_path_;
+   bool delete_cache_on_init_;
+   unsigned int cache_dir_max_size_mb_;
+diff --git a/pytorch_helpers/habana_helpers/habana_serialization/recipe_cache_config.cpp b/pytorch_helpers/habana_helpers/habana_serialization/recipe_cache_config.cpp
+index 8737d97..3b17996 100644
+--- a/pytorch_helpers/habana_helpers/habana_serialization/recipe_cache_config.cpp
++++ b/pytorch_helpers/habana_helpers/habana_serialization/recipe_cache_config.cpp
+@@ -31,72 +31,43 @@
+ 
+ namespace serialization {
+ 
+-#define PRINT_DEPRECATION_WARN_IF_ENV_USED(env_name) \
+-  if (IS_ENV_FLAG_DEFINED_NEW(env_name))             \
+-  std::clog << #env_name                             \
+-      " flag is going to be deprecated, use PT_HPU_RECIPE_CACHE_CONFIG instead\n"
+-
+ RecipeCacheConfig::RecipeCacheConfig() {
+-  if (habana::GetRankFromEnv() == 0) {
+-    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_RECIPE_CACHE_PATH);
+-    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_CACHE_FOLDER_DELETE);
+-    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_CACHE_FOLDER_SIZE_MB);
+-  }
+-
+   reload();
+ }
+ 
+ void RecipeCacheConfig::reload() {
+-  // If PT_HPU_RECIPE_CACHE_CONFIG is set then PT_RECIPE_CACHE_PATH,
+-  // PT_CACHE_FOLDER_DELETE, and PT_CACHE_FOLDER_SIZE_MB are overriden by
+-  // parameters read from PT_HPU_RECIPE_CACHE_CONFIG
+-  if (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
+-    std::string recipe_cache_config_var =
+-        GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
++  // set to default values
++  cache_directory_path_ = "";
++  cache_dir_max_size_mb_ = 1024;
++  delete_cache_on_init_ = false;
+ 
+-    auto params = split_params(recipe_cache_config_var);
+-    HABANA_ASSERT(
+-        params.size() >= 1 && params.size() <= 3,
+-        "Expected number of parameters extracted from PT_HPU_RECIPE_CACHE_CONFIG should be from range <1:3>.");
+-
+-    const std::array<std::function<void(std::string&)>, 3> env_var_setters = {
+-        [](std::string& val) {
+-          auto rank_val = val;
+-          if (habana_helpers::IsInferenceMode()) {
+-            const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
+-            auto rank = std::atoi(s_rank);
+-            rank_val = rank_val + std::to_string(rank);
+-          }
+-          SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, rank_val.c_str(), 1);
+-        },
+-        [](std::string& val) {
+-          // parse if provided value is not empty
+-          // it it is empty then leave default
+-          if (!val.empty()) {
+-            auto value =
+-                PARSE_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, val.c_str());
+-            SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, value, 1);
+-          }
+-        },
+-        [](std::string& val) {
+-          // parse if provided value is not empty
+-          // it it is empty then leave default
+-          if (!val.empty()) {
+-            auto value =
+-                PARSE_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB, val.c_str());
+-            SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB, value, 1);
+-          }
+-        },
+-    };
+-
+-    for (size_t param_idx = 0; param_idx < params.size(); ++param_idx) {
+-      env_var_setters[param_idx](params[param_idx]);
+-    }
++  if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
++    return;
+   }
+ 
+-  cache_directory_path_ = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+-  cache_dir_max_size_mb_ = GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB);
+-  delete_cache_on_init_ = GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE);
++  std::string recipe_cache_config_var =
++      GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
++  auto params = split_params(recipe_cache_config_var);
++  HABANA_ASSERT(
++      params.size() >= 1 && params.size() <= 3,
++      "Expected number of parameters extracted from PT_HPU_RECIPE_CACHE_CONFIG should be from range <1:3>.");
++
++  cache_directory_path_ = params[0];
++  if (habana_helpers::IsInferenceMode()) {
++    const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
++    auto rank = std::atoi(s_rank);
++    cache_directory_path_ += std::to_string(rank);
++  }
++
++  if (params.size() >= 2 && !params[1].empty()) {
++    delete_cache_on_init_ = parse_env_by_type<bool>(
++        "PT_HPU_RECIPE_CACHE_CONFIG", params[1].c_str());
++  }
++
++  if (params.size() >= 3 && !params[2].empty()) {
++    cache_dir_max_size_mb_ = parse_env_by_type<unsigned>(
++        "PT_HPU_RECIPE_CACHE_CONFIG", params[2].c_str());
++  }
+ }
+ 
+ std::vector<std::string> RecipeCacheConfig::split_params(
+@@ -120,7 +91,9 @@
+ 
+ void RecipeCacheConfig::disable_delete_on_init() {
+   delete_cache_on_init_ = false;
+-  SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, false, 1);
++  std::string new_config = cache_directory_path_ + ",false," +
++      std::to_string(cache_dir_max_size_mb_);
++  SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, new_config.c_str(), 1);
+ }
+ 
+ unsigned int RecipeCacheConfig::cache_dir_max_size_mb() const {
+diff --git a/scripts/env_flags.yaml b/scripts/env_flags.yaml
+index c090093..8b9e381 100644
+--- a/scripts/env_flags.yaml
++++ b/scripts/env_flags.yaml
+@@ -58,22 +58,17 @@
+   default: "2,4,5,3,1"
+ 
+ PT_HPU_RECIPE_CACHE_CONFIG:
+-  default: ""
+-  doc: "It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and\n
+-PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
++  default: ",false,1024"
++  doc: "PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
+ where params are encoded in the following way:\n
+ - 1st param: recipe cache directory path, if empty then disk cache is\n
+-disabled\n
++disabled. If proper path is set, disk cache is enabled for all compiled recipes.\n
+ - 2nd param: delete recipe cache one init, if set to true then PT bridge\n
+ clears recipe cache on init\n
+ - 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge\n
+ keeps the size of cache dir under defined threshold.\n
++1GB per worker to save recipes to the disk.\n
+ Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
+-
+-PT_RECIPE_CACHE_PATH:
+-  default: ""
+-  doc: "Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.\n
+-If proper path is set, disk cache is enabled for all compiled recipes."
+ 
+ PT_HPU_LAZY_MODE:
+   type: unsigned
+@@ -500,7 +495,7 @@
+   type: bool
+   default: false
+   doc: "Option to dump additional debug information to disk cache directory.\n
+-This works only with PT_RECIPE_CACHE_PATH set.\n
++This works only with recipe cache directory path set via PT_HPU_RECIPE_CACHE_CONFIG.\n
+ In the disk cache folder for every recipe, '<hash>.hash_content' files are\n
+ dumped. These files contain all the information that contribute to hash of a\n
+ given recipe and can be used i.e. in cases when graphs are expected to\n
+@@ -711,16 +706,6 @@
+ CPU time\n
+  2 - accumulation thread with spinning and mutexes is not used,\n
+  the fastest solution, but could consume more CPU time"
+-
+-PT_CACHE_FOLDER_SIZE_MB:
+-  type: unsigned
+-  default: 1024
+-  doc: "clang-format on\n
+-1GB per worker to save recipes to the disk"
+-
+-PT_CACHE_FOLDER_DELETE:
+-  type: bool
+-  default: false
+ 
+ PT_COMPILE_ONLY_MODE:
+   type: bool
+diff --git a/tests/cpp/lazy_dynamic_shapes_tests.cpp b/tests/cpp/lazy_dynamic_shapes_tests.cpp
+index e832d81..218c474 100644
+--- a/tests/cpp/lazy_dynamic_shapes_tests.cpp
++++ b/tests/cpp/lazy_dynamic_shapes_tests.cpp
+@@ -32,6 +32,7 @@
+ #include "utils/device_type_util.h"
+ 
+ using namespace habana_lazy;
++using namespace habana;
+ 
+ // In this class both the pass fallback and compilation fallback are disabled
+ class LazyDynamicShapesTest : public habana_lazy_test::LazyDynamicTest {
+@@ -948,13 +949,15 @@
+   }
+ }
+ TEST_F(LazyDynamicShapesTest, WeightNormTest) {
+-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+-  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "/tmp/WeightNormTest_dumps", 1);
++  std::string org_recipe_cache_path = HPUDeviceContext::recipe_cache().get_cache_path();
++  HPUDeviceContext::recipe_cache().UpdateCachePath("/tmp/WeightNormTest_dumps");
++  HPUDeviceContext::recipe_cache().ResetDiskCache();
+   runWeightNormTest();
+ 
+   // Rerun using disk caching
+   runWeightNormTest();
+-  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, recipe_cache_path, 1);
++  HPUDeviceContext::recipe_cache().DeleteDiskCache();
++  HPUDeviceContext::recipe_cache().UpdateCachePath(org_recipe_cache_path);
+ }
+ 
+ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
+@@ -2212,7 +2215,7 @@
+   std::vector<int> in_sizes{6, 8, 10, 20, 50};
+   int rounds{2};
+ 
+-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
++  const char* recipe_cache_path = HPUDeviceContext::recipe_cache().get_cache_path().c_str();
+   uint32_t initial_host_mem_threshold =
+       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
+   habana::RecipeCacheLRU::SetHostMemoryThreshold(100);
+diff --git a/tests/cpp/serialization/habana_serialization_tests.cpp b/tests/cpp/serialization/habana_serialization_tests.cpp
+index 6657572..193894d 100644
+--- a/tests/cpp/serialization/habana_serialization_tests.cpp
++++ b/tests/cpp/serialization/habana_serialization_tests.cpp
+@@ -34,26 +34,25 @@
+   bool m_cache_overriden = false;
+ 
+   void SetUp() override {
+-    m_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
++    m_cache_path = HPUDeviceContext::recipe_cache().get_cache_path();
+     overrideEmptyCachePathEnv();
+-    HPUDeviceContext::recipe_cache().ResetDiskCache();
+   }
+ 
+   void TearDown() override {
+-    if (m_cache_overriden) {
+-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "", 1); // set empty path
+-    }
+     HPUDeviceContext::recipe_cache().DeleteDiskCache();
++    if (m_cache_overriden) {
++      HPUDeviceContext::recipe_cache().UpdateCachePath("");
++    }
+   }
+ 
+  private:
+   void overrideEmptyCachePathEnv() {
+-    const std::string dafault_cache_path = "cache_dir";
+     if (m_cache_path == "") {
+       m_cache_overriden = true;
+-      m_cache_path = dafault_cache_path;
+-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, m_cache_path.c_str(), 1);
++      m_cache_path = "cache_dir";
++      HPUDeviceContext::recipe_cache().UpdateCachePath(m_cache_path);
+     }
++    HPUDeviceContext::recipe_cache().ResetDiskCache();
+   }
+ 
+  protected:
+diff --git a/tests/pytest_working/lazy/DISABLED_test_remote_cache.py b/tests/pytest_working/lazy/DISABLED_test_remote_cache.py
+index e131ebd..1ccee94 100644
+--- a/tests/pytest_working/lazy/DISABLED_test_remote_cache.py
++++ b/tests/pytest_working/lazy/DISABLED_test_remote_cache.py
+@@ -10,7 +10,7 @@
+ #
+ ###############################################################################
+ 
+-# Env Flags: PT_ENABLE_INTER_HOST_CACHING=1 PT_RECIPE_CACHE_PATH="/tmp/MyCache" LOG_LEVEL_HOSTSTAT=0 PT_HPU_ENABLE_EXECUTION_THREAD=0 PT_CACHE_FOLDER_SIZE_MB=1
++# Env Flags: PT_ENABLE_INTER_HOST_CACHING=1 PT_HPU_RECIPE_CACHE_CONFIG="/tmp/MyCache,false,1" LOG_LEVEL_HOSTSTAT=0 PT_HPU_ENABLE_EXECUTION_THREAD=0
+ # Pytest flags: --capture=fd --log-cli-level=INFO
+ 
+ import logging
+@@ -170,8 +170,7 @@
+ 
+                 dim = dim + 1
+ 
+-    # Basic eviction test that assumes small PT_CACHE_FOLDER_SIZE_MB
+-    # i.e. PT_CACHE_FOLDER_SIZE_MB=1
++    # Basic eviction test that assumes small recipe cache max size (1MB)
+     def test_eviction_basic(rank, world_size, network, optimizer):
+         _ITER = 50
+         dim = 99 + (rank * _ITER)
+@@ -182,5 +181,5 @@
+ 
+             dim = dim + 1
+ 
+-        files_count = len(list(os.scandir(os.environ["PT_RECIPE_CACHE_PATH"])))
++        files_count = len(list(os.scandir(os.environ["PT_HPU_RECIPE_CACHE_CONFIG"].split(",")[0])))
+         assert files_count < world_size * _ITER * 2

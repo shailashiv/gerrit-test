@@ -1,0 +1,230 @@
+From f9d4a06a0dfb90e618931fa6bf00f7597659482f Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 24 Apr 2025 06:21:27 +0300
+Subject: [PATCH] [FSW-14755] fs1: wait for spi dma chunk copy
+
+At present spi dma status done bit is used to
+identify dma copy completed, it is a short pulse
+and only useful if we start checking this bit
+immediately. In case of just initialize copy and
+check its status after some predefined operations
+completed, this done was not useful and it may be
+cleared before bootrom check for this. So we use
+copied count here after.
+
+Change-Id: I5d7d970d1c4bb6c749c9ecb103d9c167280a273b
+---
+
+diff --git a/arch/fs1/arc/dev_dma.c b/arch/fs1/arc/dev_dma.c
+index 9cdd971..1d4fa66 100644
+--- a/arch/fs1/arc/dev_dma.c
++++ b/arch/fs1/arc/dev_dma.c
+@@ -13,6 +13,7 @@
+ #include <fs1_reg_map.h>
+ #include <progress_bits.h>
+ #include <dma.h>
++#include <delay.h>
+ 
+ #define DMA_ADDRESS_LOW(x)	((x) & MASK_32_BIT)
+ #define DMA_ADDRESS_HIGH(x)	(((x) >> 32) & MASK_32_BIT)
+@@ -66,15 +67,24 @@
+ 		      IO0_H0_PSOC_PARC_CFG_MISC_BASE(mmPARC_GLOBAL_CONF_SPI_DMA_CTRL));
+ }
+ 
+-uint32_t dma_wait_finish(void)
++enum dma_error dma_wait_finish(uint32_t size)
+ {
+-	uint32_t reg_spi_dma_status_s = 0;
++	uint32_t reg_spi_dma_status_s = 0, copied = 0;
++	uint64_t start = boot_rom_get_ts_us();
+ 
+ 	do {
++		if (boot_rom_timeout_expired(start, SPI_DMA_TIMEOUT_US))
++			return DMA_COPY_TIMEOUT;
++
+ 		reg_spi_dma_status_s =
+ 		  regmap_readl(IO0_H0_PSOC_PARC_CFG_MISC_BASE(mmPARC_GLOBAL_CONF_SPI_DMA_STATUS));
+-	} while ((reg_spi_dma_status_s & PARC_GLOBAL_CONF_SPI_DMA_STATUS_DONE_M) == 0);
+ 
+-	/* TODO: implement timeout for 64KB data chunk */
+-	return (reg_spi_dma_status_s & PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M);
++		copied = ((reg_spi_dma_status_s & PARC_GLOBAL_CONF_SPI_DMA_STATUS_COPIED_M) >>
++			PARC_GLOBAL_CONF_SPI_DMA_STATUS_COPIED_S) * DMA_DST_BLOCK_SIZE;
++	} while(copied != size);
++
++	if ((reg_spi_dma_status_s & PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M) != 0)
++		return DMA_INVALID_CRC_ERROR;
++
++	return DMA_SUCCESS;
+ }
+diff --git a/arch/fs1/arc/dev_dma.h b/arch/fs1/arc/dev_dma.h
+index 7d101d3..6f3cde9 100644
+--- a/arch/fs1/arc/dev_dma.h
++++ b/arch/fs1/arc/dev_dma.h
+@@ -6,7 +6,7 @@
+ #ifndef _DEV_DMA_H_
+ #define _DEV_DMA_H_
+ 
+-uint32_t dma_wait_finish(void);
++enum dma_error dma_wait_finish(uint32_t size);
+ void dma_copy_image_internal(uint16_t image_size, uint32_t flash_offset,
+ 			     uint64_t dest_offset, uint8_t fw_sram_dst,
+ 			     uint8_t restart_crc, uint8_t mask_crc);
+diff --git a/arch/fs1/arc/progress_bits.h b/arch/fs1/arc/progress_bits.h
+index 3ca8539..bc31c86 100644
+--- a/arch/fs1/arc/progress_bits.h
++++ b/arch/fs1/arc/progress_bits.h
+@@ -16,48 +16,48 @@
+ 	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_SIZE = 6,
+ 	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_IMG_SIZE = 7,
+ 	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_FLASH_OFFSET = 8,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR = 9,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH = 10,
+-	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL = 11,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET = 12,
+-	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL = 13,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL = 14,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL = 15,
+-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL = 16,
+-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL = 17,
+-	PROGRESS_INIT_SPI_MANIFEST_0_FAIL = 18,
+-	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE = 19,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START = 20,
+-	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL = 21,
+-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST = 22,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE = 23,
+-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE = 24,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET = 25,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR = 26,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH = 27,
+-	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL = 28,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET = 29,
+-	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL = 30,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL = 31,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL = 32,
+-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL = 33,
+-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL = 34,
+-	PROGRESS_INIT_SPI_MANIFEST_1_FAIL = 35,
+-	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL = 36,
+-	PROGRESS_INIT_EFUSE_INIT_FAIL = 37,
+-	PROGRESS_INIT_EFUSE_SPI = 38,
+-	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL = 39,
+-	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE = 40,
+-	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL = 41,
+-	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL = 42,
+-	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL = 43,
+-	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL = 44,
+-	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT = 45,
+-	PROGRESS_REVOKE_LOC_ASIC_EFUSE = 46,
+-	PROGRESS_REVOKE_LOC_FAKE_FUSE = 47,
+-	PROGRESS_KEY_LOC = 48, /* TODO: Remove & rearrange */
+-	PROGRESS_KEY_LOC_ROM = 49,
+-	PROGRESS_KEY_LOC_1 = 50, /* TODO: Remove & rearrange */
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_COPY_TIMEOUT = 9,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR = 10,
++	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH = 11,
++	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL = 12,
++	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET = 13,
++	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL = 14,
++	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL = 15,
++	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL = 16,
++	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL = 17,
++	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL = 18,
++	PROGRESS_INIT_SPI_MANIFEST_0_FAIL = 19,
++	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE = 20,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START = 21,
++	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL = 22,
++	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST = 23,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE = 24,
++	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE = 25,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET = 26,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_COPY_TIMEOUT = 27,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR = 28,
++	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH = 29,
++	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL = 30,
++	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET = 31,
++	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL = 32,
++	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL = 33,
++	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL = 34,
++	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL = 35,
++	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL = 36,
++	PROGRESS_INIT_SPI_MANIFEST_1_FAIL = 37,
++	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL = 38,
++	PROGRESS_INIT_EFUSE_INIT_FAIL = 39,
++	PROGRESS_INIT_EFUSE_SPI = 40,
++	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL = 41,
++	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE = 42,
++	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL = 43,
++	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL = 44,
++	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL = 45,
++	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL = 46,
++	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT = 47,
++	PROGRESS_REVOKE_LOC_ASIC_EFUSE = 48,
++	PROGRESS_REVOKE_LOC_FAKE_FUSE = 49,
++	PROGRESS_KEY_LOC_ROM = 50,
+ 	PROGRESS_VER_LOC = 51, /* TODO: Remove & rearrange */
+ 	PROGRESS_VER_LOC_ASIC_EFUSE = 52,
+ 	PROGRESS_VER_LOC_FAKE_FUSE = 53,
+diff --git a/common/dma.c b/common/dma.c
+index 9a7b4bb..4027c89 100644
+--- a/common/dma.c
++++ b/common/dma.c
+@@ -26,6 +26,8 @@
+ 		else if (err == DMA_INVALID_FLASH_OFFSET)
+ 			boot_rom_status_update_bringup(dma_sts_base,
+ 						       PROGRESS_DMA_INVALID_FLASH_OFFSET);
++		else if (err == DMA_COPY_TIMEOUT)
++			boot_rom_status_update_bringup(dma_sts_base, PROGRESS_DMA_COPY_TIMEOUT);
+ 		else
+ 			boot_rom_status_update_bringup(dma_sts_base, PROGRESS_DMA_ERROR);
+ 		return 1;
+@@ -85,9 +87,14 @@
+ 		copy_size -= dma_size;
+ 
+ 		if (wait) {
+-			ret = dma_wait_finish();
+-			if ((mask_crc_err == 0) && (ret == PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M)) {
+-				return DMA_INVALID_CRC_ERROR;
++			ret = dma_wait_finish(dma_size);
++			if (ret != DMA_SUCCESS) {
++				if (ret == DMA_INVALID_CRC_ERROR) {
++					if (mask_crc_err == 0) {
++						return DMA_INVALID_CRC_ERROR;
++					}
++				} else
++					return ret;
+ 			}
+ 		} else {
+ 			/* background spi dma copy */
+diff --git a/common/dma.h b/common/dma.h
+index 4c20adf..2c835ca 100644
+--- a/common/dma.h
++++ b/common/dma.h
+@@ -17,6 +17,7 @@
+ #define MAX_DMA_SIZE		OFFSET_63KB
+ #define MIN_DMA_SIZE		16	/* 16 bytes */
+ #define ADDR_SIZE_ALIGNMENT	16	/* 16 bytes */
++#define SPI_DMA_TIMEOUT_US	50000
+ 
+ enum dma_error {
+ 	DMA_SUCCESS = 0,
+@@ -26,6 +27,7 @@
+ 	DMA_UNALIGNED_DEST_ADDR,
+ 	DMA_INVALID_IMG_SIZE,
+ 	DMA_INVALID_FLASH_OFFSET, /* When flash offset + image size is beyond flash limit */
++	DMA_COPY_TIMEOUT,
+ 	DMA_ERROR_MAX
+ };
+ 
+diff --git a/common/status.h b/common/status.h
+index 3f06c23..cdc3d34 100644
+--- a/common/status.h
++++ b/common/status.h
+@@ -36,6 +36,7 @@
+ 	PROGRESS_DMA_INVALID_IMG_SIZE,
+ 	PROGRESS_DMA_UNALIGNED_IMG_SIZE,
+ 	PROGRESS_DMA_INVALID_FLASH_OFFSET,
++	PROGRESS_DMA_COPY_TIMEOUT,
+ 	PROGRESS_DMA_ERROR,
+ 	PROGRESS_DMA_FINISH,
+ 	PROGRESS_BOOT_DESC_HDR_MAGIC_FAIL,

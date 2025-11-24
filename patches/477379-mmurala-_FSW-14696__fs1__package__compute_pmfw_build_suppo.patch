@@ -1,0 +1,220 @@
+From ff5993829a8ddd68374365865ad3f2b05a3393be Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Mon, 14 Apr 2025 12:19:30 +0300
+Subject: [PATCH] [FSW-14696] fs1: package: compute pmfw build support
+
+with this patch, support was added to build
+compute pm arc app. which will be moved to
+upcoming project once basic infra was ready.
+
+Change-Id: Ib3d256b217c17d340be3fd23810344f0720f2a37
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-local.mk b/board/habanalabs/fs1_arc/fs1-local.mk
+index 005d03f..d8d6f72 100644
+--- a/board/habanalabs/fs1_arc/fs1-local.mk
++++ b/board/habanalabs/fs1_arc/fs1-local.mk
+@@ -14,3 +14,4 @@
+ DSM_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/pcie-ss/dsm
+ RESET_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/reset/app/io
+ RESET_COMPUTE_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/reset/app/compute
++PMFW_OVERRIDE_SRCDIR = $(TOPDIR)/../zephyr-apps/pmfw
+diff --git a/configs/fs1_arc_asic_defconfig b/configs/fs1_arc_asic_defconfig
+index be409d7..c3328dd 100644
+--- a/configs/fs1_arc_asic_defconfig
++++ b/configs/fs1_arc_asic_defconfig
+@@ -32,3 +32,4 @@
+ BR2_PACKAGE_PREBOOT_COMPUTE=y
+ BR2_PACKAGE_RESET_COMPUTE=y
+ BR2_PACKAGE_AGENT_FWL=y
++BR2_PACKAGE_PMFW=y
+diff --git a/configs/fs1_arc_defconfig b/configs/fs1_arc_defconfig
+index 9473596..dc4a8d4 100644
+--- a/configs/fs1_arc_defconfig
++++ b/configs/fs1_arc_defconfig
+@@ -31,3 +31,4 @@
+ BR2_PACKAGE_PREBOOT_COMPUTE=y
+ BR2_PACKAGE_RESET_COMPUTE=y
+ BR2_PACKAGE_AGENT_FWL=y
++BR2_PACKAGE_PMFW=y
+diff --git a/configs/fs1_arc_onix_defconfig b/configs/fs1_arc_onix_defconfig
+index be409d7..c3328dd 100644
+--- a/configs/fs1_arc_onix_defconfig
++++ b/configs/fs1_arc_onix_defconfig
+@@ -32,3 +32,4 @@
+ BR2_PACKAGE_PREBOOT_COMPUTE=y
+ BR2_PACKAGE_RESET_COMPUTE=y
+ BR2_PACKAGE_AGENT_FWL=y
++BR2_PACKAGE_PMFW=y
+diff --git a/configs/fs1_arc_palad_defconfig b/configs/fs1_arc_palad_defconfig
+index be409d7..c3328dd 100644
+--- a/configs/fs1_arc_palad_defconfig
++++ b/configs/fs1_arc_palad_defconfig
+@@ -32,3 +32,4 @@
+ BR2_PACKAGE_PREBOOT_COMPUTE=y
+ BR2_PACKAGE_RESET_COMPUTE=y
+ BR2_PACKAGE_AGENT_FWL=y
++BR2_PACKAGE_PMFW=y
+diff --git a/package/pmfw/Config.in b/package/pmfw/Config.in
+new file mode 100644
+index 0000000..909a47f
+--- /dev/null
++++ b/package/pmfw/Config.in
+@@ -0,0 +1,4 @@
++config BR2_PACKAGE_PMFW
++	bool "Zephyr PMFW ARC"
++	help
++	  Will be used to handle PMFW on compute DIE
+diff --git a/package/pmfw/pmfw.mk b/package/pmfw/pmfw.mk
+new file mode 100644
+index 0000000..a044e6d
+--- /dev/null
++++ b/package/pmfw/pmfw.mk
+@@ -0,0 +1,132 @@
++PMFW_SITE := pmfw
++PMFW_APP_NAME = pmfw
++PMFW_DEPENDENCIES = host-cmake host-lzop host-lz4
++PMFW_APP_MODULES = eeprom mbedtls boot_info i2c-indirect soc_init hl_shell mctp
++PMFW_SRCDIR=$(EMBEDDED_DIR)/zephyr-apps/pmfw/
++PMFW_ZEPHYR_SRCDIR=$(EMBEDDED_DIR)/zephyr
++
++PMFW_APP_PROD_NAME = zephyr_arc_$(PMFW_APP_NAME)
++PMFW_DEVICE_NAME = $(firstword $(subst _, ,$(HL_DEV)))
++PMFW_APP_VERSION = $(shell cut -d- -f2- $(@D)/localversion-habanalabs)
++PMFW_LOCAL_VERSION = $$(sed "s/^.*fw-\\([0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\).*$$/\\1/" $(@D)/localversion-habanalabs)
++
++PMFW_BUILD_DIR = $(@D)
++PMFW_ZEPHYR_BUILD_DIR ?= $(@D)/zephyr
++
++PMFW_CONF_CFLAGS =\
++		-I$(PMFW_ZEPHYR_BUILD_DIR) \
++		$(ZEPHYR_CONF_DEV_EXTRA_CFLAGS)
++
++PMFW_CONF_CFLAGS +=\
++		-I$(SPECS_EMB_PROJ_DIR) \
++		-I$(SPECS_EMB_PROJ_DIR)/$(DEV_PREFIX) \
++		-I$(SPECS_EMB_PROJ_DIR)/common \
++		-I$(SPECS_EMBEDDED_ROOT) \
++		-I$(SPECS_ROOT) \
++		-I$(SPECS_ROOT)/$(DEV_PREFIX) \
++		-I$(SPECS_ROOT)/$(DEV_PREFIX)/asic_reg \
++		-I$(SPECS_EXT_ROOT) \
++		-I$(DEVICE_SPECS_ROOT) \
++		-I$(DEVICE_SPECS_DIR) \
++		-I$(DEVICE_SPECS_DIR)/asic_reg
++
++PMFW_CONF_EXTRA_CFLAGS =\
++		$($(call UPPERCASE,$(DEV_PREFIX))_CONF_DEV_EXTRA_CFLAGS) \
++		$(ZEPHYR_CONF_DEV_EXTRA_CFLAGS)
++
++PMFW_CONF_ENV = CROSS_COMPILE=$(TARGET_CROSS)
++PMFW_CONF_ENV += ZEPHYR_TOOLCHAIN_VARIANT=cross-compile
++PMFW_CONF_ENV += ZEPHYR_BASE=$(PMFW_ZEPHYR_BUILD_DIR)
++
++PMFW_CONF_OPTS  = $(ZEPHYR_CONF_OPTS)
++PMFW_CONF_OPTS += -UCMAKE_TOOLCHAIN_FILE
++PMFW_CONF_OPTS += -DUSER_CACHE_DIR=$(@D)/.cache
++PMFW_CONF_OPTS += -DCMAKE_EXE_LINKER_FLAGS_INIT=-Wl,-e__start
++PMFW_CONF_OPTS += -DEXTRA_CFLAGS="\
++		-Werror \
++		-Wno-misleading-indentation \
++		$(PMFW_CONF_EXTRA_CFLAGS)"
++
++PMFW_CONF_OPTS += -DBUILD_VERSION="$(PMFW_APP_VERSION)"
++PMFW_CONF_OPTS += -DBUILD_MACHINE="$(shell hostname -s)"
++PMFW_CONF_OPTS += -DCMAKE_C_FLAGS="\
++		$($(call UPPERCASE,$(DEV_PREFIX))_CONF_DEV_EXTRA_CFLAGS) \
++		$(PMFW_CONF_CFLAGS)"
++
++PMFW_CONF_OPTS += -DDTS_EXTRA_CPPFLAGS="-I$(SPECS_EMB_PROJ_DIR)"
++PMFW_CONF_OPTS += -DBOARD=$(ZEPHYR_BOARD_PREFIX)_pmfw_$(HL_TARGET)
++PMFW_CONF_OPTS += -DDEVICE=$(PMFW_DEVICE_NAME)
++PMFW_CONF_OPTS += -DAPP_NAME=$(PMFW_APP_PROD_NAME)
++PMFW_CONF_OPTS += -DAPP_VERSION=$(PMFW_APP_VERSION)
++
++PMFW_WEST_SRC_DIR :=
++PMFW_WEST_DEST_DIR :=
++
++define PMFW_COPY_ZEPHYR_SRC
++	rsync -au --chmod=u=rwX,go=rX  --exclude .svn --exclude .git --exclude .hg --exclude .bzr --exclude CVS $(PMFW_ZEPHYR_SRCDIR) $(PMFW_BUILD_DIR)
++endef
++
++# Arguments:
++# - module name
++# - component dir
++# - component name
++#
++define PMFW_DEFINE_MODULE_ENVVARS
++	$(eval MODULE_NAME=$(strip $1)) \
++	$(eval MODULE_NAME_UPPER_CASE=$(shell echo $(MODULE_NAME) | tr a-z A-Z)) \
++	$(eval MODULE_NAME_UPPER_CASE=$(strip $(MODULE_NAME_UPPER_CASE))) \
++	$(eval $(MODULE_NAME_UPPER_CASE)_SRCDIR=$(EMBEDDED_DIR)/zephyr-modules/$(MODULE_NAME)) \
++	$(eval $(MODULE_NAME_UPPER_CASE)_DIR=$(@D)/build/modules/$(MODULE_NAME)) \
++	$(eval $(MODULE_NAME_UPPER_CASE)_NAME=$2_$(MODULE_NAME))
++endef
++
++$(foreach module,$(PMFW_APP_MODULES),$(call PMFW_DEFINE_MODULE_ENVVARS,$(module),$(PMFW_APP_PROD_NAME)))
++
++# Arguments:
++# - module (mbedtls, eeprom, etc.)
++define PMFW_MODULE_VERSION_HOOK
++	$(eval MODULE_NAME_UPPER_CASE=$(shell echo $1 | tr a-z A-Z))
++	$(eval MODULE_NAME_UPPER_CASE=$(strip $(MODULE_NAME_UPPER_CASE)))
++	$(call HL_VERSION_GEN, ${${MODULE_NAME_UPPER_CASE}_SRCDIR}, ${${MODULE_NAME_UPPER_CASE}_DIR}, ${${MODULE_NAME_UPPER_CASE}_NAME})
++endef
++
++define PMFW_APP_VERSION_GEN
++	@$(call HL_VERSION_GEN, ${PMFW_SRCDIR},.,${PMFW_APP_NAME})
++	@$(call HL_VERSION_GEN, ${PMFW_SRCDIR},build,${PMFW_APP_NAME})
++	@$(foreach module,$(PMFW_APP_MODULES),$(call PMFW_MODULE_VERSION_HOOK,$(module)))
++endef
++
++define PMFW_CREATE_HL_VERSION
++	@mkdir -p $(PMFW_BUILD_DIR)/include
++	@echo "#ifndef _HL_VERSION_" >  $(PMFW_BUILD_DIR)/include/hl_version.h
++	@echo "#define _HL_VERSION_" >> $(PMFW_BUILD_DIR)/include/hl_version.h
++	@echo "#define HL_VERSION_MAJOR $$(echo $(PMFW_LOCAL_VERSION) | cut -d. -f1)" >> $(PMFW_BUILD_DIR)/include/hl_version.h
++	@echo "#define HL_VERSION_MINOR $$(echo $(PMFW_LOCAL_VERSION) | cut -d. -f2)" >> $(PMFW_BUILD_DIR)/include/hl_version.h
++	@echo "#define HL_VERSION_PATCH $$(echo $(PMFW_LOCAL_VERSION) | cut -d. -f3)" >> $(PMFW_BUILD_DIR)/include/hl_version.h
++	@echo "#endif" >> $(PMFW_BUILD_DIR)/include/hl_version.h
++endef
++
++define PMFW_CONFIGURE_CMDS
++	@$(call PMFW_CREATE_HL_VERSION)
++	@$(PMFW_CONF_ENV) $(HOST_DIR)/bin/cmake $(PMFW_CONF_OPTS) -S $(PMFW_BUILD_DIR) -B $(PMFW_BUILD_DIR)/build
++endef
++
++PMFW_POST_RSYNC_HOOKS += HL_VERSION_GEN
++PMFW_POST_RSYNC_HOOKS += PMFW_COPY_ZEPHYR_SRC
++PMFW_POST_RSYNC_HOOKS += PMFW_APP_VERSION_GEN
++
++define PMFW_BUILD_CMDS
++	@$(TARGET_MAKE_ENV) $(MAKE) -C $(PMFW_BUILD_DIR)/build all
++endef
++
++define PMFW_INSTALL_TARGET_CMDS
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(PMFW_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.stat $(STATS_DIR)/zephyr_$(PMFW_APP_NAME).stat
++endef
++
++pmfw-configure: $(PMFW_DEPENDENCIES)
++pmfw-menuconfig pmfw-guiconfig: | pmfw-configure
++	$(TARGET_MAKE_ENV) $(MAKE) -C $(PMFW_BUILD_DIR)/build all
++	rm -f $(PMFW_BUILD_DIR)/.stamp_{configured,built}
++
++$(eval $(cmake-package))
+diff --git a/package/zephyr/zephyr.mk b/package/zephyr/zephyr.mk
+index 8584d9e..1b0ae2f 100644
+--- a/package/zephyr/zephyr.mk
++++ b/package/zephyr/zephyr.mk
+@@ -152,6 +152,10 @@
+ HL_ZEPHYR_PACKAGES += reset_compute
+ endif
+ 
++ifdef BR2_PACKAGE_PMFW
++HL_ZEPHYR_PACKAGES += pmfw
++endif
++
+ ifeq ($(ZEPHYR_UNIT_TEST),1)
+ ZEPHYR_UTEST_DIR = build-utest
+ ZEPHYR_CONF_DEFAULT ?= $(ZEPHYR_UTEST_DIR)

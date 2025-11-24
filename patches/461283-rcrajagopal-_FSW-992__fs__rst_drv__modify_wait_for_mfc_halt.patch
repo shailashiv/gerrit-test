@@ -1,0 +1,65 @@
+From 8d6fd653a5079c144cbe4e6d86afa716d489eb08 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 06 Nov 2024 18:48:34 +0200
+Subject: [PATCH] [FSW-992] fs: rst drv: modify wait for mfc halt
+
+As per JIRA-H15B-2480, we need to wait for idle and
+stop bsy bit's are set and then write 0x0 to stop ctrl
+to bring down the stop bsy bit.
+
+Once stop busy bit is down, we can confirm mfc's are
+halted.
+
+Change-Id: Ic9942b853cb6bd374320770f248d1825fa7ffaca
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/drivers/reset/fs1/io_halt_engines.c b/drivers/reset/fs1/io_halt_engines.c
+index 21b3ba2..9c00dfa 100644
+--- a/drivers/reset/fs1/io_halt_engines.c
++++ b/drivers/reset/fs1/io_halt_engines.c
+@@ -34,23 +34,40 @@
+ 
+ /* TODO: check with HW team for appropriate value */
+ #define NSS_NMS_FARM_MFC_STOP_RETRIES			10
++#define NSS_NMS_FARM_IDLE_STOP_BUSY_M			(MFC_GEN_IDLE_STAT_STOP_BSY_M \
++							 | MFC_GEN_IDLE_STAT_IDLE_M)
+ 
+ static void reset_intel_fs_wait_for_nss_nms_farm_mfc_stop(uint32_t base_addr, __unused void *data)
+ {
+ 	uint32_t retry = NSS_NMS_FARM_MFC_STOP_RETRIES;
+ 	uint32_t status;
++	bool idle_flag = false;
++	uint32_t stop_ctrl = base_addr + mmNSS_NMS_FARM_MFC_GEN_OFFSET + mmMFC_GEN_STOP_CTRL;
++	uint32_t idle_stat = base_addr + mmNSS_NMS_FARM_MFC_GEN_OFFSET + mmMFC_GEN_IDLE_STAT;
+ 
+-	base_addr += mmNSS_NMS_FARM_MFC_GEN_OFFSET + mmMFC_GEN_IDLE_STAT;
++	/* To check MFC's are halted:
++	 * 1. poll IDLE_STAT register till IDLE and STOP_BSY bit's are set
++	 * 2. Once it is set, write 0x0 to STOP_CTRL register
++	 * 3. Then again poll IDLE_STAT register till STOP_BSY bit is cleared.
++	 */
+ 
+ 	while (retry) {
+-		status = CFG_RREG32(base_addr);
+-		if (!((status & MFC_GEN_IDLE_STAT_STOP_BSY_M) >> MFC_GEN_IDLE_STAT_STOP_BSY_S))
++		status = CFG_RREG32(idle_stat);
++		if (status == NSS_NMS_FARM_IDLE_STOP_BUSY_M) {
++			CFG_WREG32(stop_ctrl, 0x00);
++			reset_intel_fs_busy_wait(DELAY_1_USEC);
++			retry = NSS_NMS_FARM_MFC_STOP_RETRIES;
++			idle_flag = true;
++		}
++
++		if (idle_flag &&
++		   (!((status & MFC_GEN_IDLE_STAT_STOP_BSY_M) >> MFC_GEN_IDLE_STAT_STOP_BSY_S)))
+ 			return;
+ 
+ 		retry--;
+ 		reset_intel_fs_busy_wait(DELAY_1_USEC);
+ 	}
+-	LOG_ERR("Failed to stop nss nms farm mfc, base addr=0x%X  status=0x%X", base_addr, status);
++	LOG_ERR("Failed to stop nss nms farm mfc, base addr=0x%X  status=0x%X", idle_stat, status);
+ }
+ 
+ static void reset_intel_fs_stop_nss_nms_farm_mfc(uint32_t base_addr, __unused void *data)

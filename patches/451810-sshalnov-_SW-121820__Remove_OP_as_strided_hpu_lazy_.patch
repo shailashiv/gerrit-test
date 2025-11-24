@@ -1,0 +1,105 @@
+From 8b0cb831fada67a6644e23ddee86782213ee11a7 Mon Sep 17 00:00:00 2001
+From: Sergei Shalnov <sergey.shalnov@habana.ai>
+Date: Tue, 24 Sep 2024 11:58:38 +0300
+Subject: [PATCH] [SW-121820] Remove OP as_strided_hpu_lazy_
+
+Change-Id: I3a7e8de7aa4c3067277e960d36ad4abc9db1e98a
+---
+
+diff --git a/habana_kernels/lazy_kernels.cpp b/habana_kernels/lazy_kernels.cpp
+index dff7603..bfd3fc2 100644
+--- a/habana_kernels/lazy_kernels.cpp
++++ b/habana_kernels/lazy_kernels.cpp
+@@ -1452,61 +1452,6 @@
+   }
+ }
+ 
+-void as_strided_hpu_lazy_inplace_parralel_impl(
+-    const Tensor& self,
+-    IntArrayRef size,
+-    IntArrayRef stride,
+-    IntArrayRef orig_size,
+-    IntArrayRef orig_stride,
+-    c10::optional<int64_t> storage_offset) {
+-  // We only support contiguous chunks of data to be taken as strided,
+-  // as Device doesnt support strided tensors we dont support that case
+-  ir::NodePtr node = create_as_strided_node(
+-      self, size, stride, orig_size, orig_stride, storage_offset);
+-
+-  if (node != nullptr) {
+-    auto hb_result = GetHbLazyTensor(self);
+-    // update of lazy tensor size is required for permute pass to see output
+-    // with updated shape
+-    hb_result.setTensorSize(size);
+-    hb_result.IrSetNode(node);
+-
+-    auto context = get_device_lazy_execution_context();
+-    context->MarkTensorStatus(
+-        hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+-    flush_op(1);
+-  } else {
+-    TORCH_CHECK(
+-        0,
+-        "as_strided_ called with strides creating non-contiguous output tensor not supported");
+-  }
+-};
+-const Tensor& as_strided_hpu_lazy_(
+-    const Tensor& self,
+-    SymIntArrayRef _size,
+-    SymIntArrayRef _stride,
+-    c10::optional<SymInt> _storage_offset) {
+-  auto size = C10_AS_INTARRAYREF_SLOW(_size);
+-  auto stride = C10_AS_INTARRAYREF_SLOW(_stride);
+-  auto orig_size = self.sizes().vec();
+-  auto orig_stride = self.strides().vec();
+-  auto storage_offset = _storage_offset.has_value()
+-      ? _storage_offset.value().expect_int()
+-      : self.storage_offset();
+-  self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+-  handle_collective(self);
+-  auto func = [self,
+-               size = size.vec(),
+-               stride = stride.vec(),
+-               orig_size = std::move(orig_size),
+-               orig_stride = std::move(orig_stride),
+-               storage_offset = std::move(storage_offset)]() {
+-    as_strided_hpu_lazy_inplace_parralel_impl(
+-        self, size, stride, orig_size, orig_stride, storage_offset);
+-  };
+-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(as_strided_, func, self);
+-}
+-
+ at::Tensor& set_source_Storage_storage_offset(
+     at::Tensor& self,
+     at::Storage source,
+diff --git a/habana_kernels/lazy_kernels_declarations.h b/habana_kernels/lazy_kernels_declarations.h
+index c7c5b9b..35abc52 100644
+--- a/habana_kernels/lazy_kernels_declarations.h
++++ b/habana_kernels/lazy_kernels_declarations.h
+@@ -54,11 +54,6 @@
+     const at::Tensor&,
+     const at::Tensor&,
+     bool is_flush = true);
+-const at::Tensor& as_strided_hpu_lazy_(
+-    const at::Tensor& self,
+-    at::SymIntArrayRef size,
+-    at::SymIntArrayRef stride,
+-    c10::optional<c10::SymInt> storage_offset);
+ at::Tensor& set_source_Storage_storage_offset(
+     at::Tensor& self,
+     at::Storage source,
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index b09909b..1051571 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -1075,10 +1075,6 @@
+   override_fn: as_strided_hpu
+   acc_thread: true
+ 
+-as_strided_:
+-  override_fn: as_strided_hpu_lazy_
+-  acc_thread: true
+-
+ set_:
+   override_fn: set_
+ 

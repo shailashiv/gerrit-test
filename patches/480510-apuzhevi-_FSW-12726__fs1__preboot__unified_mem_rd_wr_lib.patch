@@ -1,0 +1,85 @@
+From 68a0a97b82d8931fd5246c1bfbff03ebc83e8aba Mon Sep 17 00:00:00 2001
+From: Alexey Puzhevich <alexey.puzhevich@intel.com>
+Date: Mon, 26 May 2025 15:41:41 +0300
+Subject: [PATCH] [FSW-12726] fs1: preboot: unified mem rd/wr lib
+
+Duplicated functionality was consolidated in the
+stand-alone header only library.
+
+Change-Id: I5142fffe2746f21b85b25c05d559f121afd8c69c
+Signed-off-by: Alexey Puzhevich <alexey.puzhevich@intel.com>
+---
+
+diff --git a/Makefile b/Makefile
+index 6598199..f3b3887 100644
+--- a/Makefile
++++ b/Makefile
+@@ -39,6 +39,7 @@
+ BOOT_ROM_CFLAGS += -I$(SPECS_DIR)
+ BOOT_ROM_CFLAGS += -I$(SPECS_EMBEDDED_DIR)/fs/common
+ BOOT_ROM_CFLAGS += -I$(SPECS_EMBEDDED_DIR)/fs/$(SPECS_EMB_DEV)
++BOOT_ROM_CFLAGS += -I$(SPECS_EMBEDDED_DIR)
+ 
+ BOOT_ROM_CFLAGS_IO = $(BOOT_ROM_CFLAGS)
+ BOOT_ROM_CFLAGS_IO += -DDIE_TYPE=$(DIE_TYPE_IO)
+diff --git a/include/mem_io.h b/include/mem_io.h
+index 81fef8d..2211f89 100644
+--- a/include/mem_io.h
++++ b/include/mem_io.h
+@@ -9,6 +9,7 @@
+ #include <stdint.h>
+ #include <soc.h>
+ #include <spi.h>
++#include <regmap_io.h>
+ 
+ #define HL_FLASH_BASE				(HL_GEN_MEM_BASE + HL_FLASH_OFFSET)
+ #define HL_SBROM_BASE				(HL_FW_MEM_BASE + HL_SBROM_OFFSET)
+@@ -18,48 +19,10 @@
+ #define HL_ARC_ADDR_DIE_ID_SHIFT		25
+ #define HL_ARC_ADDR_DIE_ID_MASK			(0x7 << HL_ARC_ADDR_DIE_ID_SHIFT)
+ 
+-#define ARC_REG_UPD(OFFSET, ARC_REG_BASE)	((OFFSET & ~(ARC_REG_BASE_MASK)) | ARC_REG_BASE)
+-
+ #define MASK_32_BIT				0xFFFFFFFF
+ 
+ #define DIE_BASED_ADDRESS(offset, die_id)	(offset & ~(HL_ARC_ADDR_DIE_ID_MASK)) | \
+ 				(die_id << HL_ARC_ADDR_DIE_ID_SHIFT)
+-
+-static inline void base_writel(uint32_t val, uint32_t offset)
+-{
+-	*((volatile uint32_t *)(offset)) = val;
+-}
+-
+-static inline uint32_t base_readl(uint32_t offset)
+-{
+-	uint32_t reg = *((volatile uint32_t *)(offset));
+-
+-	return reg;
+-}
+-
+-static inline uint32_t regmap_readl(uint32_t offset)
+-{
+-	uint32_t reg = base_readl(ARC_REG_UPD(offset, HL_CFG_BASE));
+-
+-	return reg;
+-}
+-
+-static inline void regmap_writel(uint32_t val, uint32_t offset)
+-{
+-	base_writel(val, (ARC_REG_UPD(offset, HL_CFG_BASE)));
+-}
+-
+-static inline uint8_t regmap_readb(uint32_t offset)
+-{
+-	uint32_t reg = *((volatile uint32_t *)(HL_CFG_BASE + offset));
+-
+-	return (uint8_t)(reg & 0xFF);
+-}
+-
+-static inline void regmap_writeb(uint8_t val, uint32_t offset)
+-{
+-	*((volatile uint32_t *)(HL_CFG_BASE + offset)) = (uint32_t)val;
+-}
+ 
+ static inline void spi_dw_writel(struct spi_ctx *ctx, uint32_t val, uint32_t offset)
+ {

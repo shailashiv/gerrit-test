@@ -1,0 +1,101 @@
+From 34b1caf0eea3233a476ec07a63cb463a09aab42b Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Fri, 23 May 2025 10:11:48 +0000
+Subject: [PATCH] [SW-227647] ipm: recovery mechanism for spurious intr
+
+This patch adds folllowing recovery mechanism:
+1. Adds 3 rechecks after getting spurious spurious.
+2. If rechecks also fail, ignore the sequence number and processes
+the msg irrspectively.
+
+Change-Id: I9635bbfe2e47cf3a4e822b85c1ad3ea6f50ba2aa
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/drivers/ipm/ipm_hl.c b/drivers/ipm/ipm_hl.c
+index 61f6de6..21602b1 100644
+--- a/drivers/ipm/ipm_hl.c
++++ b/drivers/ipm/ipm_hl.c
+@@ -45,7 +45,7 @@
+  * and process it. If the message is not found, it returns false.
+  */
+ 
+-static bool find_and_process_message(const struct device *dev)
++static bool find_and_process_message(const struct device *dev, bool ignore_seq_no)
+ {
+ 	const struct ipm_hl_config *config = DEV_CFG(dev);
+ 	struct ipm_hl_data *data = DEV_DATA(dev);
+@@ -57,9 +57,9 @@
+ 			   (i * data->chunk_hdr_sz));
+ 
+ 		if ((msg->busy) && (!msg->ack)) {
+-			if (msg->seq_no == data->rx_ctrl->ci) {
++			if (msg->seq_no == data->rx_ctrl->ci || ignore_seq_no) {
+ 				process_message(dev, msg);
+-				return true;
++				return false;
+ 			} else {
+ 				LOG_DBG("Out of Order Msg. seq_no: %d expected: %d",
+ 					msg->seq_no, data->rx_ctrl->ci);
+@@ -72,9 +72,9 @@
+ 						(i * config->rx.data_chunk_size));
+ 
+ 		if ((msg->busy) && (!msg->ack)) {
+-			if (msg->seq_no == data->rx_ctrl->ci) {
++			if (msg->seq_no == data->rx_ctrl->ci || ignore_seq_no) {
+ 				process_message(dev, msg);
+-				return true;
++				return false;
+ 			} else {
+ 				LOG_DBG("Out of Order Msg. seq_no: %d expected: %d",
+ 					msg->seq_no, data->rx_ctrl->ci);
+@@ -82,23 +82,42 @@
+ 		}
+ 	}
+ 
+-	LOG_WRN("Spurious interrupt received. PI: %d, CI: %d",
+-		data->rx_ctrl->pi, data->rx_ctrl->ci);
+-	return false;
++	if (!ignore_seq_no) {
++		LOG_WRN("Spurious interrupt received. PI: %d, CI: %d",
++			data->rx_ctrl->pi, data->rx_ctrl->ci);
++	}
++
++	return true;
+ }
+ 
+ void ipm_hl_isr(const struct device *dev)
+ {
+ 	struct ipm_hl_data *data = DEV_DATA(dev);
+-	uint32_t num_of_msgs = data->rx_ctrl->pi - data->rx_ctrl->ci;
++	uint32_t num_of_msgs = 0;
++	bool err, ignore_seq_no = false;
++
++	uint8_t retry = 3;
++
++	/* Try a few times to catch up in case of race with producer */
++	do {
++		num_of_msgs = data->rx_ctrl->pi - data->rx_ctrl->ci;
++		if (num_of_msgs > 0) {
++			break;
++		}
++		k_busy_wait(1);
++	} while (retry--);
+ 
+ 	if (num_of_msgs == 0) {
+ 		LOG_WRN("Spurious interrupt received");
+-		return;
+ 	}
+ 
+-	while (num_of_msgs > 0) {
+-		if (!find_and_process_message(dev)) {
++	if (num_of_msgs != 1) {
++		ignore_seq_no = true;
++	}
++
++	while (num_of_msgs > 0 || ignore_seq_no) {
++		err = find_and_process_message(dev, ignore_seq_no);
++		if (err || ignore_seq_no) {
+ 			break;
+ 		}
+ 		num_of_msgs = data->rx_ctrl->pi - data->rx_ctrl->ci;

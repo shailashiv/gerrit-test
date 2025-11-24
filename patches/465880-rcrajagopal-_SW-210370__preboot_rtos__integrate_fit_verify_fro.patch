@@ -1,0 +1,267 @@
+From ba32a6471d77994cc253eab5d79a2a65894ad246 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Dec 2024 12:29:20 +0200
+Subject: [PATCH] [SW-210370] preboot rtos: integrate fit verify from emb cmn mods
+
+fit verify, security file is being refactored and added
+in emb common mods to verify the fit signature, image hashes
+at eROM, zephyr-plugins, zephyr-apps/preboot.
+
+Here, integrating fit verify files to zephyr-apps/preboot
+and remove the redundant functions.
+
+Change-Id: Id0ad311f79b37df043e6f2f5655dd33f4779f1a7
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b5c2f66..3cade4d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -102,6 +102,9 @@
+ zephyr_library_sources(emb_common_mod/lib/common/lib_common.c)
+ zephyr_library_sources(emb_common_mod/lib/common/pci.c)
+ zephyr_library_sources(emb_common_mod/lib/common/fit_utils.c)
++zephyr_library_sources(emb_common_mod/lib/common/fit_verify.c)
++zephyr_library_sources(emb_common_mod/lib/common/fit_error.c)
++zephyr_library_sources(emb_common_mod/lib/preboot/security.c)
+ zephyr_library_sources(emb_common_mod/lib/preboot/fit.c)
+ zephyr_library_sources(emb_common_mod/lib/preboot/fit_rsa.c)
+ zephyr_library_sources(emb_common_mod/lib/preboot/fit_regions.c)
+diff --git a/arch/gaudi2/arc/common.c b/arch/gaudi2/arc/common.c
+index b36d65b..12771f7 100644
+--- a/arch/gaudi2/arc/common.c
++++ b/arch/gaudi2/arc/common.c
+@@ -359,17 +359,6 @@
+ 	return preboot_fake_security_is_sig_validation_enabled();
+ }
+ 
+-void preboot_store_img_signature(const void *fit, int node, void *hash)
+-{
+-	const char *description;
+-
+-	description = (const char *)fdt_getprop(fit, node, FIT_DESC_PROP, NULL);
+-	if (description == NULL || strcmp(description, "U-Boot (64-bit)"))
+-		return;
+-
+-	tpm_hash_and_pcr_extend(TPM2_UBOOT_PCR_IDX, hash, TPM2_SHA384_DIGEST_SIZE);
+-}
+-
+ static struct rma_flash_mem_context rma_flash_mem_context[] = {
+ 	{
+ 		.offset = DT_REG_ADDR(DT_NODELABEL(rma1_partition)),
+diff --git a/arch/gaudi3/arc/common.c b/arch/gaudi3/arc/common.c
+index 7fa4874..d8c2ff1 100644
+--- a/arch/gaudi3/arc/common.c
++++ b/arch/gaudi3/arc/common.c
+@@ -938,7 +938,7 @@
+ 	return count;
+ }
+ 
+-bool is_fit_tpm_extend_required(u32 load_type)
++bool preboot_is_fit_tpm_extend_required(u32 load_type)
+ {
+ 	return (load_type == FIT_LOAD_TYPE_RUN_N_EXTEND);
+ }
+diff --git a/include/preboot.h b/include/preboot.h
+index dc32618..bdd2207 100644
+--- a/include/preboot.h
++++ b/include/preboot.h
+@@ -12,7 +12,10 @@
+ #include <sizes.h>
+ #include "address_space.h"
+ 
+-#define ROUND_UP4(n)		(((n) + sizeof(u32) - 1) & ~(sizeof(u32) - 1))
++#ifndef ROUND_UP4
++#define ROUND_UP4(n)		(((n) + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1))
++#endif
++
+ #define ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
+ 
+ #ifdef __arc__
+@@ -79,6 +82,7 @@
+ 
+ extern u8 hl_asic_sn[FUSE_DEVID_SIZE];
+ extern u8 hl_stepping;
++extern struct hl_fw_info_compat fw_info;
+ 
+ static inline u8 regmap_readb(u32 offset)
+ {
+@@ -222,6 +226,9 @@
+ 
+ int preboot_elbi_mem_access_en(bool enable);
+ int rma_erase(void);
++bool preboot_skip_img_sig_validation(void);
++bool preboot_security_svn_is_valid(int sec_ver);
++void preboot_security_boot_info_write_key_idx(u32 *key_idx);
+ 
+ #include <sys/printk.h>
+ 
+diff --git a/lib/module/module_fwupd.c b/lib/module/module_fwupd.c
+index 07dc81f..c6a1722 100644
+--- a/lib/module/module_fwupd.c
++++ b/lib/module/module_fwupd.c
+@@ -33,6 +33,8 @@
+ #include <hl_utils.h>
+ #include <telemetry_desc.h>
+ #include <telemetry_ops.h>
++#include <fit_verify.h>
++#include <fit_error.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+diff --git a/lib/module/module_lkd.c b/lib/module/module_lkd.c
+index 5896395..006ddf0 100644
+--- a/lib/module/module_lkd.c
++++ b/lib/module/module_lkd.c
+@@ -26,6 +26,8 @@
+ #include "fit.h"
+ #include "security.h"
+ #include <watchdog_timer.h>
++#include <fit_verify.h>
++#include <fit_error.h>
+ 
+ #define BIT_ULL(nr)	(1ULL << (nr))
+ 
+diff --git a/lib/pldm/pldm_fu.c b/lib/pldm/pldm_fu.c
+index 073251d..f6b65e2 100644
+--- a/lib/pldm/pldm_fu.c
++++ b/lib/pldm/pldm_fu.c
+@@ -14,6 +14,8 @@
+ 
+ #include <fit.h>
+ #include <fit_load.h>
++#include <fit_verify.h>
++#include <fit_error.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+diff --git a/lib/security/security.c b/lib/security/security.c
+index 79ad15b..aaf0f4c 100644
+--- a/lib/security/security.c
++++ b/lib/security/security.c
+@@ -27,8 +27,6 @@
+ #include <logging/log.h>
+ 
+ LOG_MODULE_REGISTER(common_security);
+-static struct hl_fit_sec_desc fit_sec;
+-static u8 signature[FIT_SIGNATURE_SIZE];
+ 
+ __weak int preboot_security_get_minimal_svn(void)
+ {
+@@ -57,8 +55,6 @@
+ 	return;
+ }
+ 
+-__weak bool preboot_skip_img_sig_validation(void) { return false; }
+-
+ __weak void hl_boot_fit_hash_store(u8 *fit_hash) { }
+ 
+ void preboot_extend_fit_tpm_pcr(const void *img, size_t img_size)
+@@ -74,97 +70,6 @@
+ 	mbedtls_sha512_ret(img, img_size, fit_hash, 1);
+ 	hl_tpm_pcr_extend(fit_hash);
+ 	hl_boot_fit_hash_store(fit_hash);
+-}
+-
+-int preboot_verify_img_sig(const void *img, size_t img_size, enum fit_sec_failure *res,
+-				u32 *key_idx)
+-{
+-	const void *fit_sec_off;
+-	const void *pub_key_fit;
+-
+-	if (preboot_skip_img_sig_validation())
+-		return 0;
+-
+-	/* hl fit files are padded so the size is 4 bytes aligned */
+-	img_size = ROUND_UP4(img_size);
+-
+-	if (!preboot_img_validation_is_enabled())
+-		return 0;
+-
+-	/* security descriptor is at the footer of the image */
+-	fit_sec_off = (const void *)((u8 *)img + img_size);
+-
+-	/* check that the calculated memory range are legal */
+-	if (!preboot_sram_is_valid_address_range((uintptr_t)fit_sec_off,
+-						 sizeof(fit_sec))) {
+-		LOG_ERR("Invalid address range");
+-		return 1;
+-	}
+-
+-	memcpy(&fit_sec, fit_sec_off, FIT_SEC_DESC_SIZE);
+-
+-	if (fit_sec.magic_number != FIT_SEC_MAGIC) {
+-		LOG_ERR("Bad magic, security descriptor not found");
+-		return 1;
+-	}
+-
+-	if ((fit_sec.desc_version_maj != FIT_SEC_DESC_VER_MAJOR) ||
+-	    (fit_sec.desc_version_min != FIT_SEC_DESC_VER_MINOR)) {
+-		LOG_ERR("security descriptor version mismatch");
+-		return 1;
+-	}
+-
+-	if (fit_sec.desc_size < FIT_SEC_DESC_SIZE) {
+-		LOG_ERR("security descriptor size too small");
+-		return 1;
+-	}
+-
+-	if (fit_sec.img_size != img_size) {
+-		LOG_ERR("image size mismatch with security descriptor");
+-		return 1;
+-	}
+-
+-	if (!preboot_security_svn_is_valid(fit_sec.sec_version)) {
+-		LOG_ERR("security descriptor svn not valid");
+-		*res = FIT_SEC_SVN_INVALID;
+-		return 1;
+-	}
+-
+-	fw_info.sec_curr_svn = fit_sec.sec_version;
+-
+-	if (preboot_security_key_is_revoked(fit_sec.key_num)) {
+-		LOG_INF("Key revoked: %d", fit_sec.key_num);
+-		*res = FIT_SEC_KEY_REVOKED;
+-		return 1;
+-	}
+-
+-	fw_info.sec_curr_key = fit_sec.key_num;
+-	pub_key_fit = &fit_sec.pub_key;
+-
+-	if (!preboot_security_key_is_valid(fit_sec.key_num, pub_key_fit,
+-					   FIT_PUB_KEY_SIZE, NULL, 0)) {
+-		LOG_ERR("Key validation failed");
+-		*res = FIT_SEC_SIGN_FAILED;
+-		return 1;
+-	}
+-
+-	/*
+-	 * signature is calculated on both the fit image and the security
+-	 * descriptor with the signature field of the descriptor zeroized.
+-	 */
+-	memcpy(signature, fit_sec.signature, FIT_SIGNATURE_SIZE);
+-	memset(fit_sec.signature, 0, FIT_SIGNATURE_SIZE);
+-
+-	if (fit_verify_img_sig(img, img_size, &fit_sec, FIT_SEC_DESC_SIZE,
+-			       pub_key_fit, signature, FIT_SIGNATURE_SIZE)) {
+-		LOG_ERR("image signature verification failed");
+-		*res = FIT_SEC_SIGN_FAILED;
+-		return 1;
+-	}
+-
+-	*key_idx = fit_sec.key_num;
+-
+-	return 0;
+ }
+ 
+ int hl_sec_calculate_svn(const u32 *svn_bits)
+@@ -207,7 +112,7 @@
+ {
+ 	struct rsa_key_prop prop;
+ 	u8 key_props[PUB_KEY_SZ];
+-	const char *key_name = HL_SEC_KEY_NAME;
++	const char *key_name = HL_FIT_SEC_KEY_NAME;
+ 
+ 	/*
+ 	 * ROM and eFUSE stores hash of public key properties. The public

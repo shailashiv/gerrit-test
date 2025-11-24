@@ -1,0 +1,62 @@
+From 763e4ca31de92f521b54a580a70fd18709726c02 Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Wed, 27 Nov 2024 22:45:00 +0200
+Subject: [PATCH] [FSW-8301] use UEFI image when --bios-mode is set to uefi
+
+Change-Id: Ia5db8d5eb03c84e8bff2ce675416f80872bf3ee5
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/app/src/bashly.yml b/app/src/bashly.yml
+index 5b25765..caaa763 100644
+--- a/app/src/bashly.yml
++++ b/app/src/bashly.yml
+@@ -1,6 +1,6 @@
+ name: hvt
+ help: Habanalabs Virtualization Tool
+-version: 0.1.11
++version: 0.1.12
+ 
+ environment_variables:
+ - name: hvt_vm_home
+diff --git a/app/src/lib/create_vm.sh b/app/src/lib/create_vm.sh
+index 0fc923d..9495e55 100644
+--- a/app/src/lib/create_vm.sh
++++ b/app/src/lib/create_vm.sh
+@@ -176,6 +176,11 @@
+         cp -a "$tmp_machine" "$HVT_VM_HOME"/machine.json
+     done
+     # if box does not exists download it
++    if [[ "$bios_mode" == "uefi" ]]; then
++      if [[ "$box_name" != "uefi-"* ]]; then
++        box_name="uefi-${box_name}"
++      fi
++    fi
+     if vagrant_box list | grep -E "$image_name\s+\(.*$image_version\)" ; then
+         echo "$(green "[INFO] box $image_name $image_version already exists")"
+         if [ -z "$image_version" -a -n "${args[--box-update]}" ] ; then
+diff --git a/changelog b/changelog
+index a156991..79d51b7 100644
+--- a/changelog
++++ b/changelog
+@@ -1,3 +1,6 @@
++1.1.12
++- use UEFI image when --bios-mode is set to uefi
++
+ 1.1.11
+ - add support uefi bios
+ - set root device in the kernel boot parameters
+diff --git a/files/Vagrantfile b/files/Vagrantfile
+index 716bb21..209f1e2 100644
+--- a/files/Vagrantfile
++++ b/files/Vagrantfile
+@@ -77,6 +77,9 @@
+         srv.vm.box_check_update = false
+         # Specify the Vagrant box to use
+         srv.vm.box = vm_info['image_name']
++        if vm_info['bios_mode'] == 'uefi'
++            srv.vm.box = "uefi-#{vm_info['image_name']}"
++        end
+         if ! vm_info['image_version'].empty?
+             srv.vm.box_version = vm_info['image_version']
+         end

@@ -1,0 +1,428 @@
+From 201ac12d40a6f6699ed17184128f59571bbc281f Mon Sep 17 00:00:00 2001
+From: Suryaprakash Shanmugam <sshanmugam@habana.ai>
+Date: Tue, 29 Oct 2024 13:13:23 +0200
+Subject: [PATCH] Revert "[SW-193167] Enable torch.compile mode for FusedEMA optimizer"
+
+Change-Id: I620b553028c70c2e42efeb5a8af1d4facbaf83fe
+---
+
+diff --git a/backend/passes/hpu_habana_persistence_marker_pass.cpp b/backend/passes/hpu_habana_persistence_marker_pass.cpp
+index 6257cce..3f79f77 100644
+--- a/backend/passes/hpu_habana_persistence_marker_pass.cpp
++++ b/backend/passes/hpu_habana_persistence_marker_pass.cpp
+@@ -135,8 +135,7 @@
+         "hpu::kv_reorder_",
+         "hpu::in_place_interleave_",
+         "aten::masked_fill_.Scalar",
+-        "aten::masked_fill_.Tensor",
+-        "hpu::optimizer_ema_"};
++        "aten::masked_fill_.Tensor"};
+ 
+     if (std::find(
+             std::begin(ignoreOpsList), std::end(ignoreOpsList), op_name) !=
+diff --git a/habana_eager/eager_custom_op_register.cpp b/habana_eager/eager_custom_op_register.cpp
+index 26977de..1638e9c 100644
+--- a/habana_eager/eager_custom_op_register.cpp
++++ b/habana_eager/eager_custom_op_register.cpp
+@@ -463,31 +463,15 @@
+   return hpu_op.call(weights);
+ }
+ 
+-std::vector<at::Tensor> optimizer_ema(
+-    const at::TensorList model_inputs,
+-    const at::TensorList updated_ema,
+-    const at::Tensor& decay) {
+-  PT_EAGER_TRACE;
+-  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
+-
+-  habana::eager::EagerOp<std::vector<at::Tensor>> hpu_op{
+-      "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
+-  return hpu_op.call();
+-}
+-
+-void optimizer_ema_(
++void optimizer_ema(
+     const at::TensorList model_inputs,
+     at::TensorList updated_ema,
+     const at::Tensor& decay) {
+   PT_EAGER_TRACE;
+-  PT_OP_INFO(" optimizer_ema_ :", DUMP_3ARGS(model_inputs, updated_ema, decay));
++  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
+ 
+   habana::eager::EagerOp<void> hpu_op{
+-      "hpu::optimizer_ema_", {model_inputs, updated_ema, decay}};
+-  hpu_op.set_eager_op_info(
+-      {habana::eager::eagerOpKind::Inplace,
+-       "hpu::optimizer_ema_",
+-       decltype(habana::eager::EagerOpMetaData::out_indices_){1}});
++      "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
+   hpu_op.call(updated_ema);
+ }
+ 
+@@ -2270,9 +2254,7 @@
+   m.def(
+       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
+   m.def(
+-      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor[] updated_ema, Tensor decay) -> Tensor[]");
+-  m.def(
+-      "hpu::optimizer_ema_(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
++      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
+   m.def(
+       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
+   m.def(
+@@ -2469,7 +2451,6 @@
+   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
+   m.impl("hpu::optimizer_adamw", optimizer_adamw);
+   m.impl("hpu::optimizer_ema", optimizer_ema);
+-  m.impl("hpu::optimizer_ema_", optimizer_ema_);
+   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm);
+   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
+   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
+@@ -2551,14 +2532,6 @@
+   return at::functionalization::impl::from_functional_tensor(tensor);
+ }
+ 
+-std::vector<at::Tensor> get_functional_tensorlist(
+-    const at::TensorList& tensorlist) {
+-  TORCH_INTERNAL_ASSERT(
+-      at::functionalization::impl::isFunctionalTensor(tensorlist));
+-  at::functionalization::impl::sync(tensorlist);
+-  return at::functionalization::impl::from_functional_tensor(tensorlist);
+-}
+-
+ at::Tensor& kv_reorder_functionalization_glue(
+     at::Tensor& self,
+     const at::Tensor& start,
+@@ -2607,32 +2580,6 @@
+   at::functionalization::impl::sync(self);
+   return self;
+ }
+-
+-void optimizer_ema_functionalization_glue(
+-    const at::TensorList model_inputs,
+-    at::TensorList updated_ema,
+-    const at::Tensor& decay) {
+-  auto model_inputs_ = get_functional_tensorlist(model_inputs);
+-  auto updated_ema_ = get_functional_tensorlist(updated_ema);
+-  auto decay_ = get_functional_tensor(decay);
+-
+-  static auto op_handle = c10::Dispatcher::singleton()
+-                              .findSchemaOrThrow("hpu::optimizer_ema", "")
+-                              .typed<std::vector<at::Tensor>(
+-                                  const at::TensorList,
+-                                  const at::TensorList,
+-                                  const at::Tensor&)>(); // NOLINT
+-  std::vector<at::Tensor> tmp_output;
+-  {
+-    at::AutoDispatchSkipFunctionalize guard;
+-    tmp_output = op_handle.call(model_inputs_, updated_ema_, decay_);
+-  }
+-
+-  at::functionalization::impl::replace_(updated_ema, tmp_output);
+-  at::functionalization::impl::commit_update(updated_ema);
+-  at::functionalization::impl::sync(updated_ema);
+-}
+-
+ } // namespace
+ 
+ namespace habana::eager {
+@@ -2640,7 +2587,6 @@
+ TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {
+   m.impl("kv_reorder_", kv_reorder_functionalization_glue);
+   m.impl("in_place_interleave_", in_place_interleave_functionalization_glue);
+-  m.impl("optimizer_ema_", optimizer_ema_functionalization_glue);
+ }
+ 
+ } // namespace habana::eager
+diff --git a/hpu_ops/backend/optimizer_ema_gen.cpp b/hpu_ops/backend/optimizer_ema_gen.cpp
+index c5bbf52..bfaba40 100644
+--- a/hpu_ops/backend/optimizer_ema_gen.cpp
++++ b/hpu_ops/backend/optimizer_ema_gen.cpp
+@@ -10,58 +10,29 @@
+  *
+  *******************************************************************************
+  */
+-#include "hpu_ops/optimizers_gen.h"
++#include "hpu_ops/op_backend.h"
+ #include "perf_lib_layer_params.h"
+ 
+ namespace sh = synapse_helpers;
+ 
+ namespace habana {
+ 
+-OutputMetaDataVector EMAOutputMetadata(const at::Stack& stack) {
+-  OutputMetaDataVector meta_vec;
+-  auto updated_ema_list = stack[1].toTensorList();
+-  meta_vec.reserve(updated_ema_list.size());
+-
+-  for (const at::Tensor& updated_ema_tensor : updated_ema_list) {
+-    OutputMetaData meta;
+-    meta.dtype = updated_ema_tensor.scalar_type();
+-    meta.shape = updated_ema_tensor.sizes().vec();
+-    meta_vec.push_back(meta);
+-  }
+-  return meta_vec;
+-}
+-
+-// in place variant
+-struct OptimizerFusedEmaOperator_ : OptimizerFusedEmaOperatorCommon {
+-  OptimizerFusedEmaOperator_(int device_id, c10::ScalarType scalar_type)
+-      : OptimizerFusedEmaOperatorCommon(
++class OptimizerFusedEmaOperator : public OpBackend {
++ public:
++  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)
++      : OpBackend(
+             device_id,
+-            NO_TPC + "OptimizerFusedEmaOperator_",
++            NO_TPC + "optimizer_fused_EmaOperator_",
+             scalar_type,
+             {},
+             {1}, // inplace ids
+             {},
+-            false) {
+-    SetOutputMetaFn(EMAOutputMetadata);
+-  }
++            false) {}
++
++  void AddNode(sh::graph& graph, const at::Stack& stack) override;
+ };
+ 
+-// out variant required for torch.compile functionalization
+-struct OptimizerFusedEmaOperator : OptimizerFusedEmaOperatorCommon {
+-  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)
+-      : OptimizerFusedEmaOperatorCommon(
+-            device_id,
+-            NO_TPC + "OptimizerFusedEmaOperator",
+-            scalar_type,
+-            {1},
+-            {},
+-            {},
+-            false) {
+-    SetOutputMetaFn(EMAOutputMetadata);
+-  }
+-};
+-
+-void OptimizerFusedEmaOperatorCommon::AddNode(
++void OptimizerFusedEmaOperator::AddNode(
+     sh::graph& graph,
+     const at::Stack& stack) {
+   StackGetter stackGetter(this, stack, "OptimizerFusedEmaOperator::AddNode");
+@@ -116,7 +87,6 @@
+ 
+ } // namespace habana
+ 
+-static auto& OptimizerKernelsKernelRegistry =
+-    habana::KernelRegistry()
+-        .add("hpu::optimizer_ema_", KERNEL_FN(OptimizerFusedEmaOperator_))
+-        .add("hpu::optimizer_ema", KERNEL_FN(OptimizerFusedEmaOperator));
++static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
++    "hpu::optimizer_ema",
++    KERNEL_FN(OptimizerFusedEmaOperator));
+diff --git a/hpu_ops/optimizers_gen.h b/hpu_ops/optimizers_gen.h
+deleted file mode 100644
+index 64a28c3..0000000
+--- a/hpu_ops/optimizers_gen.h
++++ /dev/null
+@@ -1,23 +0,0 @@
+-/******************************************************************************
+- * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+- * All Rights Reserved.
+- *
+- * Unauthorized copying of this file or any element(s) within it, via any medium
+- * is strictly prohibited.
+- * This file contains Habana Labs, Ltd. proprietary and confidential information
+- * and is subject to the confidentiality and license agreements under which it
+- * was provided.
+- *
+- *******************************************************************************
+- */
+-
+-#pragma once
+-
+-#include "hpu_ops/hpu_op_helper.h"
+-#include "hpu_ops/op_backend.h"
+-
+-namespace habana {
+-
+-HPU_OP_BACKEND(OptimizerFusedEmaOperatorCommon);
+-
+-} // namespace habana
+diff --git a/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
+index 501038a..f21f06c 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
++++ b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
+@@ -287,11 +287,6 @@
+     return
+ 
+ 
+-@register_meta([torch.ops.hpu.optimizer_ema_.default])
+-def meta_optimizer_ema_(model_inputs, updated_ema, decay):
+-    return
+-
+-
+ @register_meta([torch.ops.hpu.optimizer_ema.default])
+ def meta_optimizer_ema(model_inputs, updated_ema, decay):
+     return [x.new_empty(x.shape) for x in model_inputs]
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+index 07b2cd6..b204e38 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+@@ -64,7 +64,6 @@
+     "scaled_triangular_softmax_retain",
+     "softmax_fp8",
+     "sum_fp8",
+-    "optimizer_ema",
+     # Torchvision
+     "roi_align",
+     "_roi_align_backward",
+diff --git a/python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py b/python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py
+index e40a40a..dce0a7f 100644
+--- a/python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py
++++ b/python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py
+@@ -1,5 +1,5 @@
+ ###############################################################################
+-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
++# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ # All Rights Reserved.
+ #
+ # Unauthorized copying of this file or any element(s) within it, via any medium
+@@ -10,6 +10,7 @@
+ #
+ ###############################################################################
+ 
++import math
+ from copy import deepcopy
+ 
+ import habana_frameworks.torch.core as htcore
+@@ -42,22 +43,20 @@
+             raise ValueError("Invalid decay value: {}".format(decay))
+ 
+         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
+-        self.decay = lambda x: decay * (
+-            1 - torch.exp(-torch.Tensor([x]) / 2000.0)
+-        )  # decay exponential ramp (to help early epochs) #decay
++        self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay
+         self.updates = updates
+-        self.updated_ema = list(self.ema.parameters())
++        self.updated_ema = list(self.ema.state_dict().values())
+         if is_lazy():
+             from habana_frameworks.torch import _hpex_C
+ 
+             self.op = _hpex_C.fused_ema
+         else:
+-            self.op = torch.ops.hpu.optimizer_ema_
++            self.op = torch.ops.hpu.optimizer_ema
+ 
+     def update(self, model):
+         htcore.step_closure._mark_step_if_lazy()
+ 
+-        model_inputs = list(model.parameters())
++        model_inputs = list(model.state_dict().values())
+         with torch.no_grad():
+             self.updates += 1
+             decy = self.decay(self.updates)
+diff --git a/scripts/ops_list/kr_ops.hpu b/scripts/ops_list/kr_ops.hpu
+index df4f694..b87f951 100644
+--- a/scripts/ops_list/kr_ops.hpu
++++ b/scripts/ops_list/kr_ops.hpu
+@@ -1007,7 +1007,6 @@
+ RegisterKernel::add op = hpu::normal.Tensor_Tensor
+ RegisterKernel::add op = hpu::optimizer_adamw
+ RegisterKernel::add op = hpu::optimizer_ema
+-RegisterKernel::add op = hpu::optimizer_ema_
+ RegisterKernel::add op = hpu::optimizer_lamb_fused_norm
+ RegisterKernel::add op = hpu::optimizer_lamb_phase1
+ RegisterKernel::add op = hpu::optimizer_lamb_phase2
+@@ -1102,4 +1101,4 @@
+ RegisterKernel::add op = quantized_decomposed::quantize_per_tensor.tensor2
+ RegisterKernel::add op = torchvision::roi_align
+ RegisterKernel::add op = torchvision::_roi_align_backward
+-RegisterKernel::add op = torchvision::nms
++RegisterKernel::add op = torchvision::nms
+\ No newline at end of file
+diff --git a/scripts/ops_list/ops.hpu b/scripts/ops_list/ops.hpu
+index 6b56baa..f0a6ab4 100644
+--- a/scripts/ops_list/ops.hpu
++++ b/scripts/ops_list/ops.hpu
+@@ -943,5 +943,3 @@
+ aten::matmul
+ hpu::optimizer_sgd
+ hpu::optimizer_sgd_momentum
+-hpu::optimizer_ema
+-hpu::optimizer_ema_
+diff --git a/tests/pytest_working/any_mode/test_ema.py b/tests/pytest_working/any_mode/test_ema.py
+index 0b77fab..1b65741 100644
+--- a/tests/pytest_working/any_mode/test_ema.py
++++ b/tests/pytest_working/any_mode/test_ema.py
+@@ -11,17 +11,13 @@
+ ###############################################################################
+ 
+ import math
+-import time
+-from contextlib import contextmanager
+ from copy import deepcopy
+ 
+ import pytest
+ import torch
+ import torch.nn.functional as F
+-from compile.test_dynamo_utils import use_eager_fallback
+-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+ from habana_frameworks.torch.hpex.movingavrg import FusedEMA
+-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, hpu, is_pytest_mode_compile
++from test_utils import compare_tensors, hpu
+ from torch import nn
+ 
+ 
+@@ -81,39 +77,20 @@
+ 
+ @pytest.mark.parametrize("decay", [0.9999, 0.5])
+ @pytest.mark.parametrize("epochs", [1, 2])
+-@pytest.mark.parametrize("precision", [torch.float, torch.bfloat16])
+-def test_ema(decay, epochs, precision):
+-    model_cpu = convModel().to(precision)
+-    model_cpu.zero_grad()
+-    model_hpu = deepcopy(model_cpu).to(hpu)
++def test_ema(decay, epochs):
++    cpu_model = convModel()
++    cpu_ema = convModel()
++    hpu_model = deepcopy(cpu_model).to(hpu)
++    hpu_ema = deepcopy(cpu_ema).to(hpu)
+ 
+-    inputs_cpu = torch.randn(1, 4, 28, 28).to(precision)
+-    inputs_hpu = deepcopy(inputs_cpu).to(hpu)
++    cpu_optim = EMA(cpu_ema, decay)
++    hpu_optim = FusedEMA(hpu_ema, decay)
+ 
+-    def run_and_update(model, optim, inputs):
+-        optim = optim(model, decay)
+-        params = []
+-        for _ in range(epochs):
+-            model_output = model(inputs)
+-            loss = torch.sum(model_output)
+-            loss.backward()
+-            optim.update(model)
+-            params = list(optim.ema.state_dict().values())
+-        return params
++    for _ in range(epochs):
++        cpu_optim.update(cpu_model)
++        hpu_optim.update(hpu_model)
+ 
+-    run_cpu = run_and_update
+-    run_hpu = run_and_update
+-    if is_pytest_mode_compile():
+-        clear_t_compile_logs()
+-        torch._dynamo.reset()
+-        run_hpu = torch.compile(run_and_update, backend="hpu_backend")
++        cpu_params = list(cpu_optim.ema.state_dict().values())
++        hpu_params = list(hpu_optim.ema.state_dict().values())
+ 
+-    # allow eager fallback because some of the operations in FusedEMA wrapper
+-    # needs CPU execution
+-    with use_eager_fallback():
+-        cpu_params = run_cpu(model_cpu, EMA, inputs_cpu)
+-        hpu_params = run_hpu(model_hpu, FusedEMA, inputs_hpu)
+-        for cp, hp in zip(cpu_params, hpu_params):
+-            compare_tensors(hp, cp, atol=1.0e-7, rtol=1.0e-5)
+-    if is_pytest_mode_compile():
+-        check_ops_executed_in_jit_ir("optimizer_ema")
++        compare_tensors(hpu_params, cpu_params, atol=1.0e-7, rtol=1.0e-5)

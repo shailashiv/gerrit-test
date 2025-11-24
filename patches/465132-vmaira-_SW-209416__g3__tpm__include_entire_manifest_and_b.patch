@@ -1,0 +1,60 @@
+From 5f30fed9b2e8fbde629d43146b1bc48ff23b3aba Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Thu, 05 Dec 2024 12:51:11 +0200
+Subject: [PATCH] [SW-209416] g3: tpm: include entire manifest and boot fit for pcr gen
+
+Earlier, manifest header(includes SVN, key index), public key,
+signature and CRC were excluded during manifest hash calculation.
+Similarly during boot fit hash calculation security footer was
+excluded.
+
+The exclusion was a temporary fix to avoid regenerating the PCR
+after signing with a new key, as signing alters key index, key,
+and signature fields.
+
+This patch updates the process to include the entire manifest
+(excluding the crc bytes)and boot fit for TPM PCR binary generation.
+The CRC bytes from the manifest are excluded during TPM PCR binary
+generation to align with ppboot, which also excludes CRC bytes in
+manifest during manifest hash generation. This ensures consistency
+across both processes.
+
+Change-Id: Id4cf1bd8643de9b1f4867bfee6d4279455ae77b1
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/board/habanalabs/gaudi3/post-image-fit-descriptor.sh b/board/habanalabs/gaudi3/post-image-fit-descriptor.sh
+index 2344466..03d8961 100644
+--- a/board/habanalabs/gaudi3/post-image-fit-descriptor.sh
++++ b/board/habanalabs/gaudi3/post-image-fit-descriptor.sh
+@@ -2,6 +2,7 @@
+ 
+ function hl_handle_desc
+ {
+-	openssl dgst -sha384 -binary ${ITBS_DIR}/${HL_DEV}-boot-fit.itb > ${ITBS_DIR}/img-hash-${HL_DEV}-boot-fit.sha384
+ 	add_descriptor_to_fit ${ITBS_DIR}/${HL_DEV}-boot-fit.itb
++	openssl dgst -sha384 -binary ${ITBS_DIR}/${HL_DEV}-boot-fit.itb \
++	> ${ITBS_DIR}/img-hash-${HL_DEV}-boot-fit.sha384
+ }
+diff --git a/board/habanalabs/gaudi3_arc/post-image-spi.sh b/board/habanalabs/gaudi3_arc/post-image-spi.sh
+index 4921ce6..9fcd388 100755
+--- a/board/habanalabs/gaudi3_arc/post-image-spi.sh
++++ b/board/habanalabs/gaudi3_arc/post-image-spi.sh
+@@ -269,15 +269,10 @@
+ 	hash_output=${STAGE_DIR}/img-hash-${input}.sha384
+ 
+ 	input_size=$(stat -c %s "$input_full_path")
+-	local pub_key_size=784
+-	local sig_size=384
+ 	#img ptrs size is less than 64kB. setting num_crc=1, crc_bytes=4
+ 	local crc_bytes=4
+-	local img_ptrs_hdr_size=32
+-	#remove image ptr hdr, public key, signature and crc bytes as they will change post signing
+-	truncate_bytes=$((img_ptrs_hdr_size+pub_key_size+sig_size+crc_bytes))
+-	count=$(( $input_size - $truncate_bytes ))
+-	dd if="$input_full_path" of="$output" bs=1 skip=$img_ptrs_hdr_size count=${count}
++	count=$(( $input_size - $crc_bytes ))
++	dd if="$input_full_path" of="$output" bs=1 count=${count}
+ 	openssl dgst -sha384 -binary ${output} > ${hash_output}
+ 	rm -rf ${output}
+ }

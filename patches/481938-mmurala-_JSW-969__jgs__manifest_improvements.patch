@@ -1,0 +1,404 @@
+From 0eb353b18e43798d073b148795feb7e811c79ede Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Mon, 16 Jun 2025 16:57:13 +0300
+Subject: [PATCH] [JSW-969] jgs: manifest improvements
+
+This patch has changes related to boot flow to
+simplify the usage of manifest index and type.
+Added simplified prefetch status structure to
+maintain prefetch status as done, failed, valid,
+and manifest index based on fw update/flip.
+Used very simple approach to maintain manifest
+type with structure array, to avoid frequent
+manifest index switching based on type.
+
+Change-Id: I92fd1f9e4b89c7bb82c44b9986bd9123e3d20cc3
+---
+
+diff --git a/app/boot_rom.c b/app/boot_rom.c
+index 8819a86..6683a88 100644
+--- a/app/boot_rom.c
++++ b/app/boot_rom.c
+@@ -59,7 +59,7 @@
+ 	}
+ 
+ 	/* If any ppboot secondary prefetch is not done, start prefetch */
+-	if (boot_rom_boot_flow_is_secondary_manifest_valid())
++	if (boot_rom_boot_flow_is_manifest_valid(BOOT_ROM_SECONDARY))
+ 		boot_rom_boot_flow_prefetch_img(HL_FW_IMG_PPBOOT);
+ 
+ 	if (boot_rom_boot_flow_is_ppboot_valid(BOOT_ROM_PRIMARY)) {
+diff --git a/arch/jgs/arc/common.c b/arch/jgs/arc/common.c
+index 831cfe7..f5206b1 100644
+--- a/arch/jgs/arc/common.c
++++ b/arch/jgs/arc/common.c
+@@ -32,6 +32,7 @@
+ #include <boot_desc.h>
+ #include <dev_spi_flash.h>
+ #include <dev_boot_info.h>
++#include <boot_flow.h>
+ 
+ extern const int gpu_die_type;
+ 
+@@ -171,10 +172,13 @@
+ 	boot_rom_global.tpm_extend_done = cold_rst_data.tpm_validation_flag;
+ 	boot_rom_global.fuse_emulation_init_done = cold_rst_data.fuse_emulation_init_done;
+ 
+-	if (fw_upd_status == FLOPS_UPD_PENDING)
++	/* TODO: who will set/clear FLOPS_UPD_PENDING */
++	if (fw_upd_status == FLOPS_UPD_PENDING) {
+ 		boot_rom_global.fw_upd_switch_manifest = 1;
+-	else
++		boot_flow_flip_manifest();
++	} else {
+ 		boot_rom_global.fw_upd_switch_manifest = 0;
++	}
+ }
+ 
+ int boot_rom_mem_init(uint64_t addr, uint32_t size)
+diff --git a/common/boot_flow.c b/common/boot_flow.c
+index 26d6a1c..6212061 100644
+--- a/common/boot_flow.c
++++ b/common/boot_flow.c
+@@ -17,28 +17,37 @@
+ #include <dev_security.h>
+ #include <secure_boot.h>
+ 
+-/* These fields will be added to proper structure later */
+-static enum hl_fw_manifest_type primary_manifest_idx = HL_FW_SPI_MANIFEST_0;
+-bool primary_manifest_valid;
+-bool secondary_manifest_valid;
+-bool primary_ppboot_prefetch_started;
+-bool primary_ppboot_prefetch_failed;
+-bool secondary_ppboot_prefetch_started;
+-bool secondary_ppboot_prefetch_failed;
++/* pf_sts[0] primary, pf_sts[1] secondary */
++struct pre_fetch_status pf_sts[BOOT_ROM_NUM_OF_MANIFESTS] = {
++	{.man_idx = HL_FW_SPI_MANIFEST_0, .resv = 0, .resv2 = 0,
++		.valid = false, .started = false, .failed = false, .done = false},
++	{.man_idx = HL_FW_SPI_MANIFEST_1, .resv = 0, .resv2 = 0,
++		.valid = false, .started = false, .failed = false, .done = false},
++};
+ 
+-static uint32_t boot_flow_prefetch_img_sub(enum hl_fw_manifest_type manifest_idx,
+-					enum hl_fw_img_type img_type, struct boot_desc *desc,
+-					enum boot_rom_progress img_sts_base)
++void boot_flow_flip_manifest()
++{
++	pf_sts[BOOT_ROM_PRIMARY].man_idx = HL_FW_SPI_MANIFEST_1;
++	pf_sts[BOOT_ROM_SECONDARY].man_idx = HL_FW_SPI_MANIFEST_0;
++}
++
++static uint32_t boot_flow_prefetch_img_sub(enum hl_fw_manifest_type man_idx,
++					enum hl_fw_img_type img_type, struct boot_desc *desc)
+ {
+ 	int err;
++	/* TODO: Image status base is complicated. Handle based on img_type */
++	enum boot_rom_progress img_sts_base;
+ 
+-	if (!boot_rom_boot_desc_init_done(manifest_idx))
++	img_sts_base = (man_idx == HL_FW_SPI_MANIFEST_1) ? PROGRESS_BRINGUP_PCI_SEC_TOO_BIG :
++		PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;
++
++	if (!boot_rom_boot_desc_init_done(man_idx))
+ 		return BOOT_ROM_FAIL;
+ 
+ 	boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_START);
+ 
+ 	/* get image descriptor from the manifest */
+-	if (boot_desc_get_img_desc(manifest_idx, img_type, desc, 0) != BOOT_ROM_SUCCESS) {
++	if (boot_desc_get_img_desc(man_idx, img_type, desc, 0) != BOOT_ROM_SUCCESS) {
+ 		boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_NO_IMG_DESC);
+ 		return BOOT_ROM_FAIL;
+ 	}
+@@ -48,11 +57,11 @@
+ 	    != BOOT_ROM_SUCCESS)
+ 		return BOOT_ROM_FAIL;
+ 
+-	err = boot_rom_spi_dma(desc->img_size, desc->spi_offset[manifest_idx], desc->loadaddr,
++	err = boot_rom_spi_dma(desc->img_size, desc->spi_offset[man_idx], desc->loadaddr,
+ 		true);
+ 
+ 	if (boot_rom_process_dma_err(err, img_sts_base)) {
+-		boot_rom_report_image_status(manifest_idx, CRC_FAIL);
++		boot_rom_report_image_status(man_idx, CRC_FAIL);
+ 		return BOOT_ROM_FAIL;
+ 	}
+ 
+@@ -62,8 +71,6 @@
+ uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type)
+ {
+ 	struct boot_desc desc = {0};
+-	/* TODO: Image status base is complicated. Handle based on img_type */
+-	enum boot_rom_progress img_sts_base = PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;
+ 	enum hl_fw_manifest_type curr_manifest_idx;
+ 	uint32_t ret = BOOT_ROM_FAIL;
+ 
+@@ -77,39 +84,28 @@
+ 	 * All manifest switches should be tracked through
+ 	 * single source file boot_flow.c
+ 	 */
+-	/* TODO: If 2ndary image disable, we will not support fw update ?*/
+-	if (boot_rom_second_image_enabled() &&
+-		(!!boot_rom_global.fw_upd_switch_manifest)) {
+-		primary_manifest_idx = HL_FW_SPI_MANIFEST_1;
+-		img_sts_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;
+-	}
+ 
+-	curr_manifest_idx = primary_manifest_idx;
+-
+-	if (!primary_ppboot_prefetch_started && !primary_ppboot_prefetch_failed) {
+-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
+-		if (!ret) {
+-			primary_ppboot_prefetch_started = true;
++	curr_manifest_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;
++	if (!pf_sts[BOOT_ROM_PRIMARY].done && !pf_sts[BOOT_ROM_PRIMARY].failed) {
++		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc);
++		if (ret == BOOT_ROM_SUCCESS) {
++			pf_sts[BOOT_ROM_PRIMARY].done = true;
+ 			return BOOT_ROM_SUCCESS;
+ 		}
+-		primary_ppboot_prefetch_failed = true;
++		pf_sts[BOOT_ROM_PRIMARY].failed = true;
+ 	}
+ 
+ 	if (!boot_rom_second_image_enabled())
+ 		return BOOT_ROM_FAIL;
+ 
+-	if (!secondary_ppboot_prefetch_started && !secondary_ppboot_prefetch_failed) {
+-		curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-
+-		/* TODO: What to do if fw upd switch enabled and flow comes here? */
+-		img_sts_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;
+-
+-		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc, img_sts_base);
+-		if (!ret) {
+-			secondary_ppboot_prefetch_started = true;
++	curr_manifest_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;
++	if (!pf_sts[BOOT_ROM_SECONDARY].done && !pf_sts[BOOT_ROM_SECONDARY].failed) {
++		ret = boot_flow_prefetch_img_sub(curr_manifest_idx, img_type, &desc);
++		if (ret == BOOT_ROM_SUCCESS) {
++			pf_sts[BOOT_ROM_SECONDARY].done = true;
+ 			return BOOT_ROM_SUCCESS;
+ 		}
+-		secondary_ppboot_prefetch_failed = true;
++		pf_sts[BOOT_ROM_SECONDARY].failed = true;
+ 	}
+ 
+ 	return BOOT_ROM_FAIL;
+@@ -140,11 +136,9 @@
+ {
+ 	void (*ppboot)();
+ 	struct boot_desc desc = {0};
+-	enum hl_fw_manifest_type man_idx = primary_manifest_idx;
++	enum hl_fw_manifest_type man_idx;
+ 
+-	if (man_type == BOOT_ROM_SECONDARY) {
+-		man_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-	}
++	man_idx = pf_sts[man_type].man_idx;
+ 
+ 	if (!boot_rom_boot_flow_is_manifest_valid(man_type))
+ 		return;
+@@ -182,37 +176,26 @@
+ 
+ void boot_rom_boot_flow_validate_manifests(void)
+ {
+-	enum hl_fw_manifest_type curr_manifest_idx = HL_FW_SPI_MANIFEST_0;
++	enum hl_fw_manifest_type man_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;
+ 
+-	if (!!boot_rom_global.fw_upd_switch_manifest)
+-		curr_manifest_idx = HL_FW_SPI_MANIFEST_1;
+-
+-	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
+-		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)
+-			primary_manifest_valid = true;
++	if (boot_rom_boot_desc_init_done(man_idx)) {
++		if (boot_rom_verify_manifest(man_idx) == BOOT_ROM_SUCCESS)
++			pf_sts[BOOT_ROM_PRIMARY].valid = true;
+ 	}
+ 
+ 	if (!boot_rom_second_image_enabled())
+ 		return;
+ 
+-	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-	if (boot_rom_boot_desc_init_done(curr_manifest_idx)) {
+-		if (boot_rom_verify_manifest(curr_manifest_idx) == BOOT_ROM_SUCCESS)
+-			secondary_manifest_valid = true;
++	man_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;;
++	if (boot_rom_boot_desc_init_done(man_idx)) {
++		if (boot_rom_verify_manifest(man_idx) == BOOT_ROM_SUCCESS)
++			pf_sts[BOOT_ROM_SECONDARY].valid = true;
+ 	}
+ }
+ 
+-bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests rom_manifest_type)
++bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests man_type)
+ {
+-	if (rom_manifest_type)
+-		return secondary_manifest_valid;
+-	else
+-		return primary_manifest_valid;
+-}
+-
+-bool boot_rom_boot_flow_is_secondary_manifest_valid(void)
+-{
+-	return secondary_manifest_valid;
++	return pf_sts[man_type].valid;
+ }
+ 
+ void boot_rom_boot_flow_wait_for_dma_finish(void)
+@@ -227,22 +210,19 @@
+ 
+ }
+ 
+-bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests rom_manifest_type)
++bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests man_type)
+ {
+ 	enum boot_rom_progress status_base = PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;
+-	enum hl_fw_manifest_type man_idx = primary_manifest_idx;
++	enum hl_fw_manifest_type man_idx = pf_sts[man_type].man_idx;
+ 
+-	if (!boot_rom_boot_flow_is_manifest_valid(rom_manifest_type))
++	if (!boot_rom_boot_flow_is_manifest_valid(man_type))
+ 		return false;
+ 
+ 	if (!security_efuse_image_validation_en())
+ 		return true;
+ 
+-	if (rom_manifest_type == BOOT_ROM_SECONDARY)
+-		man_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-
+-	if (man_idx == HL_FW_SPI_MANIFEST_1)
+-		status_base = PROGRESS_BRINGUP_PCI_SEC_TOO_BIG;
++	status_base = (man_idx == HL_FW_SPI_MANIFEST_1) ? PROGRESS_BRINGUP_PCI_SEC_TOO_BIG :
++		PROGRESS_BRINGUP_PCI_PRI_TOO_BIG;
+ 
+ 	if (boot_rom_verify_fw_image_hash384(man_idx, HL_FW_IMG_PPBOOT)) {
+ 		boot_rom_status_update_bringup(status_base, PROGRESS_BRINGUP_VERIFY_SUCCESS);
+@@ -255,35 +235,29 @@
+ 	return false;
+ }
+ 
+-uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests recovery_manifest)
++uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests rec_man_type)
+ {
+-	enum hl_fw_manifest_type manifest_idx = primary_manifest_idx;
++	enum hl_fw_manifest_type man_idx = pf_sts[rec_man_type].man_idx;
+ 
+-	if (recovery_manifest == BOOT_ROM_SECONDARY)
+-		manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-
+-	if (!boot_rom_boot_flow_is_manifest_valid(recovery_manifest))
++	if (!boot_rom_boot_flow_is_manifest_valid(rec_man_type))
+ 		return 0;
+ 
+-	return boot_desc_get_recovery_img_count(manifest_idx);
++	return boot_desc_get_recovery_img_count(man_idx);
+ }
+ 
+-uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests recovery_manifest,
++uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests rec_man_type,
+ 						  uint32_t img_count,
+ 						  enum boot_rom_progress img_sts_base)
+ {
+-	enum hl_fw_manifest_type manifest_idx = primary_manifest_idx;
++	enum hl_fw_manifest_type man_idx = pf_sts[rec_man_type].man_idx;
+ 	struct boot_desc desc = {0};
+ 	uint32_t i;
+ 	int err;
+ 	void (*recovery)();
+ 
+-	if (recovery_manifest == BOOT_ROM_SECONDARY)
+-		manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-
+ 	/* get image descriptor from the manifest */
+ 	for (i = 0; i < img_count; i++) {
+-		if (boot_desc_get_img_desc(manifest_idx, HL_FW_IMG_RECOVERY, &desc, i)
++		if (boot_desc_get_img_desc(man_idx, HL_FW_IMG_RECOVERY, &desc, i)
+ 			!= BOOT_ROM_SUCCESS) {
+ 			boot_rom_status_update_bringup(img_sts_base, PROGRESS_BRINGUP_NO_IMG_DESC);
+ 			return BOOT_ROM_FAIL;
+@@ -294,7 +268,7 @@
+ 		!= BOOT_ROM_SUCCESS)
+ 			return BOOT_ROM_FAIL;
+ 
+-		err = boot_rom_spi_dma(desc.img_size, desc.spi_offset[manifest_idx], desc.loadaddr,
++		err = boot_rom_spi_dma(desc.img_size, desc.spi_offset[man_idx], desc.loadaddr,
+ 			true);
+ 
+ 		if (boot_rom_process_dma_err(err, img_sts_base))
+@@ -314,30 +288,27 @@
+ 	return BOOT_ROM_SUCCESS;
+ }
+ 
+-uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type manifest_idx)
++uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type man_idx)
+ {
+ 	struct boot_desc desc;
+ 
+-	if (boot_desc_get_img_desc(manifest_idx, HL_FW_IMG_FAKE_EFUSE, &desc, 0) == BOOT_ROM_FAIL)
++	if (boot_desc_get_img_desc(man_idx, HL_FW_IMG_FAKE_EFUSE, &desc, 0) == BOOT_ROM_FAIL)
+ 		return 0;
+ 
+-	return desc.spi_offset[manifest_idx];
++	return desc.spi_offset[man_idx];
+ }
+ 
+ enum boot_rom_status boot_flow_spi_efuse_manifest_init(uint8_t *slv_en)
+ {
+-	enum hl_fw_manifest_type curr_manifest_idx;
+-
++	enum hl_fw_manifest_type man_idx;
+ 	/* TODO: primary manifest init should be part of boot rom init */
+-	if (!!boot_rom_global.fw_upd_switch_manifest)
+-		primary_manifest_idx = HL_FW_SPI_MANIFEST_1;
+ 
+-	curr_manifest_idx = primary_manifest_idx;
+-	if (boot_desc_spi_efuse_init(curr_manifest_idx, slv_en) == BOOT_ROM_SUCCESS)
++	man_idx = pf_sts[BOOT_ROM_PRIMARY].man_idx;
++	if (boot_desc_spi_efuse_init(man_idx, slv_en) == BOOT_ROM_SUCCESS)
+ 		return BOOT_ROM_SUCCESS;
+ 
+-	curr_manifest_idx = (primary_manifest_idx + 1) % HL_FW_SPI_MANIFEST_MAX_NUM;
+-	if (boot_desc_spi_efuse_init(curr_manifest_idx, slv_en) == BOOT_ROM_SUCCESS)
++	man_idx = pf_sts[BOOT_ROM_SECONDARY].man_idx;
++	if (boot_desc_spi_efuse_init(man_idx, slv_en) == BOOT_ROM_SUCCESS)
+ 		return BOOT_ROM_SUCCESS;
+ 
+ 	return BOOT_ROM_FAIL;
+diff --git a/common/boot_flow.h b/common/boot_flow.h
+index da1114b..94ad9ce 100644
+--- a/common/boot_flow.h
++++ b/common/boot_flow.h
+@@ -8,13 +8,22 @@
+ 
+ #include <progress_bits.h>
+ 
++struct pre_fetch_status {
++	uint8_t man_idx;
++	uint8_t resv;
++	uint16_t resv2;
++	bool valid;
++	bool started;
++	bool failed;
++	bool done;
++};
++
+ uint32_t boot_rom_boot_flow_prefetch_img(enum hl_fw_img_type img_type);
+ void boot_rom_boot_flow_boot_ppboot(enum hl_fw_manifest_type man_idx);
+ void boot_rom_boot_flow_boot_ppboot_sub(enum boot_rom_manifests man_type);
+ void boot_rom_boot_flow_validate_manifests(void);
+ bool boot_rom_boot_flow_is_manifest_valid(enum boot_rom_manifests rom_manifest_type);
+ bool boot_rom_boot_flow_is_ppboot_valid(enum boot_rom_manifests rom_manifest_type);
+-bool boot_rom_boot_flow_is_secondary_manifest_valid(void);
+ void boot_rom_boot_flow_wait_for_dma_finish(void);
+ uint32_t boot_rom_boot_flow_get_recovery_img_count(enum boot_rom_manifests recovery_manifest);
+ uint32_t boot_rom_boot_flow_load_recovery_images(enum boot_rom_manifests recovery_manifest,
+@@ -22,5 +31,6 @@
+ 						  enum boot_rom_progress img_sts_base);
+ uint32_t boot_flow_get_spi_efuse_manifest_offset(enum hl_fw_manifest_type manifest_idx);
+ enum boot_rom_status boot_flow_spi_efuse_manifest_init(uint8_t *slv_en);
++void boot_flow_flip_manifest(void);
+ 
+ #endif /* _BOOT_FLOW_H_ */

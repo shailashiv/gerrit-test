@@ -1,0 +1,132 @@
+From 3710f336e4bcdd9dc0ac71db82d8318b8044e23d Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Wed, 30 Apr 2025 05:59:15 +0000
+Subject: [PATCH] [SW-227647] ipm: process no of msgs based on pi count
+
+Current ISR implementation only processes one msg at a time. This patch
+improves this by processing (pi-ci) msgs. This ensures that if there
+are more than one interrupts sent and one of it is missed, ISR can
+still process all the pending msgs.
+
+Change-Id: I44eff8d58b452a93d2121a6262d208fbe4baf9a4
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+(cherry picked from commit 6e552e295eebfa4a09a0e885a410bc4357bc6a75)
+---
+
+diff --git a/drivers/ipm/ipm_hl.c b/drivers/ipm/ipm_hl.c
+index 8951d03..1c95709 100644
+--- a/drivers/ipm/ipm_hl.c
++++ b/drivers/ipm/ipm_hl.c
+@@ -17,28 +17,49 @@
+ #define LOG_MODULE_NAME			ipm_hl
+ LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_IPM_LOG_LEVEL);
+ 
++/*
++ * Beware that this function is called from ISR. It processes the message and
++ * sends an ACK to the sender.
++ */
++static void process_message(const struct device *dev, struct ipm_hl_msg_hdr *msg)
++{
++	struct ipm_hl_data *data = DEV_DATA(dev);
++	uint8_t *addr = (uint8_t *)msg;
+ 
+-void ipm_hl_isr(const struct device *dev)
++	LOG_DBG("MSG RECEIVED: id: %d size: %d", msg->id, msg->size);
++	LOG_HEXDUMP_DBG((addr + sizeof(struct ipm_hl_msg_hdr)), msg->size, "receive");
++
++	/* Use zero copy */
++	if (data->callback)
++		data->callback(dev, data->user_data, msg->id,
++			(void *)(addr + sizeof(struct ipm_hl_msg_hdr)));
++	else
++		LOG_ERR("Callback not registered for IPM HL dev %p", dev);
++
++	msg->ack = true;
++	data->rx_ctrl->ci++;
++}
++
++/*
++ * Beware that this function is called from ISR. It finds the message in the mailbox
++ * and process it. If the message is not found, it returns false.
++ */
++
++static bool find_and_process_message(const struct device *dev)
+ {
+ 	const struct ipm_hl_config *config = DEV_CFG(dev);
+ 	struct ipm_hl_data *data = DEV_DATA(dev);
+ 	struct ipm_hl_msg_hdr *msg = NULL;
+-	uint8_t *addr;
+ 	uint32_t i;
+-
+-	if (data->rx_ctrl->pi == data->rx_ctrl->ci) {
+-		LOG_WRN("Spurious interrupt received. PI: %d, CI: %d",
+-			data->rx_ctrl->pi, data->rx_ctrl->ci);
+-		return;
+-	}
+ 
+ 	for (i = 0; i < config->rx.num_non_data_chunks; i++) {
+ 		msg = (struct ipm_hl_msg_hdr *) (data->rx_ndata_base +
+-						(i * data->chunk_hdr_sz));
++			   (i * data->chunk_hdr_sz));
+ 
+ 		if ((msg->busy) && (!msg->ack)) {
+ 			if (msg->seq_no == data->rx_ctrl->ci) {
+-				goto process_msg;
++				process_message(dev, msg);
++				return true;
+ 			} else {
+ 				LOG_DBG("Out of Order Msg. seq_no: %d expected: %d",
+ 					msg->seq_no, data->rx_ctrl->ci);
+@@ -52,7 +73,8 @@
+ 
+ 		if ((msg->busy) && (!msg->ack)) {
+ 			if (msg->seq_no == data->rx_ctrl->ci) {
+-				goto process_msg;
++				process_message(dev, msg);
++				return true;
+ 			} else {
+ 				LOG_DBG("Out of Order Msg. seq_no: %d expected: %d",
+ 					msg->seq_no, data->rx_ctrl->ci);
+@@ -60,24 +82,27 @@
+ 		}
+ 	}
+ 
+-	LOG_WRN("Spurious interrupt received. Possibly due to sequence number mismatch");
++	LOG_WRN("Spurious interrupt received. PI: %d, CI: %d",
++		data->rx_ctrl->pi, data->rx_ctrl->ci);
++	return false;
++}
+ 
+-	return;
++void ipm_hl_isr(const struct device *dev)
++{
++	struct ipm_hl_data *data = DEV_DATA(dev);
++	uint32_t num_of_msgs = data->rx_ctrl->pi - data->rx_ctrl->ci;
+ 
+-process_msg:
+-	addr = (uint8_t *) msg;
+-	LOG_DBG("MSG RECEIVED: id: %d size: %d", msg->id, msg->size);
+-	LOG_HEXDUMP_DBG((addr + sizeof(struct ipm_hl_msg_hdr)), msg->size, "receive");
++	if (num_of_msgs == 0) {
++		LOG_WRN("Spurious interrupt received");
++		return;
++	}
+ 
+-	/* Use zero copy */
+-	if (data->callback)
+-		data->callback(dev, data->user_data, msg->id,
+-				(void *)(addr + sizeof(struct ipm_hl_msg_hdr)));
+-	else
+-		LOG_ERR("Callback not registered for IPM HL dev %p", dev);
+-
+-	msg->ack = true;
+-	data->rx_ctrl->ci++;
++	while (num_of_msgs > 0) {
++		if (!find_and_process_message(dev)) {
++			break;
++		}
++		num_of_msgs = data->rx_ctrl->pi - data->rx_ctrl->ci;
++	}
+ }
+ 
+ /*

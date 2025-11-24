@@ -1,0 +1,43 @@
+From 64c5551c5d2a16aad5d4a1d5a6bdf6d48664e16e Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Thu, 05 Dec 2024 12:03:41 +0200
+Subject: [PATCH] [SW-209416] g3: tpm: include security footer in fit hash calc
+
+Previously, the manifest hash was calculated by excluding the manifest
+header (including SVN and key index), public key, signature, and CRC
+from the manifest image. This hash was extended to the TPM PCR. The
+exclusion was a temporary workaround to avoid PCR regeneration when
+signing with a new key, as signing modifies the key index, key, and
+signature fields.
+
+For manifest hash calculation, ppboot reuses the manifest image already
+present in ICCM memory instead of reading from flash. Manifest image is
+copied from flash to ICCM memory by the bootrom. The bootrom uses a DMA
+engine for this transfer, which skips copying the CRC region and instead
+uses the CRC bytes only to verify the transfer's success. As a result,
+the manifest hash calculation excludes the 4-byte CRC since it is not
+present in the ICCM copy.
+
+Ideally, the PCR should be derived from the hash of the complete
+manifest. This patch updates the process in ppboot to calculate the
+manifest hash using the full manifest image, excluding only the CRC
+bytes.
+
+Change-Id: I7a47244f3258b611c3e844cca768f1ff8df5af2f
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/lib/security/security.c b/lib/security/security.c
+index 79ad15b..7b87820 100644
+--- a/lib/security/security.c
++++ b/lib/security/security.c
+@@ -71,6 +71,9 @@
+ 	/* hl fit files are padded so the size is 4 bytes aligned */
+ 	img_size = ROUND_UP4(img_size);
+ 
++	/* include fit security footer during fit hash calculation */
++	img_size += FIT_SEC_DESC_SIZE;
++
+ 	mbedtls_sha512_ret(img, img_size, fit_hash, 1);
+ 	hl_tpm_pcr_extend(fit_hash);
+ 	hl_boot_fit_hash_store(fit_hash);

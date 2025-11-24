@@ -1,0 +1,54 @@
+From 994ea2a90b83e1ffb9071e910ae56ff595c10a97 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Sun, 13 Oct 2024 15:51:51 +0300
+Subject: [PATCH] [SW-203620] installer: Fixed installer errors.
+
+- Environment variables not correctly pass through in $(_SUDO_CMD)
+- install package `file` as basic depemdency.
+- Check if '$HOME/.bashrc' not exist, create it.
+
+Change-Id: If6f97d4a6e399f42f7dc26665599befe674718b2
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+(cherry picked from commit e478f95096fdcc0050a7680e03604deec1ca358e)
+---
+
+diff --git a/installer/src/lib/_vars.sh b/installer/src/lib/_vars.sh
+index 8f5cad8..86016fc 100644
+--- a/installer/src/lib/_vars.sh
++++ b/installer/src/lib/_vars.sh
+@@ -16,7 +16,7 @@
+ 
+ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ 
+-BASIC_SCRIPT_DEPENDENCIES="gcc cmake lsof curl wget"
++BASIC_SCRIPT_DEPENDENCIES="gcc cmake lsof curl wget file"
+ 
+ DEB_DEPENDENCIES="linux-headers-${HEADER_VER} ethtool libelf-dev libbz2-dev liblzma-dev libibverbs-dev librdmacm-dev dkms"
+ HABANALABS_BASE_DEPENDENCIES=""
+diff --git a/installer/src/lib/common.sh b/installer/src/lib/common.sh
+index 3a9162b..00ff3b3 100644
+--- a/installer/src/lib/common.sh
++++ b/installer/src/lib/common.sh
+@@ -751,7 +751,7 @@
+             echo "deb http://ftp.debian.org/debian buster non-free" | ${_SUDO_CMD} tee -a /etc/apt/sources.list
+             echo "deb-src http://ftp.debian.org/debian buster non-free" | ${_SUDO_CMD} tee -a /etc/apt/sources.list
+             ${_SUDO_CMD} ${__pkg__} update
+-            ${_SUDO_CMD} DEBIAN_FRONTEND=noninteractive ${__pkg__} install -y libmkl-dev
++            ${_SUDO_CMD} env DEBIAN_FRONTEND=noninteractive ${__pkg__} install -y libmkl-dev
+         ;;
+         "centos"|"amzn")
+             if [ ! -f /etc/yum.repos.d/intel-mkl.repo ]; then
+diff --git a/installer/src/lib/pt_func.sh b/installer/src/lib/pt_func.sh
+index 2b6dc93..c893bfc 100644
+--- a/installer/src/lib/pt_func.sh
++++ b/installer/src/lib/pt_func.sh
+@@ -68,6 +68,9 @@
+         echo "export LD_PRELOAD=${__tcmalloc_path}" | tee -a ${HABANALABS_PROFILE_FILE}
+     fi
+     echo "#<<<< PT Habana ends" | tee -a ${HABANALABS_PROFILE_FILE}
++    if [ ! -f "$HOME/.bashrc" ]; then
++        touch "$HOME/.bashrc"
++    fi
+     sed --in-place '/habanalabsrc/d' $HOME/.bashrc
+     echo 'source $HOME/.habanalabsrc' | tee -a "${HOME}/.bashrc"
+ }

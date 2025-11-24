@@ -1,0 +1,313 @@
+From cdafd8fd48d13f5031dab5b276e158d71e360895 Mon Sep 17 00:00:00 2001
+From: Erez Shaul <eshaul@habana.ai>
+Date: Sun, 04 Aug 2024 17:07:16 +0300
+Subject: [PATCH] [FSW-1220] fs1: phy fw copy validation - playground
+
+this is a playground code use for validating pci fw copy
+in palladium
+
+Change-Id: I84da91961a270d5d8ce17946f6a1b59774d5f21b
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/app/ppboot/crt0_ppboot.S b/app/ppboot/crt0_ppboot.S
+index d9d7025..0ffd55c 100644
+--- a/app/ppboot/crt0_ppboot.S
++++ b/app/ppboot/crt0_ppboot.S
+@@ -5,6 +5,58 @@
+  * SPDX-License-Identifier:     GPL-2.0+
+  */
+ 
++.global _exit_halt
++.type _exit_halt, @function
++.align 4
++_exit_halt:
++	; r0 contains exit code
++	flag 0x01
++	nop
++	nop
++	nop
++	j @_exit_halt
++	nop
++
++
++.section .ivt, "a", @progbits
++
++; Helper macro to define weak symbols to include into interrupt vector table.
++; User code may define those functions in them, so user function will be
++; referenced in the IVT. By default all handlers point to _exit_halt - so they
++; always cause application halt, because if application causes an exception or
++; interrupt, but doesn't set a handler for it - something is wrong in
++; application. Exception is "start" entry of IVT, which points to __start
++; function.
++#define IVT_ENTRY(name) \
++    .word name `\
++    .weak name `\
++    .set name, _exit_halt
++
++; handler's name,		number,	name,			offset in IVT (hex/dec)
++.word _start			; 0	program entry point	0x0		0
++IVT_ENTRY(memory_error)		; 1	memory_error		0x4		4
++IVT_ENTRY(instruction_error)	; 2	instruction_error	0x8		8
++IVT_ENTRY(EV_MachineCheck)	; 3	EV_MachineCheck		0xC		12
++IVT_ENTRY(EV_TLBMissI)		; 4	EV_TLBMissI		0x10		16
++IVT_ENTRY(EV_TLBMissD)		; 5	EV_TLBMissD		0x14		20
++IVT_ENTRY(EV_ProtV)		; 6	EV_ProtV		0x18		24
++IVT_ENTRY(EV_PrivilegeV)	; 7	EV_PrivilegeV		0x1C		28
++IVT_ENTRY(EV_SWI)		; 8	EV_SWI			0x20		32
++IVT_ENTRY(EV_Trap)		; 9	EV_Trap			0x24		36
++IVT_ENTRY(EV_Extension)		; 10	EV_Extension		0x28		40
++IVT_ENTRY(EV_DivZero)		; 11	EV_DivZero		0x2C		44
++IVT_ENTRY(EV_DCError)		; 12	EV_DCError		0x30		48
++IVT_ENTRY(EV_Maligned)		; 13	EV_Maligned		0x34		52
++IVT_ENTRY(EV_Ex14)		; 14	unused			0x38		56
++IVT_ENTRY(EV_Ex15)		; 15	unused			0x3C		60
++IVT_ENTRY(IRQ_Timer0)		; 16	Timer 0			0x40		64
++IVT_ENTRY(IRQ_Timer1)		; 17	Timer 1			0x44		68
++IVT_ENTRY(IRQ_18)		; 18				0x48		72
++IVT_ENTRY(IRQ_19)		; 19				0x4C		76
++IVT_ENTRY(IRQ_20)		; 20				0x50		80
++
++.section .text.__startup, "ax", @progbits
++
+ /*
+  * This is preboot entry point
+  * Setting sp/fp/lr and jumping to C code
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index ebc57dd..25d4916 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -201,20 +201,22 @@
+ 
+ void hl_pcie_init(void)
+ {
++	preboot_puts("hl_pcie_init 2\n");
+ 	if (hl_is_pcie_link_up()) {
+ 		hl_pcie_enable_access();
+ 		link_is_up = true;
+ 		preboot_puts("PCIe link is already UP!\n");
+-		return;
++		//return;
+ 	}
+ 
+ 	if (hl_skip_pcie_init()) {
+ 		preboot_puts("PCIe initialization is skipped!\n");
+ 		return;
+ 	}
+-
++preboot_puts("hl_pcie_init 3\n");
+ 	/* let the log be device specific according to its restrictions */
+ 	ppboot_log_waiting_for_pcie();
++	preboot_puts("hl_pcie_init 4\n");
+ 	preboot_pcie_wait_for_link();
+ }
+ 
+@@ -293,12 +295,14 @@
+ 
+ static void ppboot_time_critical_section_start(void)
+ {
++	return;
+ 	/* prints are stored in mem buffer */
+ 	preboot_uart_rbuf_init();
+ }
+ 
+ static void ppboot_time_critical_section_end(void)
+ {
++	return;
+ 	preboot_uart_rbuf_flush();
+ 	preboot_uart_rbuf_disable();
+ 	preboot_puts("\n");
+@@ -335,15 +339,23 @@
+ 	/* Initialize internal if variables */
+ 	cpu_boot_if_init();
+ 	hl_plat_early_init();
++	hl_uart_init();
++preboot_puts("zzz\n");
+ 	hl_init_pcie_phy_fw();
++preboot_puts("zzz 2\n");	
++
+ 	hl_jtag_init();
+ 
+ 	preboot_sync_btl();
+-	hl_uart_init();
++preboot_puts("zzz 3\n");	
+ 	preboot_fuse_init();
++preboot_puts("zzz 4\n");		
+ 	spi_flash_prot_early();
++preboot_puts("zzz 5\n");	
+ 	ppboot_security_init();
+-	hl_pcie_init();
++preboot_puts("zzz 6\n");	
++hl_pcie_init();
++preboot_puts("zzz 7\n");
+ 	ppboot_tpm_extend();
+ 	/*
+ 	 * Enabling pcie elbi after ppboot_tpm_extend since elbi protection level
+diff --git a/arch/fs1/arc/common.c b/arch/fs1/arc/common.c
+index 9ded005..0ef9636 100644
+--- a/arch/fs1/arc/common.c
++++ b/arch/fs1/arc/common.c
+@@ -466,7 +466,10 @@
+ 	u64 start = timestamp_get_us();
+ 	u32 cpy_sts, copy_sz;
+ 	u32 cp_err, wr_err, rd_err;
+-	u32 sz_limit, sz_shift, sz_mask;
++	u32 sz_limit, sz_shift, sz_mask, val;
++preboot_puts_hex64("full_addr \n", src, false);
++preboot_puts_hex64("dst \n", dst, false);
++preboot_puts_hex("size \n", size, false);
+ 
+ 	if (is_hbw) {
+ 		sz_limit = MEM_CPY_HBW_SIZE_LIMIT;
+@@ -548,6 +551,34 @@
+ 		return -1;
+ 	}
+ 
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_COPY_ERR_STS);
++	preboot_puts_hex("error = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_WR_ERR_STS);
++	preboot_puts_hex("WR_ERR_STS = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_RD_ERR_STS);
++	preboot_puts_hex("RD_ERR_STS = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_NUM_COPIES_DONE);
++	preboot_puts_hex("NUM_COPIES_DONE = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_OS_CNT);
++	preboot_puts_hex("OS_CNT = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_SRC_ADDR_LSB);
++	preboot_puts_hex("mmMEM_COPY_SRC_ADDR_LSB = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_SRC_ADDR_MSB);
++	preboot_puts_hex("mmMEM_COPY_SRC_ADDR_MSB = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_DEST_ADDR_LSB);
++	preboot_puts_hex("mmMEM_COPY_DEST_ADDR_LSB = ", val, false);
++	val = regmap_readl(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_MEM_COPY_BASE +
++				       mmMEM_COPY_DEST_ADDR_MSB);
++	preboot_puts_hex("mmMEM_COPY_DEST_ADDR_MSB = ", val, false);
++
+ 	return 0;
+ }
+ 
+@@ -582,7 +613,7 @@
+ void hl_init_pcie_phy_fw(void)
+ {
+ 	u32 rst_src = hl_rst_src_get();
+-
++preboot_puts("xxx 6\n");
+ 	if (rst_src == HL_COLD_RST || rst_src == HL_MANUAL_RST)
+ 		hl_pcie_phy_fw_copy();
+ }
+@@ -627,6 +658,7 @@
+ 	return false;
+ }
+ 
++
+ #define PSOC_CPU_RUN_MASK	0x1
+ #define PSOC_CPU_HALT_MASK	0x2
+ 
+diff --git a/arch/fs1/arc/common.h b/arch/fs1/arc/common.h
+index 09a32d7..12a0598 100644
+--- a/arch/fs1/arc/common.h
++++ b/arch/fs1/arc/common.h
+@@ -26,7 +26,9 @@
+ #define BOOT_INFO_BASE			SP_SRAM_BASE
+ #define BOOT_INFO_SIZE			SZ_32K
+ 
+-#define PPBOOT_TEXT_BASE		FW_SRAM_BASE
++// #define PPBOOT_TEXT_BASE		FW_SRAM_BASE
++#define PPBOOT_TEXT_BASE		0
++
+ /* preboot sits after bootinfo */
+ #define PREBOOT_TEXT_BASE		(SP_SRAM_BASE + BOOT_INFO_SIZE)
+ #define PREBOOT_TEXT_BASE_FULL		(HL_SP_SRAM_BASE + BOOT_INFO_SIZE)
+diff --git a/arch/fs1/arc/palad.c b/arch/fs1/arc/palad.c
+index e70fa22..52a44c9 100644
+--- a/arch/fs1/arc/palad.c
++++ b/arch/fs1/arc/palad.c
+@@ -177,6 +177,7 @@
+ {
+ 	u32 val;
+ 
++preboot_puts("init_pcie_phy_fw_update 1\n");
+ 	/*
+ 	 * The exact size of data written to SRAM_LOCATIONS and CSR_LOCATIONS
+ 	 * is written to PHY_FW_FSM_SIZE register.
+@@ -221,17 +222,19 @@
+ 	 * FW should poll on PHY_FW_FSM_CTRL ➔ FW_FSM_PHY_INIT_DONE
+ 	 * which shows the completion of FW loading to the phy.
+ 	 */
+-
++preboot_puts("init_pcie_phy_fw_update 2\n");
+ 	/*
+ 	 * this code is commented out because pcie phy is not fully implemented
+ 	 * in palladium and it will hang the simulation.
+ 	 * once pcie phy is implemented, this code should be uncommented.
+ 	 * jira ticket: H15-352
+-	 *
+-	 * while (!(regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
+-	 * mmPCIE_FW_FSM_PHY_FW_FSM_CTRL) &
+-	 * PCIE_FW_FSM_PHY_FW_FSM_CTRL_FW_FSM_PHY_INIT_DONE_M));
+-	 *
++	 */
++	 while (!(regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	  mmPCIE_FW_FSM_PHY_FW_FSM_CTRL) &
++	  PCIE_FW_FSM_PHY_FW_FSM_CTRL_FW_FSM_PHY_INIT_DONE_M));
++
++preboot_puts("init_pcie_phy_fw_update 3\n");
++	 /*
+ 	 * preboot_puts("FW copied to phy successfully\n");
+ 	 */
+ }
+@@ -259,13 +262,13 @@
+ 	/* sram_loc_addr located at PPBOOT_LAST_ADDR, aligned to 16 bytes */
+ 	uint32_t sram_loc_addr = ALIGN_TO_16_BYTES(PPBOOT_LAST_ADDR);
+ 	const uint32_t *csr_loc_data = get_csr_locations();
+-
++preboot_puts("hl_pcie_phy_fw_copy\n");
+ 	full_addr = get_64bit_addr_from_32bit_addr(sram_loc_addr);
+ 	if (!full_addr) {
+ 		preboot_puts("Skipping phy init\n");
+ 		return;
+ 	}
+-
++preboot_puts("hl_pcie_phy_fw_copy2\n"); 
+ 	/* Copy SRAM_LOCATIONS to IO0_PCIE_FW_SRAM_FULL_BASE */
+ 	fs1_mem_copy(full_addr,
+ 		IO0_PCIE_FW_SRAM_FULL_BASE,
+@@ -273,6 +276,7 @@
+ 
+ 	/* Copy CSR_LOC_DATA to IO0_PCIE_FW_CSR_BASE */
+ 	memcpy(dst_csr, (const void *)csr_loc_data, get_csr_locations_data_size());
++	preboot_puts("hl_pcie_phy_fw_copy 4\n");
+ }
+ 
+ static void palad_pcie_params_init(void)
+@@ -313,6 +317,7 @@
+ 
+ void preboot_pcie_wait_for_link(void)
+ {
++	preboot_puts("preboot_pcie_wait_for_link\n");
+ 	init_pcie_phy_fw_update();
+ 
+ 	palad_pcie_params_init();
+diff --git a/arch/fs1/arc/ppboot.lds.S b/arch/fs1/arc/ppboot.lds.S
+index 94feb98..d16e619 100644
+--- a/arch/fs1/arc/ppboot.lds.S
++++ b/arch/fs1/arc/ppboot.lds.S
+@@ -26,6 +26,10 @@
+ ENTRY(_start)
+ SECTIONS
+ {
++	.ivt : {
++		KEEP (*(.ivt));
++	} > .sram
++
+ 	.text : {
+ 		. = ALIGN(8);
+ 		app/ppboot/crt0_ppboot.o (.text*)

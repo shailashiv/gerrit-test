@@ -1,0 +1,75 @@
+From 2a5b54b0e70410620da076dcf44485492825b1dd Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Thu, 23 Jan 2025 17:31:06 +0200
+Subject: [PATCH] [FSW-12120] fs1: remove duplicate mem read write
+
+With this patch, removed the duplicate mem read
+write functions which are used from common
+embedded specs.
+
+Change-Id: Iefe856e525dde201be6d1ba8489279a336fc1d66
+---
+
+diff --git a/arch/fs1/arc/common.h b/arch/fs1/arc/common.h
+index 09a32d7..502639d 100644
+--- a/arch/fs1/arc/common.h
++++ b/arch/fs1/arc/common.h
+@@ -18,7 +18,6 @@
+ 
+ /* CFG is at Arc region F, specs CFG base address is 0x70000000. 7+8 = 0xF */
+ /* defined here in addition to specs because they are in use im common code */
+-#define HL_CFG_BASE			0x80000000
+ #define FW_MEM_REGION_BASE		0x78800000 /* IO Die0 Half0 FW memories */
+ #define FW_SRAM_BASE			(FW_MEM_REGION_BASE + 0x1A0000)
+ #define SP_SRAM_BASE			(FW_MEM_REGION_BASE + 0x200000)
+diff --git a/include/baremetal.h b/include/baremetal.h
+index ae5e0bb..e1db588 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -115,46 +115,6 @@
+ 
+ extern u8 hl_asic_sn[FUSE_DEVID_SIZE];
+ 
+-#ifndef JIRA_FSW_12120
+-#define JIRA_FSW_12120
+-
+-static inline u8 regmap_readb(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return (u8)(reg & 0xFF);
+-}
+-
+-static inline void regmap_writeb(u8 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = (u32)val;
+-}
+-
+-static inline u32 regmap_readl(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return reg;
+-}
+-
+-static inline void regmap_writel(u32 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = val;
+-}
+-
+-static inline void regmap_rmwritel(u32 addr, u32 data, u32 mask)
+-{
+-	u32 val;
+-
+-	val = regmap_readl(addr);
+-	val &= ~mask;
+-	val |= (data << (__builtin_ffsll(mask) - 1));
+-
+-	regmap_writel(val, addr);
+-}
+-
+-#endif /* JIRA_FSW_12120 */
+-
+ #ifdef HL_SPI_GW_CFG_BASE
+ static inline void mirror_writel(u32 val, u32 offset)
+ {

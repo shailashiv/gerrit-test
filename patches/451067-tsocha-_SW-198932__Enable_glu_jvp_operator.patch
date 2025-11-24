@@ -1,0 +1,134 @@
+From 93840b0e636cfe316ff46c4921533ec68d1b06e8 Mon Sep 17 00:00:00 2001
+From: Tomasz Socha <tsocha@habana.ai>
+Date: Fri, 20 Sep 2024 12:54:52 +0300
+Subject: [PATCH] [SW-198932] Enable glu_jvp operator
+
+Change-Id: Iff2c4ada97aaa857a66d665c3f5fcd4dc7b7e5ee
+---
+
+diff --git a/hpu_ops/CMakeLists.txt b/hpu_ops/CMakeLists.txt
+index 5592ee6..c7e09b9 100644
+--- a/hpu_ops/CMakeLists.txt
++++ b/hpu_ops/CMakeLists.txt
+@@ -192,6 +192,7 @@
+   backend/gelu_gen.cpp
+   backend/geometric_gen.cpp
+   backend/glu_gen.cpp
++  backend/glu_jvp_gen.cpp
+   backend/grid_sampler3d_gen.cpp
+   backend/grid_sampler_gen.cpp
+   backend/habana_random_ops.cpp
+diff --git a/hpu_ops/backend/glu_jvp_gen.cpp b/hpu_ops/backend/glu_jvp_gen.cpp
+new file mode 100644
+index 0000000..72a3f2f
+--- /dev/null
++++ b/hpu_ops/backend/glu_jvp_gen.cpp
+@@ -0,0 +1,36 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++
++#include "generated/backend/glu_jvp.h"
++
++namespace habana {
++
++OutputMetaDataVector GluJvpMeta(const at::Stack& stack) {
++  OutputMetaData output;
++  const auto input_tensor = stack.at(0).toTensor();
++  output.shape = input_tensor.sizes().vec();
++  output.dtype = input_tensor.scalar_type();
++  return {output};
++}
++
++std::shared_ptr<void> FillGluJvpParams(
++    const at::Stack& stack,
++    size_t& size) {
++  const auto dim = stack.at(3).toScalar().toInt();
++
++  PARAMS_STUB(ns_GatherKernel::Params);
++  params->axis = dim;
++  return params;
++}
++}
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 7a669b2..1ec6912 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -3205,6 +3205,13 @@
+   guid: glu_bwd
+   op_validator: check-node-with-shared-layer
+ 
++glu_jvp:
++  output_meta: GluJvpMeta
++  custom_fill_params: FillGluJvpParams
++  guid: glu_jvp
++  out_ids: [0]
++  op_validator: check-node-with-shared-layer
++
+ grid_sampler_2d:
+   custom_fill_params: FillGridSamplerParams
+   output_meta: GridSampler2dMeta
+diff --git a/tests/pytest_working/any_mode/test_hpu_glu_jvp.py b/tests/pytest_working/any_mode/test_hpu_glu_jvp.py
+new file mode 100644
+index 0000000..0f0c45a
+--- /dev/null
++++ b/tests/pytest_working/any_mode/test_hpu_glu_jvp.py
+@@ -0,0 +1,48 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++import pytest
++import torch
++from test_utils import (
++    check_ops_executed_in_jit_ir,
++    compare_tensors,
++    compile_function_if_compile_mode,
++    format_tc,
++    is_pytest_mode_compile,
++)
++
++
++@pytest.mark.parametrize("shape", [[2, 2, 4], [4, 6, 4, 2, 6]], ids=format_tc)
++@pytest.mark.parametrize("dim", [-2, -1, 0, 1, 2])
++def test_hpu_glu(shape, dim):
++    def fn(glu, x, dx, dim):
++        return torch.ops.aten.glu_jvp(glu, x, dx, dim)
++
++    in_shape = shape.copy()
++    in_shape[dim] = in_shape[dim] // 2
++
++    cpu_input_glu = torch.rand(in_shape, dtype=torch.float)
++    cpu_input_x = torch.rand(shape, dtype=torch.float)
++    cpu_input_dx = torch.rand(shape, dtype=torch.float)
++    hpu_input_glu = cpu_input_glu.to("hpu")
++    hpu_input_x = cpu_input_x.to("hpu")
++    hpu_input_dx = cpu_input_dx.to("hpu")
++
++    cpu_output = fn(cpu_input_glu, cpu_input_x, cpu_input_dx, dim)
++    fn_hpu = compile_function_if_compile_mode(fn)
++
++    hpu_output = fn_hpu(hpu_input_glu, hpu_input_x, hpu_input_dx, dim)
++
++    compare_tensors(hpu_output, cpu_output, atol=0.001, rtol=1.0e-3)
++
++    if is_pytest_mode_compile():
++        check_ops_executed_in_jit_ir({"glu_jvp"})

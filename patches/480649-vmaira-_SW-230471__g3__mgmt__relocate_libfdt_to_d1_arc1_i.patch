@@ -1,0 +1,43 @@
+From f66f17b2ef46598b3b2355b397bb0e1c74c4b4a9 Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Wed, 28 May 2025 09:30:35 +0300
+Subject: [PATCH] [SW-230471] g3: mgmt: relocate libfdt to d1 arc1 iccm
+
+This patch moves the fdt library in arcmgmt to Die1 ARC1 ICCM.
+
+Arcmgmt is currently using 99% of Die 0 ARC1 ICCM. This change helps free
+up space. This is done in preparation for addition of secured protection
+bit configuraions.
+
+Before:
+Memory region         Used Size  Region Size  %age Used
+            ICCM:      257628 B       256 KB     98.28%
+            SRAM:      115044 B       256 KB     43.89%
+            DCCM:       55824 B        61 KB     89.37%
+     OFFLOAD_MEM:       28426 B        32 KB     86.75%
+        IDT_LIST:          0 GB         4 KB      0.00%
+
+After:
+Memory region         Used Size  Region Size  %age Used
+            ICCM:      252264 B       256 KB     96.23%
+            SRAM:      129320 B       256 KB     49.33%
+            DCCM:       55824 B        61 KB     89.37%
+     OFFLOAD_MEM:       28426 B        32 KB     86.75%
+        IDT_LIST:          0 GB         4 KB      0.00%
+
+Change-Id: I8882f4cfbfece3236078b3b3018e9ab3f36ca4ba
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2b97239..98839ed 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -136,4 +136,7 @@
+ zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/littlefs/zephyr/*.c LOCATION SRAM_TEXT_RODATA)
+ zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/soc_init/src/${DEVICE}/skyriver_rack_eeprom.c LOCATION SRAM_TEXT_RODATA)
+ zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/soc_init/src/hl_serdes/${DEVICE}/serdes.c LOCATION SRAM_TEXT_RODATA)
++zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/fdt/*.c LOCATION SRAM_TEXT_RODATA)
++zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/fdt/libfdt/*.c LOCATION SRAM_TEXT_RODATA)
++zephyr_code_relocate(FILES ${ZEPHYR_MODULES_DIR}/fdt/zephyr/*.c LOCATION SRAM_TEXT_RODATA)
+ endif()

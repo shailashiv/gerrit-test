@@ -1,0 +1,1228 @@
+From 11e56639630cb385a11f95e79d5476f1e4bb982f Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Wed, 11 Dec 2024 12:57:16 +0200
+Subject: [PATCH] [SW-210370] agent: integrated common verify functions
+
+Integrated emb common fit verify, fit rsa, fit regions
+to verify the fit loaded in SRAM.
+
+Removed the redundant verification functions and files.
+
+Added some security functions to align with emb cmn mods.
+
+Change-Id: Ibb83c4115871138740e46046e8df42dc4c380bab
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/common/include/fit.h b/common/include/fit.h
+index 1fa823d..f43df7f 100644
+--- a/common/include/fit.h
++++ b/common/include/fit.h
+@@ -24,39 +24,10 @@
+ #define MAX_FDT_REGIONS		20
+ #define IMAGE_MAX_HASHED_NODES	20
+ 
+-#define FIT_MAX_IMAGES		8
+-
+-#define HL_SEC_KEY_NAME		"hl_rsa3072"
+-
+ extern uint32_t err_sts_reg_val;
+ 
+-struct fit_image {
+-	unsigned long long loadaddr;
+-	unsigned long long startaddr;
+-	const char *arch;
+-};
+-
+-/**
+- * struct key_prop - holder for a public key properties
+- *
+- * The struct has pointers to modulus (Typically called N),
+- * The inverse, R^2, exponent. These can be typecasted and
+- * used as byte arrays or converted to the required format
+- * as per requirement of RSA implementation.
+- */
+-struct key_prop {
+-	const void *rr;		/* R^2 can be treated as byte array */
+-	const void *modulus;	/* modulus as byte array */
+-	const void *public_exponent; /* public exponent as byte array */
+-	uint32_t n0inv;		/* -1 / modulus[0] mod 2^32 */
+-	int num_bits;		/* Key length in bits */
+-	uint32_t exp_len;	/* Exponent length in number of uint8_t */
+-};
+-
+ int fit_verify_image(const void *fit, int image_node_off);
+-const void *get_public_key(const void *fit, int noffset);
+ int fit_decompress_image(uint64_t dst, const void *buf, int len,
+ 		const char *cmpr, uint32_t max_dst_size);
+-int fit_get_key_prop(const void *pub_key_fit, const char *key_name, struct key_prop *prop);
+ void fit_set_err(enum hl_fw_fit_boot_error err);
+ #endif /* __FIT_H */
+diff --git a/common/include/image.h b/common/include/image.h
+index 9fe8262..0f7bc99 100644
+--- a/common/include/image.h
++++ b/common/include/image.h
+@@ -59,64 +59,9 @@
+ 
+ # define FIT_IMAGE_ENABLE_VERIFY	1
+ 
+-/* A part of an image, used for hashing */
+-struct image_region {
+-	const void *data;
+-	int size;
+-};
+-
+-
+-/* Information passed to the verification routines */
+-struct verif_params {
+-	const char *keydir;             /* Directory conaining keys */
+-	const char *keyname;            /* Name of key to use */
+-	void *fit;                      /* Pointer to FIT blob */
+-	int node_offset;                /* Offset of signature node */
+-	const char *name;               /* Algorithm name */
+-	struct crypto_algo *crypto;     /* Crypto algorithm information */
+-	const void *pub_key_blob;           /* FDT containing public keys */
+-	int required_keynode;           /* Node offset of key to use: -1=any */
+-	const char *require_keys;       /* Value for 'required' property */
+-	const char *engine_id;          /* Engine to use for signing */
+-	/*
+-	 * Note: the following two fields are always valid even w/o
+-	 * RSA_VERIFY_WITH_PKEY in order to make sure this structure is
+-	 * the same on target and host. Otherwise, vboot test may fail.
+-	 */
+-	const void *key;                /* Pointer to public key in DER */
+-	int keylen;                     /* Length of public key */
+-};
+-
+-struct crypto_algo {
+-	const char *name;               /* Name of algorithm */
+-	const int key_len;
+-
+-	/**
+-	 * verify() - Verify a signature against some data
+-	 *
+-	 * @verif_args:		Specifies key and FIT information
+-	 * @region:		Pointer to the regions
+-	 * @region_count:	region counts
+-	 * @sig:		Signature
+-	 * @sig_len:		Number of bytes in signature
+-	 * @return:		0 if verified, -ve on error
+-	 */
+-	int (*verify)(struct verif_params *verif_args,
+-			const struct image_region region[], int region_count,
+-			uint8_t *sig, uint32_t sig_len);
+-};
+-
+ int get_hash_algo_name(const void *fit, int noffset, char **algo);
+ int get_hash_value_fit_image(const void *fit, int noffset, uint8_t **value,
+ 				int *value_len);
+-
+-/**
+- * get_rsa_algo() - Look up a cryptosystem algorithm
+- *
+- * @param full_name     Name of algorithm in the form "checksum,crypto"
+- * @return pointer to algorithm information, or NULL if not found
+- */
+-struct crypto_algo *get_rsa_algo(const char *full_name);
+ 
+ #endif
+ #endif
+diff --git a/common/include/security.h b/common/include/security.h
+index 5efa267..4e58ad2 100644
+--- a/common/include/security.h
++++ b/common/include/security.h
+@@ -30,7 +30,6 @@
+ bool hl_sec_is_enabled(void);
+ int hl_sec_write_otp(const struct device *flash_dev, const void *buf,
+ 			size_t size);
+-int hl_sec_fit_config_verify(const void *fit, int conf);
+ int hl_sec_revoke_key(void);
+ void hl_sec_check_setup(void);
+ int hl_sec_get_status(struct hl_sec_status *status);
+@@ -46,8 +45,6 @@
+ void hl_sec_dyn_img_open(uint64_t off, uint32_t size);
+ void hl_sec_dyn_img_close(void);
+ void hl_sec_dynamic_init(void);
+-int get_pub_key_node(const void *pub_key_fit, const char *key_name);
+-int hl_sec_verify_img_sig(const void *fit, size_t img_size);
+ int hl_sec_get_rr_dump_config(void **p_dst, uint32_t *size);
+ 
+ int hl_sec_write_tpm_devid(void);
+@@ -62,10 +59,8 @@
+ int hl_sec_validate_key_idx(int key_idx);
+ int hl_sec_validate_public_key(const void *data, size_t size, int key_sec_idx);
+ void hl_sec_config_dyn_rr(int rr, uint64_t min64, uint64_t max64);
+-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,
+-		       size_t sec_desc_size, const void *pub_key_fit,
+-		       uint8_t *sig, size_t sig_len);
+ bool hl_sec_img_verf_is_enabled(void);
+ int fit_image_signature_validation(const char *img_name, const void *data, size_t image_size);
+ bool hl_extract_hash_from_key(const void *pub_key, uint8_t *value);
++
+ #endif /* _HL_MACH_SECURITY_H_ */
+diff --git a/common/include/sha.h b/common/include/sha.h
+new file mode 100644
+index 0000000..f94724f
+--- /dev/null
++++ b/common/include/sha.h
+@@ -0,0 +1,41 @@
++/* SPDX-License-Identifier: Apache-2.0
++ * Copyright 2021 HabanaLabs, Ltd.
++ * All Rights Reserved.
++ *
++ */
++#ifndef __SHA_RSA_H__
++#define __SHA_RSA_H__
++
++#include <preboot/fit_rsa.h>
++
++#ifndef SHA256_SUM_LEN
++#define SHA256_SUM_LEN			32
++#endif
++
++#ifndef	SHA384_SUM_LEN
++#define SHA384_SUM_LEN			48
++#endif
++
++#ifndef SHA384_DER_LEN
++#define SHA384_DER_LEN			19
++#endif
++
++#define SHA_SUM_LEN			SHA384_SUM_LEN
++#define SHA_DER_LEN			SHA384_DER_LEN
++#define SHA_DER_PRE			sha384_der_prefix
++#define FIT_SHA				"sha384"
++#define FIT_ALGO_PROP_EXPECTED_VALUE	"sha384,rsa3072"
++
++#define RSA2048_BYTES			(2048 / 8)
++#define RSA3072_BYTES			(3072 / 8)
++#define RSA4096_BYTES			(4096 / 8)
++
++extern const uint8_t sha384_der_prefix[SHA384_DER_LEN];
++
++void sha_csum(const unsigned char *input, unsigned int ilen,
++		unsigned char *output);
++
++void sha_csum_regions(const struct image_region region[], int region_count,
++			u8 *output);
++
++#endif
+diff --git a/common/include/sha_rsa.h b/common/include/sha_rsa.h
+deleted file mode 100644
+index bbc9d90..0000000
+--- a/common/include/sha_rsa.h
++++ /dev/null
+@@ -1,30 +0,0 @@
+-/* SPDX-License-Identifier: Apache-2.0
+- * Copyright 2021 HabanaLabs, Ltd.
+- * All Rights Reserved.
+- *
+- */
+-#ifndef __SHA_RSA_H__
+-#define __SHA_RSA_H__
+-
+-#define SHA1_SUM_LEN	20
+-#define SHA1_DER_LEN	15
+-
+-#define SHA256_SUM_LEN	32
+-#define SHA256_DER_LEN	19
+-
+-#define SHA384_SUM_LEN	48
+-#define SHA384_DER_LEN	19
+-#define SHA512_SUM_LEN	64
+-#define SHA512_DER_LEN	19
+-
+-#define RSA2048_BYTES	(2048 / 8)
+-#define RSA3072_BYTES	(3072 / 8)
+-#define RSA4096_BYTES	(4096 / 8)
+-
+-void sha_csum(const unsigned char *input,
+-			size_t ilen,
+-			uint8_t *hash);
+-
+-int hl_chksum_len(void);
+-
+-#endif
+diff --git a/common/src/gaudi2/security.c b/common/src/gaudi2/security.c
+index b2653b1..8df942a 100644
+--- a/common/src/gaudi2/security.c
++++ b/common/src/gaudi2/security.c
+@@ -31,7 +31,7 @@
+ #include "hl_reg_map.h"
+ #include "oam_specs_regs.h"
+ #include <fw_boot_info.h>
+-#include <sha_rsa.h>
++#include <sha.h>
+ #include "mbedtls/rsa.h"
+ #include <hl_fit_if.h>
+ 
+diff --git a/common/src/rma_info.c b/common/src/rma_info.c
+index b278cb5..10d6896 100644
+--- a/common/src/rma_info.c
++++ b/common/src/rma_info.c
+@@ -13,17 +13,11 @@
+ #include <drivers/flash.h>
+ #include <rma_if.h>
+ #include <rma_info.h>
+-#include <sha_rsa.h>
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+ #include <persist_info.h>
+ LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+ 
+-
+-__weak int hl_chksum_len(void)
+-{
+-	return SHA256_SUM_LEN;
+-}
+ 
+ #ifdef CONFIG_PERSISTINFO
+ /*
+diff --git a/fw-loader/CMakeLists.txt b/fw-loader/CMakeLists.txt
+index 880d8b5..bbfc39e 100644
+--- a/fw-loader/CMakeLists.txt
++++ b/fw-loader/CMakeLists.txt
+@@ -25,7 +25,8 @@
+ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(fw-loader)
+ 
+-target_include_directories(app PRIVATE include/ ../common/include ../emb_common_mod/include/)
++target_include_directories(app PRIVATE include/ ../common/include ../emb_common_mod/include/
++../emb_common_mod/lib/)
+ target_include_directories(app PRIVATE ../common/include/${HL_DEVICE}/)
+ target_include_directories(app PRIVATE src/${HL_FAMILY}/${HL_DEVICE}/)
+ include_directories($ENV{SPECS_ROOT}/${HL_FAMILY}/${HL_DEVICE}/asic_reg/)
+@@ -44,7 +45,8 @@
+ 
+ FILE(GLOB app_sources src/*.c src/${HL_FAMILY}/*.c src/${HL_FAMILY}/${HL_DEVICE}/*.c src/cpld/*.c
+ ../common/src/*.c ../common/src/${HL_DEVICE}/*.c ../emb_common_mod/lib/common/watchdog_timer.c
+-../emb_common_mod/lib/common/fit_utils.c)
++../emb_common_mod/lib/common/fit_utils.c ../emb_common_mod/lib/common/fit_verify.c
++../emb_common_mod/lib/preboot/fit_rsa.c ../emb_common_mod/lib/preboot/fit_regions.c)
+ 
+ if(CONFIG_LIBPLDM)
+ FILE(GLOB pldm_sources ../common/src/ras/pldm/*.c ../common/src/${HL_DEVICE}/ras/pldm/*.c src/${HL_FAMILY}/${HL_DEVICE}/ras/pldm/*.c)
+diff --git a/fw-loader/include/fit_regions.h b/fw-loader/include/fit_regions.h
+deleted file mode 100644
+index 39bbf34..0000000
+--- a/fw-loader/include/fit_regions.h
++++ /dev/null
+@@ -1,24 +0,0 @@
+-/* SPDX-License-Identifier:     Apache-2.0+
+- *
+- * Copyright (C) 2020 HabanaLabs Ltd.
+- */
+-
+-#ifndef COMMON_FIT_REGIONS_H_
+-#define COMMON_FIT_REGIONS_H_
+-
+-struct fdt_region {
+-	int offset;
+-	int size;
+-};
+-
+-struct image_region *fit_region_make_list(const void *fit,
+-					  struct fdt_region *fdt_regions,
+-					  int count,
+-					  struct image_region *region);
+-
+-int fdt_find_regions(const void *fdt, char * const inc[], int inc_count,
+-		     char * const exc_prop[], int exc_prop_count,
+-		     struct fdt_region region[], int max_regions,
+-		     char *path, int path_len, int add_string_tab);
+-
+-#endif /* COMMON_FIT_REGIONS_H_ */
+diff --git a/fw-loader/include/rsa_verify.h b/fw-loader/include/rsa_verify.h
+index 0474bcb..50b8d2b 100644
+--- a/fw-loader/include/rsa_verify.h
++++ b/fw-loader/include/rsa_verify.h
+@@ -7,9 +7,7 @@
+ #define __RSA_VERIFY_H__
+ 
+ #define RSA_DEFAULT_PADDING_NAME                "pkcs-1.5"
+-int rsa_verify(struct verif_params *verif_args,
+-		const struct image_region region[], int region_count,
+-		uint8_t *sig, uint32_t sig_len);
++
+ int rsa_verify_image_with_key_mbedtls(uint8_t *key, const unsigned char *hash, uint8_t *sig,
+ 										uint32_t sig_len);
+ #endif
+diff --git a/fw-loader/src/fit-sign.c b/fw-loader/src/fit-sign.c
+deleted file mode 100644
+index d9a4059..0000000
+--- a/fw-loader/src/fit-sign.c
++++ /dev/null
+@@ -1,70 +0,0 @@
+-// SPDX-License-Identifier: Apache-2.0+
+-/*
+- * Copyright (c) 2021, Habanalabs, Intel Corporation"
+- */
+-#include <image.h>
+-#include <rsa_verify.h>
+-#include <libfdt.h>
+-#include "fit.h"
+-#include "fit_regions.h"
+-#include "security.h"
+-#include <stdio.h>
+-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+-#include <logging/log.h>
+-LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+-
+-#define HL_SEC_REGIONS_CNT	2
+-#define IMG_REGION_FIT_IDX	0
+-#define IMG_REGION_DESC_IDX	1
+-
+-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,
+-		       size_t sec_desc_size, const void *pub_key_fit,
+-		       uint8_t *sig, size_t sig_len)
+-{
+-	const char *key_name = HL_SEC_KEY_NAME;
+-	char *algo_name;
+-	int key_node;
+-	struct verif_params verif_args;
+-	struct image_region region[HL_SEC_REGIONS_CNT];
+-
+-	key_node = get_pub_key_node(pub_key_fit, HL_SEC_KEY_NAME);
+-	if (key_node < 0) {
+-		LOG_ERR("Can't get signature node from pub key");
+-		return 1;
+-	}
+-
+-	if (get_hash_algo_name(pub_key_fit, key_node, &algo_name)) {
+-		LOG_ERR("Can't get hash algo property");
+-		return 1;
+-	}
+-
+-	memset(&verif_args, '\0', sizeof(verif_args));
+-	verif_args.keyname = key_name;
+-	verif_args.fit = NULL;
+-	verif_args.node_offset = 0;
+-	verif_args.name = algo_name;
+-	verif_args.crypto = get_rsa_algo(algo_name);
+-	verif_args.pub_key_blob = pub_key_fit;
+-	verif_args.required_keynode = -1;
+-
+-	if (!verif_args.crypto) {
+-		LOG_ERR("Unknown signature algorithm");
+-		return 1;
+-	}
+-
+-	region[IMG_REGION_FIT_IDX].data = img;
+-	region[IMG_REGION_FIT_IDX].size = img_size;
+-	region[IMG_REGION_DESC_IDX].data = sec_desc;
+-	region[IMG_REGION_DESC_IDX].size = sec_desc_size;
+-
+-	if (verif_args.crypto->verify(&verif_args, region, HL_SEC_REGIONS_CNT,
+-				      sig, sig_len)) {
+-		LOG_ERR("Verification failed");
+-		return 1;
+-	}
+-
+-	LOG_DBG("%s: crypto verification passed successfully", __func__);
+-
+-	return 0;
+-}
+-
+diff --git a/fw-loader/src/fit.c b/fw-loader/src/fit.c
+index ba760e3..1356fe9 100644
+--- a/fw-loader/src/fit.c
++++ b/fw-loader/src/fit.c
+@@ -13,7 +13,7 @@
+ #include <logging/log.h>
+ #include "mbedtls/md5.h"
+ #include "mbedtls/sha1.h"
+-#include "sha_rsa.h"
++#include "sha.h"
+ #include <stdio.h>
+ #include "lib/lz4.h"
+ #include <hl_boot_info.h>
+@@ -348,42 +348,6 @@
+ 	LOG_ERR("Unknown compression method:%s", cmpr);
+ 	return -1;
+ 
+-}
+-
+-int fit_get_key_prop(const void *pub_key_fit, const char *key_name, struct key_prop *prop)
+-{
+-	int key_node = 0;
+-	int length;
+-
+-	if (fdt_check_header(pub_key_fit)) {
+-		LOG_ERR("FITkey header check failed");
+-		return 1;
+-	}
+-
+-	key_node = get_pub_key_node(pub_key_fit, key_name);
+-	if (key_node < 0) {
+-		LOG_ERR("Wrong FITkey format: no key node");
+-		return 1;
+-	}
+-
+-	prop->num_bits = fit_get_int(pub_key_fit, key_node, "rsa,num-bits", 0);
+-
+-	prop->n0inv = fit_get_int(pub_key_fit, key_node, "rsa,n0-inverse", 0);
+-
+-	prop->public_exponent = fdt_getprop(pub_key_fit, key_node, "rsa,exponent", &length);
+-	if (!prop->public_exponent || length < sizeof(uint64_t))
+-		prop->public_exponent = NULL;
+-
+-	prop->exp_len = sizeof(uint64_t);
+-
+-	prop->modulus = fdt_getprop(pub_key_fit, key_node, "rsa,modulus", NULL);
+-
+-	prop->rr = fdt_getprop(pub_key_fit, key_node, "rsa,r-squared", NULL);
+-
+-	if (!prop->num_bits || !prop->modulus || !prop->rr)
+-		return -EFAULT;
+-
+-	return 0;
+ }
+ 
+ static int fwupd_err_to_minor(uint32_t err)
+diff --git a/fw-loader/src/fit_loader.c b/fw-loader/src/fit_loader.c
+index 0e166c0..95ab117 100644
+--- a/fw-loader/src/fit_loader.c
++++ b/fw-loader/src/fit_loader.c
+@@ -31,7 +31,10 @@
+ #include <fw_upd.h>
+ #include <hl_boot_desc.h>
+ #include <hl_boot_info.h>
++#include <hl_boot_if.h>
++#include <boot_if.h>
+ #include <fit_utils.h>
++#include <fit_verify.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+@@ -245,20 +248,6 @@
+ 		LOG_ERR("Get security status, %s failed: %d", stage, err);
+ 
+ 	return err;
+-}
+-
+-static int img_fit_verify_security(const void *fit)
+-{
+-	int conf;
+-
+-	conf = fit_get_conf_node_offset(fit);
+-	if (conf < 0)
+-		return 1;
+-
+-	if (hl_sec_fit_config_verify(fit, conf))
+-		return 1;
+-
+-	return 0;
+ }
+ 
+ __weak int spi_flash_is_wareout_attack_detected(const struct device *flash_dev) {	return 0; }
+@@ -1868,10 +1857,14 @@
+ 		goto verify_img_err;
+ 
+ 	*stage = "security check";
++	cpu_boot_err_clr(CPU_BOOT_ERR_SECURITY_FAIL);
+ 	if (fit_loader[*load_type].secured_load) {
+-		err = img_fit_verify_security(fit);
+-		if (err)
++		err = fit_verify_security_footer(fit, fdt_totalsize(fit), &fit_err.sec);
++		if (err) {
++			cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);
++			fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);
+ 			goto verify_img_err;
++		}
+ 	}
+ 
+ 	/* type specific verification */
+diff --git a/fw-loader/src/fit_regions.c b/fw-loader/src/fit_regions.c
+deleted file mode 100644
+index 37e5979..0000000
+--- a/fw-loader/src/fit_regions.c
++++ /dev/null
+@@ -1,144 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
+-/*
+- * libfdt - Flat Device Tree manipulation
+- * Copyright (C) 2013 Google, Inc
+- * Written by Simon Glass <sjg@chromium.org>
+- */
+-
+-#include <libfdt.h>
+-#include "common.h"
+-#include "fit_regions.h"
+-#include "image.h"
+-
+-#define FDT_MAX_DEPTH	8
+-
+-static int str_in_list(const char *str, char * const list[], int count)
+-{
+-	int i;
+-
+-	for (i = 0; i < count; i++)
+-		if (!strcmp(list[i], str))
+-			return 1;
+-
+-	return 0;
+-}
+-
+-int fdt_find_regions(const void *fdt, char * const inc[], int inc_count,
+-		     char * const exc_prop[], int exc_prop_count,
+-		     struct fdt_region region[], int max_regions,
+-		     char *path, int path_len, int add_string_tab)
+-{
+-	int stack[FDT_MAX_DEPTH] = { 0 };
+-	char *end;
+-	int nextoffset = 0;
+-	uint32_t tag;
+-	int count = 0;
+-	int start = -1;
+-	int depth = -1;
+-	int want = 0;
+-	int base = fdt_off_dt_struct(fdt);
+-
+-	end = path;
+-	*end = '\0';
+-	do {
+-		const struct fdt_property *prop;
+-		const char *name;
+-		const char *str;
+-		int include = 0;
+-		int stop_at = 0;
+-		int offset;
+-		int len;
+-
+-		offset = nextoffset;
+-		tag = fdt_next_tag(fdt, offset, &nextoffset);
+-		stop_at = nextoffset;
+-
+-		switch (tag) {
+-		case FDT_PROP:
+-			include = want >= 2;
+-			stop_at = offset;
+-			prop = fdt_get_property_by_offset(fdt, offset, NULL);
+-			str = fdt_string(fdt, fdt32_to_cpu(prop->nameoff));
+-			if (str_in_list(str, exc_prop, exc_prop_count))
+-				include = 0;
+-			break;
+-
+-		case FDT_NOP:
+-			include = want >= 2;
+-			stop_at = offset;
+-			break;
+-
+-		case FDT_BEGIN_NODE:
+-			depth++;
+-			if (depth == FDT_MAX_DEPTH)
+-				return -FDT_ERR_BADSTRUCTURE;
+-			name = fdt_get_name(fdt, offset, &len);
+-			if (end - path + 2 + len >= path_len)
+-				return -FDT_ERR_NOSPACE;
+-			if (end != path + 1)
+-				*end++ = '/';
+-			memcpy(end, name, len+1);
+-			end += len;
+-			stack[depth] = want;
+-			if (want == 1)
+-				stop_at = offset;
+-			if (str_in_list(path, inc, inc_count))
+-				want = 2;
+-			else if (want)
+-				want--;
+-			else
+-				stop_at = offset;
+-			include = want;
+-			break;
+-
+-		case FDT_END_NODE:
+-			/* Depth must never go below -1 */
+-			if (depth < 0)
+-				return -FDT_ERR_BADSTRUCTURE;
+-			include = want;
+-			want = stack[depth--];
+-			while (end > path && *--end != '/')
+-				;
+-			*end = '\0';
+-			break;
+-
+-		case FDT_END:
+-			include = 1;
+-			break;
+-		}
+-
+-		if (include && start == -1) {
+-			/* Should we merge with previous? */
+-			if (count && count <= max_regions &&
+-			    offset == region[count - 1].offset +
+-					region[count - 1].size - base)
+-				start = region[--count].offset - base;
+-			else
+-				start = offset;
+-		}
+-
+-		if (!include && start != -1) {
+-			if (count < max_regions) {
+-				region[count].offset = base + start;
+-				region[count].size = stop_at - start;
+-			}
+-			count++;
+-			start = -1;
+-		}
+-	} while (tag != FDT_END);
+-
+-	if (nextoffset != fdt_size_dt_struct(fdt))
+-		return -FDT_ERR_BADLAYOUT;
+-
+-	/* Add a region for the END tag and the string table */
+-	if (count < max_regions) {
+-		region[count].offset = base + start;
+-		region[count].size = nextoffset - start;
+-		if (add_string_tab)
+-			region[count].size += fdt_size_dt_strings(fdt);
+-	}
+-	count++;
+-
+-	return count;
+-}
+-
+diff --git a/fw-loader/src/gaudi/gaudi2/gaudi2.c b/fw-loader/src/gaudi/gaudi2/gaudi2.c
+index 85cd7b2..023da41 100644
+--- a/fw-loader/src/gaudi/gaudi2/gaudi2.c
++++ b/fw-loader/src/gaudi/gaudi2/gaudi2.c
+@@ -15,7 +15,7 @@
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+ #include "hl_reg_map.h"
+-#include "sha_rsa.h"
++#include "sha.h"
+ #include <stdio.h>
+ #include "device.h"
+ #include "mbedtls/sha512.h"
+@@ -749,11 +749,6 @@
+ 	}
+ 
+ 	return boot_strap & strap_mask;
+-}
+-
+-int hl_chksum_len(void)
+-{
+-	return SHA384_SUM_LEN;
+ }
+ 
+ bool tpm_is_supported(void)
+diff --git a/fw-loader/src/gaudi/gaudi3/gaudi3.c b/fw-loader/src/gaudi/gaudi3/gaudi3.c
+index 7b6470e..4f8130d 100644
+--- a/fw-loader/src/gaudi/gaudi3/gaudi3.c
++++ b/fw-loader/src/gaudi/gaudi3/gaudi3.c
+@@ -13,7 +13,7 @@
+ #include <hl_fw_upd_if.h>
+ #include <boot_if.h>
+ #include "hl_reg_map.h"
+-#include "sha_rsa.h"
++#include "sha.h"
+ #include <stdio.h>
+ #include <drivers/gpio.h>
+ #include <drivers/i2c.h>
+diff --git a/fw-loader/src/image-sig.c b/fw-loader/src/image-sig.c
+deleted file mode 100644
+index 8eaf93d..0000000
+--- a/fw-loader/src/image-sig.c
++++ /dev/null
+@@ -1,52 +0,0 @@
+-// SPDX-License-Identifier: Apache-2.0+
+-/*
+- * Copyright (c) 2021, Habanalabs
+- */
+-
+-#include <common.h>
+-#include <image.h>
+-#include "mbedtls/rsa.h"
+-#include "rsa_verify.h"
+-#include "sha_rsa.h"
+-#include "mbedtls/sha256.h"
+-#include "mbedtls/sha512.h"
+-
+-
+-struct crypto_algo crypto_algos[] = {
+-	{
+-		.name = "rsa2048",
+-		.key_len = RSA2048_BYTES,
+-		.verify = rsa_verify,
+-	},
+-	{
+-		.name = "rsa3072",
+-		.key_len = RSA3072_BYTES,
+-		.verify = rsa_verify,
+-	},
+-	{
+-		.name = "rsa4096",
+-		.key_len = RSA4096_BYTES,
+-		.verify = rsa_verify,
+-	}
+-
+-};
+-
+-struct crypto_algo *get_rsa_algo(const char *full_name)
+-{
+-	int i;
+-	const char *name;
+-
+-	/* Move name to after the comma */
+-	name = strchr(full_name, ',');
+-	if (!name)
+-		return NULL;
+-	name += 1;
+-
+-	for (i = 0; i < ARRAY_SIZE(crypto_algos); i++) {
+-		if (!strcmp(crypto_algos[i].name, name))
+-			return &crypto_algos[i];
+-	}
+-
+-	return NULL;
+-}
+-
+diff --git a/fw-loader/src/rsa_verify.c b/fw-loader/src/rsa_verify.c
+index a36c216..aced4a0 100644
+--- a/fw-loader/src/rsa_verify.c
++++ b/fw-loader/src/rsa_verify.c
+@@ -3,36 +3,23 @@
+  * Copyright 2021 Habanalabs, Intel Corporation
+  */
+ 
+-#include "image.h"
+ #include "mbedtls/rsa.h"
+ #include "mbedtls/sha1.h"
+ #include "mbedtls/sha512.h"
+ #include "rsa_verify.h"
+-#include "libfdt.h"
+-#include "sha_rsa.h"
+-#include "security.h"
++#include "sha.h"
+ #include <stdio.h>
+-#include "fit.h"
+-#include <hl_fit_if.h>
++#include <hl_sec_if.h>
++
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+ LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+ 
+-/**
+- * rsa_verify_with_key_mbedtls() - Verify a signature against some data using
+- * information in node with prperties of RSA Key like modulus, exponent etc.
+- *
+- * Parse signature-node and fill a key_prop structure with properties of the
+- * key.  Verify a RSA PKCS1.5 signature against an expected hash using
+- * the properties parsed
+- *
+- * @verif_args:	Specifies key and FIT information
+- * @hash:	Pointer to the expected hash
+- * @sig:	Signature
+- * @sig_len:	Number of bytes in signature
+- * @node:	Node having the RSA Key properties
+- * @return 0 if verified, -ve on error
+- */
++const uint8_t sha384_der_prefix[SHA384_DER_LEN] = {
++	0x30, 0x41, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
++	0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05,
++	0x00, 0x04, 0x30
++};
+ 
+ int rsa_pkcs1_verify(mbedtls_rsa_context *ctx,
+ 			const unsigned char *hash,
+@@ -54,58 +41,10 @@
+ 	return ret;
+ }
+ 
+-static int rsa_verify_with_key_mbedtls(struct verif_params *verif_args,
+-				   const unsigned char *hash, uint8_t *sig,
+-				   uint32_t sig_len, int node)
+-{
+-	const void *blob = verif_args->pub_key_blob;
+-	struct key_prop prop;
+-	int length;
+-	int ret = 0;
+-	mbedtls_rsa_context rsa;
+-	mbedtls_mpi K;
+-	/*extracting the rsa public key components from sig blob
+-	 *By default PKCS V15 is chosen.If there are other padding in
+-	 *the image then code should be changed accordingly
+-	 */
+-
+-	mbedtls_mpi_init(&K);
+-	mbedtls_rsa_init(&rsa, MBEDTLS_RSA_PKCS_V15, 0);
+-
+-	prop.modulus = fdt_getprop(blob, node, "rsa,modulus", &length);
+-	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&K,
+-			(const unsigned char *) prop.modulus, length));
+-	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&rsa, &K, NULL, NULL, NULL, NULL));
+-
+-	prop.public_exponent = fdt_getprop(blob, node, "rsa,exponent", &length);
+-	if (!prop.public_exponent || length < sizeof(uint64_t))
+-		prop.public_exponent = NULL;
+-	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&K,
+-			(const unsigned char *) prop.public_exponent, length));
+-	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&rsa, NULL, NULL, NULL, NULL, &K));
+-
+-	MBEDTLS_MPI_CHK(mbedtls_rsa_complete(&rsa));
+-
+-
+-	if (node < 0) {
+-		LOG_ERR("%s: Skipping invalid node", __func__);
+-		return -1;
+-	}
+-
+-	ret = rsa_pkcs1_verify(&rsa, hash, sig);
+-
+-cleanup:
+-	mbedtls_mpi_free(&K);
+-	mbedtls_rsa_free(&rsa);
+-
+-	return ret;
+-
+-}
+-
+ int rsa_verify_image_with_key_mbedtls(uint8_t *key, const unsigned char *hash, uint8_t *sig,
+ 										uint32_t sig_len)
+ {
+-	struct key_prop prop;
++	struct rsa_key_prop prop;
+ 	int ret = 1;
+ 	uint8_t *hl_props = (uint8_t *)key;
+ 	mbedtls_rsa_context rsa;
+@@ -118,15 +57,13 @@
+ 	hl_props += RSA3072_BYTES;
+ 
+ 	prop.modulus = hl_props;
+-
+ 	hl_props += RSA3072_BYTES;
+ 
+ 	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&K,
+ 			(const unsigned char *) prop.modulus, RSA3072_BYTES));
+ 	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&rsa, &K, NULL, NULL, NULL, NULL));
+ 
+-	prop.public_exponent = hl_props;
+-	prop.exp_len = KEY_PROP_EXP_SZ;
++	prop.public_exponent = (uint64_t *)hl_props;
+ 
+ 	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&K,
+ 			(const unsigned char *) prop.public_exponent, KEY_PROP_EXP_SZ));
+@@ -143,96 +80,17 @@
+ 	return ret;
+ 
+ }
+-int sha_region_calc(int region_count,
+-			const struct image_region region[],
+-			uint8_t *chksum)
++
++#define MBEDTLS_USE_SHA384		1
++
++void sha_csum_regions(const struct image_region region[], int region_count,
++			 u8 *output)
+ {
+-	uint8_t sha384sum[SHA384_SUM_LEN];
+-	int is384 = 1, ret;
+-	mbedtls_sha512_context ctx;
+-	unsigned int region_index;
++	struct mbedtls_sha512_context ctx;
++	int i;
+ 
+-	/* calculating sha384sum */
+-	mbedtls_sha512_init(&ctx);
+-	ret = mbedtls_sha512_starts_ret(&ctx, is384);
+-	if (ret != 0) {
+-		LOG_ERR("mbedtls_sha384_starts_ret failed\n");
+-		return -1;
+-	}
+-
+-	for (region_index = 0; region_index < region_count; region_index++) {
+-		ret = mbedtls_sha512_update_ret(&ctx, region[region_index].data,
+-						region[region_index].size);
+-		if (ret != 0) {
+-			LOG_ERR("sha384_update failed for region:%d\n",
+-				region_index);
+-			return -1;
+-		}
+-	}
+-
+-	ret = mbedtls_sha512_finish_ret(&ctx, sha384sum);
+-	if (ret != 0) {
+-		LOG_ERR("mbedtls_sha384_finish_ret failed\n");
+-		return -1;
+-	}
+-	mbedtls_sha512_free(&ctx);
+-	LOG_DBG("sha384 calculation done\n");
+-
+-	memcpy(chksum, sha384sum, SHA384_SUM_LEN);
+-
+-	return ret;
+-}
+-
+-int rsa_verify(struct verif_params *verif_args,
+-		const struct image_region region[], int region_count,
+-		uint8_t *sig, uint32_t sig_len)
+-{
+-	/* Reserve memory for maximum checksum-length
+-	 */
+-	uint8_t sha_sum[SHA384_SUM_LEN];
+-	const void *blob = verif_args->pub_key_blob;
+-	int ndepth, noffset;
+-	int sig_node, node;
+-	char name[100];
+-	int ret;
+-
+-	ret = sha_region_calc(region_count, region, sha_sum);
+-	sig_node = fdt_subnode_offset(blob, 0, HL_FIT_SIGNATURE_NODENAME);
+-	if (sig_node < 0) {
+-		LOG_ERR("%s: No signature node found\n", __func__);
+-		return -1;
+-	}
+-
+-	/* if we are using specific key */
+-	if (verif_args->required_keynode != -1) {
+-		ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum, sig,
+-				sig_len, verif_args->required_keynode);
+-		return ret;
+-	}
+-
+-	/* check if we have key that matches hint */
+-	snprintf(name, sizeof(name), "key-%s", verif_args->keyname);
+-	node = fdt_subnode_offset(blob, sig_node, name);
+-	ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum, sig, sig_len,
+-						node);
+-	/* Return if success or if verif_args->fit is NULL meaning no sub-nodes */
+-	if (!ret || !verif_args->fit)
+-		return ret;
+-
+-	/* try other keys */
+-	for (ndepth = 0, noffset = fdt_next_node(verif_args->fit, sig_node,
+-				&ndepth);
+-			(noffset >= 0) && (ndepth > 0);
+-			noffset = fdt_next_node(verif_args->fit, noffset,
+-						&ndepth)) {
+-		if (ndepth == 1 && noffset != node) {
+-			ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum,
+-					sig, sig_len,
+-					noffset);
+-			if (!ret)
+-				break;
+-		}
+-	}
+-
+-	return ret;
++	mbedtls_sha512_starts_ret(&ctx, MBEDTLS_USE_SHA384);
++	for (i = 0; i < region_count; i++)
++		mbedtls_sha512_update_ret(&ctx, region[i].data, region[i].size);
++	mbedtls_sha512_finish_ret(&ctx, output);
+ }
+diff --git a/fw-loader/src/security.c b/fw-loader/src/security.c
+index 73a7249..8cf6fc7 100644
+--- a/fw-loader/src/security.c
++++ b/fw-loader/src/security.c
+@@ -18,7 +18,7 @@
+ #include "fit.h"
+ #include "hl_reg_map.h"
+ #include <device.h>
+-#include "sha_rsa.h"
++#include "sha.h"
+ #include <hl_fit_if.h>
+ #include "mbedtls/rsa.h"
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+@@ -106,136 +106,14 @@
+ 	return -1;
+ }
+ 
+-int get_pub_key_node(const void *pub_key_fit, const char *key_name)
+-{
+-	int sig_node;
+-	char node_name[64] = "key-";
+-
+-	if (strlen(key_name) + strlen(node_name) > 64)
+-		return -FDT_ERR_NOSPACE;
+-
+-	memcpy(node_name + strlen(node_name), key_name, strlen(key_name));
+-
+-	sig_node = fdt_subnode_offset(pub_key_fit, 0, HL_FIT_SIGNATURE_NODENAME);
+-	return fdt_subnode_offset(pub_key_fit, sig_node, node_name);
+-}
+-
+ __weak int hl_sec_validate_key_idx(int key_idx)
+ {
+-	return 0;
+-}
+-
+-int hl_sec_validate_img_desc(struct hl_fit_sec_desc *fit_sec, size_t img_size)
+-{
+-	if (fit_sec->magic_number != FIT_SEC_MAGIC) {
+-		LOG_ERR("Bad magic, security descriptor not found");
+-		return 1;
+-	}
+-
+-	if ((fit_sec->desc_version_maj != FIT_SEC_DESC_VER_MAJOR) ||
+-	    (fit_sec->desc_version_min != FIT_SEC_DESC_VER_MINOR)) {
+-		LOG_ERR("Security descriptor version mismatch");
+-		return 1;
+-	}
+-
+-	if (fit_sec->desc_size < FIT_SEC_DESC_SIZE) {
+-		LOG_ERR("security descriptor size too small");
+-		return 1;
+-	}
+-
+-	if (fit_sec->img_size != img_size) {
+-		LOG_ERR("image size mismatch with security descriptor");
+-		return 1;
+-	}
+-
+-	if (!hl_sec_is_svn_valid(fit_sec->sec_version)) {
+-		LOG_ERR("security descriptor svn not valid");
+-		fit_set_err(HL_FW_FIT_BOOT_ERR_SVN);
+-		return 1;
+-	}
+-
+-	if (hl_sec_validate_key_idx(fit_sec->key_num)) {
+-		LOG_ERR("Key revoked: %d", fit_sec->key_num);
+-		fit_set_err(HL_FW_FIT_BOOT_ERR_REVOKED_KEY);
+-		return 1;
+-	}
+-
+-	if (hl_sec_validate_public_key(&fit_sec->pub_key, FIT_PUB_KEY_SIZE,
+-				       fit_sec->key_num)) {
+-		LOG_ERR("Key validation failed");
+-		fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+-
+-int hl_sec_verify_img_sig(const void *img, size_t img_size)
+-{
+-	struct hl_fit_sec_desc *fit_sec;
+-	const void *pub_key_fit;
+-	uint8_t signature[FIT_SIGNATURE_SIZE];
+-
+-	/* security descriptor is at the footer of the image */
+-	img_size = ROUND_UP(img_size, sizeof(uint32_t));
+-	fit_sec = (struct hl_fit_sec_desc *)((uint8_t *)img + img_size);
+-
+-	if (hl_sec_validate_img_desc(fit_sec, img_size)) {
+-		LOG_ERR("descriptor validation failed");
+-		return 1;
+-	}
+-
+-	pub_key_fit = &fit_sec->pub_key;
+-
+-	/*
+-	 * signature is calculated on both the fit image and the security
+-	 * descriptor with the signature field of the descriptor zeroized.
+-	 */
+-	memcpy(signature, fit_sec->signature, FIT_SIGNATURE_SIZE);
+-	memset(fit_sec->signature, 0, FIT_SIGNATURE_SIZE);
+-
+-	if (fit_verify_img_sig(img, img_size, fit_sec, FIT_SEC_DESC_SIZE,
+-			       pub_key_fit, signature, FIT_SIGNATURE_SIZE)) {
+-		LOG_ERR("image signature validation failed");
+-		return 1;
+-	}
+-
+ 	return 0;
+ }
+ 
+ __weak bool hl_sec_is_image_sig_supported(void)
+ {
+ 	return false;
+-}
+-
+-
+-int hl_sec_fit_config_verify(const void *fit, int conf)
+-{
+-	int err = 0;
+-	size_t fit_size = fdt_totalsize(fit);
+-
+-	cpu_boot_err_clr(CPU_BOOT_ERR_SECURITY_FAIL);
+-	if (!hl_sec_img_verf_is_enabled()) {
+-		/*If the security is disabled it will return success here
+-		 */
+-		LOG_DBG("%s: Image verification is disabled", __func__);
+-		return err;
+-	}
+-
+-	/* for platforms with image security descriptor support, the signature
+-	 * of the descriptor is validated. otherwise the fit internal signature
+-	 * is validated.
+-	 */
+-	if (hl_sec_is_image_sig_supported()) {
+-		err = hl_sec_verify_img_sig(fit, fit_size);
+-		if (err) {
+-			LOG_ERR("verify image signature failed");
+-			cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);
+-			fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);
+-		}
+-	}
+-
+-	return err;
+ }
+ 
+ __weak void hl_sec_dev_dram_lock(bool lock) {}
+@@ -260,9 +138,9 @@
+ 
+ bool hl_extract_hash_from_key(const void *pub_key, uint8_t *value)
+ {
+-	struct key_prop prop;
++	struct rsa_key_prop prop;
+ 	uint8_t key_props[PUB_KEY_SZ];
+-	const char *key_name = HL_SEC_KEY_NAME;
++	const char *key_name = HL_FIT_SEC_KEY_NAME;
+ 
+ 	/*
+ 	 * ROM and eFUSE stores hash of public key properties. The public
+@@ -294,3 +172,51 @@
+ {
+ 	return hl_sec_is_enabled();
+ }
++
++
++bool security_is_valid_address_range(uint64_t fit_addr, size_t len)
++{
++	return true;
++}
++
++bool security_sram_is_valid_address_range(uint64_t fit_addr, size_t len)
++{
++	return true;
++}
++
++bool security_img_validation_is_enabled(void)
++{
++	return hl_sec_img_verf_is_enabled();
++}
++
++bool security_validate_svn(int sec_version)
++{
++	return hl_sec_is_svn_valid(sec_version);
++}
++
++bool security_validate_key_idx(int key_idx)
++{
++	return hl_sec_validate_key_idx(key_idx);
++}
++
++bool security_validate_pub_key(int key_idx, const void *pub_key,
++			       int pub_key_len, const void *pub_key_ext,
++			       int pub_key_ext_len)
++{
++	return !(hl_sec_validate_public_key(pub_key, pub_key_len, key_idx));
++}
++
++void security_store_key_index_into_fw_info(int key_idx)
++{
++
++}
++
++void security_store_svn_into_fw_info(int sec_version)
++{
++
++}
++
++void security_store_key_index_into_boot_info(int key_idx)
++{
++
++}

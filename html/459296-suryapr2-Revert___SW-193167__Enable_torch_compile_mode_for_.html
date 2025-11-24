@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 459296: Revert &quot;[SW-193167] Enable torch.compile mode for FusedEMA optimizer&quot;</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 459296: Revert &quot;[SW-193167] Enable torch.compile mode for FusedEMA optimizer&quot;</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> pytorch-integration</p>
+            <p><strong>Branch:</strong> master</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Suryaprakash Shanmugam &lt;sshanmugam@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-10-29 11:13:41.322000000</p>
+            <p><strong>Updated:</strong> 2024-11-06 13:52:19.785000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>Revert &quot;[SW-193167] Enable torch.compile mode for FusedEMA optimizer&quot;
+
+Change-Id: I620b553028c70c2e42efeb5a8af1d4facbaf83fe
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: -2 by Ramesh Babu</li><li><strong>Verified</strong>: Miroslaw Oksiucik: +0, Piotr Papierkowski: +0, Ramesh Babu: +0, Amadeusz Skrzypczak: +0, Slawomir Siwek: +0, Suryaprakash Shanmugam: +0</li><li><strong>Finished</strong>: Miroslaw Oksiucik: +0, Piotr Papierkowski: +0, Ramesh Babu: +0, Amadeusz Skrzypczak: +0, Slawomir Siwek: +0, Suryaprakash Shanmugam: +0</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>backend/passes/hpu_habana_persistence_marker_pass.cpp</code> (M) +1 -2</li><li><code>habana_eager/eager_custom_op_register.cpp</code> (M) +4 -58</li><li><code>hpu_ops/backend/optimizer_ema_gen.cpp</code> (M) +13 -43</li><li><code>hpu_ops/optimizers_gen.h</code> (D) +0 -23</li><li><code>python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py</code> (M) +0 -5</li><li><code>python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py</code> (M) +0 -1</li><li><code>python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py</code> (M) +6 -7</li><li><code>scripts/ops_list/kr_ops.hpu</code> (M) +1 -2</li><li><code>scripts/ops_list/ops.hpu</code> (M) +0 -2</li><li><code>tests/pytest_working/any_mode/test_ema.py</code> (M) +14 -37</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/backend/passes/hpu_habana_persistence_marker_pass.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -135,8 +135,7 @@</span>
+<span class="diff-ctx">         &quot;hpu::kv_reorder_&quot;,</span>
+<span class="diff-ctx">         &quot;hpu::in_place_interleave_&quot;,</span>
+<span class="diff-ctx">         &quot;aten::masked_fill_.Scalar&quot;,</span>
+<span class="diff-del">-        &quot;aten::masked_fill_.Tensor&quot;,</span>
+<span class="diff-del">-        &quot;hpu::optimizer_ema_&quot;};</span>
+<span class="diff-add">+        &quot;aten::masked_fill_.Tensor&quot;};</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     if (std::find(</span>
+<span class="diff-ctx">             std::begin(ignoreOpsList), std::end(ignoreOpsList), op_name) !=</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 26977de..1638e9c 100644</span>
+<h4 class="diff-filename">b/habana_eager/eager_custom_op_register.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -463,31 +463,15 @@</span>
+<span class="diff-ctx">   return hpu_op.call(weights);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-std::vector&lt;at::Tensor&gt; optimizer_ema(</span>
+<span class="diff-del">-    const at::TensorList model_inputs,</span>
+<span class="diff-del">-    const at::TensorList updated_ema,</span>
+<span class="diff-del">-    const at::Tensor&amp; decay) {</span>
+<span class="diff-del">-  PT_EAGER_TRACE;</span>
+<span class="diff-del">-  PT_OP_INFO(&quot; optimizer_ema :&quot;, DUMP_3ARGS(model_inputs, updated_ema, decay));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  habana::eager::EagerOp&lt;std::vector&lt;at::Tensor&gt;&gt; hpu_op{</span>
+<span class="diff-del">-      &quot;hpu::optimizer_ema&quot;, {model_inputs, updated_ema, decay}};</span>
+<span class="diff-del">-  return hpu_op.call();</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-void optimizer_ema_(</span>
+<span class="diff-add">+void optimizer_ema(</span>
+<span class="diff-ctx">     const at::TensorList model_inputs,</span>
+<span class="diff-ctx">     at::TensorList updated_ema,</span>
+<span class="diff-ctx">     const at::Tensor&amp; decay) {</span>
+<span class="diff-ctx">   PT_EAGER_TRACE;</span>
+<span class="diff-del">-  PT_OP_INFO(&quot; optimizer_ema_ :&quot;, DUMP_3ARGS(model_inputs, updated_ema, decay));</span>
+<span class="diff-add">+  PT_OP_INFO(&quot; optimizer_ema :&quot;, DUMP_3ARGS(model_inputs, updated_ema, decay));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">   habana::eager::EagerOp&lt;void&gt; hpu_op{</span>
+<span class="diff-del">-      &quot;hpu::optimizer_ema_&quot;, {model_inputs, updated_ema, decay}};</span>
+<span class="diff-del">-  hpu_op.set_eager_op_info(</span>
+<span class="diff-del">-      {habana::eager::eagerOpKind::Inplace,</span>
+<span class="diff-del">-       &quot;hpu::optimizer_ema_&quot;,</span>
+<span class="diff-del">-       decltype(habana::eager::EagerOpMetaData::out_indices_){1}});</span>
+<span class="diff-add">+      &quot;hpu::optimizer_ema&quot;, {model_inputs, updated_ema, decay}};</span>
+<span class="diff-ctx">   hpu_op.call(updated_ema);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -2270,9 +2254,7 @@</span>
+<span class="diff-ctx">   m.def(</span>
+<span class="diff-ctx">       &quot;hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -&gt; ()&quot;);</span>
+<span class="diff-ctx">   m.def(</span>
+<span class="diff-del">-      &quot;hpu::optimizer_ema(Tensor[] model_inputs, Tensor[] updated_ema, Tensor decay) -&gt; Tensor[]&quot;);</span>
+<span class="diff-del">-  m.def(</span>
+<span class="diff-del">-      &quot;hpu::optimizer_ema_(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -&gt; ()&quot;);</span>
+<span class="diff-add">+      &quot;hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -&gt; ()&quot;);</span>
+<span class="diff-ctx">   m.def(</span>
+<span class="diff-ctx">       &quot;hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -&gt; Tensor&quot;);</span>
+<span class="diff-ctx">   m.def(</span>
+<span class="diff-hunk">@@ -2469,7 +2451,6 @@</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::masked_batch_gemm&quot;, masked_batch_gemm);</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::optimizer_adamw&quot;, optimizer_adamw);</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::optimizer_ema&quot;, optimizer_ema);</span>
+<span class="diff-del">-  m.impl(&quot;hpu::optimizer_ema_&quot;, optimizer_ema_);</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::optimizer_lamb_fused_norm&quot;, optimizer_lamb_norm);</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::optimizer_lamb_phase1&quot;, optimizer_lamb_phase1);</span>
+<span class="diff-ctx">   m.impl(&quot;hpu::optimizer_lamb_phase2&quot;, optimizer_lamb_phase2);</span>
+<span class="diff-hunk">@@ -2551,14 +2532,6 @@</span>
+<span class="diff-ctx">   return at::functionalization::impl::from_functional_tensor(tensor);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-std::vector&lt;at::Tensor&gt; get_functional_tensorlist(</span>
+<span class="diff-del">-    const at::TensorList&amp; tensorlist) {</span>
+<span class="diff-del">-  TORCH_INTERNAL_ASSERT(</span>
+<span class="diff-del">-      at::functionalization::impl::isFunctionalTensor(tensorlist));</span>
+<span class="diff-del">-  at::functionalization::impl::sync(tensorlist);</span>
+<span class="diff-del">-  return at::functionalization::impl::from_functional_tensor(tensorlist);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> at::Tensor&amp; kv_reorder_functionalization_glue(</span>
+<span class="diff-ctx">     at::Tensor&amp; self,</span>
+<span class="diff-ctx">     const at::Tensor&amp; start,</span>
+<span class="diff-hunk">@@ -2607,32 +2580,6 @@</span>
+<span class="diff-ctx">   at::functionalization::impl::sync(self);</span>
+<span class="diff-ctx">   return self;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-void optimizer_ema_functionalization_glue(</span>
+<span class="diff-del">-    const at::TensorList model_inputs,</span>
+<span class="diff-del">-    at::TensorList updated_ema,</span>
+<span class="diff-del">-    const at::Tensor&amp; decay) {</span>
+<span class="diff-del">-  auto model_inputs_ = get_functional_tensorlist(model_inputs);</span>
+<span class="diff-del">-  auto updated_ema_ = get_functional_tensorlist(updated_ema);</span>
+<span class="diff-del">-  auto decay_ = get_functional_tensor(decay);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  static auto op_handle = c10::Dispatcher::singleton()</span>
+<span class="diff-del">-                              .findSchemaOrThrow(&quot;hpu::optimizer_ema&quot;, &quot;&quot;)</span>
+<span class="diff-del">-                              .typed&lt;std::vector&lt;at::Tensor&gt;(</span>
+<span class="diff-del">-                                  const at::TensorList,</span>
+<span class="diff-del">-                                  const at::TensorList,</span>
+<span class="diff-del">-                                  const at::Tensor&amp;)&gt;(); // NOLINT</span>
+<span class="diff-del">-  std::vector&lt;at::Tensor&gt; tmp_output;</span>
+<span class="diff-del">-  {</span>
+<span class="diff-del">-    at::AutoDispatchSkipFunctionalize guard;</span>
+<span class="diff-del">-    tmp_output = op_handle.call(model_inputs_, updated_ema_, decay_);</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  at::functionalization::impl::replace_(updated_ema, tmp_output);</span>
+<span class="diff-del">-  at::functionalization::impl::commit_update(updated_ema);</span>
+<span class="diff-del">-  at::functionalization::impl::sync(updated_ema);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> } // namespace</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> namespace habana::eager {</span>
+<span class="diff-hunk">@@ -2640,7 +2587,6 @@</span>
+<span class="diff-ctx"> TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {</span>
+<span class="diff-ctx">   m.impl(&quot;kv_reorder_&quot;, kv_reorder_functionalization_glue);</span>
+<span class="diff-ctx">   m.impl(&quot;in_place_interleave_&quot;, in_place_interleave_functionalization_glue);</span>
+<span class="diff-del">-  m.impl(&quot;optimizer_ema_&quot;, optimizer_ema_functionalization_glue);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> } // namespace habana::eager</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index c5bbf52..bfaba40 100644</span>
+<h4 class="diff-filename">b/hpu_ops/backend/optimizer_ema_gen.cpp</h4><pre class="diff-content"><span class="diff-hunk">@@ -10,58 +10,29 @@</span>
+<span class="diff-ctx">  *</span>
+<span class="diff-ctx">  *******************************************************************************</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-del">-#include &quot;hpu_ops/optimizers_gen.h&quot;</span>
+<span class="diff-add">+#include &quot;hpu_ops/op_backend.h&quot;</span>
+<span class="diff-ctx"> #include &quot;perf_lib_layer_params.h&quot;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> namespace sh = synapse_helpers;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> namespace habana {</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-OutputMetaDataVector EMAOutputMetadata(const at::Stack&amp; stack) {</span>
+<span class="diff-del">-  OutputMetaDataVector meta_vec;</span>
+<span class="diff-del">-  auto updated_ema_list = stack[1].toTensorList();</span>
+<span class="diff-del">-  meta_vec.reserve(updated_ema_list.size());</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-  for (const at::Tensor&amp; updated_ema_tensor : updated_ema_list) {</span>
+<span class="diff-del">-    OutputMetaData meta;</span>
+<span class="diff-del">-    meta.dtype = updated_ema_tensor.scalar_type();</span>
+<span class="diff-del">-    meta.shape = updated_ema_tensor.sizes().vec();</span>
+<span class="diff-del">-    meta_vec.push_back(meta);</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-  return meta_vec;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-// in place variant</span>
+<span class="diff-del">-struct OptimizerFusedEmaOperator_ : OptimizerFusedEmaOperatorCommon {</span>
+<span class="diff-del">-  OptimizerFusedEmaOperator_(int device_id, c10::ScalarType scalar_type)</span>
+<span class="diff-del">-      : OptimizerFusedEmaOperatorCommon(</span>
+<span class="diff-add">+class OptimizerFusedEmaOperator : public OpBackend {</span>
+<span class="diff-add">+ public:</span>
+<span class="diff-add">+  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)</span>
+<span class="diff-add">+      : OpBackend(</span>
+<span class="diff-ctx">             device_id,</span>
+<span class="diff-del">-            NO_TPC + &quot;OptimizerFusedEmaOperator_&quot;,</span>
+<span class="diff-add">+            NO_TPC + &quot;optimizer_fused_EmaOperator_&quot;,</span>
+<span class="diff-ctx">             scalar_type,</span>
+<span class="diff-ctx">             {},</span>
+<span class="diff-ctx">             {1}, // inplace ids</span>
+<span class="diff-ctx">             {},</span>
+<span class="diff-del">-            false) {</span>
+<span class="diff-del">-    SetOutputMetaFn(EMAOutputMetadata);</span>
+<span class="diff-del">-  }</span>
+<span class="diff-add">+            false) {}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+  void AddNode(sh::graph&amp; graph, const at::Stack&amp; stack) override;</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-// out variant required for torch.compile functionalization</span>
+<span class="diff-del">-struct OptimizerFusedEmaOperator : OptimizerFusedEmaOperatorCommon {</span>
+<span class="diff-del">-  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)</span>
+<span class="diff-del">-      : OptimizerFusedEmaOperatorCommon(</span>
+<span class="diff-del">-            device_id,</span>
+<span class="diff-del">-            NO_TPC + &quot;OptimizerFusedEmaOperator&quot;,</span>
+<span class="diff-del">-            scalar_type,</span>
+<span class="diff-del">-            {1},</span>
+<span class="diff-del">-            {},</span>
+<span class="diff-del">-            {},</span>
+<span class="diff-del">-            false) {</span>
+<span class="diff-del">-    SetOutputMetaFn(EMAOutputMetadata);</span>
+<span class="diff-del">-  }</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-void OptimizerFusedEmaOperatorCommon::AddNode(</span>
+<span class="diff-add">+void OptimizerFusedEmaOperator::AddNode(</span>
+<span class="diff-ctx">     sh::graph&amp; graph,</span>
+<span class="diff-ctx">     const at::Stack&amp; stack) {</span>
+<span class="diff-ctx">   StackGetter stackGetter(this, stack, &quot;OptimizerFusedEmaOperator::AddNode&quot;);</span>
+<span class="diff-hunk">@@ -116,7 +87,6 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> } // namespace habana</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static auto&amp; OptimizerKernelsKernelRegistry =</span>
+<span class="diff-del">-    habana::KernelRegistry()</span>
+<span class="diff-del">-        .add(&quot;hpu::optimizer_ema_&quot;, KERNEL_FN(OptimizerFusedEmaOperator_))</span>
+<span class="diff-del">-        .add(&quot;hpu::optimizer_ema&quot;, KERNEL_FN(OptimizerFusedEmaOperator));</span>
+<span class="diff-add">+static auto&amp; OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(</span>
+<span class="diff-add">+    &quot;hpu::optimizer_ema&quot;,</span>
+<span class="diff-add">+    KERNEL_FN(OptimizerFusedEmaOperator));</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 64a28c3..0000000</span>
+<span class="diff-hunk">@@ -1,23 +0,0 @@</span>
+<span class="diff-del">-/******************************************************************************</span>
+<span class="diff-del">- * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-del">- * All Rights Reserved.</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-del">- * is strictly prohibited.</span>
+<span class="diff-del">- * This file contains Habana Labs, Ltd. proprietary and confidential information</span>
+<span class="diff-del">- * and is subject to the confidentiality and license agreements under which it</span>
+<span class="diff-del">- * was provided.</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- *******************************************************************************</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#pragma once</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#include &quot;hpu_ops/hpu_op_helper.h&quot;</span>
+<span class="diff-del">-#include &quot;hpu_ops/op_backend.h&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-namespace habana {</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-HPU_OP_BACKEND(OptimizerFusedEmaOperatorCommon);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-} // namespace habana</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 501038a..f21f06c 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -287,11 +287,6 @@</span>
+<span class="diff-ctx">     return</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-@register_meta([torch.ops.hpu.optimizer_ema_.default])</span>
+<span class="diff-del">-def meta_optimizer_ema_(model_inputs, updated_ema, decay):</span>
+<span class="diff-del">-    return</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> @register_meta([torch.ops.hpu.optimizer_ema.default])</span>
+<span class="diff-ctx"> def meta_optimizer_ema(model_inputs, updated_ema, decay):</span>
+<span class="diff-ctx">     return [x.new_empty(x.shape) for x in model_inputs]</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 07b2cd6..b204e38 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -64,7 +64,6 @@</span>
+<span class="diff-ctx">     &quot;scaled_triangular_softmax_retain&quot;,</span>
+<span class="diff-ctx">     &quot;softmax_fp8&quot;,</span>
+<span class="diff-ctx">     &quot;sum_fp8&quot;,</span>
+<span class="diff-del">-    &quot;optimizer_ema&quot;,</span>
+<span class="diff-ctx">     # Torchvision</span>
+<span class="diff-ctx">     &quot;roi_align&quot;,</span>
+<span class="diff-ctx">     &quot;_roi_align_backward&quot;,</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e40a40a..dce0a7f 100644</span>
+<h4 class="diff-filename">b/python_packages/habana_frameworks/torch/hpex/movingavrg/FusedEMA.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -1,5 +1,5 @@</span>
+<span class="diff-ctx"> ###############################################################################</span>
+<span class="diff-del">-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-add">+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company</span>
+<span class="diff-ctx"> # All Rights Reserved.</span>
+<span class="diff-ctx"> #</span>
+<span class="diff-ctx"> # Unauthorized copying of this file or any element(s) within it, via any medium</span>
+<span class="diff-hunk">@@ -10,6 +10,7 @@</span>
+<span class="diff-ctx"> #</span>
+<span class="diff-ctx"> ###############################################################################</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+import math</span>
+<span class="diff-ctx"> from copy import deepcopy</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> import habana_frameworks.torch.core as htcore</span>
+<span class="diff-hunk">@@ -42,22 +43,20 @@</span>
+<span class="diff-ctx">             raise ValueError(&quot;Invalid decay value: {}&quot;.format(decay))</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA</span>
+<span class="diff-del">-        self.decay = lambda x: decay * (</span>
+<span class="diff-del">-            1 - torch.exp(-torch.Tensor([x]) / 2000.0)</span>
+<span class="diff-del">-        )  # decay exponential ramp (to help early epochs) #decay</span>
+<span class="diff-add">+        self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay</span>
+<span class="diff-ctx">         self.updates = updates</span>
+<span class="diff-del">-        self.updated_ema = list(self.ema.parameters())</span>
+<span class="diff-add">+        self.updated_ema = list(self.ema.state_dict().values())</span>
+<span class="diff-ctx">         if is_lazy():</span>
+<span class="diff-ctx">             from habana_frameworks.torch import _hpex_C</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">             self.op = _hpex_C.fused_ema</span>
+<span class="diff-ctx">         else:</span>
+<span class="diff-del">-            self.op = torch.ops.hpu.optimizer_ema_</span>
+<span class="diff-add">+            self.op = torch.ops.hpu.optimizer_ema</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx">     def update(self, model):</span>
+<span class="diff-ctx">         htcore.step_closure._mark_step_if_lazy()</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-        model_inputs = list(model.parameters())</span>
+<span class="diff-add">+        model_inputs = list(model.state_dict().values())</span>
+<span class="diff-ctx">         with torch.no_grad():</span>
+<span class="diff-ctx">             self.updates += 1</span>
+<span class="diff-ctx">             decy = self.decay(self.updates)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index df4f694..b87f951 100644</span>
+<h4 class="diff-filename">b/scripts/ops_list/kr_ops.hpu</h4><pre class="diff-content"><span class="diff-hunk">@@ -1007,7 +1007,6 @@</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::normal.Tensor_Tensor</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::optimizer_adamw</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::optimizer_ema</span>
+<span class="diff-del">-RegisterKernel::add op = hpu::optimizer_ema_</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::optimizer_lamb_fused_norm</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::optimizer_lamb_phase1</span>
+<span class="diff-ctx"> RegisterKernel::add op = hpu::optimizer_lamb_phase2</span>
+<span class="diff-hunk">@@ -1102,4 +1101,4 @@</span>
+<span class="diff-ctx"> RegisterKernel::add op = quantized_decomposed::quantize_per_tensor.tensor2</span>
+<span class="diff-ctx"> RegisterKernel::add op = torchvision::roi_align</span>
+<span class="diff-ctx"> RegisterKernel::add op = torchvision::_roi_align_backward</span>
+<span class="diff-del">-RegisterKernel::add op = torchvision::nms</span>
+<span class="diff-add">+RegisterKernel::add op = torchvision::nms</span>
+<span class="diff-ctx">\ No newline at end of file</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6b56baa..f0a6ab4 100644</span>
+<h4 class="diff-filename">b/scripts/ops_list/ops.hpu</h4><pre class="diff-content"><span class="diff-hunk">@@ -943,5 +943,3 @@</span>
+<span class="diff-ctx"> aten::matmul</span>
+<span class="diff-ctx"> hpu::optimizer_sgd</span>
+<span class="diff-ctx"> hpu::optimizer_sgd_momentum</span>
+<span class="diff-del">-hpu::optimizer_ema</span>
+<span class="diff-del">-hpu::optimizer_ema_</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0b77fab..1b65741 100644</span>
+<h4 class="diff-filename">b/tests/pytest_working/any_mode/test_ema.py</h4><pre class="diff-content"><span class="diff-hunk">@@ -11,17 +11,13 @@</span>
+<span class="diff-ctx"> ###############################################################################</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> import math</span>
+<span class="diff-del">-import time</span>
+<span class="diff-del">-from contextlib import contextmanager</span>
+<span class="diff-ctx"> from copy import deepcopy</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> import pytest</span>
+<span class="diff-ctx"> import torch</span>
+<span class="diff-ctx"> import torch.nn.functional as F</span>
+<span class="diff-del">-from compile.test_dynamo_utils import use_eager_fallback</span>
+<span class="diff-del">-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags</span>
+<span class="diff-ctx"> from habana_frameworks.torch.hpex.movingavrg import FusedEMA</span>
+<span class="diff-del">-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, hpu, is_pytest_mode_compile</span>
+<span class="diff-add">+from test_utils import compare_tensors, hpu</span>
+<span class="diff-ctx"> from torch import nn</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -81,39 +77,20 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> @pytest.mark.parametrize(&quot;decay&quot;, [0.9999, 0.5])</span>
+<span class="diff-ctx"> @pytest.mark.parametrize(&quot;epochs&quot;, [1, 2])</span>
+<span class="diff-del">-@pytest.mark.parametrize(&quot;precision&quot;, [torch.float, torch.bfloat16])</span>
+<span class="diff-del">-def test_ema(decay, epochs, precision):</span>
+<span class="diff-del">-    model_cpu = convModel().to(precision)</span>
+<span class="diff-del">-    model_cpu.zero_grad()</span>
+<span class="diff-del">-    model_hpu = deepcopy(model_cpu).to(hpu)</span>
+<span class="diff-add">+def test_ema(decay, epochs):</span>
+<span class="diff-add">+    cpu_model = convModel()</span>
+<span class="diff-add">+    cpu_ema = convModel()</span>
+<span class="diff-add">+    hpu_model = deepcopy(cpu_model).to(hpu)</span>
+<span class="diff-add">+    hpu_ema = deepcopy(cpu_ema).to(hpu)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    inputs_cpu = torch.randn(1, 4, 28, 28).to(precision)</span>
+<span class="diff-del">-    inputs_hpu = deepcopy(inputs_cpu).to(hpu)</span>
+<span class="diff-add">+    cpu_optim = EMA(cpu_ema, decay)</span>
+<span class="diff-add">+    hpu_optim = FusedEMA(hpu_ema, decay)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    def run_and_update(model, optim, inputs):</span>
+<span class="diff-del">-        optim = optim(model, decay)</span>
+<span class="diff-del">-        params = []</span>
+<span class="diff-del">-        for _ in range(epochs):</span>
+<span class="diff-del">-            model_output = model(inputs)</span>
+<span class="diff-del">-            loss = torch.sum(model_output)</span>
+<span class="diff-del">-            loss.backward()</span>
+<span class="diff-del">-            optim.update(model)</span>
+<span class="diff-del">-            params = list(optim.ema.state_dict().values())</span>
+<span class="diff-del">-        return params</span>
+<span class="diff-add">+    for _ in range(epochs):</span>
+<span class="diff-add">+        cpu_optim.update(cpu_model)</span>
+<span class="diff-add">+        hpu_optim.update(hpu_model)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    run_cpu = run_and_update</span>
+<span class="diff-del">-    run_hpu = run_and_update</span>
+<span class="diff-del">-    if is_pytest_mode_compile():</span>
+<span class="diff-del">-        clear_t_compile_logs()</span>
+<span class="diff-del">-        torch._dynamo.reset()</span>
+<span class="diff-del">-        run_hpu = torch.compile(run_and_update, backend=&quot;hpu_backend&quot;)</span>
+<span class="diff-add">+        cpu_params = list(cpu_optim.ema.state_dict().values())</span>
+<span class="diff-add">+        hpu_params = list(hpu_optim.ema.state_dict().values())</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-    # allow eager fallback because some of the operations in FusedEMA wrapper</span>
+<span class="diff-del">-    # needs CPU execution</span>
+<span class="diff-del">-    with use_eager_fallback():</span>
+<span class="diff-del">-        cpu_params = run_cpu(model_cpu, EMA, inputs_cpu)</span>
+<span class="diff-del">-        hpu_params = run_hpu(model_hpu, FusedEMA, inputs_hpu)</span>
+<span class="diff-del">-        for cp, hp in zip(cpu_params, hpu_params):</span>
+<span class="diff-del">-            compare_tensors(hp, cp, atol=1.0e-7, rtol=1.0e-5)</span>
+<span class="diff-del">-    if is_pytest_mode_compile():</span>
+<span class="diff-del">-        check_ops_executed_in_jit_ir(&quot;optimizer_ema&quot;)</span>
+<span class="diff-add">+        compare_tensors(hpu_params, cpu_params, atol=1.0e-7, rtol=1.0e-5)</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Suryaprakash Shanmugam</strong> <span class="date">(2024-10-29 11:13:41.322000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Suryaprakash Shanmugam</strong> <span class="date">(2024-11-04 11:20:28.816000000)</span><pre>Patch Set 2: Patch Set 1 was rebased</pre></div><div class="message"><strong>Ramesh Babu</strong> <span class="date">(2024-11-06 13:52:19.785000000)</span><pre>Patch Set 2: Code-Review-2
+
+you can&#x27;t merge directly to master.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

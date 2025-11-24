@@ -1,0 +1,27 @@
+From c31d19123c5c34cf0b693c486eea2574c3d5ae68 Mon Sep 17 00:00:00 2001
+From: Witold Netel <wnetel@habana.ai>
+Date: Thu, 24 Apr 2025 13:35:36 +0300
+Subject: [PATCH] [SW-225024] Docker: TC3, set python alternatives
+
+to met workloads requirements about "python"
+binary pointing to default python3.10 and presence of python3-config
+
+Change-Id: I635ec34908b4eb5ded15b5d7ae46d86bf0a15a98
+Signed-off-by: Witold Netel <wnetel@habana.ai>
+---
+
+diff --git a/dockerfiles/base/install-python310.sh b/dockerfiles/base/install-python310.sh
+index c4ba689..2946d1e 100755
+--- a/dockerfiles/base/install-python310.sh
++++ b/dockerfiles/base/install-python310.sh
+@@ -52,7 +52,9 @@
+         alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 3 && \
+         alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 && \
+         alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1 && \
+-        alternatives --set python3 /usr/local/bin/python3.10
++        alternatives --install /usr/bin/python3-config python3-config /usr/local/bin/python3.10-config 1 && \
++        alternatives --set python3 /usr/local/bin/python3.10 && \
++        alternatives --set python /usr/bin/python3
+         export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+     ;;
+ esac

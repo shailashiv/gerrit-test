@@ -1,0 +1,22 @@
+From 4e155f275a9ee4401b8a99ca0e0227c2d882198f Mon Sep 17 00:00:00 2001
+From: Gennady Davidov <gdavidov@habana.ai>
+Date: Thu, 12 Dec 2024 17:57:21 +0200
+Subject: [PATCH] [SW-199790] tests: hl-driver-common - fix nic_status function
+
+Change-Id: I3d064c6aae5d002aee64a45194d5c7276433d54b
+Signed-off-by: Gennady Davidov <gdavidov@habana.ai>
+---
+
+diff --git a/tests/asic/driver/hl-driver-common.sh b/tests/asic/driver/hl-driver-common.sh
+index 897902f..872c31d 100755
+--- a/tests/asic/driver/hl-driver-common.sh
++++ b/tests/asic/driver/hl-driver-common.sh
+@@ -9,7 +9,7 @@
+ DOCKER_CI_ENV=1
+ 
+ function nic_status(){
+-    until $HOME/$NIC_KMD_ROOT/scripts/manage_network_ifs.sh --status; do sleep 30; done
++    timeout 10 bash -c 'until $NIC_KMD_ROOT/scripts/manage_network_ifs.sh --status; do sleep 30; done'
+ }
+ 
+ function toggle_nic(){

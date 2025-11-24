@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 478042: [FSW-14755] fs1: wait for spi dma chunk copy</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 478042: [FSW-14755] fs1: wait for spi dma chunk copy</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcboot</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Subrahmanyeswara Swamy Murala &lt;ssmurala@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-04-24 03:21:52.569000000</p>
+            <p><strong>Updated:</strong> 2025-06-03 09:45:59.098000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-14755] fs1: wait for spi dma chunk copy
+
+At present spi dma status done bit is used to
+identify dma copy completed, it is a short pulse
+and only useful if we start checking this bit
+immediately. In case of just initialize copy and
+check its status after some predefined operations
+completed, this done was not useful and it may be
+cleared before bootrom check for this. So we use
+copied count here after.
+
+Change-Id: I5d7d970d1c4bb6c749c9ecb103d9c167280a273b
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Pradyot Bhattacharyya: +0, Software Jenkins: +0, Subrahmanyeswara Swamy Murala: -1, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>arch/fs1/arc/dev_dma.c</code> (M) +15 -5</li><li><code>arch/fs1/arc/dev_dma.h</code> (M) +1 -1</li><li><code>arch/fs1/arc/progress_bits.h</code> (M) +42 -42</li><li><code>common/dma.c</code> (M) +10 -3</li><li><code>common/dma.h</code> (M) +2 -0</li><li><code>common/status.h</code> (M) +1 -0</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/arch/fs1/arc/dev_dma.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -13,6 +13,7 @@</span>
+<span class="diff-ctx"> #include &lt;fs1_reg_map.h&gt;</span>
+<span class="diff-ctx"> #include &lt;progress_bits.h&gt;</span>
+<span class="diff-ctx"> #include &lt;dma.h&gt;</span>
+<span class="diff-add">+#include &lt;delay.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define DMA_ADDRESS_LOW(x)	((x) &amp; MASK_32_BIT)</span>
+<span class="diff-ctx"> #define DMA_ADDRESS_HIGH(x)	(((x) &gt;&gt; 32) &amp; MASK_32_BIT)</span>
+<span class="diff-hunk">@@ -66,15 +67,24 @@</span>
+<span class="diff-ctx"> 		      IO0_H0_PSOC_PARC_CFG_MISC_BASE(mmPARC_GLOBAL_CONF_SPI_DMA_CTRL));</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-uint32_t dma_wait_finish(void)</span>
+<span class="diff-add">+enum dma_error dma_wait_finish(uint32_t size)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	uint32_t reg_spi_dma_status_s = 0;</span>
+<span class="diff-add">+	uint32_t reg_spi_dma_status_s = 0, copied = 0;</span>
+<span class="diff-add">+	uint64_t start = boot_rom_get_ts_us();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	do {</span>
+<span class="diff-add">+		if (boot_rom_timeout_expired(start, SPI_DMA_TIMEOUT_US))</span>
+<span class="diff-add">+			return DMA_COPY_TIMEOUT;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 		reg_spi_dma_status_s =</span>
+<span class="diff-ctx"> 		  regmap_readl(IO0_H0_PSOC_PARC_CFG_MISC_BASE(mmPARC_GLOBAL_CONF_SPI_DMA_STATUS));</span>
+<span class="diff-del">-	} while ((reg_spi_dma_status_s &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_DONE_M) == 0);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	/* TODO: implement timeout for 64KB data chunk */</span>
+<span class="diff-del">-	return (reg_spi_dma_status_s &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M);</span>
+<span class="diff-add">+		copied = ((reg_spi_dma_status_s &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_COPIED_M) &gt;&gt;</span>
+<span class="diff-add">+			PARC_GLOBAL_CONF_SPI_DMA_STATUS_COPIED_S) * DMA_DST_BLOCK_SIZE;</span>
+<span class="diff-add">+	} while(copied != size);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if ((reg_spi_dma_status_s &amp; PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M) != 0)</span>
+<span class="diff-add">+		return DMA_INVALID_CRC_ERROR;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	return DMA_SUCCESS;</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 7d101d3..6f3cde9 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/dev_dma.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -6,7 +6,7 @@</span>
+<span class="diff-ctx"> #ifndef _DEV_DMA_H_</span>
+<span class="diff-ctx"> #define _DEV_DMA_H_</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-uint32_t dma_wait_finish(void);</span>
+<span class="diff-add">+enum dma_error dma_wait_finish(uint32_t size);</span>
+<span class="diff-ctx"> void dma_copy_image_internal(uint16_t image_size, uint32_t flash_offset,</span>
+<span class="diff-ctx"> 			     uint64_t dest_offset, uint8_t fw_sram_dst,</span>
+<span class="diff-ctx"> 			     uint8_t restart_crc, uint8_t mask_crc);</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 3ca8539..bc31c86 100644</span>
+<h4 class="diff-filename">b/arch/fs1/arc/progress_bits.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -16,48 +16,48 @@</span>
+<span class="diff-ctx"> 	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_SIZE = 6,</span>
+<span class="diff-ctx"> 	PROGRESS_INIT_SPI_MANIFEST_0_UNALIGNED_IMG_SIZE = 7,</span>
+<span class="diff-ctx"> 	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_FLASH_OFFSET = 8,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR = 9,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH = 10,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL = 11,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET = 12,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL = 13,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL = 14,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL = 15,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL = 16,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL = 17,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_0_FAIL = 18,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE = 19,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START = 20,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL = 21,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST = 22,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE = 23,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE = 24,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET = 25,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR = 26,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH = 27,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL = 28,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET = 29,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL = 30,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL = 31,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL = 32,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL = 33,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL = 34,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_MANIFEST_1_FAIL = 35,</span>
+<span class="diff-del">-	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL = 36,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_INIT_FAIL = 37,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI = 38,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL = 39,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE = 40,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL = 41,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL = 42,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL = 43,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL = 44,</span>
+<span class="diff-del">-	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT = 45,</span>
+<span class="diff-del">-	PROGRESS_REVOKE_LOC_ASIC_EFUSE = 46,</span>
+<span class="diff-del">-	PROGRESS_REVOKE_LOC_FAKE_FUSE = 47,</span>
+<span class="diff-del">-	PROGRESS_KEY_LOC = 48, /* TODO: Remove &amp; rearrange */</span>
+<span class="diff-del">-	PROGRESS_KEY_LOC_ROM = 49,</span>
+<span class="diff-del">-	PROGRESS_KEY_LOC_1 = 50, /* TODO: Remove &amp; rearrange */</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_DMA_COPY_TIMEOUT = 9,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_DMA_ERROR = 10,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_DMA_FINISH = 11,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_HDR_MAGIC_FAIL = 12,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_INVALID_IMG_OFFSET = 13,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_VERIFICATION_FAIL = 14,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_INFO_SET_FAIL = 15,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_DATA_SET_FAIL = 16,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_INFO_GET_FAIL = 17,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_DATA_GET_FAIL = 18,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_0_FAIL = 19,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_EXCEEDS_MAX_SIZE = 20,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DMA_START = 21,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_CRC_FAIL = 22,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_DEST = 23,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_SIZE = 24,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_UNALIGNED_IMG_SIZE = 25,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_FLASH_OFFSET = 26,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DMA_COPY_TIMEOUT = 27,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DMA_ERROR = 28,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DMA_FINISH = 29,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_HDR_MAGIC_FAIL = 30,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_INVALID_IMG_OFFSET = 31,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_VERIFICATION_FAIL = 32,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_INFO_SET_FAIL = 33,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DATA_SET_FAIL = 34,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_INFO_GET_FAIL = 35,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_DATA_GET_FAIL = 36,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_MANIFEST_1_FAIL = 37,</span>
+<span class="diff-add">+	PROGRESS_INIT_SPI_VALID_MANIFEST_INDEX_FAIL = 38,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_INIT_FAIL = 39,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI = 40,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_IMG_DESC_FAIL = 41,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_EXCEEDS_MAX_SIZE = 42,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_DMA_COPY_FAIL = 43,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_MAGIC_FAIL = 44,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_DESC_COUNT_FAIL = 45,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_DECODE_FAIL = 46,</span>
+<span class="diff-add">+	PROGRESS_INIT_EFUSE_SPI_SLV_TIMEDOUT = 47,</span>
+<span class="diff-add">+	PROGRESS_REVOKE_LOC_ASIC_EFUSE = 48,</span>
+<span class="diff-add">+	PROGRESS_REVOKE_LOC_FAKE_FUSE = 49,</span>
+<span class="diff-add">+	PROGRESS_KEY_LOC_ROM = 50,</span>
+<span class="diff-ctx"> 	PROGRESS_VER_LOC = 51, /* TODO: Remove &amp; rearrange */</span>
+<span class="diff-ctx"> 	PROGRESS_VER_LOC_ASIC_EFUSE = 52,</span>
+<span class="diff-ctx"> 	PROGRESS_VER_LOC_FAKE_FUSE = 53,</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 9a7b4bb..4027c89 100644</span>
+<h4 class="diff-filename">b/common/dma.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -26,6 +26,8 @@</span>
+<span class="diff-ctx"> 		else if (err == DMA_INVALID_FLASH_OFFSET)</span>
+<span class="diff-ctx"> 			boot_rom_status_update_bringup(dma_sts_base,</span>
+<span class="diff-ctx"> 						       PROGRESS_DMA_INVALID_FLASH_OFFSET);</span>
+<span class="diff-add">+		else if (err == DMA_COPY_TIMEOUT)</span>
+<span class="diff-add">+			boot_rom_status_update_bringup(dma_sts_base, PROGRESS_DMA_COPY_TIMEOUT);</span>
+<span class="diff-ctx"> 		else</span>
+<span class="diff-ctx"> 			boot_rom_status_update_bringup(dma_sts_base, PROGRESS_DMA_ERROR);</span>
+<span class="diff-ctx"> 		return 1;</span>
+<span class="diff-hunk">@@ -85,9 +87,14 @@</span>
+<span class="diff-ctx"> 		copy_size -= dma_size;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 		if (wait) {</span>
+<span class="diff-del">-			ret = dma_wait_finish();</span>
+<span class="diff-del">-			if ((mask_crc_err == 0) &amp;&amp; (ret == PARC_GLOBAL_CONF_SPI_DMA_STATUS_ERROR_M)) {</span>
+<span class="diff-del">-				return DMA_INVALID_CRC_ERROR;</span>
+<span class="diff-add">+			ret = dma_wait_finish(dma_size);</span>
+<span class="diff-add">+			if (ret != DMA_SUCCESS) {</span>
+<span class="diff-add">+				if (ret == DMA_INVALID_CRC_ERROR) {</span>
+<span class="diff-add">+					if (mask_crc_err == 0) {</span>
+<span class="diff-add">+						return DMA_INVALID_CRC_ERROR;</span>
+<span class="diff-add">+					}</span>
+<span class="diff-add">+				} else</span>
+<span class="diff-add">+					return ret;</span>
+<span class="diff-ctx"> 			}</span>
+<span class="diff-ctx"> 		} else {</span>
+<span class="diff-ctx"> 			/* background spi dma copy */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 4c20adf..2c835ca 100644</span>
+<h4 class="diff-filename">b/common/dma.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -17,6 +17,7 @@</span>
+<span class="diff-ctx"> #define MAX_DMA_SIZE		OFFSET_63KB</span>
+<span class="diff-ctx"> #define MIN_DMA_SIZE		16	/* 16 bytes */</span>
+<span class="diff-ctx"> #define ADDR_SIZE_ALIGNMENT	16	/* 16 bytes */</span>
+<span class="diff-add">+#define SPI_DMA_TIMEOUT_US	50000</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> enum dma_error {</span>
+<span class="diff-ctx"> 	DMA_SUCCESS = 0,</span>
+<span class="diff-hunk">@@ -26,6 +27,7 @@</span>
+<span class="diff-ctx"> 	DMA_UNALIGNED_DEST_ADDR,</span>
+<span class="diff-ctx"> 	DMA_INVALID_IMG_SIZE,</span>
+<span class="diff-ctx"> 	DMA_INVALID_FLASH_OFFSET, /* When flash offset + image size is beyond flash limit */</span>
+<span class="diff-add">+	DMA_COPY_TIMEOUT,</span>
+<span class="diff-ctx"> 	DMA_ERROR_MAX</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 3f06c23..cdc3d34 100644</span>
+<h4 class="diff-filename">b/common/status.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -36,6 +36,7 @@</span>
+<span class="diff-ctx"> 	PROGRESS_DMA_INVALID_IMG_SIZE,</span>
+<span class="diff-ctx"> 	PROGRESS_DMA_UNALIGNED_IMG_SIZE,</span>
+<span class="diff-ctx"> 	PROGRESS_DMA_INVALID_FLASH_OFFSET,</span>
+<span class="diff-add">+	PROGRESS_DMA_COPY_TIMEOUT,</span>
+<span class="diff-ctx"> 	PROGRESS_DMA_ERROR,</span>
+<span class="diff-ctx"> 	PROGRESS_DMA_FINISH,</span>
+<span class="diff-ctx"> 	PROGRESS_BOOT_DESC_HDR_MAGIC_FAIL,</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-24 09:54:28.992000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-24 09:54:36.964000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6948/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-24 09:54:37.399000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34898/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-24 09:57:10.515000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/131/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-24 10:01:47.637000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/24/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-04-24 10:42:26.257000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/131/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/6948/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-04-24 11:23:32.384000000)</span><pre>Patch Set 2: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/34898/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/24/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-04-25 02:42:31.337000000)</span><pre>Topic set to NEW_SPI_DMA</pre></div><div class="message"><strong>Pradyot Bhattacharyya</strong> <span class="date">(2025-04-25 09:46:13.376000000)</span><pre>Patch Set 2: Code-Review+1</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-05-12 04:20:36.059000000)</span><pre>Uploaded patch set 4: Patch Set 3 was rebased.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 04:20:43.496000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7389/ (1/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 04:20:44.296000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35384/ (1/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 04:23:35.165000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/138/ (2/2)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 04:26:06.953000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/28/ (2/2)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-12 04:44:04.449000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_arcboot_build_master_next/138/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_arcboot_build_master_next/125/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_arcboot_build_master_next/125/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7389/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-12 05:30:37.031000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_arcboot_build_master_next/28/ : FAILURE
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_arcboot_build_master_next/954/ )
+
+PermissionError: [Errno 13] Permission denied ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_arcboot_build_master_next/954/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_arcboot_build_master_next/954/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35384/ : SUCCESS</pre></div><div class="message"><strong>Subrahmanyeswara Swamy Murala</strong> <span class="date">(2025-06-03 09:45:59.098000000)</span><pre>Patch Set 4: Code-Review-1
+
+Assign new JIRA with background DMA.</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

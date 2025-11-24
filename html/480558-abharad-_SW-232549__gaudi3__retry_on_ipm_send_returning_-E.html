@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 480558: [SW-232549] gaudi3: retry on ipm_send returning -EINVAL</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 480558: [SW-232549] gaudi3: retry on ipm_send returning -EINVAL</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcevent</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-27 04:50:31.022000000</p>
+            <p><strong>Updated:</strong> 2025-06-20 14:20:28.406000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-232549] gaudi3: retry on ipm_send returning -EINVAL
+
+ipm_send implementation was modified to nudge the receiver with
+an interrupt if id is already present in the mailbox. To take advantage
+of that feature we need to retry if ipm_send fails with EINVAL
+
+Change-Id: I6f7269f790ecd32c3da43946c8d7644b8381b27e
+Signed-off-by: Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Jason Smith: +0, Jenkins EMB Service Account: +0, Akshay Pradip Bharad: +0</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: -2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>src/gaudi3/dev.c</code> (M) +12 -6</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/src/gaudi3/dev.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -80,15 +80,21 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	for (i = 0; i &lt; EVENT_IPM_RETRIES; i++) {</span>
+<span class="diff-ctx"> 		ret = ipm_send(dev, 0, mbx_msg_id.u32, data, sizeof(int));</span>
+<span class="diff-del">-		if (!ret || ret != -EBUSY)</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-			k_busy_wait(EVENT_IPM_BUSY_WAIT_US);</span>
+<span class="diff-add">+		if (ret == 0) {</span>
+<span class="diff-add">+			/* Success */</span>
+<span class="diff-add">+			return;</span>
+<span class="diff-ctx"> 		}</span>
+<span class="diff-add">+		if (ret == -EBUSY || ret == -EINVAL) {</span>
+<span class="diff-add">+			/* Retry */</span>
+<span class="diff-add">+			k_busy_wait(EVENT_IPM_BUSY_WAIT_US);</span>
+<span class="diff-add">+			continue;</span>
+<span class="diff-add">+		}</span>
+<span class="diff-add">+		break;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-		if ((i == EVENT_IPM_RETRIES) || (ret))</span>
+<span class="diff-del">-			LOG_ERR(&quot;Unable to respond to msg_id: %d with err: %d&quot;,</span>
+<span class="diff-del">-				mbx_msg_id.u32, ret);</span>
+<span class="diff-add">+	LOG_ERR(&quot;Unable to respond to msg_id: %d with err: %d&quot;,</span>
+<span class="diff-add">+		mbx_msg_id.u32, ret);</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_intr_handler(const struct device *dev,</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:53:24.232000000)</span><pre>Patch Set 3: Commit message was updated.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 08:02:12.127000000)</span><pre>Patch Set 3:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 08:02:19.784000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36170/ (1/3)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 08:02:34.757000000)</span><pre>Patch Set 4: Commit message was updated.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 08:07:34.407000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22428/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 08:07:34.449000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24903/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 09:25:46.574000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24903/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24903/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/48086/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22428/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36170/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-10 04:52:40.049000000)</span><pre>Uploaded patch set 5: Patch Set 4 was rebased.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 04:52:46.413000000)</span><pre>Patch Set 5: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36755/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 04:58:30.476000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25385/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 04:58:30.500000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22874/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 05:00:07.198000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25385/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25385/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22874/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22874/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36755/ : FAILURE
+
+docker: Error response from daemon: OCI runtime create failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36755/ )
+
+Pleases validate node is connected with jenkins (and not with swjenkins) ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36755/ )
+
+JFrog service failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36755/ )</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-10 13:56:59.535000000)</span><pre>Patch Set 5:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 13:57:06.384000000)</span><pre>Patch Set 5: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36795/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 14:04:04.515000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22902/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 14:04:04.538000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25414/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-10 14:53:58.994000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22902/ : FAILURE
+
+fatal: fetch-pack: invalid index-pack output ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_checkpatch_master_next/25509/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25414/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36795/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-16 05:36:41.005000000)</span><pre>Removed reviewer Jason Smith.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-16 05:36:43.493000000)</span><pre>Removed reviewer Pavan Sreenivas.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-16 05:44:22.308000000)</span><pre>Patch Set 5:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 05:44:30.299000000)</span><pre>Patch Set 5: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36991/ (1/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 05:48:28.751000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25576/ (2/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 05:48:28.755000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/11/ (3/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 05:48:28.790000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/9/ (4/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 05:48:28.805000000)</span><pre>Patch Set 5:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23046/ (5/5)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-16 06:45:09.403000000)</span><pre>Patch Set 5: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/9/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/9/ )
+
+Gerrit error checkout repo [Component/s:CI-CD Support, DevOps] ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_gaudi3_build_master_next/10/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_gaudi3_build_master_next/10/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/49153/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36991/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/25576/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23046/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/11/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-16 16:54:31.376000000)</span><pre>Uploaded patch set 6: Patch Set 5 was rebased.</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-20 13:43:50.779000000)</span><pre>Patch Set 6:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-20 13:43:57.163000000)</span><pre>Patch Set 6: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37132/ (1/4)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-06-20 13:46:38.880000000)</span><pre>Patch Set 7: Commit message was updated.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-20 13:48:53.100000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23148/ (2/4)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-20 13:48:53.113000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/130/ (3/4)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-20 13:48:53.127000000)</span><pre>Patch Set 6:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/132/ (4/4)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-06-20 14:20:28.406000000)</span><pre>Patch Set 6: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/37132/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/23148/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi2_build_master_next/132/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_gaudi3_build_master_next/130/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

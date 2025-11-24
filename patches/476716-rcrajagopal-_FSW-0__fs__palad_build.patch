@@ -1,0 +1,86 @@
+From 906471368873efbdd266a7f64a45d64e0358fad1 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Fri, 04 Apr 2025 07:37:46 +0300
+Subject: [PATCH] [FSW-0] fs: palad build
+
+Queue intr mask register is not exists any more. Here
+disabled queue driver to build fs palad build successfully.
+
+Change-Id: I25087774b849a6525520fd796862de34cf40b68a
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/drivers/misc/interrupt/common/intr.c b/drivers/misc/interrupt/common/intr.c
+index 8b967c7..833177c 100644
+--- a/drivers/misc/interrupt/common/intr.c
++++ b/drivers/misc/interrupt/common/intr.c
+@@ -11,7 +11,7 @@
+ #include <stdlib.h>
+ #include <zephyr/device.h>
+ #include <zephyr/kernel.h>
+-#include <soc.h>
++#include <soc/intel/gpu/fs1/soc.h>
+ #include <zephyr/drivers/misc/interrupt/intr.h>
+ #include <intr.h>
+ 
+diff --git a/dts/arc/fs1_io_mgmt.dtsi b/dts/arc/fs1_io_mgmt.dtsi
+index e12e443..2d47ae2 100644
+--- a/dts/arc/fs1_io_mgmt.dtsi
++++ b/dts/arc/fs1_io_mgmt.dtsi
+@@ -85,6 +85,7 @@
+ 			interrupts = <173 2>;
+ 			interrupt-names = "shared_irq";
+ 			label = "FS_QUEUE_SHARED_IRQ";
++			status = "disabled";
+ 
+ 			d2hqueue0: fs_queue@f9ce2400 {
+ 				reg = <0xf9ce2400 0x30>,
+@@ -98,6 +99,7 @@
+ 				global_idx = <6>;
+ 				mask_idx = <11>;
+ 				label = "FS_QUEUE_D2H0";
++				status = "disabled";
+ 			};
+ 
+ 			d2hqueue1: fs_queue@f9ce2440 {
+@@ -112,6 +114,7 @@
+ 				global_idx = <6>;
+ 				mask_idx = <11>;
+ 				label = "FS_QUEUE_D2H1";
++				status = "disabled";
+ 			};
+ 
+ 			h2dqueue0: fs_queue@f9ce2200 {
+@@ -125,6 +128,7 @@
+ 				global_idx = <6>;
+ 				mask_idx = <11>;
+ 				label = "FS_QUEUE_H2D0";
++				status = "disabled";
+ 			};
+ 		};
+ 	};
+diff --git a/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt
+index 7f71909..f105ea8 100644
+--- a/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt
++++ b/soc/intel/gpu/fs1/emb/Kconfig.defconfig_mgmt
+@@ -52,16 +52,16 @@
+ 	default y
+ 
+ config INTEL_FS_QUEUE
+-	default y
++	default n
+ 
+ config INTEL_FS_QUEUE_D2H
+-	default y
++	default n
+ 
+ config INTEL_FS_QUEUE_H2D
+-	default y
++	default n
+ 
+ config SHARED_IRQ
+-	default y
++	default n
+ 
+ config LIBBOOTINFO
+ 	default y

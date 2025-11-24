@@ -1,0 +1,78 @@
+From d5d9d6352aca7282eca87d49dcb574afad952e1e Mon Sep 17 00:00:00 2001
+From: Suryaprakash Shanmugam <sshanmugam@habana.ai>
+Date: Wed, 30 Oct 2024 17:30:50 +0200
+Subject: [PATCH] [SW-207212] STMeta for aten.slice
+
+Change-Id: Ie8e530a987dac5e508ffd84ec6919396f65b7cb3
+---
+
+diff --git a/habana_kernels/index_kernels.cpp b/habana_kernels/index_kernels.cpp
+index 240bbc2..dc6c627 100644
+--- a/habana_kernels/index_kernels.cpp
++++ b/habana_kernels/index_kernels.cpp
+@@ -2098,6 +2098,17 @@
+       min <= start, "SliceOperator Start tensor min is greater than max");
+ }
+ 
++bool SliceOperator::STMeta(
++    habana_helpers::IShapeList& inputs,
++    habana_helpers::IShapeList& outputs) {
++  std::vector<int64_t> out_shape = outputs[0].getTensorShape();
++  static_cast<void>(inputs);
++  PT_BRIDGE_DEBUG("SliceOperatorSTMeta output shape ", out_shape);
++  habana_helpers::UpdateSTShapeInfo(out_shape);
++
++  return true;
++}
++
+ void SliceOperator::AllocateAndAddSynapseNode(
+     synapse_helpers::graph& graph,
+     torch::jit::Stack& inputs,
+diff --git a/habana_kernels/index_kernels.h b/habana_kernels/index_kernels.h
+index fa2532c..5054c73 100644
+--- a/habana_kernels/index_kernels.h
++++ b/habana_kernels/index_kernels.h
+@@ -86,6 +86,10 @@
+       std::vector<int64_t>& start,
+       std::vector<int64_t>& min,
+       std::vector<int64_t>& max);
++
++  bool STMeta(
++      habana_helpers::IShapeList& inputs,
++      habana_helpers::IShapeList& outputs) override;
+ };
+ 
+ //
+diff --git a/tests/pytest_working/compile/dynamic/test_hpu_ops.py b/tests/pytest_working/compile/dynamic/test_hpu_ops.py
+index d035cbb..d55ba42 100644
+--- a/tests/pytest_working/compile/dynamic/test_hpu_ops.py
++++ b/tests/pytest_working/compile/dynamic/test_hpu_ops.py
+@@ -1505,3 +1505,28 @@
+             assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+ 
+     execute_model(input_shapes)
++
++
++def test_backend_st_slice():
++    input_shape = [224, 224, 3]
++    indices = [
++        (200, 220, 1),
++        (201, 221, 2),
++        (202, 222, 1),
++        (203, 223, 2),
++    ]
++
++    def raw_function(t, start, end, step):
++        t = t[start:end:step]
++        t = torch.relu(t)  # to avoid fallback due to slice being a leaf view node
++        return t
++
++    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
++
++    for index_tuple in indices:
++        start, end, step = index_tuple
++        t1 = torch.randn(input_shape, requires_grad=False)
++        result = raw_function(t1, start, end, step)
++        t1_h = t1.to("hpu")
++        h_result = compiled_fn(t1_h, start, end, step)
++        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)

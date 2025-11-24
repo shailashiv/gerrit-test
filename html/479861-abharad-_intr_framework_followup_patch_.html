@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 479861: [intr framework followup patch]</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 479861: [intr framework followup patch]</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcmgmt</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-16 08:06:23.652000000</p>
+            <p><strong>Updated:</strong> 2025-05-16 08:18:49.053000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[intr framework followup patch]
+
+Change-Id: I4feaff1bf2adedc69322cabac1ac59d83eb21929
+Signed-off-by: Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Jenkins EMB Service Account: +0, Pavan Sreenivas: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>arch/common/intr/intr.c</code> (M) +2 -21</li><li><code>arch/common/intr/intr_dispatch.c</code> (M) +53 -210</li><li><code>arch/jgs/intr/jsw_intr.c</code> (M) +66 -3</li><li><code>include/intr.h</code> (M) +4 -2</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/arch/common/intr/intr.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -17,27 +17,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int process_interrupt(struct intr_config *config, enum intr_action action)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	switch (action) {</span>
+<span class="diff-del">-	case INTR_ACTION_ENABLE:</span>
+<span class="diff-del">-		/* Enable the interrupt */</span>
+<span class="diff-del">-		break;</span>
+<span class="diff-del">-	case INTR_ACTION_DISABLE:</span>
+<span class="diff-del">-		/* Disable the interrupt */</span>
+<span class="diff-del">-		break;</span>
+<span class="diff-del">-	case INTR_ACTION_MASK:</span>
+<span class="diff-del">-		/* Mask the interrupt */</span>
+<span class="diff-del">-		break;</span>
+<span class="diff-del">-	case INTR_ACTION_UNMASK:</span>
+<span class="diff-del">-		/* Unmask the interrupt */</span>
+<span class="diff-del">-		break;</span>
+<span class="diff-del">-	case INTR_ACTION_PROCESS:</span>
+<span class="diff-del">-		/* Process the interrupt */</span>
+<span class="diff-del">-		dispatch_intr_handler(config);</span>
+<span class="diff-del">-		break;</span>
+<span class="diff-del">-	default:</span>
+<span class="diff-del">-		LOG_ERR(&quot;Invalid action for interrupt processing\n&quot;);</span>
+<span class="diff-del">-		return -EINVAL;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	config-&gt;arch_process_intr();</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 89aeed1..5ff8b85 100644</span>
+<h4 class="diff-filename">b/arch/common/intr/intr_dispatch.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -10,216 +10,59 @@</span>
+<span class="diff-ctx"> #include &lt;zephyr/logging/log.h&gt;</span>
+<span class="diff-ctx"> LOG_MODULE_REGISTER(INTR_TYPE);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-/* 2D array of function pointers for each group type and each component type */</span>
+<span class="diff-del">-static hl_agg_handler_t hl_agg_handlers[INT_GRP_TYPE_MAX][INT_COMP_TYPE_MAX] = {</span>
+<span class="diff-del">-	/* INT_GRP_TYPE_SERR */</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, arc_farm),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, cpu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, cs),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, d2d_mac),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, d2d_phy),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, dch0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, dch1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, dec),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, drtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, drtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, econ),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, edma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, edup),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, grtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, grtr3),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, hft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, hif),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, mc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, mme),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, nch),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, nchl),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, nic),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, nrtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, nrtr2),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, parc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, pcie),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, pdma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, pll),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, pmmu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, psoc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, rft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, rot),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, rrtr),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, sob),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, stlb),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, tpc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, ts),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(serr, vm)</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	/* INT_GRP_TYPE_DERR */</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, arc_farm),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, cpu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, cs),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, d2d_mac),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, d2d_phy),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, dch0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, dch1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, dec),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, drtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, drtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, econ),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, edma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, edup),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, grtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, grtr3),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, hft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, hif),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, mc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, mme),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, nch),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, nchl),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, nic),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, nrtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, nrtr2),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, parc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, pcie),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, pdma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, pll),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, pmmu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, psoc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, rft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, rot),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, rrtr),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, sob),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, stlb),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, tpc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, ts),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(derr, vm)</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	/* INT_GRP_TYPE_SEI */</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, arc_farm),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, cpu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, cs),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, d2d_mac),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, d2d_phy),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, dch0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, dch1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, dec),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, drtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, drtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, econ),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, edma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, edup),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, grtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, grtr3),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, hft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, hif),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, mc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, mme),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, nch),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, nchl),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, nic),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, nrtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, nrtr2),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, parc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, pcie),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, pdma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, pll),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, pmmu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, psoc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, rft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, rot),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, rrtr),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, sob),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, stlb),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, tpc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, ts),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(sei, vm)</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	/* INT_GRP_TYPE_SPI */</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, arc_farm),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, cpu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, cs),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, d2d_mac),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, d2d_phy),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, dch0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, dch1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, dec),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, drtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, drtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, econ),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, edma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, edup),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, grtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, grtr3),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, hft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, hif),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, mc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, mme),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, nch),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, nchl),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, nic),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, nrtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, nrtr2),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, parc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, pcie),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, pdma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, pll),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, pmmu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, psoc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, rft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, rot),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, rrtr),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, sob),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, stlb),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, tpc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, ts),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(spi, vm)</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	/* INT_GRP_TYPE_ECO */</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, arc_farm),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, cpu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, cs),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, d2d_mac),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, d2d_phy),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, dch0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, dch1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, dec),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, drtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, drtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, econ),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, edma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, edup),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, grtr1),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, grtr3),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, hft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, hif),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, mc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, mme),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, nch),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, nchl),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, nic),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, nrtr0),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, nrtr2),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, parc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, pcie),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, pdma),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, pll),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, pmmu),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, psoc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, rft),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, rot),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, rrtr),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, sob),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, stlb),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, tpc),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, ts),</span>
+<span class="diff-del">-		ASSIGN_INTR_HANDLER(eco, vm)</span>
+<span class="diff-del">-	}</span>
+<span class="diff-add">+/* Macro to aggregate all group handlers for a given component type */</span>
+<span class="diff-add">+#define ASSIGN_ALL_INTR_HANDLER_FOR(comp) { \</span>
+<span class="diff-add">+	ASSIGN_INTR_HANDLER(serr, comp), \</span>
+<span class="diff-add">+	ASSIGN_INTR_HANDLER(derr, comp), \</span>
+<span class="diff-add">+	ASSIGN_INTR_HANDLER(sei, comp), \</span>
+<span class="diff-add">+	ASSIGN_INTR_HANDLER(spi, comp), \</span>
+<span class="diff-add">+	ASSIGN_INTR_HANDLER(eco, comp) \</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+/* 2D array of function pointers for each component type and each group type */</span>
+<span class="diff-add">+static intr_comp_handlers_t intr_comp_handlers[INT_COMP_TYPE_MAX][INT_GRP_TYPE_MAX] = {</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(arc_farm),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(cpu),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(cs),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(d2d_mac),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(d2d_phy),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(dch0),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(dch1),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(dec),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(drtr0),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(drtr1),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(econ),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(edma),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(edup),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(grtr1),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(grtr3),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(hft),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(hif),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(mc),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(mme),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(nch),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(nchl),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(nic),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(nrtr0),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(nrtr2),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(parc),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(pcie),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(pdma),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(pll),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(pmmu),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(psoc),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(rft),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(rot),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(rrtr),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(sob),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(stlb),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(tpc),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(ts),</span>
+<span class="diff-add">+	ASSIGN_ALL_INTR_HANDLER_FOR(vm)</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-int dispatch_intr_handler(struct intr_config *config)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+int intr_dispatch_component_handler(struct intr_config *config)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	enum intr_agg_grp_type grp;</span>
+<span class="diff-ctx"> 	enum intr_agg_component_type comp_type;</span>
+<span class="diff-hunk">@@ -239,8 +82,8 @@</span>
+<span class="diff-ctx"> 		return -1;</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	if (hl_agg_handlers[grp][comp_type])</span>
+<span class="diff-del">-		return hl_agg_handlers[grp][comp_type](config);</span>
+<span class="diff-add">+	if (intr_comp_handlers[comp_type][grp])</span>
+<span class="diff-add">+		return intr_comp_handlers[comp_type][grp](config);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	LOG_ERR(&quot;No handler found for group %d and component %d&quot;, grp, comp_type);</span>
+<span class="diff-ctx"> 	return -1;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 76858d0..b9538c6 100644</span>
+<h4 class="diff-filename">b/arch/jgs/intr/jsw_intr.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -8,13 +8,13 @@</span>
+<span class="diff-ctx"> #include &lt;intr.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #include &lt;zephyr/logging/log.h&gt;</span>
+<span class="diff-del">-LOG_MODULE_REGISTER(JSW_INTR);</span>
+<span class="diff-add">+LOG_MODULE_REGISTER(JGS_INTR);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static struct intr_config intr;</span>
+<span class="diff-ctx"> /*</span>
+<span class="diff-ctx">  * Function to get the interrupt handler for a specific group and component</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-del">-static int jsw_get_intr_type(struct intr_config *config, enum intr_agg_component_type *grp,</span>
+<span class="diff-add">+static int jgs_get_intr_type(struct intr_config *config, enum intr_agg_component_type *grp,</span>
+<span class="diff-ctx"> 	enum intr_agg_component_type *comp_type)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	/* TODO: Read grp and comp_type from config and set them accordingly */</span>
+<span class="diff-hunk">@@ -25,10 +25,73 @@</span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-add">+static int jgs_process_sei_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret = intr_dispatch_component_handler(config);</span>
+<span class="diff-add">+	/* TODO: SEI-specific post-processing. */</span>
+<span class="diff-add">+	return ret;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int jgs_process_spi_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret = intr_dispatch_component_handler(config);</span>
+<span class="diff-add">+	/* TODO: SPI-specific post-processing. */</span>
+<span class="diff-add">+	return ret;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int jgs_process_serr_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret = intr_dispatch_component_handler(config);</span>
+<span class="diff-add">+	/*  TODO: SERR-specific post-processing. */</span>
+<span class="diff-add">+	return ret;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int jgs_process_derr_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret = intr_dispatch_component_handler(config);</span>
+<span class="diff-add">+	/* TODO: DERR-specific post-processing. */</span>
+<span class="diff-add">+	return ret;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int jgs_process_eco_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	int ret = intr_dispatch_component_handler(config);</span>
+<span class="diff-add">+	/* TODO: ECO-specific post-processing. */</span>
+<span class="diff-add">+	return ret;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+static int jgs_process_interrupt(struct intr_config *config)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	enum intr_agg_grp_type grp;</span>
+<span class="diff-add">+	enum intr_agg_component_type comp_type;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	if (config-&gt;intr_type(config, &amp;grp, &amp;comp_type)) {</span>
+<span class="diff-add">+		LOG_ERR(&quot;Failed to get interrupt group and component type&quot;);</span>
+<span class="diff-add">+		return -1;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	switch (grp) {</span>
+<span class="diff-add">+	case INT_GRP_TYPE_SEI:</span>
+<span class="diff-add">+		return jgs_process_sei_interrupt(config);</span>
+<span class="diff-add">+	case INT_GRP_TYPE_SPI:</span>
+<span class="diff-add">+		return jgs_process_spi_interrupt(config);</span>
+<span class="diff-add">+	case INT_GRP_TYPE_SERR:</span>
+<span class="diff-add">+		return jgs_process_serr_interrupt(config);</span>
+<span class="diff-add">+	case INT_GRP_TYPE_DERR:</span>
+<span class="diff-add">+		return jgs_process_derr_interrupt(config);</span>
+<span class="diff-add">+	case INT_GRP_TYPE_ECO:</span>
+<span class="diff-add">+		return jgs_process_eco_interrupt(config);</span>
+<span class="diff-add">+	default:</span>
+<span class="diff-add">+		LOG_ERR(&quot;Unknown group type: %d&quot;, grp);</span>
+<span class="diff-add">+		return -1;</span>
+<span class="diff-add">+	}</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> int dev_intr_prepare(struct intr_config *config)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	config = &amp;intr;</span>
+<span class="diff-del">-	config-&gt;intr_type = jsw_get_intr_type;</span>
+<span class="diff-add">+	config-&gt;intr_type = jgs_get_intr_type;</span>
+<span class="diff-add">+	config-&gt;arch_process_interrupt = jgs_process_interrupt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 6e528cb..4b4de32 100644</span>
+<h4 class="diff-filename">b/include/intr.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -75,14 +75,16 @@</span>
+<span class="diff-ctx"> 	uint32_t intr_data;</span>
+<span class="diff-ctx"> 	int (*intr_type)(struct intr_config *config, enum intr_agg_grp_type *grp,</span>
+<span class="diff-ctx"> 		enum intr_agg_component_type *comp_type);</span>
+<span class="diff-add">+	int (*arch_process_interrupt)(struct intr_config *config,</span>
+<span class="diff-add">+		enum intr_action action);</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int dev_intr_prepare(struct intr_config *config);</span>
+<span class="diff-ctx"> int process_interrupt(struct intr_config *config, enum intr_action action);</span>
+<span class="diff-del">-int dispatch_intr_handler(struct intr_config *intr_config);</span>
+<span class="diff-add">+int intr_dispatch_component_handler(struct intr_config *intr_config);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> /* Function pointer type for group/component handlers */</span>
+<span class="diff-del">-typedef int (*hl_agg_handler_t)(struct intr_config *intr_info);</span>
+<span class="diff-add">+typedef int (*intr_comp_handlers_t)(struct intr_config *intr_info);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> /* Handler function declarations for each group/component type combination */</span>
+<span class="diff-ctx"> #define DECLARE_INTR_HANDLER(GRP, COMP) \</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-16 08:06:23.652000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:06:33.412000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7692/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:06:35.496000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35722/ (1/3)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-16 08:08:07.017000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:08:13.429000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7693/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:08:15.532000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35723/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:08:57.419000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6975/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:08:57.456000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6332/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:10:42.936000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6976/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:10:42.942000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6333/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:11:46.027000000)</span><pre>Patch Set 1: Finished+1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6975/ : ABORTED
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6407/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6407/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6332/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7692/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:12:29.995000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22122/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:12:29.998000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24570/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:12:50.285000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35722/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35722/ )
+
+Job is aborted due to quota time cutoff ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35722/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35722/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22122/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22122/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24570/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24570/ )</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:13:48.746000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24571/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:13:48.760000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22123/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-05-16 08:15:07.256000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/6976/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/6408/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/6333/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/7693/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-16 08:18:49.053000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24571/ : FAILURE
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/26747/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35723/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22123/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

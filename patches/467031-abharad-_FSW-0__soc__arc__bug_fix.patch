@@ -1,0 +1,101 @@
+From 87b09177692c815acf171a05543fbb118e162eba Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Fri, 20 Dec 2024 10:26:47 +0000
+Subject: [PATCH] [FSW-0] soc: arc: bug fix
+
+fixed irq num mask and renamed some macros
+
+Change-Id: I520f31e5bd81a4e2e853bc37fce164c6ad75b65c
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/soc/arc/intel_gpu/fs1/soc.c b/soc/arc/intel_gpu/fs1/soc.c
+index ed4de65..507a643 100644
+--- a/soc/arc/intel_gpu/fs1/soc.c
++++ b/soc/arc/intel_gpu/fs1/soc.c
+@@ -29,7 +29,7 @@
+ 	z_arc_v2_irq_unit_int_enable(ARCV2_IRQ_NUMBER(irq));
+ 	dev = arch_irq_get_device_ptr(irq);
+ 	if (dev)
+-		irq_enable_next_level(dev, FS_IRQ_NUMBER(irq));
++		irq_enable_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ }
+ 
+ void arch_irq_disable(unsigned int irq)
+@@ -42,7 +42,7 @@
+ 		return;
+ 	}
+ 
+-	irq_disable_next_level(dev, FS_IRQ_NUMBER(irq));
++	irq_disable_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ 
+ 	if (!irq_is_enabled_next_level(dev)) {
+ 		z_arc_v2_irq_unit_int_disable(ARCV2_IRQ_NUMBER(irq));
+@@ -57,7 +57,7 @@
+ 	if (!dev) {
+ 		return z_arc_v2_irq_unit_int_enabled(ARCV2_IRQ_NUMBER(irq));
+ 	} else {
+-		return irq_line_is_enabled_next_level(dev, FS_IRQ_NUMBER(irq));
++		return irq_line_is_enabled_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ 	}
+ }
+ 
+@@ -67,7 +67,7 @@
+ 
+ 	dev = arch_irq_get_device_ptr(irq);
+ 	if (dev)
+-		irq_mask_next_level(dev, FS_IRQ_NUMBER(irq));
++		irq_mask_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ }
+ 
+ void arch_irq_unmask(unsigned int irq)
+@@ -76,7 +76,7 @@
+ 
+ 	dev = arch_irq_get_device_ptr(irq);
+ 	if (dev)
+-		irq_unmask_next_level(dev, FS_IRQ_NUMBER(irq));
++		irq_unmask_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ }
+ 
+ void arch_irq_init(unsigned int irq)
+@@ -85,7 +85,7 @@
+ 
+ 	dev = arch_irq_get_device_ptr(irq);
+ 	if (dev)
+-		irq_late_init_next_level(dev, FS_IRQ_NUMBER(irq));
++		irq_late_init_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ }
+ 
+ void arch_irq_clear(unsigned int irq)
+@@ -94,7 +94,7 @@
+ 
+ 	dev = arch_irq_get_device_ptr(irq);
+ 	if (dev)
+-		irq_clear_next_level(dev, FS_IRQ_NUMBER(irq));
++		irq_clear_next_level(dev, INTEL_GPU_IRQ_NUMBER(irq));
+ }
+ 
+ #define ARC_NUM_TIMER_IRQS      2
+diff --git a/soc/arc/intel_gpu/fs1/soc.h b/soc/arc/intel_gpu/fs1/soc.h
+index 562da8e..d660cbb 100644
+--- a/soc/arc/intel_gpu/fs1/soc.h
++++ b/soc/arc/intel_gpu/fs1/soc.h
+@@ -18,15 +18,15 @@
+ #define ARCV2_IRQ_NUM_SHIFT		0
+ #define INTEL_GPU_IRQ_NUM_SHIFT		8
+ #define ARCV2_IRQ_NUM_MASK		0xFF
+-#define INTEL_GPU_IRQ_NUM_MASK		0xFFFF
++#define INTEL_GPU_IRQ_NUM_MASK		0xFF
+ 
+ #define ARCV2_IRQ_NUMBER(_irq) \
+ 	((_irq >> ARCV2_IRQ_NUM_SHIFT) & ARCV2_IRQ_NUM_MASK)
+-#define FS_IRQ_NUMBER(_irq) \
++#define INTEL_GPU_IRQ_NUMBER(_irq) \
+ 	(((_irq >> INTEL_GPU_IRQ_NUM_SHIFT) & INTEL_GPU_IRQ_NUM_MASK) - 1)
+ 
+ /* Macro that aggregates the bi-level interrupt into an IRQ number */
+-#define SOC_AGGREGATE_IRQ(irq_l2, irq_l1)		\
++#define ZEPHYR_IRQ_NUMBER(irq_l2, irq_l1)		\
+ 	( \
+ 	 ((irq_l1 & ARCV2_IRQ_NUM_MASK) << ARCV2_IRQ_NUM_SHIFT) | \
+ 	 (((irq_l2 + 1) & INTEL_GPU_IRQ_NUM_MASK) << INTEL_GPU_IRQ_NUM_SHIFT) \

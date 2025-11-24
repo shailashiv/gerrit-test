@@ -1,0 +1,36 @@
+From 009f42b61865204d26036956a8343c0c572865ca Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Tue, 22 Oct 2024 11:30:40 +0300
+Subject: [PATCH] [SW-205983] installer: RHEL 9.4 - add public repos
+
+For install habanalabs dependencies need add public repos, in the
+standard RHEL repos (by subscription) missing few packages
+
+Change-Id: Ic21ca257c867a8d7d2a9d55942e21ed816e5615d
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+(cherry picked from commit 9637b5b3efe8a983590767763413a636e763fce8)
+---
+
+diff --git a/installer/src/lib/install_func.sh b/installer/src/lib/install_func.sh
+index 3837661..030d329 100644
+--- a/installer/src/lib/install_func.sh
++++ b/installer/src/lib/install_func.sh
+@@ -23,6 +23,18 @@
+             echo 'gpgcheck=0' | $_SUDO_CMD tee -a /etc/zypp/repos.d/OpenSUSI.repo
+             echo 'repo_gpgcheck=0' | $_SUDO_CMD tee -a /etc/zypp/repos.d/OpenSUSI.repo
+         ;;
++        "rhel")
++            case $OS_VERSION in
++                "9.4")
++                    echo '[Habanalabs-CRB]' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                    echo 'name=Habanalabs-CRB' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                    echo 'baseurl=https://raw.repo.almalinux.org/almalinux/9/CRB/x86_64/os' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                    echo 'enabled=1' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                    echo 'gpgcheck=0' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                    echo 'repo_gpgcheck=0' | $_SUDO_CMD tee -a /etc/yum.repos.d/habanalabs-crb.repo
++                ;;
++            esac
++        ;;
+     esac
+ }
+ 

@@ -1,0 +1,117 @@
+From 49eb4fc4b527a219a4f15a9b8f05e671ab4900ee Mon Sep 17 00:00:00 2001
+From: Yaniv Levinsky <ylevinsky@habana.ai>
+Date: Mon, 24 Jun 2024 14:16:59 +0300
+Subject: [PATCH] [PNP-166] edp: refactor function from utils to envelope
+
+Refactor the update_edp_budget_max function from utils to envelope.
+
+The envelope controller is responsible for EDP support, so all EDP
+related function should be part of this controller.
+
+This commit is in preparation for adding AEDP support.
+
+Change-Id: I9cd1d7f46b4a8b627392a0ce9c915f32c8dd3522
+Signed-off-by: Yaniv Levinsky <ylevinsky@habana.ai>
+---
+
+diff --git a/arch/gaudi3/common.c b/arch/gaudi3/common.c
+index 545fae3..feb75d3 100644
+--- a/arch/gaudi3/common.c
++++ b/arch/gaudi3/common.c
+@@ -11,6 +11,7 @@
+ #include <pid.h>
+ #include <common.h>
+ #include <utils.h>
++#include <envelope.h>
+ #include <power_int.h>
+ #include <power_hb.h>
+ #include <api.h>
+diff --git a/include/lib/envelope.h b/include/lib/envelope.h
+index d8977ce..e9c4216 100644
+--- a/include/lib/envelope.h
++++ b/include/lib/envelope.h
+@@ -17,4 +17,6 @@
+ struct pid_thread *get_envelope_thread_data(void);
+ void envelope_work(void *data);
+ 
++void update_edp_budget_max(struct pid_table *platdata);
++
+ #endif /* _ENVELOPE_H_ */
+diff --git a/include/lib/utils.h b/include/lib/utils.h
+index 35695f2..6178530 100644
+--- a/include/lib/utils.h
++++ b/include/lib/utils.h
+@@ -19,6 +19,7 @@
+ #define MILLI_TO_BASE(x)	((x) / 1000)
+ #define CONVER_MICRO_TO_MILLI(x) ((x) / 1000)
+ #define TO_KB(bytes)		((bytes) >> 10)
++#define MICRO_J_PER_MILLI_J	1000
+ 
+ #define DT_STR_SZ				16
+ 
+diff --git a/lib/common/envelope.c b/lib/common/envelope.c
+index a61adcc..f1fd8d2 100644
+--- a/lib/common/envelope.c
++++ b/lib/common/envelope.c
+@@ -7,6 +7,7 @@
+ 
+ #include <zephyr.h>
+ #include <pid.h>
++#include <utils.h>
+ #include <envelope.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+@@ -44,6 +45,20 @@
+ 	return false;
+ }
+ 
++void update_edp_budget_max(struct pid_table *platdata)
++{
++	struct pid_power_table *power = platdata->power;
++	struct pid_edp_data *edp;
++	int i;
++
++	/* Update EDPs budget upper limit to TDP * EDP_multiplier * EDP_duration */
++	for (i = 0; i < power->excursion.num_edps; i++) {
++		edp = &power->excursion.edps[i];
++		edp->budget_max = (power->power.limit_power * edp->tdp_multiplier /
++			edp->tdp_denom) * edp->duration / MICRO_J_PER_MILLI_J;
++	}
++}
++
+ void envelope_work(void *data)
+ {
+ 	struct pid_table *platdata = (struct pid_table *)data;
+diff --git a/lib/common/utils.c b/lib/common/utils.c
+index 50a9130..9ca82bd 100644
+--- a/lib/common/utils.c
++++ b/lib/common/utils.c
+@@ -132,7 +132,6 @@
+ 	*counter -= (diff / platdata->cycles_per_us);
+ }
+ 
+-#define MICRO_J_PER_MILLI_J	1000
+ int read_power_values(struct pid_table *platdata)
+ {
+ 	struct pid_voltage_data *v_values = &platdata->power->volt;
+@@ -1230,20 +1229,6 @@
+ const struct device *get_eeprom_device(void)
+ {
+ 	return NULL;
+-}
+-
+-void update_edp_budget_max(struct pid_table *platdata)
+-{
+-	struct pid_power_table *power = platdata->power;
+-	struct pid_edp_data *edp;
+-	int i;
+-
+-	/* Update EDPs budget upper limit to TDP * EDP_multiplier * EDP_duration */
+-	for (i = 0; i < power->excursion.num_edps; i++) {
+-		edp = &power->excursion.edps[i];
+-		edp->budget_max = (power->power.limit_power * edp->tdp_multiplier /
+-			edp->tdp_denom) * edp->duration / MICRO_J_PER_MILLI_J;
+-	}
+ }
+ 
+ void update_violation_power_limit(struct pid_table *platdata)

@@ -1,0 +1,24 @@
+From 6b862134fa9dc2a154aea8a088e8127b3a965ae8 Mon Sep 17 00:00:00 2001
+From: Jason Smith <jsmith@habana.ai>
+Date: Tue, 29 Oct 2024 12:43:05 -0400
+Subject: [PATCH] [SW-207081] g3: preboot: enable werror cflag
+
+Treat warnings as errors; this flag was accidentially lost
+when splitting up the zephyr build into separate packages.
+
+Change-Id: Ic528fc5494f03dffa80544bd46e2988139a2f8b3
+Signed-off-by: Jason Smith <jsmith@habana.ai>
+---
+
+diff --git a/package/preboot/preboot.mk b/package/preboot/preboot.mk
+index 89bbf33..11fee0e 100644
+--- a/package/preboot/preboot.mk
++++ b/package/preboot/preboot.mk
+@@ -63,6 +63,7 @@
+ PREBOOT_CONF_OPTS += -DCMAKE_EXE_LINKER_FLAGS_INIT=-Wl,-e__start
+ PREBOOT_CONF_OPTS += -DTARGET=$(HL_TARGET)
+ PREBOOT_CONF_OPTS += -DEXTRA_CFLAGS="\
++		-Werror \
+ 		-Wno-misleading-indentation \
+ 		-Wno-shadow \
+ 		-Wno-address-of-packed-member \

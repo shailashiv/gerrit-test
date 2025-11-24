@@ -1,0 +1,120 @@
+From 5d67836fc466d36f90876fbc641f64476b895837 Mon Sep 17 00:00:00 2001
+From: Grzegorz Dudzinski <gdudzinskix@habana.ai>
+Date: Tue, 01 Oct 2024 15:34:03 +0300
+Subject: [PATCH] [SW-203897] Remove IndexFill backend.
+
+New IndexFill CGUID has been added. Removing pytorch-integration backend implementation
+in favor of CGUID one.
+
+Change-Id: I683a814dfeab7a3a7c7920e906a45630997c0a44
+---
+
+diff --git a/hpu_ops/backend/index_fill_gen.cpp b/hpu_ops/backend/index_fill_gen.cpp
+index b396278..ceea8b0 100644
+--- a/hpu_ops/backend/index_fill_gen.cpp
++++ b/hpu_ops/backend/index_fill_gen.cpp
+@@ -19,8 +19,15 @@
+     size_t& size) {
+   const auto dim =
+       at::maybe_wrap_dim(stack.at(1).toInt(), stack.at(0).toTensor().dim());
+-  PARAMS_STUB(ns_IndexCopy::Params);
+-  params->axis = dim;
++  PARAMS_STUB(ns_IndexFill::Params);
++  params->dim = dim;
++  if (stack.at(3).isScalar()) {
++    params->isValueScalar = true;
++    params->value = stack.at(3).toScalar().toFloat();
++
++  } else {
++    params->isValueScalar = false;
++  }
+   return params;
+ }
+ 
+@@ -64,50 +71,6 @@
+   indexFillSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
+   metaVec.push_back(indexFillSharedMeta);
+   return metaVec;
+-}
+-
+-void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+-  const auto& input = stack.at(0).toTensor();
+-  const auto& dim = stack.at(1).toInt();
+-  const auto& indexes = stack.at(2).toTensor();
+-  bool is_value_scalar = stack.at(3).isScalar();
+-
+-  const auto meta = IndexFillMeta(stack)[0];
+-
+-  auto valueTensorShape = input.sizes().vec();
+-  if (!valueTensorShape.empty()) {
+-    valueTensorShape[dim] = indexes.numel();
+-  } else {
+-    HABANA_ASSERT(
+-        indexes.numel() == 1,
+-        "For input 0-D tensor, number of elements in indices tensor should be 1.");
+-  }
+-
+-  synapse_helpers::tensor valueTensor = is_value_scalar
+-      ? OpBackend::BuildConstant(
+-            this,
+-            graph,
+-            stack.at(3).toScalar().toFloat(),
+-            meta.dtype,
+-            valueTensorShape)
+-      : BroadcastHelper(
+-            graph,
+-            syn_in(2),
+-            valueTensorShape,
+-            stack.at(3).toTensor().scalar_type());
+-
+-  size_t size = 0;
+-  const auto params = FillIndexFillParams(stack, size);
+-
+-  auto indexCopyResult = BuildOp(
+-      graph,
+-      guid_,
+-      {syn_in(0), syn_in(1), valueTensor.get()},
+-      {{meta.shape, meta.dtype, 0}},
+-      params.get(),
+-      size);
+-
+-  syn_out(0) = std::move(indexCopyResult[0]);
+ }
+ 
+ } // namespace habana
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index e012917..caa0400 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -3638,25 +3638,22 @@
+ 
+ index_fill_.int_Scalar:
+   output_meta: IndexFillMeta
+-  custom_fill_params: FillIndexCopyParams
+-  op_backend: IndexFill
+-  guid: index_copy_fwd
++  custom_fill_params: FillIndexFillParams
++  guid: index_fill
+   inplace_ids: [0]
+   op_validator: IndexFillSharedMeta
+ 
+ index_fill_.int_Tensor:
+   output_meta: IndexFillMeta
+-  custom_fill_params: FillIndexCopyParams
+-  op_backend: IndexFill
+-  guid: index_copy_fwd
++  custom_fill_params: FillIndexFillParams
++  guid: index_fill
+   inplace_ids: [0]
+   op_validator: IndexFillSharedMeta
+ 
+ index_fill.int_Scalar:
+   output_meta: IndexFillMeta
+-  custom_fill_params: FillIndexCopyParams
+-  op_backend: IndexFill
+-  guid: index_copy_fwd
++  custom_fill_params: FillIndexFillParams
++  guid: index_fill
+   out_ids: [0]
+   op_validator: IndexFillSharedMeta
+ 

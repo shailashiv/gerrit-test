@@ -1,0 +1,283 @@
+From 3e21ce9bd2e7342032a9ab4de24c0d7877a0dd56 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Sat, 31 May 2025 12:28:43 +0300
+Subject: [PATCH] [JSW-670] jgs: build palad boot loader
+
+Added changes required to build palad boot
+loader.
+
+Change-Id: Ied436a75e0044d7fe3e817e0807e9c660dbea360
+---
+
+diff --git a/Makefile b/Makefile
+index e24b025..9bf8dc4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -22,6 +22,7 @@
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib/common
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib/preboot
++# CFLAGS += -I $(SPECS_EMBEDDED_DIR)/gpu/$(DEV_PREFIX)
+ 
+ ifeq ($(HL_TARGET),palad)
+ 	CFLAGS += -DTARGET_IS_PALAD
+@@ -92,7 +93,7 @@
+ 	@date +'#define PPBOOT_TIME "%T"' >> $@
+ 
+ buildversion-habanalabs: include/baremetal.h $(AUTO_GENERATED_FILE)
+-	echo "VERSION_STR" | gcc -include $< -I./ -I ./lib/common/ -I ./$(HL_DEV_ARCH)/ -I$(SPECS_EMBEDDED_DIR)/$(SPECS_EMB_DEV) -I$(SPECS_DIR)/$(BASE_DEV_NAME)/asic_reg -I$(SPECS_DIR)/ -I ./include/ -P -E -o - - | tail -1 | sed 's/\" \+\"//g;s/["\n]//g' | cut -d' ' -f2- | tr -d '\n' > $@
++	echo "VERSION_STR" | gcc -include $< -I./ -I ./lib/common/ -I ./$(HL_DEV_ARCH)/ -I$(SPECS_EMBEDDED_DIR)/gpu/$(DEV_PREFIX) -I$(SPECS_DIR)/$(BASE_DEV_NAME)/asic_reg -I$(SPECS_DIR)/ -I ./include/ -P -E -o - - | tail -1 | sed 's/\" \+\"//g;s/["\n]//g' | cut -d' ' -f2- | tr -d '\n' > $@
+ 
+ $(PCI_PHY_FW_TARGET): $(HL_DEV_ARCH)/pcie_phy_fw.i
+ 	@cut -d' ' -f2- $< | xxd -r -p | dd status=none bs=16 count=$$(($(PHY_FW_SIZE) / 16)) conv=sync,swab of=$@
+diff --git a/app/palad_bloader/Makefile b/app/palad_bloader/Makefile
+index 81b76fd..332d27a 100644
+--- a/app/palad_bloader/Makefile
++++ b/app/palad_bloader/Makefile
+@@ -1,7 +1,14 @@
+ CC = $(CROSS_COMPILE)gcc
+ OBJCOPY = $(CROSS_COMPILE)objcopy
+-BASE_DEV_NAME := $(shell echo $(HL_DEV) | cut -d'_' -f1)
+-HL_DEV_SUBTYPE := $(shell echo $(HL_DEV) | cut -d'_' -s -f2,3)
++
++ifeq ($(HL_DEV),jgs)
++    BASE_DEV_NAME := $(HL_DEV)
++	HL_DEV_SUBTYPE := arc
++else
++    BASE_DEV_NAME := $(shell echo $(HL_DEV) | cut -d'_' -f1)
++	HL_DEV_SUBTYPE := $(shell echo $(HL_DEV) | cut -d'_' -s -f2,3)
++endif
++
+ PREBOOT_ROOT_DIR := ../..
+ HL_DEV_ARCH := $(PREBOOT_ROOT_DIR)/arch/$(BASE_DEV_NAME)/$(HL_DEV_SUBTYPE)
+ HL_DEV_ARCH_COMMON := $(PREBOOT_ROOT_DIR)/arch/$(BASE_DEV_NAME)/common
+@@ -19,7 +26,7 @@
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib/common
+ CFLAGS += -I $(EMB_COMMON_MOD_DIR)/lib/preboot
+-
++# CFLAGS += -I $(SPECS_EMBEDDED_DIR)/gpu/$(DEV_PREFIX)
+ CFLAGS += -Os -fdata-sections -ffunction-sections
+ 
+ 
+@@ -40,6 +47,7 @@
+ 
+ LDFLAGS := -g -nostdlib -static
+ LDFLAGS += -Wl,--gc-sections
++# LDFLAGS += -I $(SPECS_EMBEDDED_DIR)/gpu/$(DEV_PREFIX)
+ LDLIBS := -lgcc
+ 
+ PALAD_BLOADER_SRCS_C := $(shell ls *.c)
+diff --git a/arch/jgs/arc/common.c b/arch/jgs/arc/common.c
+index 683f4ed..9151ce5 100644
+--- a/arch/jgs/arc/common.c
++++ b/arch/jgs/arc/common.c
+@@ -271,12 +271,10 @@
+ 	hl_dev_pll_init();
+ }
+ 
+-#define SPSRAM_ADDR_MASK	0xFFFFF
+-
+ static u32 jgs_translate_arc_addr(u64 addr)
+ {
+-	if (addr >= IO0_SP_SRAM_FULL_BASE && addr < (IO0_SP_SRAM_FULL_BASE + (u64)IO_SP_SRAM_SIZE)) {
+-		addr = (addr & SPSRAM_ADDR_MASK) + IO0_SP_SRAM_BASE;
++	if (CHECK_ADDR_IN_RANGE(addr, 0, IO_0_SP_SRAM_BASE_FULL, IO_0_SP_SRAM_SIZE)) {
++		addr = GET_ARC_ADDR(addr, REGION_FW_MEM_IDX);
+ 		goto ret_addr;
+ 	}
+ 
+diff --git a/arch/jgs/arc/palad.c b/arch/jgs/arc/palad.c
+index 7a51273..1c425ff 100644
+--- a/arch/jgs/arc/palad.c
++++ b/arch/jgs/arc/palad.c
+@@ -27,6 +27,7 @@
+ #include <address_space.h>
+ #include <lib_common.h>
+ #include "auto_gen_pcie_phy_csr_locations.h"
++#include <mem_partition.h>
+ 
+ #include <pcie_fw_sram_regs.h>
+ #include <string.h>
+@@ -76,18 +77,18 @@
+ #if defined(DIE_TYPE_IO)
+ void hl_uart_init(void)
+ {
+-	regmap_writel(1, mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_PAD_CONF_BASE +
++	regmap_writel(1, mmIO_0_CFG_PSOC_PSOC_CFG_PAD_CONF_BASE +
+ 			mmPSOC_PAD_CONF_PAD_SEL_49);	/* UART0 RXD */
+-	regmap_writel(1, mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_PAD_CONF_BASE +
++	regmap_writel(1, mmIO_0_CFG_PSOC_PSOC_CFG_PAD_CONF_BASE +
+ 			mmPSOC_PAD_CONF_PAD_SEL_50);	/* UART0 TXD */
+ 	preboot_uart_init(UART_CLOCK_FREQUENCY / PALAD_UART_BAUDRATE);
+ }
+ #else
+ void hl_uart_init(void)
+ {
+-	regmap_writel(1, mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_PAD_CONF_BASE +
++	regmap_writel(1, mmIO_0_CFG_PSOC_PSOC_CFG_PAD_CONF_BASE +
+ 			mmPSOC_PAD_CONF_PAD_SEL_33);	/* UART0 RXD */
+-	regmap_writel(1, mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_PAD_CONF_BASE +
++	regmap_writel(1, mmIO_0_CFG_PSOC_PSOC_CFG_PAD_CONF_BASE +
+ 			mmPSOC_PAD_CONF_PAD_SEL_34);	/* UART0 TXD */
+ 	preboot_uart_init(UART_CLOCK_FREQUENCY / PALAD_UART_BAUDRATE);
+ }
+@@ -131,7 +132,7 @@
+ 	u8 num_vf = 0;
+ 	u32 val;
+ 
+-	hl_fuse_read(mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_EFUSE_BASE, IO_EFUSE_PALAD_CFG_0_OFFSET,
++	hl_fuse_read(mmIO_0_CFG_PSOC_PSOC_CFG_EFUSE_BASE, IO_EFUSE_PALAD_CFG_0_OFFSET,
+ 		     &pci_efuse_cfg);
+ 	preboot_puts_hex("efuse pci cfg = ", pci_efuse_cfg, false);
+ 
+@@ -190,40 +191,40 @@
+ 	 * The exact size of data written to SRAM_LOCATIONS and CSR_LOCATIONS
+ 	 * is written to PHY_FW_FSM_SIZE register.
+ 	 */
+-	val = regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	val = regmap_readl(mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_SIZE);
+ 	val &= ~PCIE_FW_FSM_PHY_FW_FSM_SIZE_PMA_SRAM_SIZE_M;
+ 	val |= PHY_FW_SIZE << PCIE_FW_FSM_PHY_FW_FSM_SIZE_PMA_SRAM_SIZE_S;
+-	regmap_writel(val, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	regmap_writel(val, mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_SIZE);
+ 
+-	val = regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	val = regmap_readl(mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_SIZE);
+ 	val &= ~PCIE_FW_FSM_PHY_FW_FSM_SIZE_PMA_CSR_SIZE_M;
+ 	val |= (uint16_t)get_csr_locations_data_size() << PCIE_FW_FSM_PHY_FW_FSM_SIZE_PMA_CSR_SIZE_S;
+-	regmap_writel(val, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	regmap_writel(val, mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_SIZE);
+ 
+ 	/*
+ 	 * PHY_FW_FSM_CTRL ➔ SRAM_ROM_SEL should be set to '0'
+ 	 * to disable default phy fw from ROM.
+ 	 */
+-	val = regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	val = regmap_readl(mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_CTRL);
+ 	val &= ~PCIE_FW_FSM_PHY_FW_FSM_CTRL_SRAM_ROM_SEL_M;
+ 	val |= 0 << PCIE_FW_FSM_PHY_FW_FSM_CTRL_SRAM_ROM_SEL_S;
+-	regmap_writel(val, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	regmap_writel(val, mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_CTRL);
+ 
+ 	/*
+ 	 * PHY_FW_FSM_CTRL ➔ FSM_START set to '1'
+ 	 * to start the phy fw loading to the fw memories.
+ 	 */
+-	val = regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	val = regmap_readl(mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_CTRL);
+ 	val &= ~PCIE_FW_FSM_PHY_FW_FSM_CTRL_FSM_START_M;
+ 	val |= 1 << PCIE_FW_FSM_PHY_FW_FSM_CTRL_FSM_START_S;
+-	regmap_writel(val, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	regmap_writel(val, mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 			   mmPCIE_FW_FSM_PHY_FW_FSM_CTRL);
+ 
+ 	/*
+@@ -237,7 +238,7 @@
+ 	 * once pcie phy is implemented, this code should be uncommented.
+ 	 * jira ticket: H15-352
+ 	 *
+-	 * while (!(regmap_readl(mmIO_0_CFG_HALF_0_CXL_EP_PCIE_FW_FSM_BASE +
++	 * while (!(regmap_readl(mmIO_0_CFG_CXL_EP_PCIE_FW_FSM_BASE +
+ 	 * mmPCIE_FW_FSM_PHY_FW_FSM_CTRL) &
+ 	 * PCIE_FW_FSM_PHY_FW_FSM_CTRL_FW_FSM_PHY_INIT_DONE_M));
+ 	 *
+@@ -294,7 +295,7 @@
+ 	regmap_writel(val, IO0_H0_PCIE_DBI(mmPCIE_DBI_MISC_CONTROL_1_OFF));
+ 
+ 	/* switch to shadow registers access in order to set BAR masks */
+-	regmap_writel(PCIE_AUX_DBI_CS2_M, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_AUX_BASE + mmPCIE_AUX_DBI);
++	regmap_writel(PCIE_AUX_DBI_CS2_M, mmIO_0_CFG_CXL_EP_PCIE_AUX_BASE + mmPCIE_AUX_DBI);
+ 
+ 	/* set PF CFG BAR to 1GB */
+ 	regmap_writel(BAR_SIZE_1GB, IO0_H0_PCIE_DBI(mmPCIE_DBI_BAR0_REG));
+@@ -305,7 +306,7 @@
+ 	regmap_writel(0, IO0_H0_PCIE_DBI(mmPCIE_DBI_SRIOV_BAR1_REG));
+ 
+ 	/* disable shadow registers access */
+-	regmap_writel(0, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_AUX_BASE + mmPCIE_AUX_DBI);
++	regmap_writel(0, mmIO_0_CFG_CXL_EP_PCIE_AUX_BASE + mmPCIE_AUX_DBI);
+ 
+ 	/* set VF resizable BAR #2 allowed size */
+ 	regmap_writel(VF_RES_BAR_SIZES, IO0_H0_PCIE_DBI(mmPCIE_DBI_VF_RESBAR_CAP_REG_2_REG));
+@@ -326,7 +327,7 @@
+ 
+ 	palad_pcie_params_init();
+ 
+-	regmap_writel(LTTSM_ENA_MASK, mmIO_0_CFG_HALF_0_CXL_EP_PCIE_AUX_BASE +
++	regmap_writel(LTTSM_ENA_MASK, mmIO_0_CFG_CXL_EP_PCIE_AUX_BASE +
+ 				      mmPCIE_AUX_LTSSM_EN);
+ 
+ 	/* release request retry so the host can access pci config space */
+@@ -358,7 +359,7 @@
+ #else
+ void btldr_parc_prepare(void)
+ {
+-	regmap_writel(0, mmCOMPUTE_0_CFG_PSOC_ARC_RST_ARC_BASE + mmARC_ARC_RST);
++	regmap_writel(0, mmCOMPUTE_0_CFG_PSOC_ARC_PM_ARC_BASE + mmARC_ARC_RST);
+ }
+ #endif
+ 
+@@ -377,7 +378,7 @@
+ 	 * (or in RST ICCM for COMP-DIE).
+ 	 * An efuse bit is controlling whether the application binary is larger than available.
+ 	 */
+-	hw_mem_copy(IO0_MISC_ICCM_FULL_BASE, PREBOOT_TEXT_BASE_FULL, IO_MISC_ICCM_SIZE, false, false);
++	hw_mem_copy(IO_0_MISC_ARC_ICCM_BASE_FULL, PREBOOT_TEXT_BASE_FULL, IO_0_MISC_ARC_ICCM_SIZE, false, false);
+ 
+ 	err = preboot_fuse_read(IO_EFUSE_PALAD_CFG_0_OFFSET, &val);
+ 	if (err)
+@@ -388,8 +389,8 @@
+ 	if (!val)
+ 		return;
+ 
+-	hw_mem_copy(IO0_MISC_DCCM_FULL_BASE, PREBOOT_TEXT_BASE_FULL + IO_MISC_ICCM_SIZE,
+-			IO_MISC_DCCM_SIZE, false, false);
++	hw_mem_copy(IO_0_MISC_ARC_DCCM_BASE_FULL, PREBOOT_TEXT_BASE_FULL + IO_0_MISC_ARC_ICCM_SIZE,
++			IO_0_MISC_ARC_DCCM_SIZE, false, false);
+ }
+ #else
+ static void btldr_copy_preboot_app(void)
+@@ -415,7 +416,7 @@
+ 	if (!val)
+ 		return;
+ 
+-	hw_mem_copy(COMP0_RST_ICCM_BASE, PREBOOT_TEXT_BASE_FULL + COMP_PREBOOT_MAX_SZ,
++	hw_mem_copy(COMP0_PM_ICCM_BASE, PREBOOT_TEXT_BASE_FULL + COMP_PREBOOT_MAX_SZ,
+ 		COMP_RST_ICCM_SIZE, false, false);
+ }
+ #endif
+diff --git a/arch/jgs/arc/palad_bloader.lds.S b/arch/jgs/arc/palad_bloader.lds.S
+index ec3bb56..255bc90 100644
+--- a/arch/jgs/arc/palad_bloader.lds.S
++++ b/arch/jgs/arc/palad_bloader.lds.S
+@@ -9,7 +9,7 @@
+ MEMORY
+ {
+ 	ICCM	: ORIGIN = 0x00000000, LENGTH = 256K
+-	SBROM	: ORIGIN = 0x78980000, LENGTH = 128K
++	SBROM	: ORIGIN = 0x78620000, LENGTH = 128K
+ 	DCCM	: ORIGIN = 0x80000000, LENGTH = 128K
+ }
+ 
+diff --git a/include/baremetal.h b/include/baremetal.h
+index 41a43be..8c1e8a3 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -8,7 +8,8 @@
+ #ifndef COMMON_PREBOOT_H_
+ #define COMMON_PREBOOT_H_
+ 
+-#include <common.h>
++#include <soc.h>
++#include <address_space.h>
+ #include <sizes.h>
+ 
+ #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))

@@ -1,0 +1,26 @@
+From b5c8e3965ba60e7dadd3d78d6f59caccea12a84f Mon Sep 17 00:00:00 2001
+From: Yihua Xu <yihuaxu@habana.ai>
+Date: Fri, 08 Nov 2024 06:52:47 +0200
+Subject: [PATCH] [SW-205967] skip permutation of output tensors when the graph contains a node that prohibits output permutation.
+
+Change-Id: I381862e8e930da258b7c128d5dfb54a856272736
+---
+
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 10a7ed8..7ca67c9 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -3316,6 +3316,13 @@
+           }
+         }
+       }
++      // Process output tensors
++      for (synapse_helpers::tensor& out_tensor_syn :
++           HabanaKernel->GetSynOutputs()) {
++        if (out_tensor_syn.is_dont_allow_permute()) {
++          jit_graph_and_meta_data_->set_skip_tensor_permutation();
++        }
++      }
+     }
+ 
+     // Get the output tensors created back from the kernel and do the

@@ -1,0 +1,105 @@
+From 2e9a2bf4b0d2294d5e4f67bc35458dd5c0e2fb71 Mon Sep 17 00:00:00 2001
+From: Ran Shalit <rshalit@habana.ai>
+Date: Tue, 21 Jan 2025 10:19:01 +0200
+Subject: [PATCH] [FSW-9792] dma continous playground
+
+Change-Id: I0c819c1f48d18806fffb280395f3678182df998b
+Signed-off-by: Ran Shalit <rshalit@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index 4d2cab1..e31122e 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -381,7 +381,7 @@
+ 	hl_join_bin ${BINS_DIR}/${PPBOOT} ${PCIE_PHY} ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE}
+ 
+ 	# pack and sign image
+-	hl_pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} 64K ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}
++	hl_pack_bin_ranran ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} 64K ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}
+ 
+ 	# Create image pointers
+ 	prep_image_ptrs ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.le
+diff --git a/board/habanalabs/fs1_arc/post-image-spi.sh b/board/habanalabs/fs1_arc/post-image-spi.sh
+index d98e307..80f841f 100755
+--- a/board/habanalabs/fs1_arc/post-image-spi.sh
++++ b/board/habanalabs/fs1_arc/post-image-spi.sh
+@@ -180,7 +180,7 @@
+ 	local PRIME_IMAGE_RAM_CRC_ERROR=$3
+ 	local PRIME_IMAGE_RAM_SIGN_ERROR=$4
+ 
+-	hl_pack_bin ${PREBOOT_BINFILE} 64K ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}
++	hl_pack_bin_ranran ${PREBOOT_BINFILE} 64K ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}
+ 
+ 	return
+ }
+@@ -221,6 +221,9 @@
+ 	local leftover=${SIZE_WITHOUT_CRC}
+ 	local skip_offset=0
+ 
++	#echo zzzz
++	#echo ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++	#echo zzz
+ 
+ 	# image packing example:
+ 	# image_size = 200kb + 16 bytes CRC = 0x32010
+@@ -259,6 +262,9 @@
+ 		fi
+ 		flash_offset=$((SPI_DMA_DEST_64KB_OFFS/4))
+ 		flash_offset=$((flash_offset*slice_cnt))
++		echo xxxxx
++		echo ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++		echo xxxxx
+ 		dd status=none conv=sync if=${BIN_FILE} bs=4 seek=$flash_offset of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
+ 		leftover=$((leftover-size_bytes))
+ 		skip_offset=$((skip_offset+size_words))
+@@ -268,6 +274,49 @@
+ 	rm -f ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
+ }
+ 
++function hl_pack_bin_ranran {
++	FILEFULLPATH=$1
++	FILENAME=$(basename ${FILEFULLPATH})
++	FILEPATH=$(dirname ${FILEFULLPATH})
++	BSIZE=$2
++	KEY_NUM=$3
++	CRC_ERROR=$4
++	SIGN_ERROR=$5
++
++	PADFULLBINFILE=${FILEFULLPATH}.pad
++	dd status=none conv=sync bs=16 if=${FILEFULLPATH} of=${PADFULLBINFILE}
++
++	SIZE_WITHOUT_CRC=$(stat --printf="%s" ${PADFULLBINFILE})
++	NUM_SLICES=$((SIZE_WITHOUT_CRC/MAX_SPI_DMA_DATA_TRANSFER))
++	MODULO_SLICES=$((SIZE_WITHOUT_CRC%MAX_SPI_DMA_DATA_TRANSFER))
++	if [ ${MODULO_SLICES} -ne 0 ]; then
++		NUM_SLICES=$((NUM_SLICES+1))
++	fi
++
++	# image size to be computed as part of image descriptor function
++	local leftover=${SIZE_WITHOUT_CRC}
++	local skip_offset=0
++
++	# temp !!!!!
++	  rm ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++
++	size_words=$((leftover/4))
++	dd status=none conv=sync bs=4 if=${PADFULLBINFILE} count=${size_words} of=${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++	hl_calc_crc32 ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++	#echo zzzzz
++	#ls -al ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int.crc32
++	#ls -al ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++	#echo zxzzz
++	if [ ${CRC_ERROR} -eq 0 ]; then
++		cat ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int.crc32 >>  ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++	fi
++
++	hl_reverse_words ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int ${FILEPATH}/${DEV_PREFIX}-${FILENAME}.le 4
++	#rm -f ${STAGE_DIR}/${DEV_PREFIX}-${FILENAME}.le.int
++}
++
++
++
+ function hl_sign_bin {
+ 	BASENAME=$1
+ 	CERT=$2

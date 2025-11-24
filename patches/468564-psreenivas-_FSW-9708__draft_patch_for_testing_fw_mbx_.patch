@@ -1,0 +1,322 @@
+From 52974ed40deb67c9266bd4b4a3dd3a3501f0454d Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 13 May 2025 11:13:05 +0300
+Subject: [PATCH] [FSW-9708] draft patch for testing fw mbx.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I4209f382891ec91031929a8ea28813cd9ac1f033
+---
+
+diff --git a/drivers/ipm/CMakeLists.txt b/drivers/ipm/CMakeLists.txt
+index 72f5c5c..47c3de5 100644
+--- a/drivers/ipm/CMakeLists.txt
++++ b/drivers/ipm/CMakeLists.txt
+@@ -26,6 +26,7 @@
+ zephyr_library_sources_ifdef(CONFIG_IPM_INTEL_FS ipm_fs.c)
+ zephyr_library_sources_ifdef(CONFIG_IPM_INTEL_FS_TX_MBX ipm_fs_tx.c)
+ zephyr_library_sources_ifdef(CONFIG_IPM_INTEL_FS_RX_MBX ipm_fs_rx.c)
++zephyr_library_sources_ifdef(IPM_INTEL_FS_FW_MBX ipm_fs_fw_mbx.c)
+ 
+ zephyr_library_sources_ifdef(CONFIG_USERSPACE   ipm_handlers.c)
+ zephyr_library_sources_ifdef(CONFIG_USERSPACE   ipshm_handlers.c)
+diff --git a/drivers/ipm/Kconfig.intel_fs b/drivers/ipm/Kconfig.intel_fs
+index 4346a6a..0b5415f 100644
+--- a/drivers/ipm/Kconfig.intel_fs
++++ b/drivers/ipm/Kconfig.intel_fs
+@@ -20,4 +20,9 @@
+ 	help
+ 	  Driver for Intel Falcon Shores mailbox RX communication
+ 
++config IPM_INTEL_FS_FW_MBX
++	bool "Intel Falcon Shores IPM FW MBX driver"
++	help
++	  Driver for Intel Falcon Shores FW mailbox communication
++
+ endif # IPM_INTEL_FS
+diff --git a/drivers/ipm/ipm_fs_fw.h b/drivers/ipm/ipm_fs_fw.h
+new file mode 100644
+index 0000000..91af4cf
+--- /dev/null
++++ b/drivers/ipm/ipm_fs_fw.h
+@@ -0,0 +1,35 @@
++#include <hl_platform_defs.h>
++
++#include <zephyr/logging/log.h>
++
++#define LOG_ERR_LOCAL(...)		LOG_INST_ERR(DEV_CFG(dev)->log, __VA_ARGS__)
++#define LOG_WRN_LOCAL(...)		LOG_INST_WRN(DEV_CFG(dev)->log, __VA_ARGS__)
++#define LOG_INF_LOCAL(...)		LOG_INST_INF(DEV_CFG(dev)->log, __VA_ARGS__)
++#define LOG_DBG_LOCAL(...)		LOG_INST_DBG(DEV_CFG(dev)->log, __VA_ARGS__)
++#define LOG_HEXDUMP_ERR_LOCAL(_data, _length, _str)	\
++		LOG_INST_HEXDUMP_ERR(DEV_CFG(dev)->log, _data, _length, _str)
++#define LOG_HEXDUMP_WRN_LOCAL(_data, _length, _str)	\
++		LOG_INST_HEXDUMP_WRN(DEV_CFG(dev)->log, _data, _length, _str)
++#define LOG_HEXDUMP_INF_LOCAL(_data, _length, _str)	\
++		LOG_INST_HEXDUMP_INF(DEV_CFG(dev)->log, _data, _length, _str)
++#define LOG_HEXDUMP_DBG_LOCAL(_data, _length, _str)	\
++		LOG_INST_HEXDUMP_DBG(DEV_CFG(dev)->log, _data, _length, _str)
++
++struct fs_fw_config {
++	uint32_t cfg_base;
++	uint32_t intr_mask;
++	uint8_t mbx_idx;
++	uint8_t mask_idx;
++
++	LOG_INSTANCE_PTR_DECLARE(log);
++};
++
++struct fs_fw_data {
++	fs_fw_callback_t callback;
++	const struct device *shared_irq_dev;
++};
++#define DEV_CFG(dev) \
++	((struct fs_fw_config *)(dev->config))
++
++#define DEV_DATA(dev) \
++	((struct fs_fw_data * const)(dev->data))
+diff --git a/drivers/ipm/ipm_fs_fw_mbx.c b/drivers/ipm/ipm_fs_fw_mbx.c
+new file mode 100644
+index 0000000..8d4a1a9
+--- /dev/null
++++ b/drivers/ipm/ipm_fs_fw_mbx.c
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) 2024 Habanalabs
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#define DT_DRV_COMPAT		intel_fs_fw_mbx
++#include <zephyr/device.h>
++#include <soc/intel/gpu/fs1/soc.h>
++#include <zephyr/shared_irq.h>
++
++#include <zephyr/logging/log.h>
++#include <ipm_fs_fw.h>
++#include "ipm_fs_fw.h"
++#include <psoc_fw_mailbox_regs.h>
++
++#define LOG_MODULE_NAME		fs_fw_mbx
++LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_IPM_LOG_LEVEL);
++
++static void fs_fw_isr(const struct device *dev)
++{
++	const struct fs_fw_config *config = DEV_CFG(dev);
++	struct fs_fw_data *data = DEV_DATA(dev);
++	uint32_t cause = (config->cfg_base + mmPSOC_FW_MAILBOX_INTR_SPI_CAUSE_MAILBOX_WR);
++	uint32_t status = sys_read32((mem_addr_t)(cause)) & BIT(config->mbx_idx);
++	uint32_t value = sys_read32((mem_addr_t)config->cfg_base);
++
++	if (!status) {
++		LOG_DBG("Interrupt does not belong to dev %p", dev);
++		return;
++	}
++
++	if (data->callback)
++		data->callback(dev, config->mbx_idx, value);
++	sys_write32(BIT(config->mbx_idx), (mem_addr_t)cause);
++}
++
++static void fs_fw_register_callback(const struct device *dev, fs_fw_callback_t cb)
++{
++	struct fs_fw_data *data = dev->data;
++
++	data->callback = cb;
++}
++
++static int fs_fw_irq_init(const struct device *dev)
++{
++	const struct fs_fw_config *config = DEV_CFG(dev);
++	struct fs_fw_data *const data = DEV_DATA(dev);
++	uint32_t val = sys_read32((mem_addr_t) config->intr_mask);
++
++	data->shared_irq_dev = device_get_binding(DT_LABEL(DT_NODELABEL(sw_malibox_irq)));
++	if (!data->shared_irq_dev) {
++		LOG_ERR("Failed to get sw_malibox_irq device binding");
++		return -ENODEV;
++	}
++
++	/* Register for interrupt */
++	shared_irq_isr_register(data->shared_irq_dev, (isr_t)fs_fw_isr, dev);
++	/* Unmask the psoc interrupt */
++	val &= ~BIT(config->mask_idx);
++	sys_write32(val, config->intr_mask);
++	/* Enable the psoc interrupt */
++	shared_irq_enable(data->shared_irq_dev, dev);
++
++	LOG_INF("FW Mbx idx %u", config->mbx_idx);
++	return 0;
++}
++
++static int fs_fw_init(const struct device *dev)
++{
++	LOG_INF("FS FW mbx comms dev %p enumeration start", dev);
++
++	fs_fw_irq_init(dev);
++
++	LOG_INF("FS FW mbx comms dev %p enumeration end", dev);
++
++	return 0;
++}
++
++static const struct fs_fw_driver_api fw_drv_api = {
++	.register_callback = fs_fw_register_callback
++};
++
++#define CREATE_FS_FW_DEVICE(inst)								\
++	static const struct fs_fw_config fs_fw_##inst##_config	= {			\
++		.cfg_base = DT_REG_ADDR_BY_NAME(DT_INST(inst, intel_fs_fw_mbx), cfg),\
++		.mbx_idx = ((DT_REG_ADDR_BY_NAME(DT_INST(inst, intel_fs_fw_mbx), cfg) & 0xFF) / 4),\
++		.intr_mask = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_mask),		\
++		.mask_idx = (uint8_t) DT_INST_PROP(inst, mask_idx),				\
++	};											\
++	static struct fs_fw_data fs_fw_##inst##_data;					\
++												\
++	DEVICE_DT_INST_DEFINE(inst, &fs_fw_init,						\
++				NULL,								\
++				&fs_fw_##inst##_data,					\
++				&fs_fw_##inst##_config, POST_KERNEL,			\
++				CONFIG_SHARED_IRQ_INIT_PRIORITY,				\
++				&fw_drv_api);						\
++												\
++
++DT_INST_FOREACH_STATUS_OKAY(CREATE_FS_FW_DEVICE)
+diff --git a/dts/arc/fs1_io_mgmt.dtsi b/dts/arc/fs1_io_mgmt.dtsi
+index d68872a..9b0daee 100644
+--- a/dts/arc/fs1_io_mgmt.dtsi
++++ b/dts/arc/fs1_io_mgmt.dtsi
+@@ -179,6 +179,15 @@
+ 				inter_die;
+ 				node_label = "FS_MBX_IOD0PID_IOD0MGMT";
+ 			};
++
++			fw_mbx: fs-fw_mbx@F9CA6000 {
++				compatible = "intel,fs_fw_mbx";
++				reg = <PREFIX_0X(F9CA6000) 0x590>,
++				      <0xf9cd4590 0xf>; /* Psoc glbl mask */
++				reg-names = "cfg", "intr_mask";
++				mask_idx = <31>;
++				node_label = "FS_FW_MBX";
++			};
+ 		};
+ 	};
+ };
+diff --git a/dts/bindings/ipm/intel,fs_fw_mbx.yaml b/dts/bindings/ipm/intel,fs_fw_mbx.yaml
+new file mode 100644
+index 0000000..9414abc
+--- /dev/null
++++ b/dts/bindings/ipm/intel,fs_fw_mbx.yaml
+@@ -0,0 +1,37 @@
++# Copyright 2024 HabanaLabs, Ltd.
++# SPDX-License-Identifier: Apache-2.0
++
++description: Intel Falcon Shores FW mailbox driver
++
++compatible: "intel,fs_fw_mbx"
++
++include: base.yaml
++
++properties:
++    log_level:
++      type: int
++      required: false
++      default: 3
++      description: Log messages level, default is CONFIG_IPM_LOG_LEVEL=3
++
++    mbx_type:
++      type: int
++      enum:
++      - 1
++      - 2
++      required: false
++      default: 2
++      description: enum ipm_hl_mbx_type {MBX_TX_ONLY = 1, MBX_RX_ONLY = 2}
++
++    mask_idx:
++      type: int
++      description: ARC mask index (0 to 32)
++      default: 0
++
++    inter_die:
++      type: boolean
++      description: flag to indicate either mailbox or address is interdie
++
++    node_label:
++      type: string
++      required: false
+\ No newline at end of file
+diff --git a/include/zephyr/drivers/ipm_fs_fw.h b/include/zephyr/drivers/ipm_fs_fw.h
+new file mode 100644
+index 0000000..f2f7a9a
+--- /dev/null
++++ b/include/zephyr/drivers/ipm_fs_fw.h
+@@ -0,0 +1,70 @@
++/*
++ * Copyright (c) 2024 Habanalabs
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef ZEPHYR_DRIVERS_FS_FW_COMMON_H_
++#define ZEPHYR_DRIVERS_FS_FW_COMMON_H_
++
++#include <zephyr/device.h>
++#include <soc/intel/gpu/fs1/soc.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * @typedef fs_fw_callback_t
++ * @brief Callback API for incoming FW mbx messages
++ *
++ * These callbacks execute in interrupt context. Therefore, use only
++ * interrupt-safe APIS. Registration of callbacks is done via
++ * @a fs_fw_mbx_register_callback_t
++ *
++ * @param dev Driver instance
++ * @param mbx_idx Fw mbx index.
++ * @param data Message data pointer. The correct amount of data to read out
++ *        must be inferred using the message id/upper level protocol.
++ */
++typedef void (*fs_fw_callback_t)(const struct device *dev, uint32_t mbx_idx, uint32_t data);
++
++/**
++ * @typedef fs_fw_mbx_register_callback_t
++ * @brief Callback API upon registration
++ *
++ * See @a fs_fw_mbx_register_callback() for argument definitions.
++ */
++typedef void (*fs_fw_mbx_register_callback_t)(const struct device *port, fs_fw_callback_t cb);
++
++__subsystem struct fs_fw_driver_api {
++	fs_fw_mbx_register_callback_t register_callback;
++};
++
++/**
++ * @brief Register a callback function for incoming messages.
++ *
++ * @param dev Driver instance pointer.
++ * @param cb Callback function to execute on incoming message interrupts.
++ * @param user_data Application-specific data pointer which will be passed
++ *        to the callback function when executed.
++ */
++__syscall void fs_fw_mbx_register_callback(const struct device *dev, fs_fw_callback_t cb);
++
++static inline void z_impl_fs_fw_mbx_register_callback(const struct device *dev, fs_fw_callback_t cb)
++{
++	const struct fs_fw_driver_api *api =
++		(const struct fs_fw_driver_api *)dev->api;
++
++	if (api->register_callback)
++		api->register_callback(dev, cb);
++}
++
++
++#ifdef __cplusplus
++}
++#endif
++
++#include <syscalls/ipm_fs_fw.h>
++
++#endif /* ZEPHYR_DRIVERS_FS_FW_COMMON_H_ */

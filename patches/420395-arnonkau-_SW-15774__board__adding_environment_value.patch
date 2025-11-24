@@ -1,0 +1,67 @@
+From 6fd7e9d54fc46efda378bdb42e2ed6dda7da55f9 Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Wed, 29 May 2024 17:32:49 +0300
+Subject: [PATCH] [SW-15774] board: adding environment value
+
+Adds BINS_ARC_DIR.
+
+Change-Id: I12eb6e2499ffa05d85a6ed5f2baf89f6cc09d5c1
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/board/habanalabs/common/dirs.sh b/board/habanalabs/common/dirs.sh
+index 9485deb..61f2670 100644
+--- a/board/habanalabs/common/dirs.sh
++++ b/board/habanalabs/common/dirs.sh
+@@ -5,6 +5,7 @@
+ export DEV_PREFIX_ARC_BASE_DIR=${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/
+ export IMGS_DIR=${DEV_BASE_DIR}/images/
+ export IMGS_PROD_DIR=${DEV_PREFIX_BASE_DIR}/images/
++export IMGS_ARC_DIR=${DEV_PREFIX_ARC_BASE_DIR}/images/
+ export STAGE_DIR=${IMGS_DIR}
+ export HEXS_DIR=${IMGS_PROD_DIR}/hexs/
+ export ITBS_DIR=${IMGS_PROD_DIR}/itbs/
+@@ -12,6 +13,7 @@
+ export STATS_DIR=${IMGS_DIR}
+ export ELFS_DIR=${IMGS_PROD_DIR}/elfs/
+ export BINS_PROD_DIR=${IMGS_PROD_DIR}
++export BINS_ARC_DIR=${IMGS_ARC_DIR}
+ 
+ # TODO: move the below to FS1 specific make file
+ case ${DEV_PREFIX} in
+diff --git a/board/habanalabs/common/post-image-agents.sh b/board/habanalabs/common/post-image-agents.sh
+index b582f93..1c35fcb 100755
+--- a/board/habanalabs/common/post-image-agents.sh
++++ b/board/habanalabs/common/post-image-agents.sh
+@@ -56,13 +56,11 @@
+ ITS_SED_PARAMS+="s#@KEY_DTB@#${KEYS_DIR}/hl_rsa3072.dtb#g;"
+ 
+ function handle_fw_copy_arc {
+-
+ 	# copy img-pointer, ppboot, preboot, security binaries from other HL targets required for agent fit creation
+ 	# This will be called by gaudi2 agent scripts
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/${HL_DEV}-ppboot-pcie_phy_fw.bin.le ${BINS_DIR}/${HL_DEV}-ppboot-arc.bin.le
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/${HL_DEV}-preboot.bin.le ${BINS_DIR}/${HL_DEV}-preboot-arc.bin.le
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/${HL_DEV}-images-pointers.bin.le ${BINS_DIR}/${HL_DEV}-images-pointers-arc.bin.le
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/${HL_DEV}-security-arc.bin.le ${BINS_DIR}
++	cp ${BINS_ARC_DIR}/${HL_DEV}-ppboot-pcie_phy_fw.bin.le ${BINS_ARC_DIR}/${HL_DEV}-ppboot-arc.bin.le
++	cp ${BINS_ARC_DIR}/${HL_DEV}-preboot.bin.le ${BINS_ARC_DIR}/${HL_DEV}-preboot-arc.bin.le
++	cp ${BINS_ARC_DIR}/${HL_DEV}-images-pointers.bin.le ${BINS_ARC_DIR}/${HL_DEV}-images-pointers-arc.bin.le
+ }
+ 
+ function handle_agent_fit {
+diff --git a/board/habanalabs/gaudi2/post-image-agents.sh b/board/habanalabs/gaudi2/post-image-agents.sh
+index 82904c7..06cd389 100755
+--- a/board/habanalabs/gaudi2/post-image-agents.sh
++++ b/board/habanalabs/gaudi2/post-image-agents.sh
+@@ -85,8 +85,8 @@
+ 	AGENT_ITB_FILE=agent-fw_loader-fit.itb
+ 
+ 	#copy gaudi2-erom.bin from gaudi2_arc\images to gaudi2\images
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/gaudi2-erom.bin.le .
+-	cp ${BR2_EXTERNAL}/output/${DEV_PREFIX}_arc/images/gaudi2-erom.bin.be .
++	cp ${BINS_ARC_DIR}/gaudi2-erom.bin.le .
++	cp ${BINS_ARC_DIR}/gaudi2-erom.bin.be .
+ 	#create erom fit
+ 	handle_agent_fit erom ${COMMON_BASE}
+ 

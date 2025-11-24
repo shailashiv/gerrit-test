@@ -1,0 +1,182 @@
+From a5a16f13726940335bcd81ca2c6cd0dec10bb572 Mon Sep 17 00:00:00 2001
+From: nsingh <nsingh@habana.ai>
+Date: Thu, 07 Nov 2024 16:39:06 +0200
+Subject: [PATCH] [SW-207415] Maintain symbol value hash at recipe level
+
+Prior to this change, current symbol value was
+maintained at graph level. This was used to
+determine if OUTPUT_PASS sif is required or not.
+If multiple JIT graphs map to same recipe, then
+this led to false negatives of sif requirement.
+
+Change-Id: I80f1f79113c17c7c15765d3e411fbde7656cf3d6
+---
+
+diff --git a/backend/jit_graph_cache.h b/backend/jit_graph_cache.h
+index 9ffe11a..f35a5d3 100644
+--- a/backend/jit_graph_cache.h
++++ b/backend/jit_graph_cache.h
+@@ -373,12 +373,12 @@
+     return maybe_static_recipe_;
+   }
+ 
+-  void set_is_symval_changed_from_prev(bool is_symval_changed_from_prev) {
+-    is_symval_changed_from_prev_ = is_symval_changed_from_prev;
++  void set_curr_symval_hash(size_t symval_hash) {
++    curr_symval_hash_ = symval_hash;
+   }
+ 
+-  bool get_is_symval_changed_from_prev() {
+-    return is_symval_changed_from_prev_;
++  size_t get_curr_symval_hash() {
++    return curr_symval_hash_;
+   }
+ 
+   struct PermutationWithOutputPosition {
+@@ -479,7 +479,7 @@
+   size_t graph_perm_hash_ = 0;
+   bool enable_optim_output_sif_ = false;
+   bool maybe_static_recipe_ = true;
+-  bool is_symval_changed_from_prev_ = true;
++  size_t curr_symval_hash_ = 0;
+   std::optional<PermutationInfo> permutation_info_{};
+   bool is_param_agnostic_supported_ = false;
+   CValPtrMap param_jit_val_map_{};
+diff --git a/backend/kernel/hpu_habana_cache.h b/backend/kernel/hpu_habana_cache.h
+index 53f3ec5..0983fef 100644
+--- a/backend/kernel/hpu_habana_cache.h
++++ b/backend/kernel/hpu_habana_cache.h
+@@ -416,6 +416,7 @@
+   std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
+   std::unique_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
+       nullptr};
++  size_t curr_symval_hash_{0};
+ 
+   static size_t current_id_;
+   static size_t count;
+diff --git a/backend/kernel/hpu_habana_compile_op_pt.cpp b/backend/kernel/hpu_habana_compile_op_pt.cpp
+index c0598c1..f3a6737 100644
+--- a/backend/kernel/hpu_habana_compile_op_pt.cpp
++++ b/backend/kernel/hpu_habana_compile_op_pt.cpp
+@@ -53,6 +53,8 @@
+   auto recipe = CompileSynapseGraph();
+   auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
+ 
++  rvs->curr_symval_hash_ = curr_symval_hash_;
++
+   ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
+   UpdateSynapsePermutations(*rvs, *recipe);
+   PT_BRIDGE_DEBUG(*rvs);
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.cpp b/backend/kernel/hpu_habana_launch_op_pt.cpp
+index 10a7ed8..3ecee81 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.cpp
++++ b/backend/kernel/hpu_habana_launch_op_pt.cpp
+@@ -265,8 +265,8 @@
+   if (enable_optim_output_sif_) {
+     maybe_static_recipe_ =
+         optimized_jit_graph_and_meta_data->get_maybe_static_recipe();
+-    is_symval_changed_from_prev_ =
+-        optimized_jit_graph_and_meta_data->get_is_symval_changed_from_prev();
++    curr_symval_hash_ =
++        optimized_jit_graph_and_meta_data->get_curr_symval_hash();
+   }
+ }
+ 
+@@ -4182,6 +4182,12 @@
+       std::unordered_map<int64_t, at::Tensor> tidx_to_tensor_map;
+       rv.update_hit_count();
+ 
++      if (rv.curr_symval_hash_ == curr_symval_hash_) {
++        is_symval_changed_from_prev_ = false;
++      } else {
++        rv.curr_symval_hash_ = curr_symval_hash_;
++      }
++
+       if (rv.dynamic_graph) {
+         // For Dynamic shapes in case of cache hit, we need to run
+         // shape inference for determining the output shape and
+diff --git a/backend/kernel/hpu_habana_launch_op_pt.h b/backend/kernel/hpu_habana_launch_op_pt.h
+index 80ca07c..53e2f2a 100644
+--- a/backend/kernel/hpu_habana_launch_op_pt.h
++++ b/backend/kernel/hpu_habana_launch_op_pt.h
+@@ -443,8 +443,9 @@
+   size_t sym_expr_hash_ = 0;
+   // If true, static recipe_arg_spec will be evaluated
+   bool maybe_static_recipe_ = true;
++  size_t curr_symval_hash_ = 0;
+   // Is true if symbol value hash changes from the
+-  // previous run of the same JIT graph
++  // previous run of the same recipe
+   bool is_symval_changed_from_prev_ = true;
+   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
+   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
+diff --git a/habana_eager/graph_exec.cpp b/habana_eager/graph_exec.cpp
+index a681ba9..0ebc364 100644
+--- a/habana_eager/graph_exec.cpp
++++ b/habana_eager/graph_exec.cpp
+@@ -555,39 +555,25 @@
+ 
+   if (enable_optim_output_sif) {
+     m_graph_and_meta->set_maybe_static_recipe(true);
+-    m_graph_and_meta->set_is_symval_changed_from_prev(true);
+ 
+-    if (m_initial_graph_key_with_perm == SIZE_MAX) {
+-      // Save the graph_key_with_perm of the very first run.
++    if (m_initial_graph_key_with_perm == SIZE_MAX)
+       m_initial_graph_key_with_perm = graph_key_with_perm;
+-    }
+ 
+-    auto curr_symval_hash =
++    m_curr_symval_hash =
+         habana_helpers::CalculateSymbolValuesHash(in_symbol_value_map);
++    m_graph_and_meta->set_curr_symval_hash(m_curr_symval_hash);
++
+     if (m_initial_symval_hash == SIZE_MAX) {
+-      // Save the symbol values hash of the very first run.
+-      // The first recipe is always compiled in static flow.
+-      m_initial_symval_hash = curr_symval_hash;
+-      m_current_symval_hash = curr_symval_hash;
+-    } else if (m_initial_symval_hash != curr_symval_hash) {
+-      // If any subsequent symbol values hash is different from
+-      // that of the first run, then that recipe will compile
+-      // in dynamic flow.
+-      // Only exception is when the graph_key_with_perm has changed
+-      // from that of then first run, then a new static recipe
+-      // will get compiled.
+-      if (graph_key_with_perm == m_initial_graph_key_with_perm) {
+-        m_graph_and_meta->set_maybe_static_recipe(false);
+-      }
+-      if (m_current_symval_hash != curr_symval_hash) {
+-        // Save the current symbol values hash
+-        m_current_symval_hash = curr_symval_hash;
+-      } else {
+-        m_graph_and_meta->set_is_symval_changed_from_prev(false);
+-      }
++      m_initial_symval_hash = m_curr_symval_hash;
++    } else if (
++        (m_initial_symval_hash != m_curr_symval_hash) &&
++        (graph_key_with_perm == m_initial_graph_key_with_perm)) {
++      // If current symbol values differ from those in initial run,
++      // then a dynamic recipe will get compiled.
++      // But if graph_key_with_perm changes from intial run,
++      // then a new static recipe will get compiled.
++      m_graph_and_meta->set_maybe_static_recipe(false);
+     }
+-    // and if 'm_initial_symval_hash == curr_symval_hash'
+-    // then it is a static cache hit.
+   }
+ 
+   m_graph_and_meta->SetHPUStream(stream);
+diff --git a/habana_eager/graph_exec.h b/habana_eager/graph_exec.h
+index 422e88d..5767777 100644
+--- a/habana_eager/graph_exec.h
++++ b/habana_eager/graph_exec.h
+@@ -112,7 +112,7 @@
+   SeedTensors m_seed_tensors{};
+   size_t m_sym_expr_hash = 0;
+   size_t m_initial_symval_hash = SIZE_MAX;
+-  size_t m_current_symval_hash = 0;
++  size_t m_curr_symval_hash = 0;
+   size_t m_initial_graph_key_with_perm = SIZE_MAX;
+ };
+ 

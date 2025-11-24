@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 465861: [FSW-10217] fs : msix generation for d2h queues</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 465861: [FSW-10217] fs : msix generation for d2h queues</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Vagadiya Mitali Nagajibhai &lt;vmnagajibhai@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-12-11 10:08:35.679000000</p>
+            <p><strong>Updated:</strong> 2025-02-05 07:46:45.973000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[FSW-10217] fs : msix generation for d2h queues
+
+This patch takes care of raising msix interrupt for d2h
+queues to fix issue mentioned in FSW-10217.
+
+To generate msix interrupt, fw writes appropriate
+msix_id to pcie msix register address. msix_id can
+be obtained while initializing queue data.
+
+Change-Id: I1f16d0bce83276d5432d81cb55847653c7d9c493
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Igor Grinberg: +0, Sailaja Bandarupalli: +0, Noam Camus: +0, Software Jenkins: +0, Igal Zeltser: +0, Noam Lessner: +0, Guy Nisan: +0, Jenkins EMB Service Account: +0, Arnon Kaufman: +0, Vagadiya Mitali Nagajibhai: +0, Yaniv Levinsky: +0, Sanyog Kale: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>drivers/misc/queue/queue.c</code> (M) +4 -0</li><li><code>drivers/misc/queue/queue.h</code> (M) +2 -0</li><li><code>drivers/misc/queue/queue_d2h.c</code> (M) +1 -0</li><li><code>dts/arc/fs1_io_mgmt.dtsi</code> (M) +8 -4</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/drivers/misc/queue/queue.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -85,6 +85,9 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	data-&gt;queue.pi = (data-&gt;queue.pi + size) % data-&gt;queue.len;</span>
+<span class="diff-ctx"> 	sys_write32(data-&gt;queue.pi, (mem_addr_t) &amp;reg_base-&gt;pi);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+	sys_write32(data-&gt;msix_id, (mem_addr_t) config-&gt;msix_base);</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -215,6 +218,7 @@</span>
+<span class="diff-ctx"> 	data-&gt;queue.pi = 0;</span>
+<span class="diff-ctx"> 	data-&gt;queue.pi_to_cb = 0;</span>
+<span class="diff-ctx"> 	data-&gt;init_done = true;</span>
+<span class="diff-add">+	data-&gt;msix_id = sys_read32((mem_addr_t) &amp;reg_base-&gt;msix_id);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 500c0a2..143b0e8 100644</span>
+<h4 class="diff-filename">b/drivers/misc/queue/queue.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -29,6 +29,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> struct fs_queue_config {</span>
+<span class="diff-ctx"> 	const uintptr_t *base;</span>
+<span class="diff-add">+	const uintptr_t *msix_base;</span>
+<span class="diff-ctx"> 	void (*irq_config_func)(const struct device *dev);</span>
+<span class="diff-ctx"> 	enum fs_queue_type type;</span>
+<span class="diff-ctx"> 	uint32_t irq_num;</span>
+<span class="diff-hunk">@@ -54,6 +55,7 @@</span>
+<span class="diff-ctx"> 	struct fs_queue queue;</span>
+<span class="diff-ctx"> 	bool ready;</span>
+<span class="diff-ctx"> 	bool init_done;</span>
+<span class="diff-add">+	uint16_t msix_id;</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define DEV_CFG(dev) \</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b1f2ba8..d362e21 100644</span>
+<h4 class="diff-filename">b/drivers/misc/queue/queue_d2h.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -29,6 +29,7 @@</span>
+<span class="diff-ctx"> 	static const struct fs_queue_config fs_queue_##inst##_config				\</span>
+<span class="diff-ctx"> 							= {					\</span>
+<span class="diff-ctx"> 		.base = (const uintptr_t *)DT_INST_REG_ADDR_BY_NAME(inst, base),		\</span>
+<span class="diff-add">+		.msix_base = (uintptr_t *)DT_INST_REG_ADDR_BY_NAME(inst, msix_base),		\</span>
+<span class="diff-ctx"> 		.type = FS_QUEUE_TYPE_D2H,							\</span>
+<span class="diff-ctx"> 		.intr_local = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_local),		\</span>
+<span class="diff-ctx"> 		.intr_global = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_global),		\</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index e12e443..cef75f2 100644</span>
+<h4 class="diff-filename">b/dts/arc/fs1_io_mgmt.dtsi</h4><pre class="diff-content"><span class="diff-hunk">@@ -90,8 +90,10 @@</span>
+<span class="diff-ctx"> 				reg = &lt;0xf9ce2400 0x30&gt;,</span>
+<span class="diff-ctx"> 				      &lt;0xf9ce2180 0xf&gt;,</span>
+<span class="diff-ctx"> 				      &lt;0xf9cd4bc0 0xf&gt;,</span>
+<span class="diff-del">-				      &lt;0xf9cd45b0 0xf&gt;;</span>
+<span class="diff-del">-				reg-names = &quot;base&quot;, &quot;intr_local&quot;, &quot;intr_global&quot;, &quot;intr_mask&quot;;</span>
+<span class="diff-add">+				      &lt;0xf9cd45b0 0xf&gt;,</span>
+<span class="diff-add">+				      &lt;0xf9c06000 0x4&gt;;</span>
+<span class="diff-add">+				reg-names = &quot;base&quot;, &quot;intr_local&quot;, &quot;intr_global&quot;, &quot;intr_mask&quot;,</span>
+<span class="diff-add">+				 &quot;msix_base&quot;;</span>
+<span class="diff-ctx"> 				#address-cells = &lt;3&gt;;</span>
+<span class="diff-ctx"> 				compatible = &quot;intel,fs_queue_d2h&quot;;</span>
+<span class="diff-ctx"> 				local_idx = &lt;0&gt;;</span>
+<span class="diff-hunk">@@ -104,8 +106,10 @@</span>
+<span class="diff-ctx"> 				reg = &lt;0xf9ce2440 0x30&gt;,</span>
+<span class="diff-ctx"> 				      &lt;0xf9ce2180 0xf&gt;,</span>
+<span class="diff-ctx"> 				      &lt;0xf9cd4bc0 0xf&gt;,</span>
+<span class="diff-del">-				      &lt;0xf9cd45b0 0xf&gt;;</span>
+<span class="diff-del">-				reg-names = &quot;base&quot;, &quot;intr_local&quot;, &quot;intr_global&quot;, &quot;intr_mask&quot;;</span>
+<span class="diff-add">+				      &lt;0xf9cd45b0 0xf&gt;,</span>
+<span class="diff-add">+				      &lt;0xf9c06000 0x4&gt;;</span>
+<span class="diff-add">+				reg-names = &quot;base&quot;, &quot;intr_local&quot;, &quot;intr_global&quot;, &quot;intr_mask&quot;,</span>
+<span class="diff-add">+				 &quot;msix_base&quot;;</span>
+<span class="diff-ctx"> 				#address-cells = &lt;3&gt;;</span>
+<span class="diff-ctx"> 				compatible = &quot;intel,fs_queue_d2h&quot;;</span>
+<span class="diff-ctx"> 				local_idx = &lt;1&gt;;</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Vagadiya Mitali Nagajibhai</strong> <span class="date">(2024-12-11 10:08:35.679000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:08:41.043000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1252/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:08:42.434000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28320/ (1/3)</pre></div><div class="message"><strong>Vagadiya Mitali Nagajibhai</strong> <span class="date">(2024-12-11 10:11:00.722000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:11:07.483000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28321/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:11:10.216000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1253/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:12:28.574000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1907/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:12:28.587000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1744/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:13:45.006000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19017/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:13:45.007000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16957/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:15:37.709000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16957/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16957/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19017/ : ABORTED
+
+Dependent build failed ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19017/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28320/ : ABORTED
+
+ Aborted by new patch set ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28320/ )</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:16:00.128000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1908/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:16:00.226000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1745/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:16:25.743000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1907/ : ABORTED
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/1499/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1744/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_checkpatch_master_next/1306/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1252/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:17:05.110000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16958/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:17:05.135000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19018/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 10:22:37.395000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1908/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/1500/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1253/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1745/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 10:26:40.076000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19018/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/21697/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16958/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28321/ : SUCCESS</pre></div><div class="message"><strong>Sanyog Kale</strong> <span class="date">(2024-12-16 06:28:32.497000000)</span><pre>Patch Set 2: Code-Review-1
+
+(4 comments)</pre></div><div class="message"><strong>Vagadiya Mitali Nagajibhai</strong> <span class="date">(2024-12-16 08:35:32.843000000)</span><pre>Uploaded patch set 3.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-16 08:35:38.625000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1524/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-16 08:35:40.751000000)</span><pre>Patch Set 3: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28608/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-16 08:39:30.388000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2133/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-16 08:39:30.413000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1942/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-16 08:41:45.672000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17157/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-16 08:41:45.683000000)</span><pre>Patch Set 3:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19252/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-16 08:45:51.330000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/2133/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/1712/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1524/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1942/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-16 08:50:57.032000000)</span><pre>Patch Set 3: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19252/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/21913/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/17157/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28608/ : SUCCESS</pre></div><div class="message"><strong>Vagadiya Mitali Nagajibhai</strong> <span class="date">(2025-02-05 07:12:37.733000000)</span><pre>Uploaded patch set 4.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-05 07:12:45.023000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/31523/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-05 07:12:45.944000000)</span><pre>Patch Set 4: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4105/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-05 07:16:00.267000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/4285/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-05 07:16:00.274000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3891/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-05 07:19:03.389000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19163/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-05 07:19:03.401000000)</span><pre>Patch Set 4:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21473/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2025-02-05 07:19:12.851000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/4285/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/3773/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/3891/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/4105/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-02-05 07:46:45.973000000)</span><pre>Patch Set 4: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/21473/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/23997/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/19163/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/31523/ : SUCCESS</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>drivers/misc/queue/queue.h</h4><ul><li><strong>Sanyog Kale</strong> (Line 32): put const</li><li><strong>Sanyog Kale</strong> (Line 58): this can be uint16_t</li></ul></div><div class="file-comments"><h4>dts/arc/fs1_io_mgmt.dtsi</h4><ul><li><strong>Sanyog Kale</strong> (Line 81): 0x4</li><li><strong>Sanyog Kale</strong> (Line 97): 0x4, also fix alignment to match with others.</li></ul></div></div>
+    </div>
+</body>
+</html>

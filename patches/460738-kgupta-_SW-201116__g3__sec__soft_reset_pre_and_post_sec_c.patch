@@ -1,0 +1,321 @@
+From 4ca8c018416b2e9f2430a8793caad2fabee7aa2a Mon Sep 17 00:00:00 2001
+From: Kshitij <kgupta@habana.ai>
+Date: Tue, 05 Nov 2024 07:49:12 +0200
+Subject: [PATCH] [SW-201116] g3: sec: soft reset pre and post sec config
+
+This patch adds pre soft reset and post post soft reset
+securtiy configuration.
+During soft reset only nic cfg, nic dbg, vuart registers
+and D0_PARC_ARC1_CFG ➔ EQ_RD_OFFS are required to be open.
+
+In soft reset all engines are halted so blocking
+all CFG range except PCIE_AUX(vuart), NIC CFG &
+D0_PARC_ARC1_CFG in PCIE_MSTR_IF ISEC and blocking all CFG
+range except PCIE_CORE(telemetry), PCIE_AUX(vuart) & NIC CFG
+in ELBI_MSTR_IF ISEC blocks all transactions.
+
+Change-Id: I9827631049f53ba0da1cf6f9ca96b5e9b5bffcc3
+Signed-off-by: Kshitij <kgupta@habana.ai>
+---
+
+diff --git a/drivers/misc/hl_reset/gaudi3/dev.c b/drivers/misc/hl_reset/gaudi3/dev.c
+index fdd0632..61ae8de 100644
+--- a/drivers/misc/hl_reset/gaudi3/dev.c
++++ b/drivers/misc/hl_reset/gaudi3/dev.c
+@@ -121,9 +121,6 @@
+ 	}
+ }
+ 
+-/* TODO: definition will be added when security driver is added */
+-void hl_reset_dev_pre_sec_cfg(const struct device *dev, enum hl_reset_type reset_type) {}
+-
+ static const char *reset_type_to_str(enum hl_reset_type type)
+ {
+ 	const char *str;
+@@ -163,6 +160,25 @@
+ 	return str;
+ }
+ 
++void hl_reset_dev_pre_sec_cfg(const struct device *dev, enum hl_reset_type reset_type)
++{
++
++	struct hl_reset_driver_data *data = DEV_DATA_LOCAL(dev);
++
++	if (data->security == NULL)
++		return;
++
++	switch (reset_type) {
++	case HL_RESET_TYPE_SOFT_RST:
++		hl_security_misc_cfg(data->security, HL_SECURITY_MISC_CFG_PRE_SOFT_RESET);
++		break;
++	default:
++		LOG_ERR("Security cfg not supported for rst type %s\n",
++			reset_type_to_str(reset_type));
++	}
++
++}
++
+ void hl_reset_dev_post_sec_cfg(const struct device *dev, enum hl_reset_type reset_type)
+ {
+ 	struct hl_reset_driver_data *data = DEV_DATA_LOCAL(dev);
+diff --git a/drivers/misc/hl_security/gaudi3/security.c b/drivers/misc/hl_security/gaudi3/security.c
+index 906776e..fa17ac6 100644
+--- a/drivers/misc/hl_security/gaudi3/security.c
++++ b/drivers/misc/hl_security/gaudi3/security.c
+@@ -246,7 +246,7 @@
+ }
+ 
+ bool hl_secure_can_skip_config_in_reset(enum hl_block_types type, enum hl_reset_src rst_reason,
+-					__unused uint32_t base_addr)
++					uint32_t base_addr)
+ {
+ 	bool skip = false;
+ 
+@@ -254,9 +254,12 @@
+ 		return skip;
+ 	}
+ 
++	if (type == HL_BLOCK_TYPE_PSOC && base_addr == mmD0_PARC_ARC1_CFG_BASE) {
++		return skip;
++	}
++
+ 	switch (type) {
+ 	case HL_BLOCK_TYPE_NIC:
+-	case HL_BLOCK_TYPE_PCIE:
+ 	case HL_BLOCK_TYPE_PSOC:
+ 	case HL_BLOCK_TYPE_CPU:
+ 	case HL_BLOCK_TYPE_NRTR:
+@@ -283,7 +286,8 @@
+ #define D1_DUP_ENGINE_MSTR_IF_BASE	(HL_CFG_BASE + \
+ 					(mmD1_PSOC_DUP_MSTR_IF_AXADDR_LBW_BASE & 0xFFFFF000))
+ 
+-static void hl_dev_security_configure_isec(const struct device *dev, enum hl_reset_src rst_src)
++static void hl_dev_security_configure_isec(const struct device *dev, enum hl_reset_src rst_src,
++					   const struct hl_isec_cfg *isec_cfg, uint32_t conf_sz)
+ {
+ 	uint32_t cfg_idx, base_addr, dup_addr;
+ 	uint8_t major, minor;
+@@ -292,8 +296,8 @@
+ 	struct hl_security_drv_data *data = DEV_DATA(dev);
+ 
+ 
+-	for (cfg_idx = 0; cfg_idx < ARRAY_SIZE(isec_info); cfg_idx++) {
+-		cfg = &isec_info[cfg_idx];
++	for (cfg_idx = 0; cfg_idx < conf_sz; cfg_idx++) {
++		cfg = &isec_cfg[cfg_idx];
+ 		if (hl_secure_can_skip_config_in_reset(cfg->addr.block_type, rst_src, 0)) {
+ 			continue;
+ 		}
+@@ -867,7 +871,7 @@
+ 	CFG_WREG32((mmD0_PCIE_MSTR_RR_MSTR_IF_ISEC_BASE + mmMSTR_IF_ISEC_GEN_RANGE_CTRL_11),
+ 								ISEC_GEN_CTRL_11_DEFAULT_VAL);
+ 
+-	hl_dev_security_configure_isec(dev, HL_RESET_SRC_UNKNOWN);
++	hl_dev_security_configure_isec(dev, HL_RESET_SRC_UNKNOWN, isec_info, ARRAY_SIZE(isec_info));
+ 
+ 	LOG_INF("ISEC bitmaps configured");
+ 	hl_set_psoc_priv_level(dev);
+@@ -912,16 +916,191 @@
+ 	return HL_SEC_ST_FAKE;
+ }
+ 
++#define mmD0_NIC_ROM_TABLE_BASE	0x9000000ull
++
++static void hl_dev_soft_reset_sec_rr_cfg(const struct device *dev, bool restore)
++{
++	uint64_t min, max;
++	struct hl_security_rr_engine_select rr_sel;
++
++	memset(&rr_sel, 0, sizeof(struct hl_security_rr_engine_select));
++
++	rr_sel.noc = 1;
++	rr_sel.pcie = HL_SECURITY_PCIE_ELBI_RR | HL_SECURITY_PCIE_MSTR_RR | HL_SECURITY_PCIE_LBW_RR;
++
++	if (!restore) {
++		/* TODO: Short RR usage can be optimized to 3 RRs using mask and range */
++		/* LBW SPACE: 0x0300007FE0000000 - 0x0300007FFFFFFFFF */
++		/* Block access to whole LBW space except NIC CFG, NIC DBG and VUART Regs */
++
++		/*
++		 * Start - 0x0300007FE0000000
++		 * End - 0x300007FF80BFFFF
++		 */
++		min = LBW_BASE;
++		max = HL_CFG_BASE_FULL + mmD0_NCH_ATB_FUNNEL2_BASE - 1;
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_0, min, max,
++				 rr_sel, true, HL_SEC_RD_WR_PROT);
++
++		/*
++		 * Start - 0x0300007FE80D3000
++		 * End - 0x0300007FF88BFFFF
++		 */
++		min = HL_CFG_BASE_FULL + mmD0_NCHL_ATB_FUNNEL2_BASE +
++					D0_NCHL_ATB_FUNNEL2_MAX_OFFSET;
++		max = HL_CFG_BASE_FULL + mmD1_NCH_ATB_FUNNEL2_BASE - 1;
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_1, min, max,
++				 rr_sel, true, HL_SEC_RD_WR_PROT);
++
++		/*
++		 * Start - 0x0300007FF88D3000
++		 * End - 0x0300007FF8FFFFFF
++		 */
++		min = HL_CFG_BASE_FULL + mmD1_NCHL_ATB_FUNNEL2_BASE +
++					 D1_NCHL_ATB_FUNNEL2_MAX_OFFSET;
++		max = HL_CFG_BASE_FULL + mmD0_NIC_ROM_TABLE_BASE - 1;
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_2, min, max,
++				 rr_sel, true, HL_SEC_RD_WR_PROT);
++
++		/*
++		 * Start - 0x300007FF96A0400
++		 * End - 0x0300007FFC0BFFFF
++		 */
++		min = HL_CFG_BASE_FULL + mmD1_NIC5_ARC_RTT_BASE +
++					 D1_NIC5_ARC_RTT_MAX_OFFSET;
++		max = HL_CFG_BASE_FULL + mmD0_NIC01_GECOE_BASE - 1;
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_8, min, max,
++				 rr_sel, true, HL_SEC_RD_WR_PROT);
++
++	} else {
++		min = 0;
++		max = 0;
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_0, min, max,
++				 rr_sel, false, HL_SEC_RD_WR_PROT);
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_1, min, max,
++				 rr_sel, false, HL_SEC_RD_WR_PROT);
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_2, min, max,
++				 rr_sel, false, HL_SEC_RD_WR_PROT);
++		hl_secure_lbw_rr(dev, HL_SEC_LBW_RR_SHORT_8, min, max,
++				 rr_sel, false, HL_SEC_RD_WR_PROT);
++	}
++}
++
++static const uint32_t bit_map_nic_lo[ISEC_NIC_RANGE_TYPE_ARR_SIZE] = { 0xffffffff, 0x000602ff };
++static const uint32_t bit_map_nic_hi[ISEC_NIC_RANGE_TYPE_ARR_SIZE] = { 0xdfffffff, 0x00000000 };
++
++static const uint32_t bit_map_gen_lo_pcie[ISEC_GEN_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000006, 0x00000000, 0x00000000,
++			0x00000000, 0x00000080, 0x00000000, 0x00000000,
++			0x00000000 };
++static const uint32_t bit_map_gen_lo_elbi[ISEC_GEN_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000006, 0x00000000, 0x00000000,
++			0x00000000, 0x00000090, 0x00000000, 0x00000000,
++			0x00000000 };
++static const uint32_t bit_map_gen_hi_pcie[ISEC_GEN_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000008, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000 };
++static const uint32_t bit_map_gen_hi_elbi[ISEC_GEN_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000 };
++static const uint32_t bit_map_hd_lo[ISEC_HD_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000 };
++static const uint32_t bit_map_hd_hi[ISEC_HD_RANGE_TYPE_ARR_SIZE] = {
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000, 0x00000000, 0x00000000, 0x00000000,
++			0x00000000 };
++
++static const struct hl_isec_data isec_nic_range_data = {
++	.isec_bitmap_lo = bit_map_nic_lo,
++	.isec_bitmap_hi = bit_map_nic_hi,
++};
++
++static const struct hl_isec_data isec_hd_range_data = {
++	.isec_bitmap_lo = bit_map_hd_lo,
++	.isec_bitmap_hi = bit_map_hd_hi,
++};
++
++static const struct hl_isec_data isec_gen_range_data_pcie = {
++	.isec_bitmap_lo = bit_map_gen_lo_pcie,
++	.isec_bitmap_hi = bit_map_gen_hi_pcie,
++};
++
++static const struct hl_isec_data isec_gen_range_data_elbi = {
++	.isec_bitmap_lo = bit_map_gen_lo_elbi,
++	.isec_bitmap_hi = bit_map_gen_hi_elbi,
++};
++
++static const struct hl_isec_cfg pre_soft_reset_isec_config[] = {
++	{{ HL_BLOCK_TYPE_PCIE, 0xfc414000, 1, 0, 0x000000, 0x0 },
++	  .gen_range_data = &isec_gen_range_data_elbi,
++	  .hd_range_data = &isec_hd_range_data,
++	  .nic_range_data = &isec_nic_range_data,
++	},
++	{{ HL_BLOCK_TYPE_PCIE, 0xfc415000, 1, 0, 0x000000, 0x0 },
++	  .gen_range_data = &isec_gen_range_data_pcie,
++	  .hd_range_data = &isec_hd_range_data,
++	  .nic_range_data = &isec_nic_range_data,
++	},
++};
++
++static const uint32_t gaudi3_soft_reset_protbitis_data1[] = {0x800};
++
++static const struct hl_prot_bits_cfg gaudi3_soft_reset_prot_bits[] = {
++
++	{{ HL_BLOCK_TYPE_PSOC, 0xfc4e3000, 1, 0, 0, 0x000000, 0x0000, 0x0 }, \
++	  .prot_map = 0x00000000, \
++	  .data_map = 0x10, \
++	  .data = gaudi3_soft_reset_protbitis_data1, \
++	  .data_size = ARRAY_SIZE(gaudi3_soft_reset_protbitis_data1), \
++	}
++};
++
++static int soft_reset_pre_sec_cfg(const struct device *dev)
++{
++	bool is_sec_enabled;
++
++	is_sec_enabled = hl_dev_security_get_status(dev);
++	if (is_sec_enabled) {
++
++		/*
++		 * As in soft reset engines are halted, so only
++		 * Blocking all cfg range except pcie_aux(vuart), nic in pcie isec
++		 * Blocking all cfg range except pcie_core(telem),
++		 * pcie_aux(vuart), nic in elbi isec
++		 */
++		hl_dev_security_configure_isec(dev, HL_RESET_SRC_SOFT_RST,
++					       pre_soft_reset_isec_config,
++					       ARRAY_SIZE(pre_soft_reset_isec_config));
++		/* pre sec prot bits to open only EQ_RD_OFFS in D0_PARC_ARC1_CFG */
++		hl_dev_prot_bits_init(dev, gaudi3_soft_reset_prot_bits, HL_RESET_SRC_SOFT_RST,
++						ARRAY_SIZE(gaudi3_soft_reset_prot_bits));
++		hl_dev_soft_reset_sec_rr_cfg(dev, false);
++	}
++	return 0;
++}
++
+ static int soft_reset_post_sec_cfg(const struct device *dev)
+ {
+ 	hl_set_sm_priv_level(dev);
+ 
+ 	if (hl_dev_security_get_status(dev) != HL_SEC_ST_DISABLED) {
+ 		hl_set_engine_priv_level(dev);
+-		hl_dev_security_configure_isec(dev, HL_RESET_SRC_SOFT_RST);
++		hl_dev_security_configure_isec(dev, HL_RESET_SRC_SOFT_RST,
++					       isec_info, ARRAY_SIZE(isec_info));
+ 		hl_dev_prot_bits_init(dev, gaudi3_os_prot_bits_cfg, HL_RESET_SRC_SOFT_RST,
+ 						ARRAY_SIZE(gaudi3_os_prot_bits_cfg));
+-		LOG_INF("Protection bits and ISEC re-init done");
++		hl_dev_soft_reset_sec_rr_cfg(dev, true);
++		LOG_INF("Protection bits, RRs and ISEC re-init done");
+ 	}
+ 
+ 	return 0;
+@@ -932,6 +1111,9 @@
+ 	int ret = 0;
+ 
+ 	switch (cfg_type) {
++	case HL_SECURITY_MISC_CFG_PRE_SOFT_RESET:
++		ret = soft_reset_pre_sec_cfg(dev);
++		break;
+ 	case HL_SECURITY_MISC_CFG_POST_SOFT_RESET:
+ 		ret = soft_reset_post_sec_cfg(dev);
+ 		break;

@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 465903: [SW-210370] agent: integrated common verify functions</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 465903: [SW-210370] agent: integrated common verify functions</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> zephyr-plugins</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Rathan Chandavath Rajagopal &lt;rcrajagopal@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2024-12-11 11:10:04.015000000</p>
+            <p><strong>Updated:</strong> 2024-12-11 12:22:33.515000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-210370] agent: integrated common verify functions
+
+Integrated emb common fit verify, fit rsa, fit regions
+to verify the fit loaded in SRAM.
+
+Removed the redundant verification functions and files.
+
+Added some security functions to align with emb cmn mods.
+
+Change-Id: Ibb83c4115871138740e46046e8df42dc4c380bab
+Signed-off-by: chandavath &lt;rcrajagopal@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: Software Jenkins: +0, Jenkins EMB Service Account: +0</li><li><strong>Verified</strong>: -2 by Software Jenkins</li><li><strong>Finished</strong>: +2 by Software Jenkins</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>common/include/fit.h</code> (M) +0 -29</li><li><code>common/include/image.h</code> (M) +0 -55</li><li><code>common/include/security.h</code> (M) +1 -6</li><li><code>common/include/sha.h</code> (A) +41 -0</li><li><code>common/include/sha_rsa.h</code> (D) +0 -30</li><li><code>common/src/gaudi2/security.c</code> (M) +1 -1</li><li><code>common/src/rma_info.c</code> (M) +0 -6</li><li><code>fw-loader/CMakeLists.txt</code> (M) +4 -2</li><li><code>fw-loader/include/fit_regions.h</code> (D) +0 -24</li><li><code>fw-loader/include/rsa_verify.h</code> (M) +1 -3</li><li><code>fw-loader/src/fit-sign.c</code> (D) +0 -70</li><li><code>fw-loader/src/fit.c</code> (M) +1 -37</li><li><code>fw-loader/src/fit_loader.c</code> (M) +9 -16</li><li><code>fw-loader/src/fit_regions.c</code> (D) +0 -144</li><li><code>fw-loader/src/gaudi/gaudi2/gaudi2.c</code> (M) +1 -6</li><li><code>fw-loader/src/gaudi/gaudi3/gaudi3.c</code> (M) +1 -1</li><li><code>fw-loader/src/image-sig.c</code> (D) +0 -52</li><li><code>fw-loader/src/rsa_verify.c</code> (M) +21 -163</li><li><code>fw-loader/src/security.c</code> (M) +51 -125</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/common/include/fit.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -24,39 +24,10 @@</span>
+<span class="diff-ctx"> #define MAX_FDT_REGIONS		20</span>
+<span class="diff-ctx"> #define IMAGE_MAX_HASHED_NODES	20</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#define FIT_MAX_IMAGES		8</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define HL_SEC_KEY_NAME		&quot;hl_rsa3072&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> extern uint32_t err_sts_reg_val;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-struct fit_image {</span>
+<span class="diff-del">-	unsigned long long loadaddr;</span>
+<span class="diff-del">-	unsigned long long startaddr;</span>
+<span class="diff-del">-	const char *arch;</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-/**</span>
+<span class="diff-del">- * struct key_prop - holder for a public key properties</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * The struct has pointers to modulus (Typically called N),</span>
+<span class="diff-del">- * The inverse, R^2, exponent. These can be typecasted and</span>
+<span class="diff-del">- * used as byte arrays or converted to the required format</span>
+<span class="diff-del">- * as per requirement of RSA implementation.</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-struct key_prop {</span>
+<span class="diff-del">-	const void *rr;		/* R^2 can be treated as byte array */</span>
+<span class="diff-del">-	const void *modulus;	/* modulus as byte array */</span>
+<span class="diff-del">-	const void *public_exponent; /* public exponent as byte array */</span>
+<span class="diff-del">-	uint32_t n0inv;		/* -1 / modulus[0] mod 2^32 */</span>
+<span class="diff-del">-	int num_bits;		/* Key length in bits */</span>
+<span class="diff-del">-	uint32_t exp_len;	/* Exponent length in number of uint8_t */</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> int fit_verify_image(const void *fit, int image_node_off);</span>
+<span class="diff-del">-const void *get_public_key(const void *fit, int noffset);</span>
+<span class="diff-ctx"> int fit_decompress_image(uint64_t dst, const void *buf, int len,</span>
+<span class="diff-ctx"> 		const char *cmpr, uint32_t max_dst_size);</span>
+<span class="diff-del">-int fit_get_key_prop(const void *pub_key_fit, const char *key_name, struct key_prop *prop);</span>
+<span class="diff-ctx"> void fit_set_err(enum hl_fw_fit_boot_error err);</span>
+<span class="diff-ctx"> #endif /* __FIT_H */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 9fe8262..0f7bc99 100644</span>
+<h4 class="diff-filename">b/common/include/image.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -59,64 +59,9 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> # define FIT_IMAGE_ENABLE_VERIFY	1</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-/* A part of an image, used for hashing */</span>
+<span class="diff-del">-struct image_region {</span>
+<span class="diff-del">-	const void *data;</span>
+<span class="diff-del">-	int size;</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-/* Information passed to the verification routines */</span>
+<span class="diff-del">-struct verif_params {</span>
+<span class="diff-del">-	const char *keydir;             /* Directory conaining keys */</span>
+<span class="diff-del">-	const char *keyname;            /* Name of key to use */</span>
+<span class="diff-del">-	void *fit;                      /* Pointer to FIT blob */</span>
+<span class="diff-del">-	int node_offset;                /* Offset of signature node */</span>
+<span class="diff-del">-	const char *name;               /* Algorithm name */</span>
+<span class="diff-del">-	struct crypto_algo *crypto;     /* Crypto algorithm information */</span>
+<span class="diff-del">-	const void *pub_key_blob;           /* FDT containing public keys */</span>
+<span class="diff-del">-	int required_keynode;           /* Node offset of key to use: -1=any */</span>
+<span class="diff-del">-	const char *require_keys;       /* Value for &#x27;required&#x27; property */</span>
+<span class="diff-del">-	const char *engine_id;          /* Engine to use for signing */</span>
+<span class="diff-del">-	/*</span>
+<span class="diff-del">-	 * Note: the following two fields are always valid even w/o</span>
+<span class="diff-del">-	 * RSA_VERIFY_WITH_PKEY in order to make sure this structure is</span>
+<span class="diff-del">-	 * the same on target and host. Otherwise, vboot test may fail.</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	const void *key;                /* Pointer to public key in DER */</span>
+<span class="diff-del">-	int keylen;                     /* Length of public key */</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-struct crypto_algo {</span>
+<span class="diff-del">-	const char *name;               /* Name of algorithm */</span>
+<span class="diff-del">-	const int key_len;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/**</span>
+<span class="diff-del">-	 * verify() - Verify a signature against some data</span>
+<span class="diff-del">-	 *</span>
+<span class="diff-del">-	 * @verif_args:		Specifies key and FIT information</span>
+<span class="diff-del">-	 * @region:		Pointer to the regions</span>
+<span class="diff-del">-	 * @region_count:	region counts</span>
+<span class="diff-del">-	 * @sig:		Signature</span>
+<span class="diff-del">-	 * @sig_len:		Number of bytes in signature</span>
+<span class="diff-del">-	 * @return:		0 if verified, -ve on error</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	int (*verify)(struct verif_params *verif_args,</span>
+<span class="diff-del">-			const struct image_region region[], int region_count,</span>
+<span class="diff-del">-			uint8_t *sig, uint32_t sig_len);</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> int get_hash_algo_name(const void *fit, int noffset, char **algo);</span>
+<span class="diff-ctx"> int get_hash_value_fit_image(const void *fit, int noffset, uint8_t **value,</span>
+<span class="diff-ctx"> 				int *value_len);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-/**</span>
+<span class="diff-del">- * get_rsa_algo() - Look up a cryptosystem algorithm</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * @param full_name     Name of algorithm in the form &quot;checksum,crypto&quot;</span>
+<span class="diff-del">- * @return pointer to algorithm information, or NULL if not found</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-struct crypto_algo *get_rsa_algo(const char *full_name);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-ctx"> #endif</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 5efa267..4e58ad2 100644</span>
+<h4 class="diff-filename">b/common/include/security.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -30,7 +30,6 @@</span>
+<span class="diff-ctx"> bool hl_sec_is_enabled(void);</span>
+<span class="diff-ctx"> int hl_sec_write_otp(const struct device *flash_dev, const void *buf,</span>
+<span class="diff-ctx"> 			size_t size);</span>
+<span class="diff-del">-int hl_sec_fit_config_verify(const void *fit, int conf);</span>
+<span class="diff-ctx"> int hl_sec_revoke_key(void);</span>
+<span class="diff-ctx"> void hl_sec_check_setup(void);</span>
+<span class="diff-ctx"> int hl_sec_get_status(struct hl_sec_status *status);</span>
+<span class="diff-hunk">@@ -46,8 +45,6 @@</span>
+<span class="diff-ctx"> void hl_sec_dyn_img_open(uint64_t off, uint32_t size);</span>
+<span class="diff-ctx"> void hl_sec_dyn_img_close(void);</span>
+<span class="diff-ctx"> void hl_sec_dynamic_init(void);</span>
+<span class="diff-del">-int get_pub_key_node(const void *pub_key_fit, const char *key_name);</span>
+<span class="diff-del">-int hl_sec_verify_img_sig(const void *fit, size_t img_size);</span>
+<span class="diff-ctx"> int hl_sec_get_rr_dump_config(void **p_dst, uint32_t *size);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int hl_sec_write_tpm_devid(void);</span>
+<span class="diff-hunk">@@ -62,10 +59,8 @@</span>
+<span class="diff-ctx"> int hl_sec_validate_key_idx(int key_idx);</span>
+<span class="diff-ctx"> int hl_sec_validate_public_key(const void *data, size_t size, int key_sec_idx);</span>
+<span class="diff-ctx"> void hl_sec_config_dyn_rr(int rr, uint64_t min64, uint64_t max64);</span>
+<span class="diff-del">-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,</span>
+<span class="diff-del">-		       size_t sec_desc_size, const void *pub_key_fit,</span>
+<span class="diff-del">-		       uint8_t *sig, size_t sig_len);</span>
+<span class="diff-ctx"> bool hl_sec_img_verf_is_enabled(void);</span>
+<span class="diff-ctx"> int fit_image_signature_validation(const char *img_name, const void *data, size_t image_size);</span>
+<span class="diff-ctx"> bool hl_extract_hash_from_key(const void *pub_key, uint8_t *value);</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #endif /* _HL_MACH_SECURITY_H_ */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">new file mode 100644</span>
+<span class="diff-ctx">index 0000000..f94724f</span>
+<h4 class="diff-filename">b/common/include/sha.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -0,0 +1,41 @@</span>
+<span class="diff-add">+/* SPDX-License-Identifier: Apache-2.0</span>
+<span class="diff-add">+ * Copyright 2021 HabanaLabs, Ltd.</span>
+<span class="diff-add">+ * All Rights Reserved.</span>
+<span class="diff-add">+ *</span>
+<span class="diff-add">+ */</span>
+<span class="diff-add">+#ifndef __SHA_RSA_H__</span>
+<span class="diff-add">+#define __SHA_RSA_H__</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#include &lt;preboot/fit_rsa.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#ifndef SHA256_SUM_LEN</span>
+<span class="diff-add">+#define SHA256_SUM_LEN			32</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#ifndef	SHA384_SUM_LEN</span>
+<span class="diff-add">+#define SHA384_SUM_LEN			48</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#ifndef SHA384_DER_LEN</span>
+<span class="diff-add">+#define SHA384_DER_LEN			19</span>
+<span class="diff-add">+#endif</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define SHA_SUM_LEN			SHA384_SUM_LEN</span>
+<span class="diff-add">+#define SHA_DER_LEN			SHA384_DER_LEN</span>
+<span class="diff-add">+#define SHA_DER_PRE			sha384_der_prefix</span>
+<span class="diff-add">+#define FIT_SHA				&quot;sha384&quot;</span>
+<span class="diff-add">+#define FIT_ALGO_PROP_EXPECTED_VALUE	&quot;sha384,rsa3072&quot;</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define RSA2048_BYTES			(2048 / 8)</span>
+<span class="diff-add">+#define RSA3072_BYTES			(3072 / 8)</span>
+<span class="diff-add">+#define RSA4096_BYTES			(4096 / 8)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+extern const uint8_t sha384_der_prefix[SHA384_DER_LEN];</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void sha_csum(const unsigned char *input, unsigned int ilen,</span>
+<span class="diff-add">+		unsigned char *output);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void sha_csum_regions(const struct image_region region[], int region_count,</span>
+<span class="diff-add">+			u8 *output);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#endif</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index bbc9d90..0000000</span>
+<span class="diff-hunk">@@ -1,30 +0,0 @@</span>
+<span class="diff-del">-/* SPDX-License-Identifier: Apache-2.0</span>
+<span class="diff-del">- * Copyright 2021 HabanaLabs, Ltd.</span>
+<span class="diff-del">- * All Rights Reserved.</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-#ifndef __SHA_RSA_H__</span>
+<span class="diff-del">-#define __SHA_RSA_H__</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define SHA1_SUM_LEN	20</span>
+<span class="diff-del">-#define SHA1_DER_LEN	15</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define SHA256_SUM_LEN	32</span>
+<span class="diff-del">-#define SHA256_DER_LEN	19</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define SHA384_SUM_LEN	48</span>
+<span class="diff-del">-#define SHA384_DER_LEN	19</span>
+<span class="diff-del">-#define SHA512_SUM_LEN	64</span>
+<span class="diff-del">-#define SHA512_DER_LEN	19</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define RSA2048_BYTES	(2048 / 8)</span>
+<span class="diff-del">-#define RSA3072_BYTES	(3072 / 8)</span>
+<span class="diff-del">-#define RSA4096_BYTES	(4096 / 8)</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-void sha_csum(const unsigned char *input,</span>
+<span class="diff-del">-			size_t ilen,</span>
+<span class="diff-del">-			uint8_t *hash);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int hl_chksum_len(void);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#endif</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b2653b1..8df942a 100644</span>
+<h4 class="diff-filename">b/common/src/gaudi2/security.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -31,7 +31,7 @@</span>
+<span class="diff-ctx"> #include &quot;hl_reg_map.h&quot;</span>
+<span class="diff-ctx"> #include &quot;oam_specs_regs.h&quot;</span>
+<span class="diff-ctx"> #include &lt;fw_boot_info.h&gt;</span>
+<span class="diff-del">-#include &lt;sha_rsa.h&gt;</span>
+<span class="diff-add">+#include &lt;sha.h&gt;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/rsa.h&quot;</span>
+<span class="diff-ctx"> #include &lt;hl_fit_if.h&gt;</span>
+<span class="diff-ctx"> </span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index b278cb5..10d6896 100644</span>
+<h4 class="diff-filename">b/common/src/rma_info.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -13,17 +13,11 @@</span>
+<span class="diff-ctx"> #include &lt;drivers/flash.h&gt;</span>
+<span class="diff-ctx"> #include &lt;rma_if.h&gt;</span>
+<span class="diff-ctx"> #include &lt;rma_info.h&gt;</span>
+<span class="diff-del">-#include &lt;sha_rsa.h&gt;</span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;logging/log.h&gt;</span>
+<span class="diff-ctx"> #include &lt;persist_info.h&gt;</span>
+<span class="diff-ctx"> LOG_MODULE_DECLARE(FW_LOADER_AGENT);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-</span>
+<span class="diff-del">-__weak int hl_chksum_len(void)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	return SHA256_SUM_LEN;</span>
+<span class="diff-del">-}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #ifdef CONFIG_PERSISTINFO</span>
+<span class="diff-ctx"> /*</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 880d8b5..bbfc39e 100644</span>
+<h4 class="diff-filename">b/fw-loader/CMakeLists.txt</h4><pre class="diff-content"><span class="diff-hunk">@@ -25,7 +25,8 @@</span>
+<span class="diff-ctx"> find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})</span>
+<span class="diff-ctx"> project(fw-loader)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-target_include_directories(app PRIVATE include/ ../common/include ../emb_common_mod/include/)</span>
+<span class="diff-add">+target_include_directories(app PRIVATE include/ ../common/include ../emb_common_mod/include/</span>
+<span class="diff-add">+../emb_common_mod/lib/)</span>
+<span class="diff-ctx"> target_include_directories(app PRIVATE ../common/include/${HL_DEVICE}/)</span>
+<span class="diff-ctx"> target_include_directories(app PRIVATE src/${HL_FAMILY}/${HL_DEVICE}/)</span>
+<span class="diff-ctx"> include_directories($ENV{SPECS_ROOT}/${HL_FAMILY}/${HL_DEVICE}/asic_reg/)</span>
+<span class="diff-hunk">@@ -44,7 +45,8 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> FILE(GLOB app_sources src/*.c src/${HL_FAMILY}/*.c src/${HL_FAMILY}/${HL_DEVICE}/*.c src/cpld/*.c</span>
+<span class="diff-ctx"> ../common/src/*.c ../common/src/${HL_DEVICE}/*.c ../emb_common_mod/lib/common/watchdog_timer.c</span>
+<span class="diff-del">-../emb_common_mod/lib/common/fit_utils.c)</span>
+<span class="diff-add">+../emb_common_mod/lib/common/fit_utils.c ../emb_common_mod/lib/common/fit_verify.c</span>
+<span class="diff-add">+../emb_common_mod/lib/preboot/fit_rsa.c ../emb_common_mod/lib/preboot/fit_regions.c)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> if(CONFIG_LIBPLDM)</span>
+<span class="diff-ctx"> FILE(GLOB pldm_sources ../common/src/ras/pldm/*.c ../common/src/${HL_DEVICE}/ras/pldm/*.c src/${HL_FAMILY}/${HL_DEVICE}/ras/pldm/*.c)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 39bbf34..0000000</span>
+<span class="diff-hunk">@@ -1,24 +0,0 @@</span>
+<span class="diff-del">-/* SPDX-License-Identifier:     Apache-2.0+</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * Copyright (C) 2020 HabanaLabs Ltd.</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#ifndef COMMON_FIT_REGIONS_H_</span>
+<span class="diff-del">-#define COMMON_FIT_REGIONS_H_</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-struct fdt_region {</span>
+<span class="diff-del">-	int offset;</span>
+<span class="diff-del">-	int size;</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-struct image_region *fit_region_make_list(const void *fit,</span>
+<span class="diff-del">-					  struct fdt_region *fdt_regions,</span>
+<span class="diff-del">-					  int count,</span>
+<span class="diff-del">-					  struct image_region *region);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int fdt_find_regions(const void *fdt, char * const inc[], int inc_count,</span>
+<span class="diff-del">-		     char * const exc_prop[], int exc_prop_count,</span>
+<span class="diff-del">-		     struct fdt_region region[], int max_regions,</span>
+<span class="diff-del">-		     char *path, int path_len, int add_string_tab);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#endif /* COMMON_FIT_REGIONS_H_ */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0474bcb..50b8d2b 100644</span>
+<h4 class="diff-filename">b/fw-loader/include/rsa_verify.h</h4><pre class="diff-content"><span class="diff-hunk">@@ -7,9 +7,7 @@</span>
+<span class="diff-ctx"> #define __RSA_VERIFY_H__</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define RSA_DEFAULT_PADDING_NAME                &quot;pkcs-1.5&quot;</span>
+<span class="diff-del">-int rsa_verify(struct verif_params *verif_args,</span>
+<span class="diff-del">-		const struct image_region region[], int region_count,</span>
+<span class="diff-del">-		uint8_t *sig, uint32_t sig_len);</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> int rsa_verify_image_with_key_mbedtls(uint8_t *key, const unsigned char *hash, uint8_t *sig,</span>
+<span class="diff-ctx"> 										uint32_t sig_len);</span>
+<span class="diff-ctx"> #endif</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index d9a4059..0000000</span>
+<span class="diff-hunk">@@ -1,70 +0,0 @@</span>
+<span class="diff-del">-// SPDX-License-Identifier: Apache-2.0+</span>
+<span class="diff-del">-/*</span>
+<span class="diff-del">- * Copyright (c) 2021, Habanalabs, Intel Corporation&quot;</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-#include &lt;image.h&gt;</span>
+<span class="diff-del">-#include &lt;rsa_verify.h&gt;</span>
+<span class="diff-del">-#include &lt;libfdt.h&gt;</span>
+<span class="diff-del">-#include &quot;fit.h&quot;</span>
+<span class="diff-del">-#include &quot;fit_regions.h&quot;</span>
+<span class="diff-del">-#include &quot;security.h&quot;</span>
+<span class="diff-del">-#include &lt;stdio.h&gt;</span>
+<span class="diff-del">-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-del">-#include &lt;logging/log.h&gt;</span>
+<span class="diff-del">-LOG_MODULE_DECLARE(FW_LOADER_AGENT);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define HL_SEC_REGIONS_CNT	2</span>
+<span class="diff-del">-#define IMG_REGION_FIT_IDX	0</span>
+<span class="diff-del">-#define IMG_REGION_DESC_IDX	1</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int fit_verify_img_sig(const void *img, size_t img_size, const void *sec_desc,</span>
+<span class="diff-del">-		       size_t sec_desc_size, const void *pub_key_fit,</span>
+<span class="diff-del">-		       uint8_t *sig, size_t sig_len)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	const char *key_name = HL_SEC_KEY_NAME;</span>
+<span class="diff-del">-	char *algo_name;</span>
+<span class="diff-del">-	int key_node;</span>
+<span class="diff-del">-	struct verif_params verif_args;</span>
+<span class="diff-del">-	struct image_region region[HL_SEC_REGIONS_CNT];</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	key_node = get_pub_key_node(pub_key_fit, HL_SEC_KEY_NAME);</span>
+<span class="diff-del">-	if (key_node &lt; 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Can&#x27;t get signature node from pub key&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (get_hash_algo_name(pub_key_fit, key_node, &amp;algo_name)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Can&#x27;t get hash algo property&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	memset(&amp;verif_args, &#x27;\0&#x27;, sizeof(verif_args));</span>
+<span class="diff-del">-	verif_args.keyname = key_name;</span>
+<span class="diff-del">-	verif_args.fit = NULL;</span>
+<span class="diff-del">-	verif_args.node_offset = 0;</span>
+<span class="diff-del">-	verif_args.name = algo_name;</span>
+<span class="diff-del">-	verif_args.crypto = get_rsa_algo(algo_name);</span>
+<span class="diff-del">-	verif_args.pub_key_blob = pub_key_fit;</span>
+<span class="diff-del">-	verif_args.required_keynode = -1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (!verif_args.crypto) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Unknown signature algorithm&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	region[IMG_REGION_FIT_IDX].data = img;</span>
+<span class="diff-del">-	region[IMG_REGION_FIT_IDX].size = img_size;</span>
+<span class="diff-del">-	region[IMG_REGION_DESC_IDX].data = sec_desc;</span>
+<span class="diff-del">-	region[IMG_REGION_DESC_IDX].size = sec_desc_size;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (verif_args.crypto-&gt;verify(&amp;verif_args, region, HL_SEC_REGIONS_CNT,</span>
+<span class="diff-del">-				      sig, sig_len)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Verification failed&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	LOG_DBG(&quot;%s: crypto verification passed successfully&quot;, __func__);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index ba760e3..1356fe9 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/fit.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -13,7 +13,7 @@</span>
+<span class="diff-ctx"> #include &lt;logging/log.h&gt;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/md5.h&quot;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/sha1.h&quot;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-add">+#include &quot;sha.h&quot;</span>
+<span class="diff-ctx"> #include &lt;stdio.h&gt;</span>
+<span class="diff-ctx"> #include &quot;lib/lz4.h&quot;</span>
+<span class="diff-ctx"> #include &lt;hl_boot_info.h&gt;</span>
+<span class="diff-hunk">@@ -348,42 +348,6 @@</span>
+<span class="diff-ctx"> 	LOG_ERR(&quot;Unknown compression method:%s&quot;, cmpr);</span>
+<span class="diff-ctx"> 	return -1;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int fit_get_key_prop(const void *pub_key_fit, const char *key_name, struct key_prop *prop)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int key_node = 0;</span>
+<span class="diff-del">-	int length;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (fdt_check_header(pub_key_fit)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;FITkey header check failed&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	key_node = get_pub_key_node(pub_key_fit, key_name);</span>
+<span class="diff-del">-	if (key_node &lt; 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Wrong FITkey format: no key node&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;num_bits = fit_get_int(pub_key_fit, key_node, &quot;rsa,num-bits&quot;, 0);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;n0inv = fit_get_int(pub_key_fit, key_node, &quot;rsa,n0-inverse&quot;, 0);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;public_exponent = fdt_getprop(pub_key_fit, key_node, &quot;rsa,exponent&quot;, &amp;length);</span>
+<span class="diff-del">-	if (!prop-&gt;public_exponent || length &lt; sizeof(uint64_t))</span>
+<span class="diff-del">-		prop-&gt;public_exponent = NULL;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;exp_len = sizeof(uint64_t);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;modulus = fdt_getprop(pub_key_fit, key_node, &quot;rsa,modulus&quot;, NULL);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop-&gt;rr = fdt_getprop(pub_key_fit, key_node, &quot;rsa,r-squared&quot;, NULL);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (!prop-&gt;num_bits || !prop-&gt;modulus || !prop-&gt;rr)</span>
+<span class="diff-del">-		return -EFAULT;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static int fwupd_err_to_minor(uint32_t err)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 0e166c0..95ab117 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/fit_loader.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -31,7 +31,10 @@</span>
+<span class="diff-ctx"> #include &lt;fw_upd.h&gt;</span>
+<span class="diff-ctx"> #include &lt;hl_boot_desc.h&gt;</span>
+<span class="diff-ctx"> #include &lt;hl_boot_info.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_boot_if.h&gt;</span>
+<span class="diff-add">+#include &lt;boot_if.h&gt;</span>
+<span class="diff-ctx"> #include &lt;fit_utils.h&gt;</span>
+<span class="diff-add">+#include &lt;fit_verify.h&gt;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;logging/log.h&gt;</span>
+<span class="diff-hunk">@@ -245,20 +248,6 @@</span>
+<span class="diff-ctx"> 		LOG_ERR(&quot;Get security status, %s failed: %d&quot;, stage, err);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return err;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static int img_fit_verify_security(const void *fit)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int conf;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	conf = fit_get_conf_node_offset(fit);</span>
+<span class="diff-del">-	if (conf &lt; 0)</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (hl_sec_fit_config_verify(fit, conf))</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> __weak int spi_flash_is_wareout_attack_detected(const struct device *flash_dev) {	return 0; }</span>
+<span class="diff-hunk">@@ -1868,10 +1857,14 @@</span>
+<span class="diff-ctx"> 		goto verify_img_err;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	*stage = &quot;security check&quot;;</span>
+<span class="diff-add">+	cpu_boot_err_clr(CPU_BOOT_ERR_SECURITY_FAIL);</span>
+<span class="diff-ctx"> 	if (fit_loader[*load_type].secured_load) {</span>
+<span class="diff-del">-		err = img_fit_verify_security(fit);</span>
+<span class="diff-del">-		if (err)</span>
+<span class="diff-add">+		err = fit_verify_security_footer(fit, fdt_totalsize(fit), &amp;fit_err.sec);</span>
+<span class="diff-add">+		if (err) {</span>
+<span class="diff-add">+			cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);</span>
+<span class="diff-add">+			fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);</span>
+<span class="diff-ctx"> 			goto verify_img_err;</span>
+<span class="diff-add">+		}</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	/* type specific verification */</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 37e5979..0000000</span>
+<span class="diff-hunk">@@ -1,144 +0,0 @@</span>
+<span class="diff-del">-// SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause</span>
+<span class="diff-del">-/*</span>
+<span class="diff-del">- * libfdt - Flat Device Tree manipulation</span>
+<span class="diff-del">- * Copyright (C) 2013 Google, Inc</span>
+<span class="diff-del">- * Written by Simon Glass &lt;sjg@chromium.org&gt;</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#include &lt;libfdt.h&gt;</span>
+<span class="diff-del">-#include &quot;common.h&quot;</span>
+<span class="diff-del">-#include &quot;fit_regions.h&quot;</span>
+<span class="diff-del">-#include &quot;image.h&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#define FDT_MAX_DEPTH	8</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-static int str_in_list(const char *str, char * const list[], int count)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int i;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	for (i = 0; i &lt; count; i++)</span>
+<span class="diff-del">-		if (!strcmp(list[i], str))</span>
+<span class="diff-del">-			return 1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int fdt_find_regions(const void *fdt, char * const inc[], int inc_count,</span>
+<span class="diff-del">-		     char * const exc_prop[], int exc_prop_count,</span>
+<span class="diff-del">-		     struct fdt_region region[], int max_regions,</span>
+<span class="diff-del">-		     char *path, int path_len, int add_string_tab)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int stack[FDT_MAX_DEPTH] = { 0 };</span>
+<span class="diff-del">-	char *end;</span>
+<span class="diff-del">-	int nextoffset = 0;</span>
+<span class="diff-del">-	uint32_t tag;</span>
+<span class="diff-del">-	int count = 0;</span>
+<span class="diff-del">-	int start = -1;</span>
+<span class="diff-del">-	int depth = -1;</span>
+<span class="diff-del">-	int want = 0;</span>
+<span class="diff-del">-	int base = fdt_off_dt_struct(fdt);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	end = path;</span>
+<span class="diff-del">-	*end = &#x27;\0&#x27;;</span>
+<span class="diff-del">-	do {</span>
+<span class="diff-del">-		const struct fdt_property *prop;</span>
+<span class="diff-del">-		const char *name;</span>
+<span class="diff-del">-		const char *str;</span>
+<span class="diff-del">-		int include = 0;</span>
+<span class="diff-del">-		int stop_at = 0;</span>
+<span class="diff-del">-		int offset;</span>
+<span class="diff-del">-		int len;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		offset = nextoffset;</span>
+<span class="diff-del">-		tag = fdt_next_tag(fdt, offset, &amp;nextoffset);</span>
+<span class="diff-del">-		stop_at = nextoffset;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		switch (tag) {</span>
+<span class="diff-del">-		case FDT_PROP:</span>
+<span class="diff-del">-			include = want &gt;= 2;</span>
+<span class="diff-del">-			stop_at = offset;</span>
+<span class="diff-del">-			prop = fdt_get_property_by_offset(fdt, offset, NULL);</span>
+<span class="diff-del">-			str = fdt_string(fdt, fdt32_to_cpu(prop-&gt;nameoff));</span>
+<span class="diff-del">-			if (str_in_list(str, exc_prop, exc_prop_count))</span>
+<span class="diff-del">-				include = 0;</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		case FDT_NOP:</span>
+<span class="diff-del">-			include = want &gt;= 2;</span>
+<span class="diff-del">-			stop_at = offset;</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		case FDT_BEGIN_NODE:</span>
+<span class="diff-del">-			depth++;</span>
+<span class="diff-del">-			if (depth == FDT_MAX_DEPTH)</span>
+<span class="diff-del">-				return -FDT_ERR_BADSTRUCTURE;</span>
+<span class="diff-del">-			name = fdt_get_name(fdt, offset, &amp;len);</span>
+<span class="diff-del">-			if (end - path + 2 + len &gt;= path_len)</span>
+<span class="diff-del">-				return -FDT_ERR_NOSPACE;</span>
+<span class="diff-del">-			if (end != path + 1)</span>
+<span class="diff-del">-				*end++ = &#x27;/&#x27;;</span>
+<span class="diff-del">-			memcpy(end, name, len+1);</span>
+<span class="diff-del">-			end += len;</span>
+<span class="diff-del">-			stack[depth] = want;</span>
+<span class="diff-del">-			if (want == 1)</span>
+<span class="diff-del">-				stop_at = offset;</span>
+<span class="diff-del">-			if (str_in_list(path, inc, inc_count))</span>
+<span class="diff-del">-				want = 2;</span>
+<span class="diff-del">-			else if (want)</span>
+<span class="diff-del">-				want--;</span>
+<span class="diff-del">-			else</span>
+<span class="diff-del">-				stop_at = offset;</span>
+<span class="diff-del">-			include = want;</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		case FDT_END_NODE:</span>
+<span class="diff-del">-			/* Depth must never go below -1 */</span>
+<span class="diff-del">-			if (depth &lt; 0)</span>
+<span class="diff-del">-				return -FDT_ERR_BADSTRUCTURE;</span>
+<span class="diff-del">-			include = want;</span>
+<span class="diff-del">-			want = stack[depth--];</span>
+<span class="diff-del">-			while (end &gt; path &amp;&amp; *--end != &#x27;/&#x27;)</span>
+<span class="diff-del">-				;</span>
+<span class="diff-del">-			*end = &#x27;\0&#x27;;</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		case FDT_END:</span>
+<span class="diff-del">-			include = 1;</span>
+<span class="diff-del">-			break;</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		if (include &amp;&amp; start == -1) {</span>
+<span class="diff-del">-			/* Should we merge with previous? */</span>
+<span class="diff-del">-			if (count &amp;&amp; count &lt;= max_regions &amp;&amp;</span>
+<span class="diff-del">-			    offset == region[count - 1].offset +</span>
+<span class="diff-del">-					region[count - 1].size - base)</span>
+<span class="diff-del">-				start = region[--count].offset - base;</span>
+<span class="diff-del">-			else</span>
+<span class="diff-del">-				start = offset;</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-		if (!include &amp;&amp; start != -1) {</span>
+<span class="diff-del">-			if (count &lt; max_regions) {</span>
+<span class="diff-del">-				region[count].offset = base + start;</span>
+<span class="diff-del">-				region[count].size = stop_at - start;</span>
+<span class="diff-del">-			}</span>
+<span class="diff-del">-			count++;</span>
+<span class="diff-del">-			start = -1;</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-	} while (tag != FDT_END);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (nextoffset != fdt_size_dt_struct(fdt))</span>
+<span class="diff-del">-		return -FDT_ERR_BADLAYOUT;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* Add a region for the END tag and the string table */</span>
+<span class="diff-del">-	if (count &lt; max_regions) {</span>
+<span class="diff-del">-		region[count].offset = base + start;</span>
+<span class="diff-del">-		region[count].size = nextoffset - start;</span>
+<span class="diff-del">-		if (add_string_tab)</span>
+<span class="diff-del">-			region[count].size += fdt_size_dt_strings(fdt);</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-	count++;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return count;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 85cd7b2..023da41 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/gaudi/gaudi2/gaudi2.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -15,7 +15,7 @@</span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;logging/log.h&gt;</span>
+<span class="diff-ctx"> #include &quot;hl_reg_map.h&quot;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-add">+#include &quot;sha.h&quot;</span>
+<span class="diff-ctx"> #include &lt;stdio.h&gt;</span>
+<span class="diff-ctx"> #include &quot;device.h&quot;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/sha512.h&quot;</span>
+<span class="diff-hunk">@@ -749,11 +749,6 @@</span>
+<span class="diff-ctx"> 	}</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	return boot_strap &amp; strap_mask;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int hl_chksum_len(void)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	return SHA384_SUM_LEN;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> bool tpm_is_supported(void)</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 7b6470e..4f8130d 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/gaudi/gaudi3/gaudi3.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -13,7 +13,7 @@</span>
+<span class="diff-ctx"> #include &lt;hl_fw_upd_if.h&gt;</span>
+<span class="diff-ctx"> #include &lt;boot_if.h&gt;</span>
+<span class="diff-ctx"> #include &quot;hl_reg_map.h&quot;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-add">+#include &quot;sha.h&quot;</span>
+<span class="diff-ctx"> #include &lt;stdio.h&gt;</span>
+<span class="diff-ctx"> #include &lt;drivers/gpio.h&gt;</span>
+<span class="diff-ctx"> #include &lt;drivers/i2c.h&gt;</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">deleted file mode 100644</span>
+<span class="diff-ctx">index 8eaf93d..0000000</span>
+<span class="diff-hunk">@@ -1,52 +0,0 @@</span>
+<span class="diff-del">-// SPDX-License-Identifier: Apache-2.0+</span>
+<span class="diff-del">-/*</span>
+<span class="diff-del">- * Copyright (c) 2021, Habanalabs</span>
+<span class="diff-del">- */</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-#include &lt;common.h&gt;</span>
+<span class="diff-del">-#include &lt;image.h&gt;</span>
+<span class="diff-del">-#include &quot;mbedtls/rsa.h&quot;</span>
+<span class="diff-del">-#include &quot;rsa_verify.h&quot;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-del">-#include &quot;mbedtls/sha256.h&quot;</span>
+<span class="diff-del">-#include &quot;mbedtls/sha512.h&quot;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-struct crypto_algo crypto_algos[] = {</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		.name = &quot;rsa2048&quot;,</span>
+<span class="diff-del">-		.key_len = RSA2048_BYTES,</span>
+<span class="diff-del">-		.verify = rsa_verify,</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		.name = &quot;rsa3072&quot;,</span>
+<span class="diff-del">-		.key_len = RSA3072_BYTES,</span>
+<span class="diff-del">-		.verify = rsa_verify,</span>
+<span class="diff-del">-	},</span>
+<span class="diff-del">-	{</span>
+<span class="diff-del">-		.name = &quot;rsa4096&quot;,</span>
+<span class="diff-del">-		.key_len = RSA4096_BYTES,</span>
+<span class="diff-del">-		.verify = rsa_verify,</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-};</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-struct crypto_algo *get_rsa_algo(const char *full_name)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int i;</span>
+<span class="diff-del">-	const char *name;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* Move name to after the comma */</span>
+<span class="diff-del">-	name = strchr(full_name, &#x27;,&#x27;);</span>
+<span class="diff-del">-	if (!name)</span>
+<span class="diff-del">-		return NULL;</span>
+<span class="diff-del">-	name += 1;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	for (i = 0; i &lt; ARRAY_SIZE(crypto_algos); i++) {</span>
+<span class="diff-del">-		if (!strcmp(crypto_algos[i].name, name))</span>
+<span class="diff-del">-			return &amp;crypto_algos[i];</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return NULL;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index a36c216..aced4a0 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/rsa_verify.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -3,36 +3,23 @@</span>
+<span class="diff-ctx">  * Copyright 2021 Habanalabs, Intel Corporation</span>
+<span class="diff-ctx">  */</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-#include &quot;image.h&quot;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/rsa.h&quot;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/sha1.h&quot;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/sha512.h&quot;</span>
+<span class="diff-ctx"> #include &quot;rsa_verify.h&quot;</span>
+<span class="diff-del">-#include &quot;libfdt.h&quot;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-del">-#include &quot;security.h&quot;</span>
+<span class="diff-add">+#include &quot;sha.h&quot;</span>
+<span class="diff-ctx"> #include &lt;stdio.h&gt;</span>
+<span class="diff-del">-#include &quot;fit.h&quot;</span>
+<span class="diff-del">-#include &lt;hl_fit_if.h&gt;</span>
+<span class="diff-add">+#include &lt;hl_sec_if.h&gt;</span>
+<span class="diff-add">+</span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-ctx"> #include &lt;logging/log.h&gt;</span>
+<span class="diff-ctx"> LOG_MODULE_DECLARE(FW_LOADER_AGENT);</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-/**</span>
+<span class="diff-del">- * rsa_verify_with_key_mbedtls() - Verify a signature against some data using</span>
+<span class="diff-del">- * information in node with prperties of RSA Key like modulus, exponent etc.</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * Parse signature-node and fill a key_prop structure with properties of the</span>
+<span class="diff-del">- * key.  Verify a RSA PKCS1.5 signature against an expected hash using</span>
+<span class="diff-del">- * the properties parsed</span>
+<span class="diff-del">- *</span>
+<span class="diff-del">- * @verif_args:	Specifies key and FIT information</span>
+<span class="diff-del">- * @hash:	Pointer to the expected hash</span>
+<span class="diff-del">- * @sig:	Signature</span>
+<span class="diff-del">- * @sig_len:	Number of bytes in signature</span>
+<span class="diff-del">- * @node:	Node having the RSA Key properties</span>
+<span class="diff-del">- * @return 0 if verified, -ve on error</span>
+<span class="diff-del">- */</span>
+<span class="diff-add">+const uint8_t sha384_der_prefix[SHA384_DER_LEN] = {</span>
+<span class="diff-add">+	0x30, 0x41, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,</span>
+<span class="diff-add">+	0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05,</span>
+<span class="diff-add">+	0x00, 0x04, 0x30</span>
+<span class="diff-add">+};</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> int rsa_pkcs1_verify(mbedtls_rsa_context *ctx,</span>
+<span class="diff-ctx"> 			const unsigned char *hash,</span>
+<span class="diff-hunk">@@ -54,58 +41,10 @@</span>
+<span class="diff-ctx"> 	return ret;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-static int rsa_verify_with_key_mbedtls(struct verif_params *verif_args,</span>
+<span class="diff-del">-				   const unsigned char *hash, uint8_t *sig,</span>
+<span class="diff-del">-				   uint32_t sig_len, int node)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	const void *blob = verif_args-&gt;pub_key_blob;</span>
+<span class="diff-del">-	struct key_prop prop;</span>
+<span class="diff-del">-	int length;</span>
+<span class="diff-del">-	int ret = 0;</span>
+<span class="diff-del">-	mbedtls_rsa_context rsa;</span>
+<span class="diff-del">-	mbedtls_mpi K;</span>
+<span class="diff-del">-	/*extracting the rsa public key components from sig blob</span>
+<span class="diff-del">-	 *By default PKCS V15 is chosen.If there are other padding in</span>
+<span class="diff-del">-	 *the image then code should be changed accordingly</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	mbedtls_mpi_init(&amp;K);</span>
+<span class="diff-del">-	mbedtls_rsa_init(&amp;rsa, MBEDTLS_RSA_PKCS_V15, 0);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop.modulus = fdt_getprop(blob, node, &quot;rsa,modulus&quot;, &amp;length);</span>
+<span class="diff-del">-	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&amp;K,</span>
+<span class="diff-del">-			(const unsigned char *) prop.modulus, length));</span>
+<span class="diff-del">-	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&amp;rsa, &amp;K, NULL, NULL, NULL, NULL));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	prop.public_exponent = fdt_getprop(blob, node, &quot;rsa,exponent&quot;, &amp;length);</span>
+<span class="diff-del">-	if (!prop.public_exponent || length &lt; sizeof(uint64_t))</span>
+<span class="diff-del">-		prop.public_exponent = NULL;</span>
+<span class="diff-del">-	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&amp;K,</span>
+<span class="diff-del">-			(const unsigned char *) prop.public_exponent, length));</span>
+<span class="diff-del">-	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&amp;rsa, NULL, NULL, NULL, NULL, &amp;K));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	MBEDTLS_MPI_CHK(mbedtls_rsa_complete(&amp;rsa));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (node &lt; 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;%s: Skipping invalid node&quot;, __func__);</span>
+<span class="diff-del">-		return -1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	ret = rsa_pkcs1_verify(&amp;rsa, hash, sig);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-cleanup:</span>
+<span class="diff-del">-	mbedtls_mpi_free(&amp;K);</span>
+<span class="diff-del">-	mbedtls_rsa_free(&amp;rsa);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return ret;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> int rsa_verify_image_with_key_mbedtls(uint8_t *key, const unsigned char *hash, uint8_t *sig,</span>
+<span class="diff-ctx"> 										uint32_t sig_len)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	struct key_prop prop;</span>
+<span class="diff-add">+	struct rsa_key_prop prop;</span>
+<span class="diff-ctx"> 	int ret = 1;</span>
+<span class="diff-ctx"> 	uint8_t *hl_props = (uint8_t *)key;</span>
+<span class="diff-ctx"> 	mbedtls_rsa_context rsa;</span>
+<span class="diff-hunk">@@ -118,15 +57,13 @@</span>
+<span class="diff-ctx"> 	hl_props += RSA3072_BYTES;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	prop.modulus = hl_props;</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> 	hl_props += RSA3072_BYTES;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&amp;K,</span>
+<span class="diff-ctx"> 			(const unsigned char *) prop.modulus, RSA3072_BYTES));</span>
+<span class="diff-ctx"> 	MBEDTLS_MPI_CHK(mbedtls_rsa_import(&amp;rsa, &amp;K, NULL, NULL, NULL, NULL));</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	prop.public_exponent = hl_props;</span>
+<span class="diff-del">-	prop.exp_len = KEY_PROP_EXP_SZ;</span>
+<span class="diff-add">+	prop.public_exponent = (uint64_t *)hl_props;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&amp;K,</span>
+<span class="diff-ctx"> 			(const unsigned char *) prop.public_exponent, KEY_PROP_EXP_SZ));</span>
+<span class="diff-hunk">@@ -143,96 +80,17 @@</span>
+<span class="diff-ctx"> 	return ret;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> }</span>
+<span class="diff-del">-int sha_region_calc(int region_count,</span>
+<span class="diff-del">-			const struct image_region region[],</span>
+<span class="diff-del">-			uint8_t *chksum)</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+#define MBEDTLS_USE_SHA384		1</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void sha_csum_regions(const struct image_region region[], int region_count,</span>
+<span class="diff-add">+			 u8 *output)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	uint8_t sha384sum[SHA384_SUM_LEN];</span>
+<span class="diff-del">-	int is384 = 1, ret;</span>
+<span class="diff-del">-	mbedtls_sha512_context ctx;</span>
+<span class="diff-del">-	unsigned int region_index;</span>
+<span class="diff-add">+	struct mbedtls_sha512_context ctx;</span>
+<span class="diff-add">+	int i;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-	/* calculating sha384sum */</span>
+<span class="diff-del">-	mbedtls_sha512_init(&amp;ctx);</span>
+<span class="diff-del">-	ret = mbedtls_sha512_starts_ret(&amp;ctx, is384);</span>
+<span class="diff-del">-	if (ret != 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;mbedtls_sha384_starts_ret failed\n&quot;);</span>
+<span class="diff-del">-		return -1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	for (region_index = 0; region_index &lt; region_count; region_index++) {</span>
+<span class="diff-del">-		ret = mbedtls_sha512_update_ret(&amp;ctx, region[region_index].data,</span>
+<span class="diff-del">-						region[region_index].size);</span>
+<span class="diff-del">-		if (ret != 0) {</span>
+<span class="diff-del">-			LOG_ERR(&quot;sha384_update failed for region:%d\n&quot;,</span>
+<span class="diff-del">-				region_index);</span>
+<span class="diff-del">-			return -1;</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	ret = mbedtls_sha512_finish_ret(&amp;ctx, sha384sum);</span>
+<span class="diff-del">-	if (ret != 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;mbedtls_sha384_finish_ret failed\n&quot;);</span>
+<span class="diff-del">-		return -1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-	mbedtls_sha512_free(&amp;ctx);</span>
+<span class="diff-del">-	LOG_DBG(&quot;sha384 calculation done\n&quot;);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	memcpy(chksum, sha384sum, SHA384_SUM_LEN);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return ret;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int rsa_verify(struct verif_params *verif_args,</span>
+<span class="diff-del">-		const struct image_region region[], int region_count,</span>
+<span class="diff-del">-		uint8_t *sig, uint32_t sig_len)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	/* Reserve memory for maximum checksum-length</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	uint8_t sha_sum[SHA384_SUM_LEN];</span>
+<span class="diff-del">-	const void *blob = verif_args-&gt;pub_key_blob;</span>
+<span class="diff-del">-	int ndepth, noffset;</span>
+<span class="diff-del">-	int sig_node, node;</span>
+<span class="diff-del">-	char name[100];</span>
+<span class="diff-del">-	int ret;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	ret = sha_region_calc(region_count, region, sha_sum);</span>
+<span class="diff-del">-	sig_node = fdt_subnode_offset(blob, 0, HL_FIT_SIGNATURE_NODENAME);</span>
+<span class="diff-del">-	if (sig_node &lt; 0) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;%s: No signature node found\n&quot;, __func__);</span>
+<span class="diff-del">-		return -1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* if we are using specific key */</span>
+<span class="diff-del">-	if (verif_args-&gt;required_keynode != -1) {</span>
+<span class="diff-del">-		ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum, sig,</span>
+<span class="diff-del">-				sig_len, verif_args-&gt;required_keynode);</span>
+<span class="diff-del">-		return ret;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* check if we have key that matches hint */</span>
+<span class="diff-del">-	snprintf(name, sizeof(name), &quot;key-%s&quot;, verif_args-&gt;keyname);</span>
+<span class="diff-del">-	node = fdt_subnode_offset(blob, sig_node, name);</span>
+<span class="diff-del">-	ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum, sig, sig_len,</span>
+<span class="diff-del">-						node);</span>
+<span class="diff-del">-	/* Return if success or if verif_args-&gt;fit is NULL meaning no sub-nodes */</span>
+<span class="diff-del">-	if (!ret || !verif_args-&gt;fit)</span>
+<span class="diff-del">-		return ret;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* try other keys */</span>
+<span class="diff-del">-	for (ndepth = 0, noffset = fdt_next_node(verif_args-&gt;fit, sig_node,</span>
+<span class="diff-del">-				&amp;ndepth);</span>
+<span class="diff-del">-			(noffset &gt;= 0) &amp;&amp; (ndepth &gt; 0);</span>
+<span class="diff-del">-			noffset = fdt_next_node(verif_args-&gt;fit, noffset,</span>
+<span class="diff-del">-						&amp;ndepth)) {</span>
+<span class="diff-del">-		if (ndepth == 1 &amp;&amp; noffset != node) {</span>
+<span class="diff-del">-			ret = rsa_verify_with_key_mbedtls(verif_args, sha_sum,</span>
+<span class="diff-del">-					sig, sig_len,</span>
+<span class="diff-del">-					noffset);</span>
+<span class="diff-del">-			if (!ret)</span>
+<span class="diff-del">-				break;</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return ret;</span>
+<span class="diff-add">+	mbedtls_sha512_starts_ret(&amp;ctx, MBEDTLS_USE_SHA384);</span>
+<span class="diff-add">+	for (i = 0; i &lt; region_count; i++)</span>
+<span class="diff-add">+		mbedtls_sha512_update_ret(&amp;ctx, region[i].data, region[i].size);</span>
+<span class="diff-add">+	mbedtls_sha512_finish_ret(&amp;ctx, output);</span>
+<span class="diff-ctx"> }</span>
+</pre></div><div class="diff-file"><span class="diff-ctx">index 73a7249..8cf6fc7 100644</span>
+<h4 class="diff-filename">b/fw-loader/src/security.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -18,7 +18,7 @@</span>
+<span class="diff-ctx"> #include &quot;fit.h&quot;</span>
+<span class="diff-ctx"> #include &quot;hl_reg_map.h&quot;</span>
+<span class="diff-ctx"> #include &lt;device.h&gt;</span>
+<span class="diff-del">-#include &quot;sha_rsa.h&quot;</span>
+<span class="diff-add">+#include &quot;sha.h&quot;</span>
+<span class="diff-ctx"> #include &lt;hl_fit_if.h&gt;</span>
+<span class="diff-ctx"> #include &quot;mbedtls/rsa.h&quot;</span>
+<span class="diff-ctx"> #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL</span>
+<span class="diff-hunk">@@ -106,136 +106,14 @@</span>
+<span class="diff-ctx"> 	return -1;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-del">-int get_pub_key_node(const void *pub_key_fit, const char *key_name)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int sig_node;</span>
+<span class="diff-del">-	char node_name[64] = &quot;key-&quot;;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (strlen(key_name) + strlen(node_name) &gt; 64)</span>
+<span class="diff-del">-		return -FDT_ERR_NOSPACE;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	memcpy(node_name + strlen(node_name), key_name, strlen(key_name));</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	sig_node = fdt_subnode_offset(pub_key_fit, 0, HL_FIT_SIGNATURE_NODENAME);</span>
+<span class="diff-del">-	return fdt_subnode_offset(pub_key_fit, sig_node, node_name);</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> __weak int hl_sec_validate_key_idx(int key_idx)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int hl_sec_validate_img_desc(struct hl_fit_sec_desc *fit_sec, size_t img_size)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	if (fit_sec-&gt;magic_number != FIT_SEC_MAGIC) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Bad magic, security descriptor not found&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if ((fit_sec-&gt;desc_version_maj != FIT_SEC_DESC_VER_MAJOR) ||</span>
+<span class="diff-del">-	    (fit_sec-&gt;desc_version_min != FIT_SEC_DESC_VER_MINOR)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Security descriptor version mismatch&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (fit_sec-&gt;desc_size &lt; FIT_SEC_DESC_SIZE) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;security descriptor size too small&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (fit_sec-&gt;img_size != img_size) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;image size mismatch with security descriptor&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (!hl_sec_is_svn_valid(fit_sec-&gt;sec_version)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;security descriptor svn not valid&quot;);</span>
+<span class="diff-del">-		fit_set_err(HL_FW_FIT_BOOT_ERR_SVN);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (hl_sec_validate_key_idx(fit_sec-&gt;key_num)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Key revoked: %d&quot;, fit_sec-&gt;key_num);</span>
+<span class="diff-del">-		fit_set_err(HL_FW_FIT_BOOT_ERR_REVOKED_KEY);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (hl_sec_validate_public_key(&amp;fit_sec-&gt;pub_key, FIT_PUB_KEY_SIZE,</span>
+<span class="diff-del">-				       fit_sec-&gt;key_num)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;Key validation failed&quot;);</span>
+<span class="diff-del">-		fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return 0;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int hl_sec_verify_img_sig(const void *img, size_t img_size)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	struct hl_fit_sec_desc *fit_sec;</span>
+<span class="diff-del">-	const void *pub_key_fit;</span>
+<span class="diff-del">-	uint8_t signature[FIT_SIGNATURE_SIZE];</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* security descriptor is at the footer of the image */</span>
+<span class="diff-del">-	img_size = ROUND_UP(img_size, sizeof(uint32_t));</span>
+<span class="diff-del">-	fit_sec = (struct hl_fit_sec_desc *)((uint8_t *)img + img_size);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (hl_sec_validate_img_desc(fit_sec, img_size)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;descriptor validation failed&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	pub_key_fit = &amp;fit_sec-&gt;pub_key;</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/*</span>
+<span class="diff-del">-	 * signature is calculated on both the fit image and the security</span>
+<span class="diff-del">-	 * descriptor with the signature field of the descriptor zeroized.</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	memcpy(signature, fit_sec-&gt;signature, FIT_SIGNATURE_SIZE);</span>
+<span class="diff-del">-	memset(fit_sec-&gt;signature, 0, FIT_SIGNATURE_SIZE);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	if (fit_verify_img_sig(img, img_size, fit_sec, FIT_SEC_DESC_SIZE,</span>
+<span class="diff-del">-			       pub_key_fit, signature, FIT_SIGNATURE_SIZE)) {</span>
+<span class="diff-del">-		LOG_ERR(&quot;image signature validation failed&quot;);</span>
+<span class="diff-del">-		return 1;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-ctx"> 	return 0;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> __weak bool hl_sec_is_image_sig_supported(void)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	return false;</span>
+<span class="diff-del">-}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-int hl_sec_fit_config_verify(const void *fit, int conf)</span>
+<span class="diff-del">-{</span>
+<span class="diff-del">-	int err = 0;</span>
+<span class="diff-del">-	size_t fit_size = fdt_totalsize(fit);</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	cpu_boot_err_clr(CPU_BOOT_ERR_SECURITY_FAIL);</span>
+<span class="diff-del">-	if (!hl_sec_img_verf_is_enabled()) {</span>
+<span class="diff-del">-		/*If the security is disabled it will return success here</span>
+<span class="diff-del">-		 */</span>
+<span class="diff-del">-		LOG_DBG(&quot;%s: Image verification is disabled&quot;, __func__);</span>
+<span class="diff-del">-		return err;</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	/* for platforms with image security descriptor support, the signature</span>
+<span class="diff-del">-	 * of the descriptor is validated. otherwise the fit internal signature</span>
+<span class="diff-del">-	 * is validated.</span>
+<span class="diff-del">-	 */</span>
+<span class="diff-del">-	if (hl_sec_is_image_sig_supported()) {</span>
+<span class="diff-del">-		err = hl_sec_verify_img_sig(fit, fit_size);</span>
+<span class="diff-del">-		if (err) {</span>
+<span class="diff-del">-			LOG_ERR(&quot;verify image signature failed&quot;);</span>
+<span class="diff-del">-			cpu_boot_err_set(CPU_BOOT_ERR_SECURITY_FAIL);</span>
+<span class="diff-del">-			fit_set_err(HL_FW_FIT_BOOT_ERR_SIGNATURE);</span>
+<span class="diff-del">-		}</span>
+<span class="diff-del">-	}</span>
+<span class="diff-del">-</span>
+<span class="diff-del">-	return err;</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> __weak void hl_sec_dev_dram_lock(bool lock) {}</span>
+<span class="diff-hunk">@@ -260,9 +138,9 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> bool hl_extract_hash_from_key(const void *pub_key, uint8_t *value)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-del">-	struct key_prop prop;</span>
+<span class="diff-add">+	struct rsa_key_prop prop;</span>
+<span class="diff-ctx"> 	uint8_t key_props[PUB_KEY_SZ];</span>
+<span class="diff-del">-	const char *key_name = HL_SEC_KEY_NAME;</span>
+<span class="diff-add">+	const char *key_name = HL_FIT_SEC_KEY_NAME;</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	/*</span>
+<span class="diff-ctx"> 	 * ROM and eFUSE stores hash of public key properties. The public</span>
+<span class="diff-hunk">@@ -294,3 +172,51 @@</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	return hl_sec_is_enabled();</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_is_valid_address_range(uint64_t fit_addr, size_t len)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return true;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_sram_is_valid_address_range(uint64_t fit_addr, size_t len)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return true;</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_img_validation_is_enabled(void)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return hl_sec_img_verf_is_enabled();</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_validate_svn(int sec_version)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return hl_sec_is_svn_valid(sec_version);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_validate_key_idx(int key_idx)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return hl_sec_validate_key_idx(key_idx);</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+bool security_validate_pub_key(int key_idx, const void *pub_key,</span>
+<span class="diff-add">+			       int pub_key_len, const void *pub_key_ext,</span>
+<span class="diff-add">+			       int pub_key_ext_len)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+	return !(hl_sec_validate_public_key(pub_key, pub_key_len, key_idx));</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void security_store_key_index_into_fw_info(int key_idx)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void security_store_svn_into_fw_info(int sec_version)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+}</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+void security_store_key_index_into_boot_info(int key_idx)</span>
+<span class="diff-add">+{</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+}</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Rathan Chandavath Rajagopal</strong> <span class="date">(2024-12-11 11:10:04.015000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 11:10:11.795000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1267/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 11:10:13.741000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28336/ (1/3)</pre></div><div class="message"><strong>Rathan Chandavath Rajagopal</strong> <span class="date">(2024-12-11 11:11:00.769000000)</span><pre>Topic set to fit_clean_up</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 11:14:18.701000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1919/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 11:14:18.711000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1758/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 11:15:07.040000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16972/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 11:15:07.093000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19031/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 11:16:55.705000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1919/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/1511/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1267/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1758/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 11:32:59.604000000)</span><pre>Patch Set 1: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19031/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/21708/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16972/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28336/ : SUCCESS</pre></div><div class="message"><strong>Rathan Chandavath Rajagopal</strong> <span class="date">(2024-12-11 12:01:45.635000000)</span><pre>Uploaded patch set 2.</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 12:01:52.708000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1271/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 12:01:56.681000000)</span><pre>Patch Set 2: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28341/ (1/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 12:04:46.181000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1761/ (2/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 12:04:46.196000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1924/ (3/3)</pre></div><div class="message"><strong>Software Jenkins</strong> <span class="date">(2024-12-11 12:05:35.335000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_zephyr_build_master_next/1924/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Tests/job/Test_Embedded_FS_cpu_zephyr_build_master_next/1516/ )
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Build_Embedded_FS_u22_master_next/1271/ : SUCCESS
+
+https://sw-jenkins-ctrl15.habana-labs.com/job/Embedded_FS/job/Launchers/job/Launcher_Build_Embedded_FS_u22_Test_Embedded_FS_cpu_checkpatch_master_next/1761/ : SUCCESS</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 12:08:20.387000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19035/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 12:08:20.388000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16974/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2024-12-11 12:22:33.515000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Failed 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/19035/ : FAILURE
+
+No problems were identified. If you know why this problem occurred, please add a suitable Cause for it. ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/21712/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/16974/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/28341/ : SUCCESS</pre></div></div>
+        
+        
+    </div>
+</body>
+</html>

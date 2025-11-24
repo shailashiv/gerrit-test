@@ -1,0 +1,362 @@
+From a5e9d718eb8666b9a0689481c3a4da2fee99f872 Mon Sep 17 00:00:00 2001
+From: Amit Shalev <ashalev@habana.ai>
+Date: Mon, 11 Nov 2024 17:13:37 +0200
+Subject: [PATCH] aligned soconline dbg address space to rom tables
+
+Change-Id: I77e3666b6fba721ea44e0f996cd3cb96c5718d5e
+---
+
+diff --git a/prototypes/cmp_sub_rom_table_0.xml b/prototypes/cmp_sub_rom_table_0.xml
+new file mode 100644
+index 0000000..ab78968
+--- /dev/null
++++ b/prototypes/cmp_sub_rom_table_0.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="8128" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++    <SUBBLOCK NAME="IO_PSOC" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/cmp_sub_rom_table_1.xml b/prototypes/cmp_sub_rom_table_1.xml
+new file mode 100644
+index 0000000..a3c90a0
+--- /dev/null
++++ b/prototypes/cmp_sub_rom_table_1.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="8188" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="IO_PSOC" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/comp_dbg.xml b/prototypes/comp_dbg.xml
+index 2bd6b99..f5600b1 100644
+--- a/prototypes/comp_dbg.xml
++++ b/prototypes/comp_dbg.xml
+@@ -2,13 +2,6 @@
+ <BLOCK_DB>
+   <CONFIG ADD_QMAN_EXT_IF="" MEM_NUM="" OWNER="igindi" PROTOTYPE_SIZE="32768" PT_TYPE="CONTAINER" />
+   <DESCRIPTION></DESCRIPTION>
+-  <SUBBLOCK ADDR="0010000" EXTERNAL="" NAME="COMP_SOC" PROTOTYPE="COMP_SOC_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="0400000" EXTERNAL="" NAME="HBM" PROTOTYPE="HBM_GROUP_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1810000" EXTERNAL="" NAME="NOC" PROTOTYPE="COMP_NOC_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1C00000" EXTERNAL="" NAME="EDMA" PROTOTYPE="DMA_GROUP_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1C80000" EXTERNAL="" NAME="PSOC" PROTOTYPE="COMP_PSOC_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1D00000" EXTERNAL="" NAME="PDMA" PROTOTYPE="PDMA_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1E00000" EXTERNAL="" NAME="CB" PROTOTYPE="CS_GROUP_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="0000000" EXTERNAL="" NAME="SUB_ROM_TABLE_0" PROTOTYPE="SUB_ROM_TABLE" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1800000" EXTERNAL="" NAME="SUB_ROM_TABLE_1" PROTOTYPE="SUB_ROM_TABLE" RTL_PATH="" />
++  <SUBBLOCK ADDR="0000000" EXTERNAL="" NAME="CMP_SUB_ROM_TABLE_0" PROTOTYPE="CMP_SUB_ROM_TABLE_0" RTL_PATH="" />
++  <SUBBLOCK ADDR="1800000" EXTERNAL="" NAME="CMP_SUB_ROM_TABLE_1" PROTOTYPE="CMP_SUB_ROM_TABLE_1" RTL_PATH="" />
+ </BLOCK_DB>
+diff --git a/prototypes/cpu_dbg.xml b/prototypes/cpu_dbg.xml
+index 45454b6..875b60f 100644
+--- a/prototypes/cpu_dbg.xml
++++ b/prototypes/cpu_dbg.xml
+@@ -1,8 +1,8 @@
+ <?xml version="1.0" encoding="ISO-8859-1"?>
+ <BLOCK_DB>
+-  <CONFIG ADD_QMAN_EXT_IF="" MEM_NUM="" OWNER="rzehorai" PROTOTYPE_SIZE="64" PT_TYPE="CONTAINER" />
++  <CONFIG ADD_QMAN_EXT_IF="" GEN_ZERO_REGS="" MEM_NUM="" OWNER="rzehorai" PROTOTYPE_SIZE="64" PT_TYPE="CONTAINER" />
+   <DESCRIPTION></DESCRIPTION>
+-  <SUBBLOCK ADDR="0000" EXTERNAL="" NAME="CPU_FC_LOGIC_CS_DBG_BLK" PROTOTYPE="CS_DBG_NO_SPMU_2_BMON" RTL_PATH="" />
++  <SUBBLOCK ADDR="0000" EXTERNAL="" NAME="CPU_FC_LOGIC_CS_DBG" PROTOTYPE="CS_DBG_NO_SPMU_2_BMON" RTL_PATH="" />
+   <SUBBLOCK ADDR="9000" EXTERNAL="" NAME="CPU_FC_LOGIC_FUNNEL" PROTOTYPE="FUNNEL_2X1" RTL_PATH="" />
+   <SUBBLOCK ADDR="A000" EXTERNAL="" NAME="CPU_ETF0" PROTOTYPE="ETF_1KB" RTL_PATH="" />
+   <SUBBLOCK ADDR="B000" EXTERNAL="" NAME="CPU_ETF1" PROTOTYPE="ETF_1KB" RTL_PATH="" />
+diff --git a/prototypes/io0_sub_rom_table_0.xml b/prototypes/io0_sub_rom_table_0.xml
+new file mode 100644
+index 0000000..d3a1db7
+--- /dev/null
++++ b/prototypes/io0_sub_rom_table_0.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="7964" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++    <SUBBLOCK NAME="IO_PSOC" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io0_sub_rom_table_1.xml b/prototypes/io0_sub_rom_table_1.xml
+new file mode 100644
+index 0000000..aef7d33
+--- /dev/null
++++ b/prototypes/io0_sub_rom_table_1.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="8124" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++    <SUBBLOCK NAME="IO_PSOC" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io0_sub_rom_table_2.xml b/prototypes/io0_sub_rom_table_2.xml
+new file mode 100644
+index 0000000..557494b
+--- /dev/null
++++ b/prototypes/io0_sub_rom_table_2.xml
+@@ -0,0 +1,21 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="4932" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io1_sub_rom_table_0.xml b/prototypes/io1_sub_rom_table_0.xml
+new file mode 100644
+index 0000000..07bce3e
+--- /dev/null
++++ b/prototypes/io1_sub_rom_table_0.xml
+@@ -0,0 +1,23 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="7436" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="IO_PSOC" />
++    <SUBBLOCK NAME="EDMA" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io1_sub_rom_table_1.xml b/prototypes/io1_sub_rom_table_1.xml
+new file mode 100644
+index 0000000..aef7d33
+--- /dev/null
++++ b/prototypes/io1_sub_rom_table_1.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="8124" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++    <SUBBLOCK NAME="IO_PSOC" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io1_sub_rom_table_2.xml b/prototypes/io1_sub_rom_table_2.xml
+new file mode 100644
+index 0000000..db75901
+--- /dev/null
++++ b/prototypes/io1_sub_rom_table_2.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="ISO-8859-1"?>
++<BLOCK_DB>
++  <EXTENDS PROTOTYPE="SUB_ROM_TABLE" />
++  <MODIFY>
++    <CONFIG PROTOTYPE_SIZE="4932" />
++  </MODIFY>
++  <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="PDMA" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="COMP_SOC" />
++    <SUBBLOCK NAME="CMP_PSOC" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="HBM" />
++    <SUBBLOCK NAME="NOC" />
++    <SUBBLOCK NAME="CB" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
++    <SUBBLOCK NAME="EDMA" />
++  </REMOVE>
++</BLOCK_DB>
+diff --git a/prototypes/io_die_half_0_dbg.xml b/prototypes/io_die_half_0_dbg.xml
+index 1a8432d..e41d4f1 100644
+--- a/prototypes/io_die_half_0_dbg.xml
++++ b/prototypes/io_die_half_0_dbg.xml
+@@ -2,6 +2,16 @@
+ <BLOCK_DB>
+   <EXTENDS PROTOTYPE="IO_DIE_HALF_DBG" />
+   <REMOVE>
++    <SUBBLOCK NAME="PCIE_EP" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="IO_1_SUB_ROM_TABLE_0" />
++    <SUBBLOCK NAME="IO_1_SUB_ROM_TABLE_1" />
++    <SUBBLOCK NAME="PSOC" />
++    <SUBBLOCK NAME="IO_1_SUB_ROM_TABLE_2" />
++    <SUBBLOCK NAME="SOC_0" />
+     <SUBBLOCK NAME="SOC_1" />
+   </REMOVE>
+ </BLOCK_DB>
+diff --git a/prototypes/io_die_half_1_dbg.xml b/prototypes/io_die_half_1_dbg.xml
+index 196e148..1d61115 100644
+--- a/prototypes/io_die_half_1_dbg.xml
++++ b/prototypes/io_die_half_1_dbg.xml
+@@ -3,8 +3,15 @@
+   <EXTENDS PROTOTYPE="IO_DIE_HALF_DBG" />
+   <REMOVE>
+     <SUBBLOCK NAME="PCIE_EP" />
+-    <SUBBLOCK NAME="CXL_RP" />
+-    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="MEDIA" />
++    <SUBBLOCK NAME="NIC" />
++    <SUBBLOCK NAME="CA53_DBG" />
++    <SUBBLOCK NAME="IO_0_SUB_ROM_TABLE_2" />
++    <SUBBLOCK NAME="IO_0_SUB_ROM_TABLE_1" />
+     <SUBBLOCK NAME="CXL_EP" />
++    <SUBBLOCK NAME="IO_0_SUB_ROM_TABLE_0" />
++    <SUBBLOCK NAME="PSOC" />
++    <SUBBLOCK NAME="SOC_0" />
++    <SUBBLOCK NAME="SOC_1" />
+   </REMOVE>
+ </BLOCK_DB>
+diff --git a/prototypes/io_die_half_dbg.xml b/prototypes/io_die_half_dbg.xml
+index ba9b7fc..a33152a 100644
+--- a/prototypes/io_die_half_dbg.xml
++++ b/prototypes/io_die_half_dbg.xml
+@@ -1,16 +1,19 @@
+ <?xml version="1.0" encoding="ISO-8859-1"?>
+ <BLOCK_DB>
+-  <CONFIG ADD_QMAN_EXT_IF="" MEM_NUM="" OWNER="rzehorai" PROTOTYPE_SIZE="32768" PT_TYPE="CONTAINER" />
++  <CONFIG ADD_QMAN_EXT_IF="" GEN_ZERO_REGS="" MEM_NUM="" OWNER="rzehorai" PROTOTYPE_SIZE="32768" PT_TYPE="CONTAINER" />
+   <DESCRIPTION></DESCRIPTION>
+   <SUBBLOCK ADDR="1C00000" EXTERNAL="" NAME="CXL_EP" PROTOTYPE="CXL_EP_DBG" RTL_PATH="" />
+   <SUBBLOCK ADDR="1C80000" EXTERNAL="" NAME="PSOC" PROTOTYPE="IO_PSOC_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="0" EXTERNAL="" NAME="SUB_ROM_TABLE_0" PROTOTYPE="SUB_ROM_TABLE" RTL_PATH="" />
++  <SUBBLOCK ADDR="0" EXTERNAL="" NAME="IO_0_SUB_ROM_TABLE_0" PROTOTYPE="IO0_SUB_ROM_TABLE_0" RTL_PATH="" />
+   <SUBBLOCK ADDR="200000" EXTERNAL="" NAME="PCIE_EP" PROTOTYPE="PCIE_EP_DBG" RTL_PATH="" />
+   <SUBBLOCK ADDR="1010000" EXTERNAL="" NAME="NIC" PROTOTYPE="NW_DBG" RTL_PATH="" />
+   <SUBBLOCK ADDR="1400000" EXTERNAL="" NAME="MEDIA" PROTOTYPE="MEDIA_DBG" RTL_PATH="" />
+   <SUBBLOCK ADDR="400000" EXTERNAL="" NAME="SOC_0" PROTOTYPE="SOC_0_DBG" RTL_PATH="" />
+   <SUBBLOCK ADDR="1810000" EXTERNAL="" NAME="CA53_DBG" PROTOTYPE="CA53_TOP" RTL_PATH="" />
+   <SUBBLOCK ADDR="400000" EXTERNAL="" NAME="SOC_1" PROTOTYPE="SOC_1_DBG" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1000000" EXTERNAL="" NAME="SUB_ROM_TABLE_1" PROTOTYPE="SUB_ROM_TABLE" RTL_PATH="" />
+-  <SUBBLOCK ADDR="1800000" EXTERNAL="" NAME="SUB_ROM_TABLE_2" PROTOTYPE="SUB_ROM_TABLE" RTL_PATH="" />
++  <SUBBLOCK ADDR="1000000" EXTERNAL="" NAME="IO_0_SUB_ROM_TABLE_1" PROTOTYPE="IO0_SUB_ROM_TABLE_1" RTL_PATH="" />
++  <SUBBLOCK ADDR="1800000" EXTERNAL="" NAME="IO_0_SUB_ROM_TABLE_2" PROTOTYPE="IO0_SUB_ROM_TABLE_2" RTL_PATH="" />
++  <SUBBLOCK ADDR="0" EXTERNAL="" NAME="IO_1_SUB_ROM_TABLE_0" PROTOTYPE="IO1_SUB_ROM_TABLE_0" RTL_PATH="" />
++  <SUBBLOCK ADDR="1000000" EXTERNAL="" NAME="IO_1_SUB_ROM_TABLE_1" PROTOTYPE="IO1_SUB_ROM_TABLE_1" RTL_PATH="" />
++  <SUBBLOCK ADDR="1800000" EXTERNAL="" NAME="IO_1_SUB_ROM_TABLE_2" PROTOTYPE="IO1_SUB_ROM_TABLE_2" RTL_PATH="" />
+ </BLOCK_DB>
+diff --git a/prototypes/sub_rom_table.xml b/prototypes/sub_rom_table.xml
+index 8224611..f6deefb 100644
+--- a/prototypes/sub_rom_table.xml
++++ b/prototypes/sub_rom_table.xml
+@@ -1,5 +1,20 @@
+ <?xml version="1.0" encoding="ISO-8859-1"?>
+ <BLOCK_DB>
+-  <CONFIG ADD_QMAN_EXT_IF="" MEM_NUM="" OWNER="ashalev" PROTOTYPE_SIZE="4" PT_TYPE="UNIT" />
++  <CONFIG ADD_QMAN_EXT_IF="" MEM_NUM="" OWNER="ashalev" PROTOTYPE_SIZE="4" PT_TYPE="CONTAINER" />
+   <DESCRIPTION></DESCRIPTION>
+-</BLOCK_DB>
++  <SUBBLOCK ADDR="000000" EXTERNAL="Yes" NAME="COMP_SOC" PROTOTYPE="COMP_SOC_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="HBM" PROTOTYPE="HBM_GROUP_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="000000" EXTERNAL="Yes" NAME="NOC" PROTOTYPE="COMP_NOC_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="EDMA" PROTOTYPE="DMA_GROUP_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="480000" EXTERNAL="Yes" NAME="CMP_PSOC" PROTOTYPE="COMP_PSOC_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="500000" EXTERNAL="Yes" NAME="PDMA" PROTOTYPE="PDMA_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="600000" EXTERNAL="Yes" NAME="CB" PROTOTYPE="CS_GROUP_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="200000" EXTERNAL="Yes" NAME="PCIE_EP" PROTOTYPE="PCIE_EP_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="SOC_0" PROTOTYPE="SOC_0_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="000000" EXTERNAL="Yes" NAME="NIC" PROTOTYPE="NW_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="MEDIA" PROTOTYPE="MEDIA_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="000000" EXTERNAL="Yes" NAME="CA53_DBG" PROTOTYPE="CA53_TOP" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="CXL_EP" PROTOTYPE="CXL_EP_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="480000" EXTERNAL="Yes" NAME="IO_PSOC" PROTOTYPE="IO_PSOC_DBG" RTL_PATH="" />
++  <SUBBLOCK ADDR="400000" EXTERNAL="Yes" NAME="SOC_1" PROTOTYPE="SOC_1_DBG" RTL_PATH="" />
++ </BLOCK_DB>

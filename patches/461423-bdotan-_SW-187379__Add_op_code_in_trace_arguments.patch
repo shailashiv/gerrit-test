@@ -1,0 +1,24 @@
+From 673cc8c71b9d20065b6cd7a70d80800ae7f86a59 Mon Sep 17 00:00:00 2001
+From: Benjamin Dotan <bdotan@habana.ai>
+Date: Thu, 07 Nov 2024 11:59:21 +0200
+Subject: [PATCH] [SW-187379] Add op code in trace arguments
+
+Change-Id: I055fddd394c3e86038cfe9a1d48d9f811c5e1f12
+---
+
+diff --git a/backend/profiling/trace_sources/trace_parser.cpp b/backend/profiling/trace_sources/trace_parser.cpp
+index 42f4a4f..9f3207c 100644
+--- a/backend/profiling/trace_sources/trace_parser.cpp
++++ b/backend/profiling/trace_sources/trace_parser.cpp
+@@ -408,9 +408,10 @@
+ std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
+     const synTraceEvent* events_ptr) {
+   std::unordered_map<std::string, std::string> extraArgs;
+-  extraArgs.reserve(events_ptr->arguments.extraArgs.count + 1);
++  extraArgs.reserve(events_ptr->arguments.extraArgs.count + 2);
+ 
+   extraArgs["dataType"] = events_ptr->arguments.dataType;
++  extraArgs["operation"] = events_ptr->arguments.operation;
+ 
+   for (size_t i{}; i < events_ptr->arguments.extraArgs.count; i++) {
+     const auto& arg = events_ptr->arguments.extraArgs.args[i];

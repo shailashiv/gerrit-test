@@ -1,0 +1,1484 @@
+From 14331a93e9b28c75517791250635f3227df2338b Mon Sep 17 00:00:00 2001
+From: pralay <pradas@habana.ai>
+Date: Wed, 10 Apr 2024 19:46:42 +0300
+Subject: [PATCH] [SW-207601] Override aten.linear and aten.matmul in torch.compile
+
+Change-Id: Ie78abea069ab1dfa5a61357f58d2e29811484642
+---
+
+diff --git a/habana_eager/CMakeLists.txt b/habana_eager/CMakeLists.txt
+index c465596..fc9016f 100644
+--- a/habana_eager/CMakeLists.txt
++++ b/habana_eager/CMakeLists.txt
+@@ -37,6 +37,7 @@
+           ops/index_put.cpp
+           ops/instance_norm.cpp
+           ops/local_scalar_dense.cpp
++          ops/matmul.cpp
+           ops/masked_select.cpp
+           ops/nonzero.cpp
+           ops/unique.cpp
+@@ -46,6 +47,7 @@
+           ops/pin_memory.cpp
+           ops/eager_op.cpp
+           ops/repeat.cpp
++          ops/linear.cpp
+           passes/add_attribute_alpha.cpp
+           passes/detect_weights_tensors.cpp
+           passes/get_outputs_order_in_graph.cpp
+diff --git a/habana_eager/ops/linear.cpp b/habana_eager/ops/linear.cpp
+new file mode 100644
+index 0000000..80261ba
+--- /dev/null
++++ b/habana_eager/ops/linear.cpp
+@@ -0,0 +1,152 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++#include <ATen/ATen.h>
++#include <ATen/Tensor.h>
++#include <torch/library.h>
++
++#include "backend/habana_device/HPUAllocator.h"
++#include "backend/helpers/tensor_utils.h"
++#include "common/dump_args.h"
++#include "generated/backend/linear.h"
++#include "generated/backend/linear_backward.h"
++#include "habana_eager/ops/eager_op.h"
++#include "habana_helpers/logging.h"
++#include "habana_lazy/hpu_stage_submission.h"
++#include "hpu_ops/op_logger.h"
++#include "linear.h"
++
++namespace habana {
++namespace eager {
++
++at::Tensor linear_fwd_eager_hpu(
++    const at::Tensor& input,
++    const at::Tensor& weight,
++    [[maybe_unused]] const c10::optional<at::Tensor>& bias) {
++  PT_EAGER_TRACE;
++
++  auto LinearMeta_ = [](const at::Stack& stack) { return LinearMeta(stack); };
++
++  habana::eager::EagerOp<at::Tensor> hpu_op{
++      "hpu::linear", {input, weight, bias}};
++  hpu_op.SetOutputMetaFn(LinearMeta_);
++
++  return hpu_op.call();
++}
++
++std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_eager_hpu(
++    const at::Tensor& input,
++    const at::Tensor& grad_output,
++    const at::Tensor& weight,
++    std::array<bool, 3> output_mask) {
++  PT_EAGER_TRACE;
++
++  auto LinearBackwardMeta_ = [](const at::Stack& stack) {
++    return LinearBackwardMeta(stack);
++  };
++  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
++      "hpu::linear_backward", {input, grad_output, weight, output_mask}};
++
++  hpu_op.SetOutputMetaFn(LinearBackwardMeta_);
++  std::tuple<at::Tensor, at::Tensor, at::Tensor> result = hpu_op.call();
++  if (output_mask[2]) {
++    return result;
++  } else {
++    at::Tensor temp = torch::Tensor(); // create a None Tensor for bias_grad
++    return std::make_tuple(std::get<0>(result), std::get<1>(result), temp);
++  }
++}
++
++TORCH_LIBRARY_IMPL(hpu, HPU, m) {
++  m.impl("linear", linear_fwd_eager_hpu);
++  m.impl("linear_backward", linear_bwd_eager_hpu);
++}
++TORCH_LIBRARY_IMPL(aten, HPU, m) { // for cpp test single op call
++  m.impl("linear", linear_fwd_eager_hpu);
++  m.impl("linear_backward", linear_bwd_eager_hpu);
++}
++
++TORCH_LIBRARY_FRAGMENT(hpu, m) {
++  m.def("linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor");
++  m.def(
++      "linear_backward(Tensor self, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor, Tensor, Tensor)");
++}
++
++std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_linear_backward_hpu(
++    const at::Tensor& input,
++    const at::Tensor& grad_output,
++    const at::Tensor& weight,
++    std::array<bool, 3> output_mask) {
++  PT_EAGER_TRACE;
++
++  static auto op = torch::Dispatcher::singleton()
++                       .findSchemaOrThrow("hpu::linear_backward", "")
++                       .typed<decltype(dispatch_linear_backward_hpu)>();
++  return op.call(input, grad_output, weight, output_mask);
++}
++
++at::Tensor dispatch_linear_hpu(
++    const at::Tensor& input,
++    const at::Tensor& other,
++    [[maybe_unused]] const c10::optional<at::Tensor>& bias) {
++  PT_EAGER_TRACE;
++
++  static auto op = torch::Dispatcher::singleton()
++                       .findSchemaOrThrow("hpu::linear", "")
++                       .typed<decltype(dispatch_linear_hpu)>();
++  return op.call(input, other, bias);
++}
++
++class LinearAutogradHPU : public torch::autograd::Function<LinearAutogradHPU> {
++ public:
++  static at::Tensor forward(
++      torch::autograd::AutogradContext* ctx,
++      const at::Tensor& input,
++      const at::Tensor& weight,
++      const c10::optional<at::Tensor>& bias) {
++    PT_EAGER_TRACE;
++    ctx->saved_data["bias"] = bias.has_value() && bias.value().defined();
++    ctx->save_for_backward({input, weight});
++    return dispatch_linear_hpu(input, weight, bias);
++  }
++
++  static std::vector<at::Tensor> backward(
++      torch::autograd::AutogradContext* ctx,
++      torch::autograd::variable_list grad_output) {
++    PT_EAGER_TRACE;
++    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
++    bool bias_flag = ctx->saved_data["bias"].toBool();
++    std::array<bool, 3> mask = {1, 1, 1};
++    if (!bias_flag)
++      mask[2] = 0;
++    std::tuple<at::Tensor, at::Tensor, at::Tensor> result =
++        dispatch_linear_backward_hpu(
++            saved_vars[0], grad_output[0], saved_vars[1], mask);
++    auto bias_grad = bias_flag ? std::get<2>(result) : torch::Tensor();
++    return {std::get<0>(result), std::get<1>(result), bias_grad};
++  }
++};
++
++at::Tensor linear_autograd_wrap(
++    const at::Tensor& input,
++    const at::Tensor& other,
++    const c10::optional<at::Tensor>& bias) {
++  PT_EAGER_TRACE;
++  return LinearAutogradHPU::apply(input, other, bias);
++}
++
++TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
++  m.impl("linear", linear_autograd_wrap);
++}
++
++} // namespace eager
++} // namespace habana
+diff --git a/habana_eager/ops/linear.h b/habana_eager/ops/linear.h
+new file mode 100644
+index 0000000..384076b
+--- /dev/null
++++ b/habana_eager/ops/linear.h
+@@ -0,0 +1,37 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++#pragma once
++
++#include <ATen/core/TensorBody.h>
++
++namespace habana {
++namespace eager {
++
++at::Tensor linear_autograd_wrap(
++    const at::Tensor& input,
++    const at::Tensor& other,
++    const c10::optional<at::Tensor>& bias);
++
++at::Tensor linear_fwd_eager_hpu(
++    const at::Tensor& input,
++    const at::Tensor& other,
++    const c10::optional<at::Tensor>& bias);
++
++std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_eager_hpu(
++    const at::Tensor& grad_output,
++    const at::Tensor& input,
++    const at::Tensor& other,
++    std::array<bool, 3> output_mask);
++
++} // namespace eager
++} // namespace habana
+diff --git a/habana_eager/ops/matmul.cpp b/habana_eager/ops/matmul.cpp
+new file mode 100644
+index 0000000..a7f919d
+--- /dev/null
++++ b/habana_eager/ops/matmul.cpp
+@@ -0,0 +1,115 @@
++/*******************************************************************************
++ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++#include "hpu_ops/matmul.h"
++#include <ATen/ATen.h>
++#include <ATen/Tensor.h>
++#include <torch/library.h>
++#include "backend/helpers/tensor_utils.h"
++#include "common/dump_args.h"
++#include "habana_eager/ops/eager_op.h"
++#include "habana_helpers/logging.h"
++#include "hpu_ops/op_logger.h"
++
++namespace habana {
++namespace eager {
++
++at::Tensor matmul_forward(const at::Tensor& self, const at::Tensor& other) {
++  PT_EAGER_TRACE;
++  PT_OP_INFO("matmul: ", DUMP_2ARGS(self, other));
++  habana::eager::EagerOp<at::Tensor> hpu_op{"hpu::matmul", {self, other}};
++  hpu_op.SetOutputMetaFn(MatmulMeta);
++  return hpu_op.call();
++}
++
++at::Tensor matmul_forward_dispatch(
++    const at::Tensor& self,
++    const at::Tensor& other) {
++  static auto op = torch::Dispatcher::singleton()
++                       .findSchemaOrThrow("hpu::matmul", "")
++                       .typed<decltype(matmul_forward_dispatch)>();
++
++  return op.call(self, other);
++}
++
++std::tuple<at::Tensor, at::Tensor> matmul_bwd(
++    const at::Tensor& grad_output,
++    const at::Tensor& self,
++    const at::Tensor& other) {
++  PT_EAGER_TRACE;
++  PT_OP_INFO("matmul_bwd: ", DUMP_3ARGS(grad_output, self, other));
++  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op(
++      "hpu::matmul_bwd",
++      {grad_output, self, other},
++      {self.sizes().vec(), other.sizes().vec()});
++  return hpu_op.call();
++}
++
++std::tuple<at::Tensor, at::Tensor> matmul_bwd_dispatch(
++    const at::Tensor& grad_output,
++    const at::Tensor& self,
++    const at::Tensor& other) {
++  static auto op = torch::Dispatcher::singleton()
++                       .findSchemaOrThrow("hpu::matmul_bwd", "")
++                       .typed<decltype(matmul_bwd_dispatch)>();
++  return op.call(grad_output, self, other);
++}
++
++struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
++  static torch::autograd::variable_list forward(
++      torch::autograd::AutogradContext* ctx,
++      const at::Tensor& self,
++      const at::Tensor& other) {
++    at::AutoDispatchBelowADInplaceOrView g;
++    auto output = matmul_forward_dispatch(self, other);
++    ctx->save_for_backward({self, other});
++    return {output};
++  }
++
++  static torch::autograd::variable_list backward(
++      torch::autograd::AutogradContext* ctx,
++      torch::autograd::variable_list grad_output) {
++    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
++
++    auto grads =
++        matmul_bwd_dispatch(grad_output[0], saved_vars[0], saved_vars[1]);
++    return {std::get<0>(grads), std::get<1>(grads)};
++  }
++};
++
++at::Tensor matmul_autograd_wrap(
++    const at::Tensor& self,
++    const at::Tensor& other) {
++  return MatmulFunction::apply(self, other)[0];
++}
++
++TORCH_LIBRARY_IMPL(hpu, HPU, m) {
++  m.impl("hpu::matmul", matmul_forward);
++  m.impl("hpu::matmul_bwd", matmul_bwd);
++}
++
++TORCH_LIBRARY_FRAGMENT(hpu, m) {
++  m.def("hpu::matmul(Tensor self, Tensor other) -> Tensor");
++  m.def(
++      "hpu::matmul_bwd(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
++}
++
++TORCH_LIBRARY_IMPL(aten, HPU, m) {
++  m.impl("matmul", matmul_forward);
++}
++
++TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
++  m.impl("matmul", matmul_autograd_wrap);
++}
++
++} // namespace eager
++} // namespace habana
+diff --git a/hpu_ops/CMakeLists.txt b/hpu_ops/CMakeLists.txt
+index 5592ee6..623e16c 100644
+--- a/hpu_ops/CMakeLists.txt
++++ b/hpu_ops/CMakeLists.txt
+@@ -232,6 +232,7 @@
+   backend/masked_batch_gemm.cpp
+   backend/masked_fill_gen.cpp
+   backend/_masked_scale_gen.cpp
++  backend/matmul.cpp
+   backend/max_min_gen.cpp
+   backend/maxpool_gen.cpp
+   backend/median_gen.cpp
+diff --git a/hpu_ops/backend/linear_backward_gen.cpp b/hpu_ops/backend/linear_backward_gen.cpp
+index 73ab634..fd5cb79 100644
+--- a/hpu_ops/backend/linear_backward_gen.cpp
++++ b/hpu_ops/backend/linear_backward_gen.cpp
+@@ -12,6 +12,8 @@
+  */
+ 
+ #include "generated/backend/linear_backward.h"
++#include "hpu_ops/linear_backward.h"
++#include "hpu_ops/op_backend.h"
+ 
+ namespace habana {
+ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
+@@ -48,4 +50,47 @@
+   return params;
+ }
+ 
+-} // namespace habana
+\ No newline at end of file
++void LinearBackward::AddNode(
++    synapse_helpers::graph& graph,
++    const at::Stack& stack) {
++  // define output meta
++  const auto meta = LinearBackwardMeta(stack);
++  size_t size = 0;
++  auto params = FillLinearBwdParams(stack, size);
++  // define input tensors
++  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
++  // define guid name with dtype
++  std::string guid =
++      get_guid_with_precision("linear_temp_bwd", meta.at(0).dtype);
++  // define build op
++  std::vector<synapse_helpers::tensor> LinearBwdOP = BuildOp(
++      graph,
++      guid,
++      std::move(input_tensor),
++      {{meta.at(0).shape, meta.at(0).dtype, 0},
++       {meta.at(1).shape, meta.at(1).dtype, 1},
++       {meta.at(2).shape, meta.at(2).dtype, 2}},
++      params.get(),
++      size);
++  // set outputs
++  syn_out(0) = std::move(LinearBwdOP[0]);
++  syn_out(1) = std::move(LinearBwdOP[1]);
++  syn_out(2) = std::move(LinearBwdOP[2]);
++}
++
++LinearBackward::LinearBackward(int device_id, c10::ScalarType scalar_type)
++    : OpBackend(
++          device_id,
++          "linear_temp_bwd",
++          scalar_type,
++          {0, 1, 2},
++          {},
++          {},
++          false) {
++  SetOutputMetaFn(LinearBackwardMeta);
++}
++} // namespace habana
++
++static const auto& LinearBackwardKernelRegistry = habana::KernelRegistry().add(
++    "hpu::linear_backward",
++    KERNEL_FN_GLOBAL(habana::LinearBackward));
+\ No newline at end of file
+diff --git a/hpu_ops/backend/linear_gen.cpp b/hpu_ops/backend/linear_gen.cpp
+index b4a99bd..10e1bc6 100644
+--- a/hpu_ops/backend/linear_gen.cpp
++++ b/hpu_ops/backend/linear_gen.cpp
+@@ -12,6 +12,8 @@
+ *******************************************************************************
+ */
+ #include "generated/backend/linear.h"
++#include "hpu_ops/linear.h"
++#include "hpu_ops/op_backend.h"
+ 
+ namespace habana {
+ 
+@@ -34,4 +36,31 @@
+ 
+   return {meta};
+ }
++
++void Linear::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
++  // define output meta
++  const auto meta = LinearMeta(stack)[0];
++  // define input tensors
++  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1)};
++  // based on bias(True or False) we will push to input_tensors
++  if (stack.at(2).isTensor()) {
++    input_tensor.push_back(syn_in(2));
++  }
++  // define guid name with dtype
++  std::string guid = get_guid_with_precision("linear_fwd", meta.dtype);
++  // define build op
++  std::vector<synapse_helpers::tensor> LinearOP = BuildOp(
++      graph, guid, std::move(input_tensor), {{meta.shape, meta.dtype, 0}});
++  // set the output
++  syn_out(0) = std::move(LinearOP[0]);
++}
++
++Linear::Linear(int device_id, c10::ScalarType scalar_type)
++    : OpBackend(device_id, "linear_fwd", scalar_type, {0}, {}, {}, false) {
++  SetOutputMetaFn(LinearMeta);
++}
+ } // namespace habana
++
++static const auto& LinearKernelRegistry = habana::KernelRegistry().add(
++    "hpu::linear",
++    KERNEL_FN_GLOBAL(habana::Linear));
+\ No newline at end of file
+diff --git a/hpu_ops/backend/matmul.cpp b/hpu_ops/backend/matmul.cpp
+new file mode 100644
+index 0000000..eb23df3
+--- /dev/null
++++ b/hpu_ops/backend/matmul.cpp
+@@ -0,0 +1,258 @@
++/*******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#include "hpu_ops/matmul.h"
++#include "backend/helpers/runtime_config.h"
++#include "hpu_ops/common/batched_matmul_output_shape.h"
++
++namespace sh = synapse_helpers;
++
++namespace habana {
++
++OutputMetaDataVector MatmulMeta(const at::Stack& stack) {
++  const auto& self = stack_tensor(stack, 0);
++  const auto& other = stack_tensor(stack, 1);
++
++  OutputMetaDataVector meta(1);
++  meta.at(0).shape =
++      getBatchMatmulOutShape(self.sizes(), other.sizes(), false, false);
++  meta.at(0).dtype = self.scalar_type();
++  return meta;
++}
++
++Matmul::Matmul(int device_id, c10::ScalarType scalar_type)
++    : OpBackend(device_id, "batch_gemm", scalar_type, {0}, {}, {}, false) {
++  SetOutputMetaFn(MatmulMeta);
++}
++
++void Matmul::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
++  const auto& self = stack_tensor(stack, 0);
++  const auto self_dim = self.dim();
++  const auto self_dtype = self.scalar_type();
++  const auto& other = stack_tensor(stack, 1);
++  const auto other_dim = other.dim();
++
++  synGEMMParams params{false, false};
++  const auto meta = MatmulMeta(stack)[0];
++
++  if (self_dim == other_dim or (self_dim == 2 and other_dim == 1)) {
++    if (self_dim == other_dim) {
++      if (self_dim == 1) {
++        SetGuid(get_guid_with_precision("dot_fwd", self_dtype));
++      } else if (self_dim == 2) {
++        SetGuid("gemm");
++      }
++    } else {
++      SetGuid(get_guid_with_precision("mv_fwd", self_dtype));
++    }
++    auto output = OpBackend::BuildNode(
++        this,
++        graph,
++        {guid_, {syn_in(0), syn_in(1)}, {{meta.shape, meta.dtype, 0}}});
++
++    syn_out(0) = std::move(output[0]);
++    return;
++  }
++
++  bool reshape_3d_2d = habana_helpers::IsMatmul3d2dReshapeEnabled();
++  auto gemm_output_shape = meta.shape;
++
++  if (self_dim == 1 and other_dim == 2) {
++    auto expanded_sizes = self.sizes().vec();
++    expanded_sizes.insert(expanded_sizes.cbegin(), 1);
++    gemm_output_shape.insert(gemm_output_shape.cbegin(), 1);
++    auto reshaped_self =
++        ReshapeHelper(graph, syn_in(0), expanded_sizes, self_dtype);
++
++    auto output = OpBackend::BuildNode(
++        this,
++        graph,
++        {"gemm",
++         {reshaped_self.get(), syn_in(1)},
++         {{gemm_output_shape, meta.dtype}}});
++
++    syn_out(0) = std::move(
++        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
++    return;
++  }
++
++  if (self_dim >= 3 and other_dim == 1) {
++    auto expanded_sizes = other.sizes().vec();
++    expanded_sizes.push_back(1);
++    gemm_output_shape.push_back(1);
++    auto reshaped_other =
++        ReshapeHelper(graph, syn_in(1), expanded_sizes, self_dtype);
++
++    auto output = OpBackend::BuildNode(
++        this,
++        graph,
++        {"batch_gemm",
++         {syn_in(0), reshaped_other.get()},
++         {{gemm_output_shape, meta.dtype}}});
++
++    syn_out(0) = std::move(
++        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
++    return;
++  }
++
++  if ((self_dim == 1 || self_dim == 2) && other_dim >= 3) {
++    std::vector<sh::tensor> expanded_tensor;
++    auto expanded_sizes = self.sizes().vec();
++    if (self_dim == 1) {
++      expanded_sizes.push_back(1);
++      gemm_output_shape.push_back(1);
++
++      expanded_tensor.emplace_back(
++          ReshapeHelper(graph, syn_in(0), expanded_sizes, self_dtype));
++    } else {
++      synTransposeParamsNDims params;
++      params.tensorDim = 2;
++      for (int i = 0; i < HABANA_DIM_MAX; i++) {
++        params.permutation[i] = static_cast<TransposePermutationDim>(i);
++      }
++      std::swap(params.permutation[0], params.permutation[1]);
++      std::swap(expanded_sizes[0], expanded_sizes[1]);
++      expanded_tensor.emplace_back(std::move(BuildNode(
++          this,
++          graph,
++          {"transpose",
++           {syn_in(0)},
++           {{expanded_sizes, self_dtype}},
++           &params,
++           sizeof(params)})[0]));
++    }
++
++    synGEMMParams gemm_params{true, false};
++
++    auto output = OpBackend::BuildNode(
++        this,
++        graph,
++        {"batch_gemm",
++         {syn_in(1), expanded_tensor.back().get()},
++         {{gemm_output_shape, meta.dtype}},
++         &gemm_params,
++         sizeof(gemm_params)});
++
++    if (self_dim == 1) {
++      syn_out(0) = std::move(
++          ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
++    } else {
++      synTransposeParamsNDims params;
++      params.tensorDim = 2;
++      for (int i = 0; i < HABANA_DIM_MAX; i++) {
++        params.permutation[i] = static_cast<TransposePermutationDim>(i);
++      }
++      std::swap(params.permutation[0], params.permutation[1]);
++      std::swap(expanded_sizes[0], expanded_sizes[1]);
++      syn_out(0) = std::move(BuildNode(
++          this,
++          graph,
++          {"transpose",
++           {output[0].get()},
++           {{meta.shape, self_dtype, 0}},
++           &params,
++           sizeof(params)})[0]);
++    }
++    return;
++  }
++
++  if ((self_dim == 4 && other_dim == 3) || (self_dim == 3 && other_dim == 4)) {
++    int64_t n = self.size(-2);
++    int64_t m1 = self.size(-1);
++    at::IntArrayRef batch_tensor1(self.sizes().data(), self_dim - 2);
++    int64_t m2 = other.size(-2);
++    int64_t p = other.size(-1);
++    at::IntArrayRef batch_tensor2(other.sizes().data(), other_dim - 2);
++
++    // expand the batch portion (i.e. cut off matrix dimensions and expand rest)
++    std::vector<int64_t> expand_batch_portion =
++        at::infer_size(batch_tensor1, batch_tensor2);
++
++    std::vector<int64_t> self_expand_size(expand_batch_portion);
++    self_expand_size.insert(self_expand_size.end(), {n, m1});
++
++    std::vector<int64_t> other_expand_size(expand_batch_portion);
++    other_expand_size.insert(other_expand_size.end(), {m2, p});
++
++    auto broadcast_self =
++        BroadcastHelper(graph, syn_in(0), self_expand_size, self_dtype);
++
++    auto broadcast_other =
++        BroadcastHelper(graph, syn_in(1), other_expand_size, self_dtype);
++
++    syn_out(0) = std::move(OpBackend::BuildNode(
++        this,
++        graph,
++        {"batch_gemm",
++         {broadcast_self.get(), broadcast_other.get()},
++         {{gemm_output_shape, meta.dtype, 0}}})[0]);
++    return;
++  }
++
++  if (reshape_3d_2d && (self_dim == 3) && (other_dim == 2)) {
++    auto self_sizes = self.sizes().vec();
++    auto other_sizes = other.sizes().vec();
++    std::vector<int64_t> shape_in{self_sizes[0] * self_sizes[1], self_sizes[2]};
++
++    auto reshaped_self = ReshapeHelper(graph, syn_in(0), shape_in, self_dtype);
++    std::vector<int64_t> gemm_output_shape{
++        self_sizes[0] * self_sizes[1], other_sizes[2]};
++
++    auto output = OpBackend::BuildNode(
++        this,
++        graph,
++        {"gemm",
++         {reshaped_self.get(), syn_in(1)},
++         {{gemm_output_shape, meta.dtype}}});
++
++    syn_out(0) = std::move(
++        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
++    return;
++  }
++
++  if ((self_dim >= 1 && other_dim >= 1) && (self_dim >= 3 || other_dim >= 3)) {
++    syn_out(0) = std::move(OpBackend::BuildNode(
++        this,
++        graph,
++        {"batch_gemm",
++         {syn_in(0), syn_in(1)},
++         {{meta.shape, meta.dtype, 0}}})[0]);
++    return;
++  }
++
++  TORCH_CHECK(false, "NOT SUPPORTED MATMUL CONFIGURATION");
++}
++
++OutputMetaDataVector MatmulBwdMeta(const at::Stack& stack) {
++  const auto& self = stack_tensor(stack, 1);
++  const auto& other = stack_tensor(stack, 2);
++
++  OutputMetaDataVector meta(2);
++  meta.at(0).shape = self.sizes().vec();
++  meta.at(0).dtype = self.scalar_type();
++  meta.at(1).shape = other.sizes().vec();
++  meta.at(1).dtype = other.scalar_type();
++  return meta;
++}
++
++MatmulBwd::MatmulBwd(int device_id, c10::ScalarType scalar_type)
++    : OpBackend(device_id, "matmul_bwd", scalar_type, {1, 2}, {}, {}, false) {
++  SetOutputMetaFn(MatmulBwdMeta);
++}
++
++} // namespace habana
++
++static const auto& CustomSoftmaxKernelRegistry =
++    habana::KernelRegistry()
++        .add("hpu::matmul", KERNEL_FN_GLOBAL(habana::Matmul))
++        .add("hpu::matmul_bwd", KERNEL_FN_GLOBAL(habana::MatmulBwd));
+diff --git a/hpu_ops/linear.h b/hpu_ops/linear.h
+new file mode 100644
+index 0000000..3c16d20
+--- /dev/null
++++ b/hpu_ops/linear.h
+@@ -0,0 +1,28 @@
++/******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#pragma once
++
++#include "hpu_ops/hpu_op_helper.h"
++#include "hpu_ops/op_backend.h"
++
++namespace habana {
++
++class Linear : public OpBackend {
++ public:
++  Linear(int device_id, c10::ScalarType scalar_type);
++
++  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++};
++
++} // namespace habana
+diff --git a/hpu_ops/linear_backward.h b/hpu_ops/linear_backward.h
+new file mode 100644
+index 0000000..6fddbd8
+--- /dev/null
++++ b/hpu_ops/linear_backward.h
+@@ -0,0 +1,28 @@
++/******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#pragma once
++
++#include "hpu_ops/hpu_op_helper.h"
++#include "hpu_ops/op_backend.h"
++
++namespace habana {
++
++class LinearBackward : public OpBackend {
++ public:
++  LinearBackward(int device_id, c10::ScalarType scalar_type);
++
++  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++};
++
++} // namespace habana
+diff --git a/hpu_ops/matmul.h b/hpu_ops/matmul.h
+new file mode 100644
+index 0000000..92af9c0
+--- /dev/null
++++ b/hpu_ops/matmul.h
+@@ -0,0 +1,33 @@
++/******************************************************************************
++ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++ * All Rights Reserved.
++ *
++ * Unauthorized copying of this file or any element(s) within it, via any medium
++ * is strictly prohibited.
++ * This file contains Habana Labs, Ltd. proprietary and confidential information
++ * and is subject to the confidentiality and license agreements under which it
++ * was provided.
++ *
++ *******************************************************************************
++ */
++
++#pragma once
++
++#include "hpu_ops/hpu_op_helper.h"
++#include "hpu_ops/op_backend.h"
++
++namespace habana {
++
++struct Matmul : OpBackend {
++  Matmul(int device_id, c10::ScalarType scalar_type);
++  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
++};
++
++struct MatmulBwd : OpBackend {
++  MatmulBwd(int device_id, c10::ScalarType scalar_type);
++};
++
++OUTMETA_DECL(MatmulMeta)
++OUTMETA_DECL(MatmulBwdMeta)
++
++} // namespace habana
+diff --git a/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
+index cd3fb25..dda4d70 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
++++ b/python_packages/habana_frameworks/torch/dynamo/_custom_op_meta_registrations.py
+@@ -140,6 +140,27 @@
+     return out
+ 
+ 
++@register_meta([torch.ops.hpu.matmul.default])
++def meta_matmul(
++    A,
++    B,
++):
++    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm_v2", [A, B], [False, False])[0]
++    out = A.new_empty(out_shape)
++    return out
++
++
++@register_meta([torch.ops.hpu.matmul_bwd.default])
++def meta_matmul_bwd(
++    grad_out,
++    self,
++    other,
++):
++    self_grad = self.new_empty(self.shape)
++    other_grad = other.new_empty(other.shape)
++    return self_grad, other_grad
++
++
+ @register_meta([torch.ops.hpu.fp8_gemm_v2.default])
+ def meta_fp8_gemm_v2(
+     A,
+@@ -877,6 +898,23 @@
+     return torch.empty_like(self)
+ 
+ 
++@register_meta([torch.ops.hpu.linear.default])
++def linear(input, weight, bias=None):
++    out = input.new_empty((input.shape[:-1] + weight.shape[0:-1]), dtype=input.dtype)
++    return out
++
++
++@register_meta([torch.ops.hpu.linear_backward.default])
++def linear_backward(self, grad_output, weight, output_mask):
++    input_grad = self.new_empty(self.shape, dtype=self.dtype)
++    weight_grad = weight.new_empty(weight.shape, dtype=weight.dtype)
++    if output_mask[2] is True:
++        bias_grad = weight.new_empty((weight.shape[0]), dtype=weight.dtype)
++    else:
++        bias_grad = None
++    return input_grad, weight_grad, bias_grad
++
++
+ def activate_hpu_custom_op_meta():
+     activate_meta_table = {}
+ 
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py
+index b3d848b..b9ab793 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/decomposition.py
+@@ -695,3 +695,22 @@
+         return {**core_aten_decompositions()}
+     else:
+         return None
++
++
++# Some ops are decomposed at the CompositeImplicitAutograd and PyTorch doesn't
++# allow for easy removal of this decomposition https://github.com/pytorch/pytorch/issues/112744.
++# Below code allows to override it.
++
++old_fn = torch.ops.aten.matmul.default.py_kernels.pop(DispatchKey.CompositeImplicitAutograd)
++
++
++@torch.ops.aten.matmul.default.py_impl(DispatchKey.CompositeImplicitAutograd)
++def impl_matmul(tensor1, tensor2):
++    if tensor1.device.type == "hpu":
++        return torch.ops.hpu.matmul(tensor1, tensor2)
++    return old_fn(tensor1, tensor2)
++
++
++@aten.linear.default.py_impl(DispatchKey.CompositeImplicitAutograd)
++def linear(input, weight, bias=None):
++    return torch.ops.hpu.linear.default(input, weight, bias)
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+index 03aa0af..fdcf529 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+@@ -2899,7 +2899,11 @@
+                 bias, inp, _ = list(u.args)
+                 weight = list(node.args)[0]
+                 new_args = (inp, weight, bias)
+-            elif u.target == torch.ops.aten.mm.default:
++            elif u.target == torch.ops.aten.mm.default or (
++                u.target == torch.ops.hpu.matmul.default
++                and len(u.args[0].meta["output_shapes"][0]) == 2
++                and len(u.args[1].meta["output_shapes"][0]) == 2
++            ):
+                 # transpose should be mm's second input to be fused to linear
+                 if len(u.args) < 2 or node is not u.args[1]:
+                     break
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+index 07b2cd6..3b3148b 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/shared_layer.py
+@@ -50,6 +50,7 @@
+     "fp8_gemm_v2",
+     "in_place_interleave",
+     "kv_reorder",
++    "matmul_bwd",
+     "mixture_of_experts",
+     "plain_index",
+     "rms_norm",
+@@ -110,6 +111,10 @@
+     # Activation checkpoint
+     "run_and_save_rng_state",
+     "run_with_rng_state",
++    # linear and linear_backward needs to be explicitly added to that list because
++    # we have a hpu implementation to capture linear from PT.
++    "linear",
++    "linear_backward",
+ }
+ 
+ hpu_supported_ops_restricted = dict()
+diff --git a/scripts/gen_op.py b/scripts/gen_op.py
+index 258e1bf..36023d4 100755
+--- a/scripts/gen_op.py
++++ b/scripts/gen_op.py
+@@ -1849,6 +1849,9 @@
+     if any(op in fields["schema"] for op in non_mandatory_ops_whitelist):
+         return True
+ 
++    if "linear_backward" in fields["schema"]:
++        return False
++
+     return fields.get("dispatch", "False") == "True" and fields.get("default", "False") == "False"
+ 
+ 
+diff --git a/tests/pytest_working/any_mode/test_hpu_linear.py b/tests/pytest_working/any_mode/test_hpu_linear.py
+new file mode 100644
+index 0000000..f4dc546
+--- /dev/null
++++ b/tests/pytest_working/any_mode/test_hpu_linear.py
+@@ -0,0 +1,118 @@
++###############################################################################
++# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++import copy
++
++import habana_frameworks.torch.core as htcore
++import habana_frameworks.torch.dynamo.compile_backend
++import pytest
++import torch
++from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
++
++dtypes = [torch.float, torch.bfloat16]
++if not is_gaudi1():
++    dtypes += [torch.float16]
++
++
++@pytest.mark.parametrize("dtype", dtypes)
++@pytest.mark.parametrize("bias", [True, False])
++@pytest.mark.parametrize(
++    "in_features, out_features",
++    [(10, 7), (21, 21), (15, 30), (15, 1), (1, 17)],
++)
++def test_linear_fwd_only(dtype, bias, in_features, out_features):
++    class Model(torch.nn.Module):
++        def __init__(self, input_size, output_size, device):
++            super(Model, self).__init__()
++            self.linear = torch.nn.Linear(input_size, output_size, bias=bias, dtype=dtype, device=device)
++
++        def forward(self, input):
++            x = self.linear(input)
++            return x
++
++    def fn(model, input):
++        return model(input)
++
++    if pytest.mode == "compile":
++        torch._dynamo.reset()
++        clear_t_compile_logs()
++        compiled_hpu = torch.compile(fn, backend="hpu_backend")
++    else:
++        compiled_hpu = fn
++
++    # CPU
++    cpu_input = torch.randn((2, 3, 4, in_features), dtype=dtype, requires_grad=False)
++    cpu_model = Model(in_features, out_features, device="cpu")
++    cpu_result = fn(cpu_model, cpu_input)
++
++    hpu_input = cpu_input.to("hpu").detach()
++    hpu_input.requires_grad = False
++    hpu_model = copy.deepcopy(cpu_model).to("hpu")
++    hpu_result = compiled_hpu(hpu_model, hpu_input)
++
++    tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-3
++    assert torch.allclose(cpu_result, hpu_result.cpu(), atol=tolerance, rtol=tolerance)
++    if is_pytest_mode_compile():
++        check_ops_executed_in_jit_ir({"linear"})
++
++
++@pytest.mark.parametrize("dtype", dtypes)
++@pytest.mark.parametrize("bias", [True, False])
++@pytest.mark.parametrize(
++    "in_features, out_features",
++    [(10, 7), (21, 21), (15, 30), (15, 1), (1, 17)],
++)
++def test_linear_fwd_bwd(dtype, bias, in_features, out_features):
++    class Model(torch.nn.Module):
++        def __init__(self, input_size, output_size, device):
++            super(Model, self).__init__()
++            self.linear = torch.nn.Linear(input_size, output_size, bias=bias, dtype=dtype, device=device)
++
++        def forward(self, input):
++            x = self.linear(input)
++            return x
++
++    def fn(model, input):
++        return model(input)
++
++    if pytest.mode == "compile":
++        torch._dynamo.reset()
++        clear_t_compile_logs()
++        compiled_hpu = torch.compile(fn, backend="hpu_backend")
++    else:
++        compiled_hpu = fn
++
++    # CPU forward
++    cpu_input = torch.randn((2, 3, 4, in_features), dtype=dtype, requires_grad=True)
++    cpu_model = Model(in_features, out_features, device="cpu")
++    cpu_result = fn(cpu_model, cpu_input)
++
++    # HPU forward
++    hpu_input = cpu_input.to("hpu").detach()
++    hpu_input.requires_grad = True
++    hpu_model = copy.deepcopy(cpu_model).to("hpu")
++    hpu_result = compiled_hpu(hpu_model, hpu_input)
++
++    tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-3
++    assert torch.allclose(cpu_result.detach(), hpu_result.detach().cpu(), atol=tolerance, rtol=tolerance)
++
++    cpu_result.mean().backward()
++    hpu_result.mean().backward()
++    assert torch.allclose(cpu_input.grad, hpu_input.grad.cpu(), atol=tolerance, rtol=tolerance)
++    assert torch.allclose(
++        cpu_model.linear.weight.grad, hpu_model.linear.weight.grad.cpu(), atol=tolerance, rtol=tolerance
++    )
++    if bias is True:
++        assert torch.allclose(
++            cpu_model.linear.bias.grad, hpu_model.linear.bias.grad.cpu(), atol=tolerance, rtol=tolerance
++        )
++    if is_pytest_mode_compile():
++        check_ops_executed_in_jit_ir({"linear", "linear_backward"})
+diff --git a/tests/pytest_working/any_mode/test_hpu_matmul.py b/tests/pytest_working/any_mode/test_hpu_matmul.py
+new file mode 100644
+index 0000000..38e9fc3
+--- /dev/null
++++ b/tests/pytest_working/any_mode/test_hpu_matmul.py
+@@ -0,0 +1,101 @@
++###############################################################################
++# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
++# All Rights Reserved.
++#
++# Unauthorized copying of this file or any element(s) within it, via any medium
++# is strictly prohibited.
++# This file contains Habana Labs, Ltd. proprietary and confidential information
++# and is subject to the confidentiality and license agreements under which it
++# was provided.
++#
++###############################################################################
++
++import habana_frameworks.torch.core as htcore
++import numpy as np
++import pytest
++import torch
++from test_utils import (
++    check_ops_executed_in_jit_ir,
++    compare_tensors,
++    compile_function_if_compile_mode,
++    hpu,
++    is_pytest_mode_compile,
++)
++
++shapes = [
++    # size1, size2
++    ((2), (2)),
++    ((3), (3, 2)),
++    ((4), (3, 4, 2)),
++    ((5), (2, 3, 5, 1)),
++    ((6), (2, 3, 2, 6, 2)),
++    ((2, 3), (3)),
++    ((3, 2, 4), (4)),
++    ((2, 3, 1, 5), (5)),
++    ((2, 3, 2, 2, 6), (6)),
++    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),
++    ((2, 3), (3, 4)),
++    ((2, 3, 4), (4, 5)),
++    ((2, 3, 4), (2, 4, 5)),
++    ((2, 3, 4), (4)),
++    ((2, 2, 3, 4), (2, 4, 3)),
++    ((1, 8, 16), (10, 16, 12)),
++    ((1, 10, 8, 16), (2, 10, 16, 12)),
++]
++
++
++@pytest.mark.parametrize("size1, size2", shapes)
++def test_hpu_matmul_fwd_bwd(size1, size2):
++    t1 = torch.randn(size1, requires_grad=True)
++    t2 = torch.randn(size2, requires_grad=True)
++
++    t1_h = t1.to(hpu)
++    t1_h.retain_grad()
++    t2_h = t2.to(hpu)
++    t2_h.retain_grad()
++
++    out = torch.matmul(t1, t2)
++    loss = out.sum()
++    loss.backward()
++    grad_t1_cpu = t1.grad.clone().detach()
++    grad_t2_cpu = t2.grad.clone().detach()
++
++    fn = compile_function_if_compile_mode(torch.matmul)
++    out_h = fn(t1_h, t2_h)
++    loss_h = out_h.sum()
++    loss_h.backward()
++
++    grad_t1_h = t1_h.grad.cpu()
++    grad_t2_h = t2_h.grad.cpu()
++
++    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3)
++    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)
++
++
++@pytest.mark.parametrize("size1, size2", shapes)
++def test_hpu_matmul_fwd(size1, size2):
++    t1 = torch.randn(size1)
++    t2 = torch.randn(size2)
++    t1_h = t1.to(hpu)
++    t2_h = t2.to(hpu)
++
++    out = torch.matmul(t1, t2)
++    fn = compile_function_if_compile_mode(torch.matmul)
++    out_h = fn(t1_h, t2_h)
++
++    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)
++
++
++@pytest.mark.parametrize("size1, size2", shapes)
++def test_hpu_matmul_inference(size1, size2):
++    t1 = torch.randn(size1)
++    t2 = torch.randn(size2)
++    t1_h = t1.to(hpu)
++    t2_h = t2.to(hpu)
++
++    fn = compile_function_if_compile_mode(torch.matmul)
++    out_training = fn(t1_h, t2_h)
++    with torch.inference_mode():
++        out_inference = fn(t1_h, t2_h)
++
++    assert torch.equal(out_training, out_inference)
+diff --git a/tests/pytest_working/compile/test_hpu_linear.py b/tests/pytest_working/compile/test_hpu_linear.py
+index 743cf46..ec51f47 100644
+--- a/tests/pytest_working/compile/test_hpu_linear.py
++++ b/tests/pytest_working/compile/test_hpu_linear.py
+@@ -24,10 +24,14 @@
+         return model(input)
+ 
+     # CPU
+-    input = torch.randn((2, 3, 4, in_features))
+-    h_input = input.to("hpu").detach().requires_grad_()
++    input = torch.randn((2, 3, 4, in_features), requires_grad=True)
++    h_input = input.to("hpu")
++    h_input.retain_grad()
+     model = torch.nn.Linear(in_features, out_features, True)
+     result = fn(model, input)
++    result.sum().backward()
++    grad_cpu = input.grad.clone().detach()
++
+     model = model.to("hpu")
+ 
+     # HPU
+@@ -35,3 +39,29 @@
+     hresult = compiled_fn(model, h_input)
+ 
+     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
++
++    hresult.sum().backward()
++
++    print(grad_cpu)
++    print(h_input.grad.cpu())
++
++
++@pytest.mark.parametrize("dtype", [torch.float])
++def test_linear_inference(dtype):
++    def fn(model, input):
++        return model(input)
++
++    # CPU
++    with torch.inference_mode():
++        input = torch.randn((2, 3, 4, in_features))
++        h_input = input.to("hpu")
++        model = torch.nn.Linear(in_features, out_features, True)
++        result = fn(model, input)
++
++        model = model.to("hpu")
++
++        # HPU
++        compiled_fn = torch.compile(fn, backend="hpu_backend")
++        hresult = compiled_fn(model, h_input)
++
++        assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+diff --git a/tests/pytest_working/compile/test_pass_inference.py b/tests/pytest_working/compile/test_pass_inference.py
+index 68ebb47..4179c7a 100644
+--- a/tests/pytest_working/compile/test_pass_inference.py
++++ b/tests/pytest_working/compile/test_pass_inference.py
+@@ -69,7 +69,7 @@
+         out_hpu = func(x=x, m=m, device="hpu")
+ 
+     ops_summary = fga.get_ops_summary()
+-    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
++    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear", count_list=[(1, 0)])
+ 
+     out_cpu = func(x=x_c, m=m_c, device="cpu")
+     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
+@@ -164,7 +164,7 @@
+         out_hpu = func(x=x, m=m, device="hpu")
+ 
+     ops_summary = fga.get_ops_summary()
+-    op_name = "torch.ops.aten.linear" if fuse_linear is True else "torch.ops.aten.mm.default"
++    op_name = "torch.ops.aten.linear" if fuse_linear is True else "torch.ops.hpu.matmul.default"
+     fga_assert_helper(ops_summary=ops_summary, op=op_name, count_list=[(1, 0)])
+ 
+     out_cpu = func(x=x_c, m=m_c, device="cpu")
+diff --git a/tests/pytest_working/compile/test_pt2e_quant_flow.py b/tests/pytest_working/compile/test_pt2e_quant_flow.py
+index 06be343..d9d376d 100644
+--- a/tests/pytest_working/compile/test_pt2e_quant_flow.py
++++ b/tests/pytest_working/compile/test_pt2e_quant_flow.py
+@@ -217,7 +217,7 @@
+             "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+             "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
++            "torch.ops.hpu.matmul.default": [(1, 0), (0, 0)],
+             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+         },
+         "after_convert_pt2e": {
+diff --git a/tests/pytest_working/eager/test_hpu_matmul.py b/tests/pytest_working/eager/test_hpu_matmul.py
+deleted file mode 100644
+index 8802aee..0000000
+--- a/tests/pytest_working/eager/test_hpu_matmul.py
++++ /dev/null
+@@ -1,78 +0,0 @@
+-###############################################################################
+-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+-# All Rights Reserved.
+-#
+-# Unauthorized copying of this file or any element(s) within it, via any medium
+-# is strictly prohibited.
+-# This file contains Habana Labs, Ltd. proprietary and confidential information
+-# and is subject to the confidentiality and license agreements under which it
+-# was provided.
+-#
+-###############################################################################
+-
+-import habana_frameworks.torch.core as htcore
+-import numpy as np
+-import pytest
+-import torch
+-from test_utils import compare_tensors, hpu
+-
+-shapes = [
+-    # size1, size2
+-    ((2), (2)),
+-    ((3), (3, 2)),
+-    ((4), (3, 4, 2)),
+-    ((5), (2, 3, 5, 1)),
+-    ((6), (2, 3, 2, 6, 2)),
+-    ((2, 3), (3)),
+-    ((3, 2, 4), (4)),
+-    ((2, 3, 1, 5), (5)),
+-    ((2, 3, 2, 2, 6), (6)),
+-    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),
+-    ((2, 3), (3, 4)),
+-    ((2, 3, 4), (4, 5)),
+-    ((2, 3, 4), (2, 4, 5)),
+-    ((2, 3, 4), (4)),
+-    ((2, 2, 3, 4), (2, 4, 3)),
+-    ((1, 8, 16), (10, 16, 12)),
+-    ((1, 10, 8, 16), (2, 10, 16, 12)),
+-]
+-
+-
+-@pytest.mark.parametrize("size1, size2", shapes)
+-def test_hpu_matmul_fwd_bwd(size1, size2):
+-    t1 = torch.randn(size1, requires_grad=True)
+-    t2 = torch.randn(size2, requires_grad=True)
+-
+-    t1_h = t1.to(hpu)
+-    t1_h.retain_grad()
+-    t2_h = t2.to(hpu)
+-    t2_h.retain_grad()
+-
+-    out = torch.matmul(t1, t2)
+-    loss = out.sum()
+-    loss.backward()
+-    grad_t1_cpu = t1.grad.clone().detach()
+-    grad_t2_cpu = t2.grad.clone().detach()
+-
+-    out_h = torch.matmul(t1_h, t2_h)
+-    loss_h = out_h.sum()
+-    loss_h.backward()
+-
+-    grad_t1_h = t1_h.grad.cpu()
+-    grad_t2_h = t2_h.grad.cpu()
+-
+-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3)
+-    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)
+-
+-
+-@pytest.mark.parametrize("size1, size2", shapes)
+-def test_hpu_matmul_fwd(size1, size2):
+-    t1 = torch.randn(size1)
+-    t2 = torch.randn(size2)
+-    t1_h = t1.to(hpu)
+-    t2_h = t2.to(hpu)
+-
+-    out = torch.matmul(t1, t2)
+-    out_h = torch.matmul(t1_h, t2_h)
+-
+-    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)
+diff --git a/tests/pytest_working/lazy/test_lazy_matmul.py b/tests/pytest_working/lazy/test_lazy_matmul.py
+deleted file mode 100644
+index 286efcb..0000000
+--- a/tests/pytest_working/lazy/test_lazy_matmul.py
++++ /dev/null
+@@ -1,97 +0,0 @@
+-###############################################################################
+-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+-# All Rights Reserved.
+-#
+-# Unauthorized copying of this file or any element(s) within it, via any medium
+-# is strictly prohibited.
+-# This file contains Habana Labs, Ltd. proprietary and confidential information
+-# and is subject to the confidentiality and license agreements under which it
+-# was provided.
+-#
+-###############################################################################
+-
+-import habana_frameworks.torch.core as htcore
+-import numpy as np
+-import pytest
+-import torch
+-from test_utils import compare_tensors, hpu
+-
+-matmul_lazy_list = [
+-    # size1, size2
+-    ((2), (2)),
+-    ((3), (3, 2)),
+-    ((4), (3, 4, 2)),
+-    ((5), (2, 3, 5, 1)),
+-    ((6), (2, 3, 2, 6, 2)),
+-    ((2, 3), (3)),
+-    ((3, 2, 4), (4)),
+-    ((2, 3, 1, 5), (5)),
+-    ((2, 3, 2, 2, 6), (6)),
+-    ((2, 1, 3, 4, 2), (1, 4, 1, 2, 3)),
+-    ((2, 3), (3, 4)),
+-    ((2, 3, 4), (4, 5)),
+-    ((2, 3, 4), (2, 4, 5)),
+-    ((2, 3, 4), (4)),
+-    ((2, 2, 3, 4), (2, 4, 3)),
+-    ((10, 8, 16), (1, 16, 12)),
+-    ((2, 10, 8, 16), (2, 1, 16, 12)),
+-]
+-
+-
+-@pytest.mark.skip(reason="Results mismatch")
+-@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+-def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
+-    t1 = torch.randn(size1, requires_grad=True)
+-    t2 = torch.randn(size2, requires_grad=True)
+-
+-    hpu = torch.device("hpu")
+-
+-    t1_h = t1.to(hpu)
+-    t1_h.retain_grad()
+-    t2_h = t2.to(hpu)
+-    t2_h.retain_grad()
+-
+-    out = torch.matmul(t1, t2)
+-    loss = out.sum()
+-    loss.backward()
+-    grad_t1_cpu = t1.grad.clone().detach()
+-    grad_t2_cpu = t2.grad.clone().detach()
+-
+-    out_h = torch.matmul(t1_h, t2_h)
+-    loss_h = out_h.sum()
+-    loss_h.backward()
+-
+-    htcore.mark_step()
+-
+-    grad_t1_h = t1_h.grad.cpu()
+-    grad_t2_h = t2_h.grad.cpu()
+-
+-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3), f"Data mismatch"
+-    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3), f"Data mismatch"
+-
+-
+-@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+-def test_hpu_matmul_fwd(size1, size2):
+-    t1 = torch.randn(size1)
+-    t2 = torch.randn(size2)
+-    t1_h = t1.to(hpu)
+-    t2_h = t2.to(hpu)
+-
+-    out = torch.matmul(t1, t2)
+-    out_h = torch.matmul(t1_h, t2_h)
+-
+-    compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)
+-
+-
+-@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+-def test_hpu_matmul_inference(size1, size2):
+-    t1 = torch.randn(size1)
+-    t2 = torch.randn(size2)
+-    t1_h = t1.to(hpu)
+-    t2_h = t2.to(hpu)
+-
+-    out_training = torch.matmul(t1_h, t2_h)
+-    with torch.inference_mode():
+-        out_inference = torch.matmul(t1_h, t2_h)
+-
+-    assert torch.equal(out_training, out_inference)

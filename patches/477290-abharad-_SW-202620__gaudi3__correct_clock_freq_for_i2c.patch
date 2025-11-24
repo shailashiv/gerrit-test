@@ -1,0 +1,100 @@
+From c81930f7627484919b0c93b47dbc457515fbed39 Mon Sep 17 00:00:00 2001
+From: Pradyot Bhattacharyya <pbhattacharyya@habana.ai>
+Date: Thu, 10 Apr 2025 14:22:44 +0300
+Subject: [PATCH] [SW-202620] gaudi3: correct clock freq for i2c
+
+With this fix, the following clock frequencies
+are configured:
+i2c0: 400Khz
+i2c1: 100Khz
+i2c2: 100Khz
+
+Change-Id: I0f2601c62458dfdd3f93d303632620d92969bf33
+Signed-off-by: Pradyot Bhattacharyya <pbhattacharyya@habana.ai>
+(cherry picked from commit fb895d583e56df41e039891205ab1a64d4c9aa98)
+---
+
+diff --git a/boards/hl/gaudi3/hl_gaudi3_preboot_asic.dts b/boards/hl/gaudi3/hl_gaudi3_preboot_asic.dts
+index f9c3f62..f4ac5fc 100644
+--- a/boards/hl/gaudi3/hl_gaudi3_preboot_asic.dts
++++ b/boards/hl/gaudi3/hl_gaudi3_preboot_asic.dts
+@@ -141,7 +141,7 @@
+ };
+ 
+ &i2c2 {
+-	clock-frequency = <I2C_BITRATE_FAST_PLUS>;
++	clock-frequency = <I2C_BITRATE_STANDARD>;
+ 	status = "okay";
+ };
+ 
+diff --git a/boards/hl/gaudi3/hl_gaudi3_preboot_onix.dts b/boards/hl/gaudi3/hl_gaudi3_preboot_onix.dts
+index 91f7718..e5e4fbd 100644
+--- a/boards/hl/gaudi3/hl_gaudi3_preboot_onix.dts
++++ b/boards/hl/gaudi3/hl_gaudi3_preboot_onix.dts
+@@ -49,7 +49,7 @@
+ };
+ 
+ &i2c2 {
+-	clock-frequency = <I2C_BITRATE_FAST_PLUS>;
++	clock-frequency = <I2C_BITRATE_STANDARD>;
+ 	status = "okay";
+ };
+ 
+diff --git a/drivers/i2c/i2c_dw.h b/drivers/i2c/i2c_dw.h
+index 0694f8b..7231ac0 100644
+--- a/drivers/i2c/i2c_dw.h
++++ b/drivers/i2c/i2c_dw.h
+@@ -65,13 +65,30 @@
+ 
+ 
+ /* IC_CON Low count and high count default values */
+-/* TODO verify values for high and fast speed */
++/*
++ * Input frequency: 50MHz, Standard frequency: 100KHz,
++ * Fast frequency: 400KHz, High Frequency: 1000KHz
++ */
++
++#if defined(CONFIG_SOC_SERIES_GAUDI3)
++#define I2C_STANDARD_FREQ_KHZ   100
++#define I2C_FAST_FREQ_KHZ       400
++#define I2C_HIGH_FREQ_KHZ       1000
++#define I2C_INPUT_FREQ_MHZ      50
++#define I2C_STD_HCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_STANDARD_FREQ_KHZ) / 2) - 17)
++#define I2C_STD_LCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_STANDARD_FREQ_KHZ) / 2) - 1)
++#define I2C_FS_HCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_FAST_FREQ_KHZ) / 2) - 17)
++#define I2C_FS_LCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_FAST_FREQ_KHZ) / 2) - 1)
++#define I2C_HS_HCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_HIGH_FREQ_KHZ) / 2) - 17)
++#define I2C_HS_LCNT		((((I2C_INPUT_FREQ_MHZ * 1000) / I2C_HIGH_FREQ_KHZ) / 2) - 1)
++#else
+ #define I2C_STD_HCNT			(CONFIG_I2C_DW_CLOCK_SPEED * 4)
+ #define I2C_STD_LCNT			(CONFIG_I2C_DW_CLOCK_SPEED * 5)
+ #define I2C_FS_HCNT			((CONFIG_I2C_DW_CLOCK_SPEED * 6) / 8)
+ #define I2C_FS_LCNT			((CONFIG_I2C_DW_CLOCK_SPEED * 7) / 8)
+ #define I2C_HS_HCNT			((CONFIG_I2C_DW_CLOCK_SPEED * 6) / 8)
+ #define I2C_HS_LCNT			((CONFIG_I2C_DW_CLOCK_SPEED * 7) / 8)
++#endif
+ 
+ /*
+  * DesignWare speed values don't directly translate from the Zephyr speed
+diff --git a/dts/arc/hl_gaudi3.dtsi b/dts/arc/hl_gaudi3.dtsi
+index 397d351..9f199a2 100644
+--- a/dts/arc/hl_gaudi3.dtsi
++++ b/dts/arc/hl_gaudi3.dtsi
+@@ -471,7 +471,7 @@
+ 			#size-cells = <0>;
+ 			reg = <0xfc481000 0x100>;
+ 			interrupts = <321 2>;
+-			clock-frequency = <I2C_BITRATE_FAST_PLUS>;
++			clock-frequency = <I2C_BITRATE_STANDARD>;
+ 			node_label = "I2C_1";
+ 			label = "I2C_1";
+ 			sda-hold-time-ns = <100>;
+@@ -568,7 +568,7 @@
+ 			#size-cells = <0>;
+ 			reg = <0xfc482000 0x100>;
+ 			interrupts = <322 1>;
+-			clock-frequency = <I2C_BITRATE_FAST_PLUS>;
++			clock-frequency = <I2C_BITRATE_STANDARD>;
+ 			node_label = "I2C_2";
+ 			label = "I2C_2";
+ 			slave_soc0: slave-soc@67 {

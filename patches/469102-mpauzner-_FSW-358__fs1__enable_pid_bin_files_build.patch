@@ -1,0 +1,61 @@
+From 55c7977236143ca823d7d8d10da14e123f667964 Mon Sep 17 00:00:00 2001
+From: Michael Pauzner <mpauzner@habana.ai>
+Date: Sun, 03 Nov 2024 15:04:08 +0200
+Subject: [PATCH] [FSW-358] fs1: enable pid bin files build
+
+Enable build of PID bin files.
+
+Change-Id: I9b92c79684ce2ad3e4fea5a6930a35a8465058b4
+Signed-off-by: Michael Pauzner <mpauzner@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-image-utility.sh b/board/habanalabs/fs1_arc/fs1-image-utility.sh
+index ef02bb6..d76313f 100755
+--- a/board/habanalabs/fs1_arc/fs1-image-utility.sh
++++ b/board/habanalabs/fs1_arc/fs1-image-utility.sh
+@@ -180,9 +180,9 @@
+ 		fi
+ 
+ 		# TEMPORARY:
+-		# Skip all the modules except "mgmt", because they are not implemented yet.
+-		# Only a basic implementation of arcmgmt is being implemented for now.
+-		if ! echo "$module" | grep -q -E  -e "mgmt" -e "agent"; then
++		# Skip all the modules except "mgmt" and "pid", because they are not implemented yet.
++		# Only a basic implementation of arcmgmt and arcpid is being implemented for now.
++		if ! echo "$module" | grep -q -E  -e "mgmt" -e "agent" -e "pid"; then
+ 			continue;
+ 		fi
+ 
+diff --git a/board/habanalabs/fs1_arc/fs1-zephyr.its b/board/habanalabs/fs1_arc/fs1-zephyr.its
+index ebe7a7c..575adcc 100644
+--- a/board/habanalabs/fs1_arc/fs1-zephyr.its
++++ b/board/habanalabs/fs1_arc/fs1-zephyr.its
+@@ -64,6 +64,16 @@
+ 			memsize = <@MGMT_IO_ICCM_SIZE@ @MGMT_IO_DCCM_SIZE@>;
+ 			startaddr = <@MGMT_STARTADDR_HI@ @MGMT_STARTADDR_LO@>;
+ 		};
++
++		arc-io-pid {
++			arch = "arc";
++			cpubase = <@PID_IO_BASEADDR_HI@ @PID_IO_BASEADDR_LO@>;
++			cputype = <0>; /* 0 - PSOC ARC, 1 - ARCFARM */
++			memnum = <2>;
++			membase = <@ARC_PID_ICCM_HI@ @ARC_PID_ICCM_LO@ @ARC_PID_DCCM_HI@ @ARC_PID_DCCM_LO@>;
++			memsize = <@PID_IO_ICCM_SIZE@ @PID_IO_DCCM_SIZE@>;
++			startaddr = <@PID_STARTADDR_HI@ @PID_STARTADDR_LO@>;
++		};
+ 	};
+ 
+ 	configurations {
+@@ -72,9 +82,8 @@
+ 		preboot-conf {
+ 			load-type = <0>; /* FIT_LOAD_TYPE_RUN */
+ 			description = "Habanalabs device preboot";
+-			loadables = /* "pid-io-iccm", "pid-io-dccm", */ "mgmt-io-iccm",
+-				    "mgmt-io-dccm";
+-			processors = "arc-io-mgmt";
++			loadables = "pid-io-iccm", "pid-io-dccm", "mgmt-io-iccm", "mgmt-io-dccm";
++			processors = "arc-io-pid", "arc-io-mgmt";
+ 		};
+ 	};
+ };

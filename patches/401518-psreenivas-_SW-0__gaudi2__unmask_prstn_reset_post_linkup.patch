@@ -1,0 +1,39 @@
+From c1d68c0cca59c0bcdedd5b644662be64170d8389 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Thu, 07 Mar 2024 12:03:29 +0200
+Subject: [PATCH] [SW-0] gaudi2: unmask prstn reset post linkup
+
+This patch adds support to unmask prstn reset
+which was masked in ppboot post pcie link up.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I62261849eb373a297c3c6c9e380b51531aa61fba
+---
+
+diff --git a/arch/gaudi2/common/common.c b/arch/gaudi2/common/common.c
+index 935b989..e801eb4 100644
+--- a/arch/gaudi2/common/common.c
++++ b/arch/gaudi2/common/common.c
+@@ -720,10 +720,22 @@
+ 		LOG_ERR("failed to reset gaudi2 persist security configs");
+ }
+ 
++static void preboot_unmask_prstn(void)
++{
++	u32 rst_src = hl_rst_src_get();
++
++	LOG_INF("PRSTN MASK val %x", regmap_readl(mmPSOC_GLOBAL_CONF_PRSTN_MASK));
++	if (rst_src == HL_PRSTN_RST) {
++		regmap_writel(0x0, mmPSOC_GLOBAL_CONF_PRSTN_MASK);
++		LOG_INF("Unmasked PRSTN");
++	}
++}
++
+ void pci_dev_specific_post_link_up(void)
+ {
+ 	u32 hot_rst_reg_val;
+ 
++	preboot_unmask_prstn();
+ 	gaudi2_clear_msix_addr_match();
+ 
+ 	/* Set the hard reset flag if sram bist is executed in current boot.

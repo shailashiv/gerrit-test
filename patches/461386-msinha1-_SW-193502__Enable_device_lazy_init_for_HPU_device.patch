@@ -1,0 +1,94 @@
+From 5064b96b632af2c751aa4db21b7f410bb76d8bec Mon Sep 17 00:00:00 2001
+From: Michal Szymczak <mszymczak@habana.ai>
+Date: Fri, 30 Aug 2024 17:01:54 +0300
+Subject: [PATCH] [SW-193502] Enable device_lazy_init for HPU device (mimic CUDA init file)
+
+Change-Id: Iaed0b6009151c433ef1e0db09034334342422176
+(cherry picked from commit b00c9959d3b9c6548725cbbf5851d8a5cbebcc21)
+---
+
+diff --git a/python_packages/habana_frameworks/torch/hpu/__init__.py b/python_packages/habana_frameworks/torch/hpu/__init__.py
+index fd3d570..2dec832 100644
+--- a/python_packages/habana_frameworks/torch/hpu/__init__.py
++++ b/python_packages/habana_frameworks/torch/hpu/__init__.py
+@@ -55,6 +55,10 @@
+ 
+     Does nothing if the HPU state is already initialized.
+     """
++    _lazy_init()
++
++
++def _lazy_init() -> None:
+     global _initialized
+     if is_initialized() or hasattr(_tls, "is_initializing"):
+         return
+@@ -120,7 +124,7 @@
+         warnings.warn("Device not available")
+         return ""
+ 
+-    init()
++    _lazy_init()
+     device = _get_device_index(device, optional=True)
+     if device < 0 or device >= device_count():
+         raise AssertionError("Invalid device id")
+@@ -129,13 +133,13 @@
+ 
+ def current_device() -> int:
+     r"""Returns the index of a currently selected device."""
+-    init()
++    _lazy_init()
+     return _hpu_C.current_device()
+ 
+ 
+ def synchronize() -> None:
+     r"""Waits for all kernels in all streams on a HPU device to complete."""
+-    init()
++    _lazy_init()
+     return _hpu_C.synchronize_device()
+ 
+ 
+@@ -250,7 +254,7 @@
+         warnings.warn("Device not available")
+         return ""
+ 
+-    init()
++    _lazy_init()
+     device = _get_device_index(device, optional=True)
+     if device < 0 or device >= device_count():
+         raise AssertionError("Invalid device id")
+@@ -262,7 +266,7 @@
+         warnings.warn("Device not available")
+         return ""
+ 
+-    init()
++    _lazy_init()
+     device = _get_device_index(device, optional=True)
+     if device < 0 or device >= device_count():
+         raise AssertionError("Invalid device id")
+@@ -273,7 +277,7 @@
+     if not is_available():
+         warnings.warn("Device not available")
+         return ""
+-    init()
++    _lazy_init()
+     device = _get_device_index(device, optional=True)
+     peer_device = _get_device_index(peer_device, optional=True)
+     count = device_count()
+@@ -388,7 +392,7 @@
+             statistic for the current device, given by :func:`~torch.cuda.current_device`,
+             if :attr:`device` is ``None`` (default).
+     """
+-    init()
++    _lazy_init()
+     device_idx = _get_device_index(device, optional=True)
+     if device_idx < 0 or device_idx >= device_count():
+         raise AssertionError("Invalid device id")
+@@ -403,7 +407,7 @@
+             statistic for the current device, given by :func:`~torch.cuda.current_device`,
+             if :attr:`device` is ``None`` (default).
+     """
+-    init()
++    _lazy_init()
+     device_idx = _get_device_index(device, optional=True)
+     if device_idx < 0 or device_idx >= torch.hpu.device_count():
+         raise AssertionError("Invalid device id")

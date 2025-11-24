@@ -1,0 +1,41 @@
+From 9fb28f215b8343f03ebbb6d5a788d186fb3c145a Mon Sep 17 00:00:00 2001
+From: yzecharia <yzecharia@habana.ai>
+Date: Mon, 09 Jun 2025 18:46:38 +0300
+Subject: [PATCH] [HL325][test] Funtional: Add 65000 check
+
+Change-Id: Ia8a348969191c25ae6f14eb7777943f94f54f5c4
+---
+
+diff --git a/tests/HL325/test_functional.py b/tests/HL325/test_functional.py
+index cf8bc6e..c9bc980 100644
+--- a/tests/HL325/test_functional.py
++++ b/tests/HL325/test_functional.py
+@@ -4063,6 +4063,19 @@
+                                                                        ignore_assert=True,
+                                                                        fail_log_level='warning',
+                                                                        setup=sample_date)
++                            if sensor_value > 65000:
++                                hlsa_checker.check_values_in_range(sensor_value, min_threshold_value,
++                                                                   max_threshold_value, loop=loop_index,
++                                                                   driver_number=self.devices[pci][
++                                                                       "hl_num"],
++                                                                   mezzanine=self.devices[pci]["mezz"],
++                                                                   dev_address=pci,
++                                                                   test_code=self.test_code,
++                                                                   units=unit_name,
++                                                                   operation=sensor_name,
++                                                                   ignore_assert=True,
++                                                                   fail_log_level='warning',
++                                                                   setup=sample_date)
+                             else:
+                                 check_status = hlsa_checker.check_values_in_range(sensor_value, min_threshold_value,
+                                                                                   max_threshold_value, loop=loop_index,
+@@ -4225,7 +4238,7 @@
+                                                                   units=sensor_data["units"],
+                                                                   ignore_assert=True, fail_log_level='warning')
+             else:
+-                if sensor == 'CTEMP': #TODO move to deticate ignore list in tests_options
++                if sensor == 'CTEMP' or float(sensor_data["value"]) > 65000.0: #TODO move to deticate ignore list in tests_options
+                     hlsa_checker.check_values_in_range(round(float(sensor_data["value"]), 3),
+                                                                       min_expected=sensor_data["min"],
+                                                                       max_expected=sensor_data["max"],

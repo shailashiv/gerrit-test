@@ -1,0 +1,1155 @@
+From b476ca7b818c8786d49dd48b338ef05b18e38855 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Mon, 09 Dec 2024 18:33:15 +0200
+Subject: [PATCH] [SW-210370] agent fit: integrate emb common mod
+
+Integrated the emb common module fit utils and removed the
+redundant function from agent code.
+
+Removed the FIT_PROP macro's and use from hl_fit_if.h
+
+Change-Id: Iece4aa3a1a318562905006dcc2cc1f6668036fd5
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/common/include/fit.h b/common/include/fit.h
+index 8528824..1fa823d 100644
+--- a/common/include/fit.h
++++ b/common/include/fit.h
+@@ -20,36 +20,6 @@
+ #define uimage_to_cpu(x)	be32_to_cpu(x)
+ #define cpu_to_uimage(x)	cpu_to_be32(x)
+ 
+-#define FIT_IMAGES_PATH		"/images"
+-#define FIT_CONFS_PATH		"/configurations"
+-
+-#define FIT_CONF_NAME		"preboot-conf"
+-#define FIT_DESC_PROP		"description"
+-#define FIT_LOADABLE_PROP	"loadables"
+-#define FIT_HASHED_NODES_PROP	"hashed-nodes"
+-#define FIT_DATA_PROP		"data"
+-#define FIT_LOADADDR_PROP	"loadaddr"
+-#define FIT_STARTADDR_PROP	"startaddr"
+-#define FIT_ARCH_PROP		"arch"
+-#define FIT_TIMESTAMP_PROP	"timestamp"
+-#define FIT_DESC_PROP		"description"
+-#define FIT_TYPE_PROP		"type"
+-#define FIT_OS_PROP		"os"
+-#define FIT_ENTRY_PROP		"entry"
+-#define FIT_LOAD_PROP		"load"
+-#define FIT_DEFAULT_PROP	"default"
+-#define FIT_COMPRESSION_PROP	"compression"
+-
+-#define FIT_SEC_VERSION		"hl-sec-version"
+-#define FIT_SEC_KEY_IDX		"hl-sec-key-idx"
+-#define FIT_SIG_NODENAME	"signature"
+-#define FIT_VALUE_PROP		"value"
+-#define FIT_ALGO_PROP		"algo"
+-#define FIT_KEY_NAME_HINT	"key-name-hint"
+-#define FIT_PUB_KEY_PROP	"pub-key"
+-#define FIT_PUB_KEY_EXT_PROP	"pub-key-ext"
+-#define FIT_LOAD_TYPE_PROP	"load-type"
+-#define FIT_COMPR_LZ4		"lz4"
+ #define FIT_MAX_PATH		200
+ #define MAX_FDT_REGIONS		20
+ #define IMAGE_MAX_HASHED_NODES	20
+@@ -83,25 +53,7 @@
+ 	uint32_t exp_len;	/* Exponent length in number of uint8_t */
+ };
+ 
+-enum fit_load_result {
+-	FIT_LOAD_SUCCESS = 0,
+-	FIT_LOAD_CORRUPTED,
+-	FIT_LOAD_SEC_FAILED,
+-};
+-
+-int fit_find_load_addr_image(const void *fit, int node_off,
+-unsigned long *load);
+-int fit_get_data_from_image(const void *fit, int node_off, const void **data,
+-		size_t *size);
+-int fit_get_property_from_image(const void *fit, int node_off, const char *property,
+-		const void **data, size_t *size);
+-int fit_get_prop_node_index(const void *fit, int node_off,
+-		const char *prop_name, int index);
+-int fit_get_node_from_conf(const void *fit, const char *conf_uname);
+-int fit_check_format(const void *fit);
+ int fit_verify_image(const void *fit, int image_node_off);
+-int fit_get_prop_node_count_from_conf(const void *fit, int node_off,
+-		const char *prop_name);
+ const void *get_public_key(const void *fit, int noffset);
+ int fit_decompress_image(uint64_t dst, const void *buf, int len,
+ 		const char *cmpr, uint32_t max_dst_size);
+diff --git a/common/include/image.h b/common/include/image.h
+index 8933cbb..9fe8262 100644
+--- a/common/include/image.h
++++ b/common/include/image.h
+@@ -13,44 +13,8 @@
+ #include <stddef.h>
+ #include <libfdt.h>
+ 
+-/**
+- * fit_get_name - get FIT node name
+- * @fit: pointer to the FIT format image header
+- *
+- * returns:
+- *     NULL, on error
+- *     pointer to node name, on success
+- */
+-static inline const char *fit_get_name(const void *fit_hdr,
+-		int noffset, int *len)
+-{
+-	return fdt_get_name(fit_hdr, noffset, len);
+-}
+-
+ /* hash/signature/key node */
+-#define FIT_HASH_NODENAME	"hash"
+-#define FIT_ALGO_PROP		"algo"
+-#define FIT_VALUE_PROP		"value"
+ #define FIT_IGNORE_PROP		"uboot-ignore"
+-#define FIT_SIG_NODENAME	"signature"
+-#define FIT_KEY_REQUIRED	"required"
+-#define FIT_KEY_HINT		"key-name-hint"
+-
+-/* image node */
+-#define FIT_DATA_PROP		"data"
+-#define FIT_DATA_POSITION_PROP	"data-position"
+-#define FIT_DATA_OFFSET_PROP	"data-offset"
+-#define FIT_DATA_SIZE_PROP	"data-size"
+-#define FIT_TIMESTAMP_PROP	"timestamp"
+-#define FIT_DESC_PROP		"description"
+-#define FIT_ARCH_PROP		"arch"
+-#define FIT_TYPE_PROP		"type"
+-#define FIT_OS_PROP		"os"
+-#define FIT_COMP_PROP		"compression"
+-#define FIT_ENTRY_PROP		"entry"
+-#define FIT_LOAD_PROP		"load"
+-
+-#define FIT_CONFS_PATH		"/configurations"
+ 
+ #ifndef IMAGE_ENABLE_MD5
+ #define IMAGE_ENABLE_MD5	0
+@@ -145,7 +109,6 @@
+ int get_hash_algo_name(const void *fit, int noffset, char **algo);
+ int get_hash_value_fit_image(const void *fit, int noffset, uint8_t **value,
+ 				int *value_len);
+-int fit_image_get_node(const void *fit, const char *image_uname);
+ 
+ /**
+  * get_rsa_algo() - Look up a cryptosystem algorithm
+diff --git a/fw-loader/CMakeLists.txt b/fw-loader/CMakeLists.txt
+index 0fb0810..880d8b5 100644
+--- a/fw-loader/CMakeLists.txt
++++ b/fw-loader/CMakeLists.txt
+@@ -25,7 +25,7 @@
+ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(fw-loader)
+ 
+-target_include_directories(app PRIVATE include/ ../common/include ${ZEPHYR_MODULES_DIR}/common/include)
++target_include_directories(app PRIVATE include/ ../common/include ../emb_common_mod/include/)
+ target_include_directories(app PRIVATE ../common/include/${HL_DEVICE}/)
+ target_include_directories(app PRIVATE src/${HL_FAMILY}/${HL_DEVICE}/)
+ include_directories($ENV{SPECS_ROOT}/${HL_FAMILY}/${HL_DEVICE}/asic_reg/)
+@@ -43,7 +43,8 @@
+ include_directories(${ZEPHYR_MODULES_DIR}/pldm/include/)
+ 
+ FILE(GLOB app_sources src/*.c src/${HL_FAMILY}/*.c src/${HL_FAMILY}/${HL_DEVICE}/*.c src/cpld/*.c
+-../common/src/*.c ../common/src/${HL_DEVICE}/*.c ${ZEPHYR_MODULES_DIR}/common/lib/common/watchdog_timer.c)
++../common/src/*.c ../common/src/${HL_DEVICE}/*.c ../emb_common_mod/lib/common/watchdog_timer.c
++../emb_common_mod/lib/common/fit_utils.c)
+ 
+ if(CONFIG_LIBPLDM)
+ FILE(GLOB pldm_sources ../common/src/ras/pldm/*.c ../common/src/${HL_DEVICE}/ras/pldm/*.c src/${HL_FAMILY}/${HL_DEVICE}/ras/pldm/*.c)
+diff --git a/fw-loader/include/common.h b/fw-loader/include/common.h
+index f5c0436..56de6a1 100644
+--- a/fw-loader/include/common.h
++++ b/fw-loader/include/common.h
+@@ -53,7 +53,6 @@
+ int hl_dev_flash_write_protect(void);
+ int copy_efuse_contents_to_fake_fuse(void);
+ int hl_read_efuse_data(void *res_fit);
+-void fwupd_set_response_fit_ended(void);
+ int fit_create_efuse_subnode(void *fit, const char *node_name, const void *data, int status);
+ 
+ #endif /* _HL_MACH_COMMON_H_ */
+diff --git a/fw-loader/src/fit.c b/fw-loader/src/fit.c
+index e70faa8..ba760e3 100644
+--- a/fw-loader/src/fit.c
++++ b/fw-loader/src/fit.c
+@@ -21,6 +21,8 @@
+ #include "mbedtls/sha256.h"
+ #include <hl_i2c_indirect_protocol.h>
+ #include "security.h"
++#include <hl_fit_if.h>
++#include <fit_utils.h>
+ 
+ LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+ 
+@@ -29,10 +31,9 @@
+ {
+ 	LOG_ERR("Can't get '%s' property from FIT 0x%08lx, node: offset %d,",
+ 		prop_name, (unsigned long)fit, noffset);
+-	LOG_ERR("name %s (%s)\n", fit_get_name(fit, noffset, NULL),
++	LOG_ERR("name %s (%s)\n", fit_get_node_name(fit, noffset, NULL),
+ 		fdt_strerror(err));
+ }
+-
+ 
+ /**
+  * get_hash_algo_name - get hash algorithm name
+@@ -51,270 +52,13 @@
+ {
+ 	int len;
+ 
+-	*algo = (char *)fdt_getprop(fit, noffset, FIT_ALGO_PROP, &len);
++	*algo = (char *)fdt_getprop(fit, noffset, HL_FIT_ALGO_PROP, &len);
+ 	if (*algo == NULL) {
+-		fit_get_debug(fit, noffset, FIT_ALGO_PROP, len);
++		fit_get_debug(fit, noffset, HL_FIT_ALGO_PROP, len);
+ 		return -1;
+ 	}
+ 
+ 	return 0;
+-}
+-
+-/**
+- * fit_image_get_node - get node offset for component image of a given unit name
+- * @fit: pointer to the FIT format image header
+- * @image_uname: component image node unit name
+- *
+- * fit_image_get_node() finds a component image (within the '/images'
+- * node) of a provided unit name. If image is found its node offset is
+- * returned to the caller.
+- *
+- * returns:
+- *     image node offset when found (>=0)
+- *     negative number on failure (FDT_ERR_* code)
+- */
+-int fit_image_get_node(const void *fit, const char *image_uname)
+-{
+-	int noffset, images_noffset;
+-
+-	images_noffset = fdt_path_offset(fit, FIT_IMAGES_PATH);
+-	if (images_noffset < 0) {
+-		LOG_ERR("Can't find images parent node '%s' (%s)\n",
+-		      FIT_IMAGES_PATH, fdt_strerror(images_noffset));
+-		return images_noffset;
+-	}
+-
+-	noffset = fdt_subnode_offset(fit, images_noffset, image_uname);
+-	if (noffset < 0) {
+-		LOG_ERR("Can't get node offset for image unit name: '%s'(%s)\n",
+-		      image_uname, fdt_strerror(noffset));
+-	}
+-
+-	return noffset;
+-}
+-
+-/*
+- * fit_get_data_from_image() finds data property in a given image node.
+- *
+- * returns:
+- *     0, on success
+- *     -1, on failure
+- */
+-int fit_get_data_from_image(const void *fit, int node_off,
+-		const void **data, size_t *size)
+-{
+-	int len;
+-
+-	*data = fdt_getprop(fit, node_off, FIT_DATA_PROP, &len);
+-	if (*data == NULL) {
+-		LOG_ERR("Can't get '%s' property from FIT 0x%08lx, offset: %d",
+-				FIT_DATA_PROP, (unsigned long)fit, node_off);
+-		*size = 0;
+-		return -1;
+-	}
+-
+-	*size = len;
+-	return 0;
+-}
+-
+-int fit_get_property_from_image(const void *fit, int node_off, const char *property,
+-		const void **data, size_t *size)
+-{
+-	int len;
+-
+-	*data = fdt_getprop(fit, node_off, property, &len);
+-	if (*data == NULL) {
+-		LOG_ERR("Can't get '%s' property from FIT 0x%08lx, offset: %d",
+-				property, (unsigned long)fit, node_off);
+-		*size = 0;
+-		return -1;
+-	}
+-
+-	*size = len;
+-	return 0;
+-}
+-
+-/*
+- * fit_find_load_addr_image() finds load address property in a given component
+- * image node. If the property is found, its value is returned to the caller.
+- *
+- * returns:
+- *     0, on success
+- *     -1, on failure
+- */
+-int fit_find_load_addr_image(const void *fit, int node_off,
+-				unsigned long *load)
+-{
+-	int len, cell_len;
+-	const fdt32_t *cell;
+-	uint64_t load64 = 0;
+-
+-	cell = fdt_getprop(fit, node_off, FIT_LOAD_PROP, &len);
+-	if (cell == NULL) {
+-		LOG_ERR("Can't get %s property from FIT 0x%08lx node_off:%d",
+-				FIT_LOAD_PROP, (unsigned long)fit, node_off);
+-		return -1;
+-	}
+-
+-	if (len > sizeof(unsigned long)) {
+-		LOG_ERR("Error: %s address size", FIT_LOAD_PROP);
+-		return -1;
+-	}
+-
+-	cell_len = len >> 2;
+-	while (cell_len--) {
+-		load64 = (load64 << 32) | uimage_to_cpu(*cell);
+-		cell++;
+-	}
+-	*load = (unsigned long)load64;
+-	return 0;
+-}
+-
+-int fit_get_prop_node_index(const void *fit, int node_off,
+-		const char *prop_name, int index)
+-{
+-	const char *uname;
+-	int len;
+-
+-	uname = fdt_stringlist_get(fit, node_off, prop_name, index, &len);
+-	if (uname == NULL)
+-		return len;
+-
+-	return fit_image_get_node(fit, uname);
+-}
+-
+-int fit_get_node_from_conf(const void *fit, const char *conf_uname)
+-{
+-	int node_off, confs_node_off;
+-	int len;
+-	const char *s;
+-	char *conf_uname_copy = NULL;
+-
+-	confs_node_off = fdt_path_offset(fit, FIT_CONFS_PATH);
+-	if (confs_node_off < 0) {
+-		LOG_ERR("Can't find configurations parent node '%s'",
+-		      FIT_CONFS_PATH);
+-		return confs_node_off;
+-	}
+-
+-	if (conf_uname == NULL) {
+-		/* get configuration unit name from the default property */
+-		LOG_INF("No configuration specified, trying default...");
+-		conf_uname = (char *)fdt_getprop(fit, confs_node_off,
+-						 FIT_DEFAULT_PROP, &len);
+-		if (conf_uname == NULL) {
+-			LOG_ERR("Can't get %s property 0x%08lx node_off:%d",
+-					FIT_DEFAULT_PROP,
+-					(unsigned long)fit, confs_node_off);
+-			return len;
+-		}
+-		LOG_INF("Found default configuration: '%s'\n", conf_uname);
+-	}
+-
+-	s = strchr(conf_uname, '#');
+-	if (s) {
+-		len = s - conf_uname;
+-		conf_uname_copy = malloc(len + 1);
+-		if (!conf_uname_copy)
+-			return -ENOMEM;
+-
+-		memcpy(conf_uname_copy, conf_uname, len);
+-		conf_uname_copy[len] = '\0';
+-		conf_uname = conf_uname_copy;
+-	}
+-
+-	node_off = fdt_subnode_offset(fit, confs_node_off, conf_uname);
+-	if (node_off < 0) {
+-		LOG_ERR("Can't get node offset for conf unit name:'%s' (%s)\n",
+-		      conf_uname, fdt_strerror(node_off));
+-	}
+-
+-	if (conf_uname_copy)
+-		free(conf_uname_copy);
+-
+-	return node_off;
+-}
+-
+-int fit_check_format(const void *fit)
+-{
+-	int ret = fdt_check_header(fit);
+-
+-	if (ret) {
+-		LOG_ERR("FIT header check failed..:%d\n", ret);
+-		goto error;
+-	}
+-
+-	/* mandatory / node 'description' property */
+-	if (fdt_getprop(fit, 0, FIT_DESC_PROP, NULL) == NULL) {
+-		LOG_ERR("Wrong FIT format: no description\n");
+-		goto error;
+-	}
+-
+-	/* mandatory subimages parent '/images' node */
+-	if (fdt_path_offset(fit, FIT_IMAGES_PATH) < 0) {
+-		LOG_ERR("Wrong FIT format: no images parent node\n");
+-		goto error;
+-	}
+-
+-	return 1;
+-
+-error:
+-	fit_set_err(HL_FW_FIT_BOOT_ERR_CORRUPTED);
+-	return 0;
+-}
+-
+-
+-int get_data_and_size_from_fit(const void *fit, int node_offset,
+-				const void **data, size_t *size)
+-{
+-	bool external_data = false;
+-	int offset;
+-	int len;
+-	int ret_val = 0;
+-	const fdt32_t *val;
+-
+-	val = fdt_getprop(fit, node_offset, FIT_DATA_POSITION_PROP, NULL);
+-	if (val != 0) {
+-		offset	= fdt32_to_cpu(*val);
+-		external_data = true;
+-	} else {
+-		val = fdt_getprop(fit, node_offset, FIT_DATA_OFFSET_PROP, NULL);
+-		if (val != 0) {
+-			offset	= fdt32_to_cpu(*val);
+-			external_data = true;
+-			/*
+-			 * For FIT with external data, figure out where
+-			 * the external images start. This is the base
+-			 * for the data-offset properties in each image.
+-			 */
+-			offset += ((fdt_totalsize(fit) + 3) & ~3);
+-		} else {
+-			ret_val = -1;
+-		}
+-	}
+-	if (external_data == true) {
+-
+-		val = fdt_getprop(fit, node_offset, FIT_DATA_SIZE_PROP, NULL);
+-		if (val != 0) {
+-			len = fdt32_to_cpu(*val);
+-			*data = (void *)((uint8_t *)fit + offset);
+-			*size = len;
+-		} else {
+-			ret_val = -1;
+-		}
+-	} else {
+-		*data = fdt_getprop(fit, node_offset, FIT_DATA_PROP, &len);
+-		if (*data == NULL) {
+-			fit_get_debug(fit, node_offset, FIT_DATA_PROP, len);
+-			*size = 0;
+-			ret_val = -1;
+-		} else {
+-			*size = len;
+-			ret_val = 0;
+-		}
+-	}
+-
+-	return ret_val;
+ }
+ 
+ /**
+@@ -337,9 +81,9 @@
+ {
+ 	int len;
+ 
+-	*value = (uint8_t *)fdt_getprop(fit, noffset, FIT_VALUE_PROP, &len);
++	*value = (uint8_t *)fdt_getprop(fit, noffset, HL_FIT_VALUE_PROP, &len);
+ 	if (*value == NULL) {
+-		fit_get_debug(fit, noffset, FIT_VALUE_PROP, len);
++		fit_get_debug(fit, noffset, HL_FIT_VALUE_PROP, len);
+ 		*value_len = 0;
+ 		return -1;
+ 	}
+@@ -474,18 +218,18 @@
+ 	const uint32_t *sec_key_idx;
+ 	int length;
+ 
+-	node = fit_image_get_node(fit, "pub-key");
++	node = fit_get_node_offset_by_node_name(fit, HL_FIT_PUB_KEY_PROP);
+ 	if (!node) {
+ 		LOG_ERR("%s: pub-key node is NULL\n", __func__);
+ 		return NULL;
+ 	}
+ 
+-	key_data = fdt_getprop(fit, node, FIT_DATA_PROP, &length);
++	key_data = fdt_getprop(fit, node, HL_FIT_DATA_PROP, &length);
+ 	if (key_data == NULL) {
+ 		LOG_ERR("Error getting property:%s from FIT 0x%08lx,",
+-			FIT_DATA_PROP, (unsigned long)fit);
++			HL_FIT_DATA_PROP, (unsigned long)fit);
+ 		LOG_ERR("node offset %d, name %s", node,
+-			fit_get_name(fit, node, NULL));
++			fit_get_node_name(fit, node, NULL));
+ 		size = 0;
+ 		return NULL;
+ 
+@@ -493,7 +237,7 @@
+ 		size = length;
+ 	}
+ 
+-	sec_key_idx = fdt_getprop(fit, 0, "hl-sec-key-idx", NULL);
++	sec_key_idx = fdt_getprop(fit, 0, HL_FIT_SEC_KEY_IDX, NULL);
+ 	if (!sec_key_idx) {
+ 		LOG_ERR("%s: Did not find good key index\n", __func__);
+ 		return NULL;
+@@ -527,14 +271,14 @@
+ 	int		subnode_offset = 0;
+ 	int		noffset = 0;
+ 	char		*err_msg = "";
+-	const char *img_name = fit_get_name(fit, image_node_off, NULL);
++	const char *img_name = fit_get_node_name(fit, image_node_off, NULL);
+ 
+ 	/* Get image data and data length */
+-	if (get_data_and_size_from_fit(fit, image_node_off, &data, &size)) {
++	if (fit_get_data_from_offset(fit, image_node_off, &data, &size)) {
+ 		err_msg = "Can't get image data/size";
+ 		LOG_ERR("error!\n%s for '%s' hash node in '%s' image node\n",
+-				err_msg, fit_get_name(fit, noffset, NULL),
+-				fit_get_name(fit, image_node_off, NULL));
++				err_msg, fit_get_node_name(fit, noffset, NULL),
++				fit_get_node_name(fit, image_node_off, NULL));
+ 		return 0;
+ 	}
+ 
+@@ -550,15 +294,15 @@
+ 	 * check all hash subnodes of the component image node
+ 	 */
+ 	fdt_for_each_subnode(subnode_offset, fit, image_node_off) {
+-		const char *name = fit_get_name(fit, subnode_offset, NULL);
++		const char *name = fit_get_node_name(fit, subnode_offset, NULL);
+ 
+ 		/*
+ 		 * Check subnode name, must be equal to "hash".
+ 		 * Multiple hash nodes require unique unit node
+ 		 * names, e.g. hash-1, hash-2, etc.
+ 		 */
+-		if (!strncmp(name, FIT_HASH_NODENAME,
+-					strlen(FIT_HASH_NODENAME))) {
++		if (!strncmp(name, HL_FIT_HASH_PROP,
++					strlen(HL_FIT_HASH_PROP))) {
+ 			if (hash_check_fit_image(fit, subnode_offset, data,
+ 							size, &err_msg))
+ 				goto error;
+@@ -575,15 +319,9 @@
+ 
+ error:
+ 	LOG_ERR(" error!\n%s for '%s' hash node in '%s' image node\n",
+-			err_msg, fit_get_name(fit, subnode_offset, NULL),
+-			fit_get_name(fit, image_node_off, NULL));
++			err_msg, fit_get_node_name(fit, subnode_offset, NULL),
++			fit_get_node_name(fit, image_node_off, NULL));
+ 	return 0;
+-}
+-
+-int fit_get_prop_node_count_from_conf(const void *fit, int node_off,
+-		const char *prop_name)
+-{
+-	return fdt_stringlist_count(fit, node_off, prop_name);
+ }
+ 
+ int fit_decompress_image(uint64_t dst, const void *buf, int len,
+@@ -610,19 +348,6 @@
+ 	LOG_ERR("Unknown compression method:%s", cmpr);
+ 	return -1;
+ 
+-}
+-
+-static int fit_get_int(const void *fit, int node, const char *prop_name,
+-		       int default_val)
+-{
+-	const int *cell;
+-	int len;
+-
+-	cell = fdt_getprop(fit, node, prop_name, &len);
+-	if (cell && len >= sizeof(int))
+-		return fdt32_to_cpu(cell[0]);
+-
+-	return default_val;
+ }
+ 
+ int fit_get_key_prop(const void *pub_key_fit, const char *key_name, struct key_prop *prop)
+@@ -715,3 +440,8 @@
+ 	hl_err_status_fit_set_err(err);
+ 	fwupd_set_err_sts(err);
+ }
++
++const char *get_module_spec_conf_node_name(void)
++{
++	return HL_FIT_FW_LOADER_CONF_PROP;
++}
+diff --git a/fw-loader/src/fit_loader.c b/fw-loader/src/fit_loader.c
+index 066106f..0e166c0 100644
+--- a/fw-loader/src/fit_loader.c
++++ b/fw-loader/src/fit_loader.c
+@@ -31,6 +31,7 @@
+ #include <fw_upd.h>
+ #include <hl_boot_desc.h>
+ #include <hl_boot_info.h>
++#include <fit_utils.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+@@ -48,65 +49,21 @@
+ 	[CPLD_MODEL_LFMXO5_15D_HBN_HL338]	= LFMXO5_15D_HBN_HL338
+ };
+ 
+-static int fit_conf_get_load_type(const void *fit, int conf, enum fit_load_type *load_type)
++static int fit_verify_checksum(const void *fit, int conf, int num)
+ {
+-	const uint32_t *cell;
+-	int len;
+-	uint32_t type;
+-
+-	cell = fdt_getprop(fit, conf, HL_FIT_LOAD_TYPE_PROP, &len);
+-	if (!cell || len != sizeof(*cell)) {
+-		LOG_ERR("Failed to find %s", HL_FIT_LOAD_TYPE_PROP);
+-		return -1;
+-	}
+-
+-	type = fdt32_to_cpu(*cell);
+-	if (type >= FIT_LOAD_TYPE_COUNT) {
+-		LOG_ERR("Unsupported load type %u, %u", type,
+-				FIT_LOAD_TYPE_COUNT);
+-		return -1;
+-	}
+-
+-	*load_type = (enum fit_load_type)type;
+-
+-	return 0;
+-}
+-
+-static int fit_conf_get(const void *fit, int *config, int *count)
+-{
+-	int conf, num;
+-
+-	conf = fit_get_node_from_conf(fit, HL_FIT_FW_LOADER_CONF_PROP);
+-	if (conf < 0) {
+-		fit_set_err(HL_FW_FIT_BOOT_ERR_ADDRESS_VIOLATION);
+-		return 1;
+-	}
+-
+-	num = fit_get_prop_node_count_from_conf(fit, conf, HL_FIT_LOADABLE_PROP);
+-	if (num < 0) {
+-		fit_set_err(HL_FW_FIT_BOOT_ERR_ADDRESS_VIOLATION);
+-		return 1;
+-	}
+-
+-	*config = conf;
+-	*count = num;
+-
+-	return 0;
+-}
+-
+-static int fit_verify_checksum(const void *fit)
+-{
+-	int i, conf, num;
+-
+-	if (fit_conf_get(fit, &conf, &num))
+-		return 1;
++	int i, node;
++	const char *name;
+ 
+ 	for (i = 0; i < num; i++) {
+-		int node = fit_get_prop_node_index(fit, conf,
+-							HL_FIT_LOADABLE_PROP, i);
+-		const char *name = fit_get_name(fit, node, NULL);
++		node = fit_get_loadable_node_offset_by_index(fit, conf, i);
++		if (node < 0) {
++			fit_set_err(HL_FW_FIT_BOOT_ERR_CORRUPTED);
++			return node;
++		}
+ 
++		name = fit_get_node_name(fit, node, NULL);
+ 		LOG_INF("Hash(es) for Image %s: ", name);
++
+ 		if (!fit_verify_image(fit, node)) {
+ 			fit_set_err(HL_FW_FIT_BOOT_ERR_CORRUPTED);
+ 			return 1;
+@@ -129,15 +86,20 @@
+ 	if (err)
+ 		goto load_fit_run_err;
+ 
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
++	stage = "conf get";
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	if (node < 0) {
++		err = node;
++		goto load_fit_run_err;
++	}
+ 
+ 	stage = "get image";
+-	err = fit_get_data_from_image(fit, node, &buf, &size);
++	err = fit_get_data_from_offset(fit, node, &buf, &size);
+ 	if (err)
+ 		goto load_fit_run_err;
+ 
+ 	stage = "get load address";
+-	err = fit_find_load_addr_image(fit, node, &load);
++	err = fit_get_loadaddr_from_offset(fit, node, (uint64_t *)&load);
+ 	if (err)
+ 		goto load_fit_run_err;
+ 
+@@ -175,10 +137,15 @@
+ 	}
+ 
+ 	/* We support only 1 image for loading and running from SRAM */
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
++	stage = "conf get";
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	if (node < 0) {
++		err = node;
++		goto load_fit_otp_err;
++	}
+ 
+ 	stage = "get image";
+-	err = fit_get_data_from_image(fit, node, &data, &size);
++	err = fit_get_data_from_offset(fit, node, &data, &size);
+ 	if (err)
+ 		goto load_fit_otp_err;
+ 
+@@ -282,9 +249,10 @@
+ 
+ static int img_fit_verify_security(const void *fit)
+ {
+-	int conf, num;
++	int conf;
+ 
+-	if (fit_conf_get(fit, &conf, &num))
++	conf = fit_get_conf_node_offset(fit);
++	if (conf < 0)
+ 		return 1;
+ 
+ 	if (hl_sec_fit_config_verify(fit, conf))
+@@ -392,7 +360,7 @@
+ 	bool hw_protection_disabled = false;
+ 	bool flash_unlocked = false;
+ 
+-	if (fit_conf_get(fit, &conf, &num))
++	if (fit_get_conf_offset_and_num_of_loadables(fit, &conf, &num))
+ 		return 1;
+ 
+ 	if (spi_flash_is_wareout_attack_detected(flash)) {
+@@ -406,8 +374,11 @@
+ 		int j, off_len, len;
+ 		const char *cmpr = NULL;
+ 		uint32_t decomp_fit_max_size, real_offset;
+-		int node = fit_get_prop_node_index(fit, conf,
+-						   HL_FIT_LOADABLE_PROP, i);
++		int node = fit_get_loadable_node_offset_by_index(fit, conf, i);
++		if (node < 0) {
++			err = 1;
++			goto prog_flash_lock;
++		}
+ 
+ 		buf = fdt_getprop(fit, node, HL_FIT_DATA_PROP, &len);
+ 		if (!buf) {
+@@ -764,7 +735,7 @@
+ 
+ static int fit_load_prog_eeprom(const void *fit, int conf)
+ {
+-	int num, node, err, len, ret;
++	int node, err, len, ret;
+ 	const void *buf;
+ 	size_t size;
+ 	struct eeprom_field *eeprom_tbl;
+@@ -780,14 +751,11 @@
+ 		return 1;
+ 	}
+ 
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("eeprom invalid conf. Num of conf %d", num);
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	if (node < 0)
+ 		return 1;
+-	}
+ 
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
+-	err = fit_get_data_from_image(fit, node, &buf, &size);
++	err = fit_get_data_from_offset(fit, node, &buf, &size);
+ 	if (err) {
+ 		LOG_ERR("Wrong image data");
+ 		return 1;
+@@ -840,16 +808,16 @@
+ 	size_t size = 0;
+ 	char *endptr;
+ 
+-	err = fit_get_property_from_image(fit, node, HL_FIT_CPLD_FIRMWARE_PROP, &data_el, &size);
++	err = fit_get_property_value_from_offset(fit, node, HL_FIT_CPLD_FIRMWARE_PROP, &data_el, &size);
+ 	if (err)
+ 		version_data->contains_firmware = true;
+ 	else
+ 		version_data->contains_firmware = (*((char *)data_el) == 'Y');
+ 
+-	err = fit_get_property_from_image(fit, node, HL_FIT_CPLD_MODEL_NAME_PROP,
++	err = fit_get_property_value_from_offset(fit, node, HL_FIT_CPLD_MODEL_NAME_PROP,
+ 						&data_el, &size);
+ 	if (err)
+-		err = fit_get_property_from_image(fit, node, HL_FIT_CPLD_MODEL_PROP,
++		err = fit_get_property_value_from_offset(fit, node, HL_FIT_CPLD_MODEL_PROP,
+ 						&data_el, &size);
+ 	if (err)
+ 		version_data->cpld_model = CPLD_MODEL_UNKNOWN;
+@@ -871,7 +839,7 @@
+ 	else
+ 		version_data->cpld_model = CPLD_MODEL_UNKNOWN;
+ 
+-	err = fit_get_property_from_image(fit, node, HL_FIT_CPLD_FW_VERSION_PROP,
++	err = fit_get_property_value_from_offset(fit, node, HL_FIT_CPLD_FW_VERSION_PROP,
+ 						&data_el, &size);
+ 	if (err)
+ 		version_data->cpld_version = CPLD_VERSION_UNKNOWN;
+@@ -880,7 +848,7 @@
+ 	else
+ 		version_data->cpld_version = CPLD_VERSION_UNKNOWN;
+ 
+-	err = fit_get_property_from_image(fit, node, HL_FIT_CPLD_FW_TIMESTAMP_PROP,
++	err = fit_get_property_value_from_offset(fit, node, HL_FIT_CPLD_FW_TIMESTAMP_PROP,
+ 						 &data_el, &size);
+ 	if (err)
+ 		version_data->cpld_timestamp = CPLD_TIMESTAMP_UNKNOWN;
+@@ -896,7 +864,7 @@
+ 
+ static int fit_load_prog_cpld(const void *fit, int conf)
+ {
+-	int ret, num, node, err = 0;
++	int ret, node, err = 0;
+ 	const void *fw_img = NULL;
+ 	size_t size = 0;
+ 	struct cpld_version_data version_data;
+@@ -907,16 +875,10 @@
+ 		return 1;
+ 	}
+ 
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("CPLD FIT: invalid conf. Num of conf %d", num);
+-		return 1;
+-	}
+-
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
+ 	extract_cpld_data(fit, node, &version_data);
+ 
+-	err = fit_get_data_from_image(fit, node, &fw_img, &size);
++	err = fit_get_data_from_offset(fit, node, &fw_img, &size);
+ 	if (err) {
+ 		LOG_ERR("CPLD FIT: Wrong image data");
+ 		return 1;
+@@ -1002,7 +964,7 @@
+ 
+ static int fit_load_prog_psu_ctrl(const void *fit, int conf)
+ {
+-	int num, node, err = 0;
++	int node, err = 0;
+ 	const void *fw_img;
+ 	size_t size;
+ 	const char *stage;
+@@ -1012,14 +974,8 @@
+ 		return 1;
+ 	}
+ 
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("PSU_CTRL FIT: invalid conf. Num of conf %d", num);
+-		return 1;
+-	}
+-
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
+-	err = fit_get_data_from_image(fit, node, &fw_img, &size);
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	err = fit_get_data_from_offset(fit, node, &fw_img, &size);
+ 	if (err) {
+ 		LOG_ERR("PSU_CTRL FIT: Wrong image data");
+ 		return 1;
+@@ -1039,7 +995,7 @@
+ 	const struct device *flash = NULL;
+ 	const char *stage;
+ 	void *buf = NULL;
+-	int node, len, num, err, offset;
++	int node, len, err, offset;
+ 	const uint32_t *cell;
+ 	void *res_fit;
+ 
+@@ -1051,13 +1007,12 @@
+ 		goto flash_read_err;
+ 	}
+ 
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("fit conf get failed during load type: flash read");
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	if (node < 0) {
++		err = 1;
+ 		goto flash_read_err;
+ 	}
+ 
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
+ 	cell = fdt_getprop(fit, node, HL_FIT_SIZE_PROP, &len);
+ 	if (!cell) {
+ 		len = HL_MAX_FLASH_READ_SIZE;
+@@ -1484,18 +1439,12 @@
+ 
+ static int fit_load_fake_fuse_write(const void *fit, int conf)
+ {
+-	int err, num;
++	int err;
+ 	const struct device *flash;
+ 	const char *stage;
+ 
+ 	if (!hl_fake_fuse_write_supported())
+ 		return 1;
+-
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("fake fuse write invalid confi num %d", num);
+-		return 1;
+-	}
+ 
+ 	flash = device_get_binding(FLASH_DEVICE);
+ 	if (flash == NULL) {
+@@ -1526,19 +1475,18 @@
+ 
+ static int fit_load_efuse_write(const void *fit, int conf)
+ {
+-	int err, node, num, spare_bit = 0;
++	int err, node, spare_bit = 0;
+ 	size_t size;
+ 	const void *buf;
+ 	const char *stage;
+ 
+-	err = fit_conf_get(fit, &conf, &num);
+-	if (err || num > 1) {
+-		LOG_ERR("efuse invalid conf. Num of conf %d", num);
++	node = fit_get_loadable_node_offset_by_index(fit, conf, 0);
++	if (node < 0) {
++		LOG_ERR("Failed to get node offset");
+ 		return 1;
+ 	}
+ 
+-	node = fit_get_prop_node_index(fit, conf, HL_FIT_LOADABLE_PROP, 0);
+-	err = fit_get_data_from_image(fit, node, &buf, &size);
++	err = fit_get_data_from_offset(fit, node, &buf, &size);
+ 	if (err) {
+ 		LOG_ERR("Wrong image data");
+ 		return 1;
+@@ -1628,7 +1576,7 @@
+ 		return err;
+ 	}
+ 
+-	fwupd_set_response_fit_ended();
++	fit_resp_node_finished();
+ 
+ 	offset = fdt_path_offset(res_fit, "/");
+ 	if (offset < 0) {
+@@ -1893,25 +1841,30 @@
+ 			const char **stage)
+ {
+ 	int err, num;
++	struct fit_error fit_err;
+ 
+ 	*stage = "check fit";
+-	err = !fit_check_format(fit);
+-	if (err)
++	err = fit_check_format(fit);
++	if (err) {
++		fit_set_err(HL_FW_FIT_BOOT_ERR_CORRUPTED);
++		goto verify_img_err;
++	}
++
++	*stage = "conf get";
++	err = fit_get_conf_offset_and_num_of_loadables(fit, conf, &num);
++	if (err) {
++		fit_set_err(HL_FW_FIT_BOOT_ERR_ADDRESS_VIOLATION);
++		goto verify_img_err;
++	}
++
++	*stage = "get load type";
++	err = fit_get_load_type(fit, load_type, &fit_err);
++	if (err || !fit_is_load_type_supported(*load_type))
+ 		goto verify_img_err;
+ 
+ 	*stage = "verify chksum";
+-	err = fit_verify_checksum(fit);
++	err = fit_verify_checksum(fit, *conf, num);
+ 	if (err)
+-		goto verify_img_err;
+-
+-	*stage = "conf get";
+-	err = fit_conf_get(fit, conf, &num);
+-	if (err)
+-		goto verify_img_err;
+-
+-	*stage = "get load type";
+-	err = fit_conf_get_load_type(fit, *conf, load_type);
+-	if (err || !fit_is_load_type_supported(*load_type))
+ 		goto verify_img_err;
+ 
+ 	*stage = "security check";
+diff --git a/fw-loader/src/fw_upd.c b/fw-loader/src/fw_upd.c
+index c0745b9..f26d4c1 100644
+--- a/fw-loader/src/fw_upd.c
++++ b/fw-loader/src/fw_upd.c
+@@ -52,6 +52,7 @@
+ #include <flash_ops.h>
+ #include <watchdog_timer.h>
+ #include <fw_heap_manager.h>
++#include <fit_utils.h>
+ 
+ #define MODULE_FWUPD_STACKSIZE	(8192 - CONFIG_HL_STACK_OVERFLOW_REDUCE_SIZE)
+ #define FWUPD_WAIT_THREAD_STOP_MSEC	K_MSEC(1000)
+@@ -66,7 +67,6 @@
+ static struct k_thread module_fwupd_post_rst_thread;
+ static K_THREAD_STACK_DEFINE(module_fwupd_post_rst_stack, MODULE_FWUPD_POST_RST_STACKSIZE);
+ static bool fwupd_post_rst_enabled;
+-static bool fwupd_response_fit_ended;
+ 
+ static inline void sys_cache_invd(void *addr, size_t size)
+ {
+@@ -430,61 +430,6 @@
+ 	return err;
+ }
+ 
+-static int fwupd_init_res_fit(void *fit, uint32_t size)
+-{
+-	int err;
+-
+-	err = fdt_create(fit, size);
+-	if (err)
+-		return err;
+-
+-	err = fdt_finish_reservemap(fit);
+-	if (err)
+-		return err;
+-
+-	err = fdt_begin_node(fit, "");
+-	if (err)
+-		return err;
+-
+-	return 0;
+-}
+-
+-/*
+- * In EFUSE_READ (FIT_LOAD_TYPE) we read more than one efuse (e.g., Gaudi3: master and slave dies's)
+- * and pack the efuse data as sub nodes and send it to host fw_loader. This implementation requires
+- * creation of sub node in fit. But, libfdt library expected to end the parent/root node
+- * before creating a new subnode. So, fit_load_efuse_read() end the root/parent and update the same
+- * here. So, that fwupd_fin_res_fit() need not to end and finish again.
+- */
+-void fwupd_set_response_fit_ended(void)
+-{
+-	fwupd_response_fit_ended = true;
+-}
+-
+-static int fwupd_fin_res_fit(void *fit, unsigned int *res_size)
+-{
+-	int err = 0;
+-
+-	if (!fdt_size_dt_strings(fit)) {
+-		*res_size = 0;
+-		return 0; /* Empty response */
+-	}
+-
+-	if (!fwupd_response_fit_ended) {
+-		err = fdt_end_node(fit);
+-		if (err)
+-			return err;
+-
+-		err = fdt_finish(fit);
+-		if (err)
+-			return err;
+-	}
+-
+-	*res_size = fdt_totalsize(fit);
+-
+-	return err;
+-}
+-
+ static int fwupd_map_alloc(unsigned int size)
+ {
+ 	size += HL_FIT_METADATA_SIZE;
+@@ -512,7 +457,7 @@
+ 		return NULL;
+ 
+ 	*stage = "init response fit";
+-	*err = fwupd_init_res_fit(fwstate.buf, size + HL_FIT_METADATA_SIZE);
++	*err = fit_init_resp(fwstate.buf, size + HL_FIT_METADATA_SIZE);
+ 	if (*err) {
+ 		fw_heap_free(fwstate.buf);
+ 		fwstate.buf = NULL;
+@@ -528,7 +473,7 @@
+ 	int err;
+ 
+ 	*stage = "finish response fit";
+-	err = fwupd_fin_res_fit(res_fit, &fwstate.res_size);
++	err = fit_fin_resp(res_fit, &fwstate.res_size);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/fw-loader/src/rsa_verify.c b/fw-loader/src/rsa_verify.c
+index e7a7f31..a36c216 100644
+--- a/fw-loader/src/rsa_verify.c
++++ b/fw-loader/src/rsa_verify.c
+@@ -13,6 +13,7 @@
+ #include "security.h"
+ #include <stdio.h>
+ #include "fit.h"
++#include <hl_fit_if.h>
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <logging/log.h>
+ LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+@@ -196,7 +197,7 @@
+ 	int ret;
+ 
+ 	ret = sha_region_calc(region_count, region, sha_sum);
+-	sig_node = fdt_subnode_offset(blob, 0, FIT_SIG_NODENAME);
++	sig_node = fdt_subnode_offset(blob, 0, HL_FIT_SIGNATURE_NODENAME);
+ 	if (sig_node < 0) {
+ 		LOG_ERR("%s: No signature node found\n", __func__);
+ 		return -1;
+diff --git a/fw-loader/src/security.c b/fw-loader/src/security.c
+index 53ad246..73a7249 100644
+--- a/fw-loader/src/security.c
++++ b/fw-loader/src/security.c
+@@ -25,11 +25,6 @@
+ #include <logging/log.h>
+ LOG_MODULE_DECLARE(FW_LOADER_AGENT);
+ 
+-#define HL_FIT_PUBLIC_KEY_PROP	"pub-key"
+-#define HL_FIT_SEC_KEY_IDX_PROP	"hl-sec-key-idx"
+-#define HL_FIT_SEC_VERSION_PROP	"hl-sec-version"
+-#define HL_FIT_KEY_NAME_HINT	"key-name-hint"
+-
+ __weak bool hl_sec_is_enabled(void)
+ {
+ 	return false;
+@@ -121,7 +116,7 @@
+ 
+ 	memcpy(node_name + strlen(node_name), key_name, strlen(key_name));
+ 
+-	sig_node = fdt_subnode_offset(pub_key_fit, 0, FIT_SIG_NODENAME);
++	sig_node = fdt_subnode_offset(pub_key_fit, 0, HL_FIT_SIGNATURE_NODENAME);
+ 	return fdt_subnode_offset(pub_key_fit, sig_node, node_name);
+ }
+ 

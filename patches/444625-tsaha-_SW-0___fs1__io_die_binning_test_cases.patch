@@ -1,0 +1,227 @@
+From 1e19b11c7aaf4d9b69be1cf97dfef75350bd461a Mon Sep 17 00:00:00 2001
+From: Tamal <tasaha@habana.ai>
+Date: Sun, 25 Aug 2024 15:42:40 +0300
+Subject: [PATCH] [SW-0]: fs1: io die binning test cases
+
+Change-Id: Ieae59f68d6add49f7476488b76394a88390e64d9
+Signed-off-by: Tamal <tasaha@habana.ai>
+---
+
+diff --git a/drivers/misc/fs_isolation_binning/fs1/CMakeLists.txt b/drivers/misc/fs_isolation_binning/fs1/CMakeLists.txt
+index 69a85e8..9956306 100644
+--- a/drivers/misc/fs_isolation_binning/fs1/CMakeLists.txt
++++ b/drivers/misc/fs_isolation_binning/fs1/CMakeLists.txt
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ 
+ zephyr_library_sources(
++	binning_testcases.c
+ 	fs1.c
+ 	engine_binning.c
+ 	engine_binning_io.c
+diff --git a/drivers/misc/fs_isolation_binning/fs1/binning_testcases.c b/drivers/misc/fs_isolation_binning/fs1/binning_testcases.c
+new file mode 100644
+index 0000000..3b96334
+--- /dev/null
++++ b/drivers/misc/fs_isolation_binning/fs1/binning_testcases.c
+@@ -0,0 +1,171 @@
++/* SPDX-License-Identifier: Apache-2.0
++ *
++ * Copyright 2024 HabahbmnaLabs, Ltd.
++ * All Rights Reserved.
++ */
++
++#include <kernel.h>
++#include <hl_platform_defs.h>
++#include <fs1_binning_defs.h>
++
++#include "engine_binning.h"
++#include <fs1_blocks_linux_driver.h>
++#include <rtr_addr_dec_lbw_regs.h>
++#include <rtr_addr_dec_lbw_masks.h>
++#include <rtr_addr_dec_dbg_regs.h>
++#include <rtr_addr_dec_dbg_masks.h>
++#include <h15b_psoc_reset_conf_regs.h>
++
++#include <vdec_vcmd_regs.h>
++#include <nic_qpc_regs.h>
++
++#include <logging/log.h>
++LOG_MODULE_REGISTER(binning_validation);
++
++
++#define DEC_TEST_REGISTER	mmVDEC_VCMD_SWREG_3
++#define NIC_TEST_REGISTER	mmNIC_QPC_QP_UPDATE_ERR_CFG1
++
++void configure_same_test_register_of_each_decoder(void)
++{
++	unsigned int wr_val = 0xdeadba00, rd_val, dec_index, dec_addr;
++	unsigned int consecutive_dec_offset = (mmIO_0_CFG_HALF_0_MEDIA_DEC_1_VCMD_BASE -
++					mmIO_0_CFG_HALF_0_MEDIA_DEC_0_VCMD_BASE);
++
++	/* All enabled for both half die*/
++	CFG_WREG32(mmIO_0_CFG_HALF_0_PSOC_BOOT_RESET_ISO_BASE + mmH15B_PSOC_RESET_CONF_DEC_ISO, 0);
++	CFG_WREG32(mmIO_0_CFG_HALF_1_PSOC_BOOT_RESET_ISO_BASE + mmH15B_PSOC_RESET_CONF_DEC_ISO, 0);
++
++	k_usleep(200);
++	/* Half: 0, write predefined values to same test register of each decoder and read back*/
++	for (dec_index = 0 ; dec_index < 9; dec_index++) {
++		dec_addr = mmIO_0_CFG_HALF_0_MEDIA_DEC_0_VCMD_BASE + consecutive_dec_offset * dec_index;
++		wr_val = wr_val + 1;
++		CFG_WREG32(dec_addr + DEC_TEST_REGISTER, wr_val);
++		k_usleep(100);
++		rd_val = CFG_RREG32(dec_addr + DEC_TEST_REGISTER);
++		LOG_INF("Tamal %s: wr_val = 0x%08x, rd_val = 0x%08x", __func__, wr_val, rd_val);
++	}
++
++	/* Half: 1, write predefined values to same test register of each decoder and read back */
++	for (dec_index = 0 ; dec_index < 9; dec_index++) {
++		dec_addr = mmIO_0_CFG_HALF_1_MEDIA_DEC_0_VCMD_BASE + consecutive_dec_offset * dec_index;
++		wr_val = wr_val + 1;
++		CFG_WREG32(dec_addr + DEC_TEST_REGISTER, wr_val);
++		k_usleep(100);
++		rd_val = CFG_RREG32(dec_addr + DEC_TEST_REGISTER);
++		LOG_INF("Tamal %s: wr_val = 0x%08x, rd_val = 0x%08x", __func__, wr_val, rd_val);
++	}
++}
++
++void read_same_test_register_of_each_decoder(void)
++{
++	unsigned int rd_val, dec_index, dec_addr;
++	unsigned int consecutive_dec_offset = (mmIO_0_CFG_HALF_0_MEDIA_DEC_1_VCMD_BASE -
++					mmIO_0_CFG_HALF_0_MEDIA_DEC_0_VCMD_BASE);
++
++	/* Half 0 */
++	for (dec_index = 0 ; dec_index < 9; dec_index++) {
++		dec_addr = mmIO_0_CFG_HALF_0_MEDIA_DEC_0_VCMD_BASE + consecutive_dec_offset * dec_index;
++		rd_val = CFG_RREG32(dec_addr + DEC_TEST_REGISTER);
++		LOG_INF("Tamal %s: rd_val = 0x%08x", __func__,  rd_val);
++	}
++
++	/* Half 1 */
++	for (dec_index = 0 ; dec_index < 9; dec_index++) {
++		dec_addr = mmIO_0_CFG_HALF_1_MEDIA_DEC_0_VCMD_BASE + consecutive_dec_offset * dec_index;
++		rd_val = CFG_RREG32(dec_addr + DEC_TEST_REGISTER);
++		LOG_INF("Tamal %s: rd_val = 0x%08x", __func__,  rd_val);
++	}
++}
++
++void configure_same_test_register_of_each_nic(void)
++{
++	unsigned int wr_val = 0xfaceba00, rd_val, nic_index, nic_addr;
++	uint32_t consecutive_nic_offset = (mmIO_0_CFG_HALF_0_NSS_NIC_1_NIC_QPC_BASE -
++					mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_QPC_BASE);
++
++	/* All enabled for both half die*/
++	CFG_WREG32(mmIO_0_CFG_HALF_0_PSOC_BOOT_RESET_ISO_BASE + mmH15B_PSOC_RESET_CONF_NIC_ISO, 0);
++	CFG_WREG32(mmIO_0_CFG_HALF_1_PSOC_BOOT_RESET_ISO_BASE + mmH15B_PSOC_RESET_CONF_NIC_ISO, 0);
++
++	k_usleep(200);
++	/* Half: 0, write predefined values to same test register of each nic and read back */
++	for (nic_index = 0 ; nic_index < 6; nic_index++) {
++		nic_addr = mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_QPC_BASE + consecutive_nic_offset * nic_index;
++		wr_val = wr_val + 1;
++		CFG_WREG32(nic_addr + NIC_TEST_REGISTER, wr_val);
++		k_usleep(100);
++		rd_val = CFG_RREG32(nic_addr + NIC_TEST_REGISTER);
++		LOG_INF("Tamal %s: wr_val = 0x%08x, rd_val = 0x%08x", __func__, wr_val, rd_val);
++	}
++
++	/* Half: 1, write predefined values to same test register of each nic and read back */
++	for (nic_index = 0 ; nic_index < 6; nic_index++) {
++		nic_addr = mmIO_0_CFG_HALF_1_NSS_NIC_0_NIC_QPC_BASE + consecutive_nic_offset * nic_index;
++		wr_val = wr_val + 1;
++		CFG_WREG32(nic_addr + NIC_TEST_REGISTER, wr_val);
++		k_usleep(100);
++		rd_val = CFG_RREG32(nic_addr + NIC_TEST_REGISTER);
++		LOG_INF("Tamal %s: wr_val = 0x%08x, rd_val = 0x%08x", __func__, wr_val, rd_val);
++	}
++}
++
++void read_same_test_register_of_each_nic(void)
++{
++	uint32_t rd_val, nic_index, nic_addr;
++	uint32_t consecutive_nic_offset = (mmIO_0_CFG_HALF_0_NSS_NIC_1_NIC_QPC_BASE -
++					mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_QPC_BASE);
++
++	/* Half 0 */
++	for (nic_index = 0 ; nic_index < 6; nic_index++) {
++		nic_addr = mmIO_0_CFG_HALF_0_NSS_NIC_0_NIC_QPC_BASE + consecutive_nic_offset * nic_index;
++		rd_val = CFG_RREG32(nic_addr + NIC_TEST_REGISTER);
++		LOG_INF("%s: rd_val = 0x%08x", __func__,  rd_val);
++	}
++
++	/* Half 1 */
++	for (nic_index = 0 ; nic_index < 6; nic_index++) {
++		nic_addr = mmIO_0_CFG_HALF_1_NSS_NIC_0_NIC_QPC_BASE + consecutive_nic_offset * nic_index;
++		rd_val = CFG_RREG32(nic_addr + NIC_TEST_REGISTER);
++		LOG_INF("%s: rd_val = 0x%08x", __func__,  rd_val);
++	}
++}
++
++void io_die_binning_validation_step_1(void)
++{
++	/* ******* step 1 ***********
++	 * Efuse DEC, NIC, SKU values for Palladium validation: START
++	 * select faulty dec, nic for test purpose
++	 */
++	sys_write32(((1 << FS1_FAULTY_VDEC_5)       | /* ( IO DIE 0 - Half die 0: Dec */
++				(1 << (FS1_FAULTY_VDEC_4 + 9))  | /* ( IO DIE 0 - Half die 1: Dec */
++				(1 << (FS1_FAULTY_NIC_4 + 19))),  /* ( IO DIE 0 - Nic */
++				(0xf9c92080 + 0x4c));             /* DeC and NIC */
++
++	sys_write32(0x1000000, (0xf9c92080 + 0xf0)); /* SKU: IO die Stand Alone Mode */
++
++	/* ******** step 2 ********
++	 * pick some register and write some different value to
++	 * every engine
++	 */
++	configure_same_test_register_of_each_decoder();
++	configure_same_test_register_of_each_nic();
++	
++}
++
++void io_die_binning_validation_step_2(void)
++{
++	read_same_test_register_of_each_decoder();
++	read_same_test_register_of_each_nic();
++}
++
++void io_die_binning_validation_step_3(void)
++{
++	read_same_test_register_of_each_decoder();
++}
++
++void io_die_binning_validation_step_4(void)
++{
++	read_same_test_register_of_each_nic();
++}
+\ No newline at end of file
+diff --git a/drivers/misc/fs_isolation_binning/fs1/engine_binning.c b/drivers/misc/fs_isolation_binning/fs1/engine_binning.c
+index 916aefe..700c8ef 100644
+--- a/drivers/misc/fs_isolation_binning/fs1/engine_binning.c
++++ b/drivers/misc/fs_isolation_binning/fs1/engine_binning.c
+@@ -42,6 +42,9 @@
+ 		return -1;
+ 	}
+ 
++	io_die_binning_validation_step_3();
++	io_die_binning_validation_step_4();
++
+ 	return 0;
+ }
+ 
+diff --git a/include/drivers/misc/common/fs1/fs1_binning_defs.h b/include/drivers/misc/common/fs1/fs1_binning_defs.h
+index 10d0f54..d114d65 100644
+--- a/include/drivers/misc/common/fs1/fs1_binning_defs.h
++++ b/include/drivers/misc/common/fs1/fs1_binning_defs.h
+@@ -91,4 +91,9 @@
+ 	void *redundancy_ctx;
+ };
+ 
++void io_die_binning_validation_step_1(void);
++void io_die_binning_validation_step_2(void);
++void io_die_binning_validation_step_3(void);
++void io_die_binning_validation_step_4(void);
++
+ #endif /* _FS1_BINNING_DEFS_H_ */

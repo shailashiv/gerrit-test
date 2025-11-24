@@ -1,0 +1,82 @@
+From 4251cd534b14ffca476266631a529e1eff4a1187 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Mon, 22 Apr 2024 11:17:00 +0300
+Subject: [PATCH] [SW-0] gaudi2: print sram ecc status after bist
+
+This patch prints sram ecc status after copying
+preboot image to sram - This is for debugging
+sram access issue in preboot.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: Ie0ddc69fe4fd5bdda801318d2b9af09ad8b57cc2
+---
+
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index f9b4a20..f798677 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -309,6 +309,7 @@
+ __weak void ppboot_security_init(void) {}
+ __weak void ppboot_secure_arc(void) {}
+ __weak void hl_sram_self_repair(void) {}
++__weak void hl_print_sram_ecc_status(void) {}
+ __weak void ppboot_init_fw_info(void) {}
+ __weak void ppboot_plls_init(void) {}
+ __weak void hl_pcie_enable_elbi_access(void) {}
+@@ -373,6 +374,8 @@
+ 	ret = ppboot_load_preboot_img(&loadaddr);
+ 	ppboot_check_stack_monitor();
+ 	preboot_puts("Ppboot resigned\n\r\n");
++	hl_print_sram_ecc_status();
++
+ 	preboot_uart_rbuf_flush();
+ 	if (ret)
+ 		image_start(loadaddr);
+diff --git a/arch/gaudi2/arc/asic.c b/arch/gaudi2/arc/asic.c
+index cdde13f..30b2b11 100644
+--- a/arch/gaudi2/arc/asic.c
++++ b/arch/gaudi2/arc/asic.c
+@@ -444,6 +444,31 @@
+ 	}
+ }
+ 
++void hl_print_sram_ecc_status(void)
++{
++	int dcore, sram, wrap;
++	u32 offset, val, addr;
++	u32 num_mem_wrapper = regmap_readl(mmDCORE0_SRAM0_BANK_SPECIAL_MEM_NUMOF);
++
++	for (dcore = 0; dcore < NUM_OF_DCORES ; dcore++) {
++		offset = dcore * GAUDI2_DCORE_OFFSET;
++		for (sram = 0; sram < NUM_OF_SRAM_BANK_PER_DCORE; sram++) {
++			for (wrap = 0; wrap < num_mem_wrapper; wrap++) {
++				regmap_writel(wrap,
++					      mmDCORE0_SRAM0_BANK_SPECIAL_MEM_ECC_SEL + offset);
++				val = regmap_readl(mmDCORE0_SRAM0_BANK_SPECIAL_MEM_ECC_ERR_STS + offset);
++				if (val) {
++					addr = regmap_readl(mmDCORE0_SRAM0_BANK_SPECIAL_MEM_ECC_ERR_ADDR + offset);
++					preboot_puts_hex64("sram ecc at address ", addr, false);
++					preboot_puts_hex("wrap ", wrap, false);
++					preboot_puts_hex("err status ", val, false);
++				}
++			}
++			offset += GAUDI2_SRAM_BANK_OFFSET;
++		}
++	}
++}
++
+ static void gaudi2_sram_ecc_init(void)
+ {
+ 	gaudi2_mask_sram_ecc(true);
+diff --git a/include/baremetal.h b/include/baremetal.h
+index f8d75b9..a7b4007 100644
+--- a/include/baremetal.h
++++ b/include/baremetal.h
+@@ -183,6 +183,7 @@
+ void image_start(u64 loadaddr);
+ u32 sp_sram_readl(u32 offset);
+ void hl_sram_self_repair(void);
++void hl_print_sram_ecc_status(void);
+ 
+ struct preboot_fuse_ver_data {
+ 	char *table_ver;

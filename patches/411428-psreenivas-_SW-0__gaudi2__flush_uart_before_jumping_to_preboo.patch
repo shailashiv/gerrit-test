@@ -1,0 +1,27 @@
+From 50d6e79fe24ea496888488f5a649ea60aa2719f7 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Wed, 17 Apr 2024 08:59:20 +0300
+Subject: [PATCH] [SW-0] gaudi2: flush uart before jumping to preboot
+
+This patch adds support to flush all the uart prints
+before jumping to preboot.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I39412cc598911b2517ee6b74f80a26e16df8ac91
+---
+
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index f2864fa..f9b4a20 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -373,7 +373,10 @@
+ 	ret = ppboot_load_preboot_img(&loadaddr);
+ 	ppboot_check_stack_monitor();
+ 	preboot_puts("Ppboot resigned\n\r\n");
++	preboot_uart_rbuf_flush();
+ 	if (ret)
+ 		image_start(loadaddr);
++	preboot_puts("Entering recovery\n");
++	preboot_uart_rbuf_flush();
+ 	hl_enter_recovery();
+ }

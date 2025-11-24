@@ -1,0 +1,99 @@
+From 4f1c2de84c57ef04204f7db7cd4d8f067d3e02b3 Mon Sep 17 00:00:00 2001
+From: Mitali Vagadiya <vmnagajibhai@habana.ai>
+Date: Wed, 11 Dec 2024 11:45:33 +0200
+Subject: [PATCH] [FSW-10217] fs : msix generation for d2h queues
+
+This patch takes care of raising msix interrupt for d2h
+queues to fix issue mentioned in FSW-10217.
+
+To generate msix interrupt, fw writes appropriate
+msix_id to pcie msix register address. msix_id can
+be obtained while initializing queue data.
+
+Change-Id: I1f16d0bce83276d5432d81cb55847653c7d9c493
+---
+
+diff --git a/drivers/misc/queue/queue.c b/drivers/misc/queue/queue.c
+index 1532c7d..c03d595 100644
+--- a/drivers/misc/queue/queue.c
++++ b/drivers/misc/queue/queue.c
+@@ -85,6 +85,9 @@
+ 
+ 	data->queue.pi = (data->queue.pi + size) % data->queue.len;
+ 	sys_write32(data->queue.pi, (mem_addr_t) &reg_base->pi);
++
++	sys_write32(data->msix_id, (mem_addr_t) config->msix_base);
++
+ 	return 0;
+ }
+ 
+@@ -215,6 +218,7 @@
+ 	data->queue.pi = 0;
+ 	data->queue.pi_to_cb = 0;
+ 	data->init_done = true;
++	data->msix_id = sys_read32((mem_addr_t) &reg_base->msix_id);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/misc/queue/queue.h b/drivers/misc/queue/queue.h
+index 500c0a2..143b0e8 100644
+--- a/drivers/misc/queue/queue.h
++++ b/drivers/misc/queue/queue.h
+@@ -29,6 +29,7 @@
+ 
+ struct fs_queue_config {
+ 	const uintptr_t *base;
++	const uintptr_t *msix_base;
+ 	void (*irq_config_func)(const struct device *dev);
+ 	enum fs_queue_type type;
+ 	uint32_t irq_num;
+@@ -54,6 +55,7 @@
+ 	struct fs_queue queue;
+ 	bool ready;
+ 	bool init_done;
++	uint16_t msix_id;
+ };
+ 
+ #define DEV_CFG(dev) \
+diff --git a/drivers/misc/queue/queue_d2h.c b/drivers/misc/queue/queue_d2h.c
+index b1f2ba8..d362e21 100644
+--- a/drivers/misc/queue/queue_d2h.c
++++ b/drivers/misc/queue/queue_d2h.c
+@@ -29,6 +29,7 @@
+ 	static const struct fs_queue_config fs_queue_##inst##_config				\
+ 							= {					\
+ 		.base = (const uintptr_t *)DT_INST_REG_ADDR_BY_NAME(inst, base),		\
++		.msix_base = (uintptr_t *)DT_INST_REG_ADDR_BY_NAME(inst, msix_base),		\
+ 		.type = FS_QUEUE_TYPE_D2H,							\
+ 		.intr_local = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_local),		\
+ 		.intr_global = (uint32_t) DT_INST_REG_ADDR_BY_NAME(inst, intr_global),		\
+diff --git a/dts/arc/fs1_io_mgmt.dtsi b/dts/arc/fs1_io_mgmt.dtsi
+index e12e443..cef75f2 100644
+--- a/dts/arc/fs1_io_mgmt.dtsi
++++ b/dts/arc/fs1_io_mgmt.dtsi
+@@ -90,8 +90,10 @@
+ 				reg = <0xf9ce2400 0x30>,
+ 				      <0xf9ce2180 0xf>,
+ 				      <0xf9cd4bc0 0xf>,
+-				      <0xf9cd45b0 0xf>;
+-				reg-names = "base", "intr_local", "intr_global", "intr_mask";
++				      <0xf9cd45b0 0xf>,
++				      <0xf9c06000 0x4>;
++				reg-names = "base", "intr_local", "intr_global", "intr_mask",
++				 "msix_base";
+ 				#address-cells = <3>;
+ 				compatible = "intel,fs_queue_d2h";
+ 				local_idx = <0>;
+@@ -104,8 +106,10 @@
+ 				reg = <0xf9ce2440 0x30>,
+ 				      <0xf9ce2180 0xf>,
+ 				      <0xf9cd4bc0 0xf>,
+-				      <0xf9cd45b0 0xf>;
+-				reg-names = "base", "intr_local", "intr_global", "intr_mask";
++				      <0xf9cd45b0 0xf>,
++				      <0xf9c06000 0x4>;
++				reg-names = "base", "intr_local", "intr_global", "intr_mask",
++				 "msix_base";
+ 				#address-cells = <3>;
+ 				compatible = "intel,fs_queue_d2h";
+ 				local_idx = <1>;

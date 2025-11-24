@@ -1,0 +1,90 @@
+From 75f4d3f4928f181d842484dcf6f36bcd60d23c55 Mon Sep 17 00:00:00 2001
+From: Suryaprakash Shanmugam <sshanmugam@habana.ai>
+Date: Wed, 06 Nov 2024 18:21:29 +0200
+Subject: [PATCH] [SW-207642] STMeta for Topk
+
+Change-Id: I93c80cbe98f02c47134a8d9d0c15da522b6a13de
+---
+
+diff --git a/hpu_ops/backend/topk_gen.cpp b/hpu_ops/backend/topk_gen.cpp
+index de8f536..f4b2936 100644
+--- a/hpu_ops/backend/topk_gen.cpp
++++ b/hpu_ops/backend/topk_gen.cpp
+@@ -47,6 +47,17 @@
+   return {meta_value, meta_index};
+ }
+ 
++bool TopkSTMeta(
++    habana_helpers::IShapeList& inputs,
++    habana_helpers::IShapeList& outputs) {
++  std::vector<int64_t> out_shape = outputs[0].getTensorShape();
++  static_cast<void>(inputs);
++  PT_BRIDGE_DEBUG("TopkSTMeta output shape ", out_shape);
++  habana_helpers::UpdateSTShapeInfo(out_shape);
++
++  return true;
++}
++
+ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+   auto self = stack.at(0).toTensor();
+   auto k = stack.at(1).isScalar() ? stack.at(1).toInt()
+diff --git a/scripts/hpu_op.yaml b/scripts/hpu_op.yaml
+index 7a669b2..157de9c 100644
+--- a/scripts/hpu_op.yaml
++++ b/scripts/hpu_op.yaml
+@@ -6469,6 +6469,7 @@
+ 
+ topk:
+   output_meta: TopkMeta
++  st_meta: TopkSTMeta
+   op_backend: Topk
+   op_frontend: LazyTopk
+   out_ids: [0, 0]
+@@ -6477,6 +6478,7 @@
+ 
+ topk.values:
+   output_meta: TopkMeta
++  st_meta: TopkSTMeta
+   op_frontend: TopKFE
+   op_backend: Topk
+   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+diff --git a/tests/pytest_working/compile/dynamic/test_hpu_ops.py b/tests/pytest_working/compile/dynamic/test_hpu_ops.py
+index d035cbb..036fddc 100644
+--- a/tests/pytest_working/compile/dynamic/test_hpu_ops.py
++++ b/tests/pytest_working/compile/dynamic/test_hpu_ops.py
+@@ -17,6 +17,7 @@
+ import pytest
+ import torch
+ import torch.nn as nn
++from compile.test_dynamo_utils import use_eager_fallback
+ from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+ from test_utils import (
+     check_ops_executed_in_jit_ir,
+@@ -348,7 +349,6 @@
+         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+ 
+ 
+-@pytest.mark.skip(reason="https://github.com/pytorch/pytorch/issues/104025")
+ def test_op_topk():
+     sizes = [5, 10, 15, 18, 16]
+ 
+@@ -360,12 +360,13 @@
+ 
+     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+ 
+-    for s in sizes:
+-        t = torch.randn(s)
+-        result = raw_function(t)
+-        t_h = t.to("hpu")
+-        h_result = compiled_fn(t_h)
+-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
++    with use_eager_fallback():  # to allow floordiv (//) to fallback to eager
++        for s in sizes:
++            t = torch.randn(s)
++            result = raw_function(t)
++            t_h = t.to("hpu")
++            h_result = compiled_fn(t_h)
++            assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+ 
+ 
+ def test_op_topk_static_k():

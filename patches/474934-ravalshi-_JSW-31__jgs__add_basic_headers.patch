@@ -1,0 +1,206 @@
+From dd798fb9cf6708fa66c1d7e6a27e6a8d88a65bbc Mon Sep 17 00:00:00 2001
+From: Shivani Raval <sraval@habana.ai>
+Date: Tue, 11 Mar 2025 10:29:19 +0200
+Subject: [PATCH] [JSW-31] jgs: add basic headers
+
+Dummy headers required for basic ppboot build are added for jgs.
+It was decided to separate jgs headers from other projects headers,
+the jgs headers are places it embedded_specs/jgs folder.
+
+Change-Id: I8fca4a9255a8a42c1e59e27470d0e4e6ba0cab5d
+Signed-off-by: Shivani Raval <sraval@habana.ai>
+---
+
+diff --git a/jgs/address_space.h b/jgs/address_space.h
+new file mode 100644
+index 0000000..d5bf6a5
+--- /dev/null
++++ b/jgs/address_space.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: MIT
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef __JGS_ADDRESS_SPACE_H_
++#define __JGS_ADDRESS_SPACE_H_
++
++#endif /* __JGS_ADDRESS_SPACE_H_ */
+diff --git a/jgs/jgs_boot_desc.h b/jgs/jgs_boot_desc.h
+new file mode 100644
+index 0000000..76d1214
+--- /dev/null
++++ b/jgs/jgs_boot_desc.h
+@@ -0,0 +1,116 @@
++/* SPDX-License-Identifier: MIT
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef JGS_BOOT_DESC_H
++#define JGS_BOOT_DESC_H
++
++#include <stdint.h>
++
++#ifndef __packed
++#define __packed	__attribute__((__packed__))
++#endif
++
++// /* FW boot pointers magic:	  N X T 0 */
++
++#define HL_CHKSUM_SIZE		32
++#define HL_SHA_384_CSUM_SIZE	48
++
++struct fw_boot_magic {
++	union {
++		struct {
++			uint8_t type;	/* fw_img_type */
++			char name[3];
++		} __packed;
++		uint32_t val;
++	};
++};
++
++/*
++ *           struct fw_boot_ptrs                     struct fw_img_desc
++ *           =======================                       =================
++ *          || Next/Boot_ptrs_img_sz||              +---->|| Magic         ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Mod-able/Img_desc_sz ||              |     || Version       ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Magic                ||              |     || Index         ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Count                ||              |     || Offset    [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Pub key sz           ||              |     || Size      [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Sig sz               ||              |     || Load High [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Sec ver              ||              |     || Load Low  [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Key idx              ||              |     || SHA256    [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *          || Rsvd [2]             ||              |     || SHA384    [2] ||
++ *          | ---------------------- |              |     | --------------- |
++ *     +--<<|| Offset2array         ||              |     || Start High [2 ||
++ *     |      ======================                |     | --------------- |
++ *     |                                            |     || Start Low [2] ||
++ *     |                                            |      =================
++ *     |                                            |
++ *     |                                            |
++ *     |    Following Array                         |
++ *     |     ======================                 |
++ *     +--->|| Offset               ||>>------------+
++ *     |    | ---------------------- |                     =================
++ *     +--->|| Offset               ||>>----------------->|  ...            |
++ *     |    | ---------------------- |                     =================
++ *     :       :                         :                    :
++ *     |    | ---------------------- |                     =================
++ *     +--->|| Offset               ||>>----------------->|  ...            |
++ *           ========================                      =================
++ *
++ */
++
++struct fw_boot_ptrs {
++	union {
++		struct {
++			uint32_t next;	/* backward compatibility */
++			uint32_t mod;	/* backward compatibility */
++		};
++		struct {
++			/*
++			 * boot pointers image size
++			 * sizeof(((struct fw_boot_ptrs) + offsets_4B[count] +
++			 * (struct fw_img_desc[count])))
++			 */
++			uint32_t boot_ptrs_img_sz;
++			/*
++			 * single image descriptor size
++			 * sizeof(struct fw_img_desc)
++			 */
++			uint32_t img_desc_sz;
++		};
++	};
++	struct fw_boot_magic magic;
++	uint32_t count;
++	uint32_t pub_key_sz;	/* Public key size */
++	uint32_t sig_sz;	/* Signature size */
++	uint8_t sec_ver;	/* Security version of image */
++	uint8_t key_idx;	/* Key index of image */
++	uint8_t rsvd[2];	/* Reserved section for alignment */
++	uint32_t offset2array;	/* Offset to array of offsets */
++};
++
++struct fw_img_desc {
++	struct fw_boot_magic magic;
++	uint32_t desc_ver;	/* descriptor version */
++	uint32_t idx;		/* "next" index inside the offset array */
++	uint32_t offset[2];	/* the offset on the SPI flash */
++	uint32_t size[2];	/* the size of the image to load */
++	uint32_t load_high[2];	/* the high [32-63] bits of the load address */
++	uint32_t load_low[2];	/* the low [0-31] bits of the load address */
++	uint8_t chksum[2][HL_CHKSUM_SIZE];	/* sha256 checksum */
++	uint8_t chksum2[2][HL_SHA_384_CSUM_SIZE];	/* sha384 checksum */
++	uint32_t start_high[2];	/* the high [32-63] bits of the start address */
++	uint32_t start_low[2];	/* the low [0-31] bits of the start address */
++};
++
++#endif /* JGS_BOOT_DESC_H */
+diff --git a/jgs/jgs_fw_if.h b/jgs/jgs_fw_if.h
+new file mode 100644
+index 0000000..c22f34d
+--- /dev/null
++++ b/jgs/jgs_fw_if.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: MIT
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef JGS_FW_IF_H
++#define JGS_FW_IF_H
++
++#endif /* JGS_FW_IF_H */
+diff --git a/jgs/jgs_reg_map.h b/jgs/jgs_reg_map.h
+new file mode 100644
+index 0000000..2d62216
+--- /dev/null
++++ b/jgs/jgs_reg_map.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: MIT
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef JGS_REG_MAP_H_
++#define JGS_REG_MAP_H_
++
++#endif /* JGS_REG_MAP_H_ */
+diff --git a/jgs/jgs_security.h b/jgs/jgs_security.h
+new file mode 100644
+index 0000000..f9079c6
+--- /dev/null
++++ b/jgs/jgs_security.h
+@@ -0,0 +1,14 @@
++/* SPDX-License-Identifier: MIT
++ *
++ * Copyright 2025 Intel, Ltd.
++ * All Rights Reserved.
++ *
++ */
++
++#ifndef _JGS_SECURITY_H_
++#define _JGS_SECURITY_H_
++
++#define JGS_SEC_FW_VERSION			0
++#define JGS_SEC_KEY_INDEX			0x0
++
++#endif /* _JGS_SECURITY_H_ */

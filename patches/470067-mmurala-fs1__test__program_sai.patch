@@ -1,0 +1,84 @@
+From 19cec1d80acd0b2e47361bccebb0ac0149cffd35 Mon Sep 17 00:00:00 2001
+From: Murala S Swamy <ssmurala@habana.ai>
+Date: Wed, 15 Jan 2025 17:48:46 +0200
+Subject: [PATCH] fs1: test: program sai
+
+Change-Id: Ib428e06ba5081765722bc30dfb24a4a88cb52840
+---
+
+diff --git a/arch/fs1/arc/dev_security.c b/arch/fs1/arc/dev_security.c
+index 95e7254..b940adf 100644
+--- a/arch/fs1/arc/dev_security.c
++++ b/arch/fs1/arc/dev_security.c
+@@ -597,3 +597,34 @@
+ 		} /* group for loop */
+ 	} /* page for loop */
+ }
++
++#define JTAG_SAI_VAL	8
++
++#define MGMT_SAI_VAL	31
++#define MGMT_SAI_REG	((mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_MSTR_IF_LBW_AXI_OVRD_AXUSER_BASE) + (mmAXUSER_LBW_LB_SAI))
++#define MGMT_SAI_OVRD_REG	((mmIO_0_CFG_HALF_0_PSOC_ARC_MNG_MSTR_IF_LBW_AXI_OVRD_AXUSER_BASE) + (mmAXUSER_LBW_LB_SAI_OVRD))
++
++#define JTAG_SAI_REG	((mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_JT_MSTR_IF_LBW_AXI_OVRD_AXUSER_BASE) + (mmAXUSER_LBW_LB_SAI))
++#define JTAG_SAI_OVRD_REG	((mmIO_0_CFG_HALF_0_PSOC_PSOC_CFG_JT_MSTR_IF_LBW_AXI_OVRD_AXUSER_BASE) + (mmAXUSER_LBW_LB_SAI_OVRD))
++
++void boot_rom_program_jtag_sai()
++{
++	regmap_writel(INITIATOR_SAI_REG_FORMAT(JTAG_SAI_VAL), JTAG_SAI_REG);
++
++	regmap_writel(INITIATOR_SAI_REG_FORMAT(JTAG_SAI_VAL), JTAG_SAI_OVRD_REG);
++
++	regmap_writel(INITIATOR_SAI_REG_FORMAT(MGMT_SAI_VAL), MGMT_SAI_REG);
++
++	regmap_writel(INITIATOR_SAI_REG_FORMAT(MGMT_SAI_VAL), MGMT_SAI_OVRD_REG);
++}
++
++/*
++ * This API is specific to recovery PB cfg data
++ * to call generic PB config API - boot_rom_program_prot_bits.
++ */
++void recovery_prot_bits_config()
++{
++	struct pb_page_ctx pb_rec_cfg[] = PROT_BITS_RECOVERY_CFG;
++
++	boot_rom_program_prot_bits(pb_rec_cfg, ARRAY_SIZE(pb_rec_cfg));
++}
+diff --git a/arch/fs1/arc/dev_security.h b/arch/fs1/arc/dev_security.h
+index 97728d7..1284773 100644
+--- a/arch/fs1/arc/dev_security.h
++++ b/arch/fs1/arc/dev_security.h
+@@ -196,6 +196,7 @@
+ void security_rr_recovery_config(bool enable);
+ void security_handle_jtag_if(void);
+ void security_program_sai_levels(void);
++void boot_rom_program_jtag_sai(void);
+ 
+ extern const uint8_t rom_key_hashes[NUM_KEYS_IN_ROM][SHA384_SUM_LEN];
+ 
+diff --git a/common/common.c b/common/common.c
+index b525a8f..e19a171 100644
+--- a/common/common.c
++++ b/common/common.c
+@@ -22,6 +22,8 @@
+ 
+ extern uint32_t fake_fuse_offset_array[MAX_DIE_COUNT];
+ 
++void recovery_prot_bits_config(void);
++
+ void boot_rom_uart_init(void)
+ {
+ 	uint32_t uart_clk_freq;
+@@ -58,6 +60,11 @@
+ 	/* Before this, we cannot have any access to gen mem region */
+ 	boot_rom_config_arc_regions();
+ 
++	security_program_sai_levels();
++	boot_rom_program_jtag_sai();
++	security_rr_recovery_config(true);
++	recovery_prot_bits_config();
++
+ 	boot_rom_init_ts();
+ 
+ 	boot_rom_uart_init();

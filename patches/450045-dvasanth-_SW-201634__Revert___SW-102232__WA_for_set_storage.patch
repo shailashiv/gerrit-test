@@ -1,0 +1,226 @@
+From 3cd6be2b6b611c6236e039210d16a160d65bc1aa Mon Sep 17 00:00:00 2001
+From: dayanandav <dayanandav@habana.ai>
+Date: Tue, 17 Sep 2024 12:23:36 +0300
+Subject: [PATCH] [SW-201634] Revert "[SW-102232] WA for set_storage_keep_dtype"
+
+This reverts commit Iabd800ec07e23c8468ea9aedc3135fae68eb713f.
+
+Change-Id: I6acce6e0f6eb33148ac0c524f61c27aa4b481b17
+---
+
+diff --git a/habana_eager/ops/copy_from.cpp b/habana_eager/ops/copy_from.cpp
+index aa3abe7..3c2fec8 100644
+--- a/habana_eager/ops/copy_from.cpp
++++ b/habana_eager/ops/copy_from.cpp
+@@ -125,7 +125,6 @@
+   auto strides = dst.strides().vec();
+   auto offset = dst.unsafeGetTensorImpl()->storage_offset();
+   auto base = habana::eager::create_base(dst);
+-  base.unsafeGetTensorImpl()->set_storage_keep_dtype(dst.storage());
+ 
+   habana::eager::EagerOp<at::Tensor&> hpu_op{
+       "hpu::strided_insert_", {base, insert, strides, offset}};
+diff --git a/habana_eager/ops/view.cpp b/habana_eager/ops/view.cpp
+index 0737fda..1178b7c 100644
+--- a/habana_eager/ops/view.cpp
++++ b/habana_eager/ops/view.cpp
+@@ -110,7 +110,6 @@
+       self.options(),
+       c10::MemoryFormat::Contiguous);
+ 
+-  base.unsafeGetTensorImpl()->set_storage_keep_dtype(self.storage());
+   return base;
+ }
+ 
+diff --git a/habana_kernels/lazy_kernels.cpp b/habana_kernels/lazy_kernels.cpp
+index 376883d..c23e8fa 100644
+--- a/habana_kernels/lazy_kernels.cpp
++++ b/habana_kernels/lazy_kernels.cpp
+@@ -772,8 +772,6 @@
+         if (stride_param.optype == kStridedOpViewDtype) {
+           tensor_data_ = at::empty_like(
+               self, _src.options(), _src.suggest_memory_format());
+-          tensor_data_.unsafeGetTensorImpl()->set_storage_keep_dtype(
+-              tensor_data.storage());
+           break;
+         }
+         tmp_hb_tensor = GetHbLazyTensor(stride_param.parent);
+@@ -1509,7 +1507,7 @@
+ 
+ at::Tensor& set_source_Storage_storage_offset(
+     at::Tensor& self,
+-    at::Storage source,
++    [[maybe_unused]]at::Storage source,
+     at::SymInt storage_offset_,
+     at::SymIntArrayRef size_,
+     at::SymIntArrayRef /*stride*/) {
+@@ -1521,7 +1519,6 @@
+   auto lazy_ten = GetHbLazyTensor(self);
+   auto impl = lazy_ten.getAttachedTensorImpl();
+   HABANA_ASSERT(impl, "impl is invalid");
+-  impl->set_storage_keep_dtype(std::move(source));
+   impl->set_storage_offset(storage_offset);
+   self.resize_(size, self.suggest_memory_format());
+ 
+diff --git a/habana_lazy/tensor_impl.cpp b/habana_lazy/tensor_impl.cpp
+index 36c23c1..a6921fb 100644
+--- a/habana_lazy/tensor_impl.cpp
++++ b/habana_lazy/tensor_impl.cpp
+@@ -341,43 +341,6 @@
+   device_opt_ = storage_.device();
+ }
+ 
+-void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
+-  TORCH_CHECK(
+-      allow_tensor_metadata_change(),
+-      "set_storage ",
+-      err_msg_tensor_metadata_change_not_allowed);
+-  storage_ = storage;
+-  device_opt_ = storage_.device();
+-
+-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE)) {
+-    return;
+-  }
+-
+-  // storage is frontend and we may need to set backend tensor's storage also.
+-  if (storage.data_ptr() != nullptr) {
+-    auto aten_t = AtenFromHbLazyTensor(
+-        m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+-    auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
+-    auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
+-    std::lock_guard<std::recursive_mutex> lock(
+-        habana_lazy::HbContextArena::Get()->GetMutex());
+-    if (hl_t_updated.IsExecutionInProgress()) {
+-      auto context = habana_lazy::get_device_lazy_execution_context();
+-      context->JoinPendingLaunchThread();
+-    }
+-    // At this point, execution thread is finished.
+-    c10::TensorImpl* impl =
+-        ((HbLazyTensor)hl_t_updated).getAttachedTensorImpl();
+-    if (impl) {
+-      impl->set_storage_keep_dtype(storage);
+-      PT_LAZY_DEBUG("set_storage_keep_dtype called with backend storage.");
+-    } else {
+-      PT_LAZY_DEBUG(
+-          "set_storage_keep_dtype called with backend storage, but impl in NULL!");
+-    }
+-  }
+-}
+-
+ const at::Storage& HbLazyTensorImpl::storage() const {
+   // FIXME Violates const correctness
+   // return a dummy storage if it isnt allocated yet
+diff --git a/habana_lazy/tensor_impl.h b/habana_lazy/tensor_impl.h
+index a3526bc..62b8b5f 100644
+--- a/habana_lazy/tensor_impl.h
++++ b/habana_lazy/tensor_impl.h
+@@ -74,15 +74,6 @@
+ 
+   bool has_storage() const override;
+ 
+-#pragma GCC diagnostic push
+-// Following done as internal fork has different function signature than
+-// upstream, and clang16 fails on it.
+-// And GCC fails on unknown option
+-#pragma GCC diagnostic ignored "-Wpragmas"
+-#pragma GCC diagnostic ignored "-Winconsistent-missing-override"
+-  void set_storage_keep_dtype(at::Storage storage);
+-#pragma GCC diagnostic pop
+-
+   void handle_view_cycles(HbLazyTensor& hl_src, HbLazyTensor& hl_dst);
+ 
+  private:
+diff --git a/habana_lazy/view_utils.cpp b/habana_lazy/view_utils.cpp
+index fe33fcd..128452f 100644
+--- a/habana_lazy/view_utils.cpp
++++ b/habana_lazy/view_utils.cpp
+@@ -658,7 +658,6 @@
+         // create a new tensor similar to view tensor t and then set its storage
+         t_updated = empty_hpu_lazy(
+             t.sizes(), t.options(), t.suggest_memory_format(), false);
+-        t_updated.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
+         t_updated.unsafeGetTensorImpl()->set_storage_offset(
+             t.unsafeGetTensorImpl()->storage_offset());
+       } else {
+diff --git a/scripts/env_flags.yaml b/scripts/env_flags.yaml
+index c090093..4431c09 100644
+--- a/scripts/env_flags.yaml
++++ b/scripts/env_flags.yaml
+@@ -159,10 +159,6 @@
+   type: bool
+   default: false
+ 
+-PT_HPU_INFERENCE_STORAGE_OVERRIDE:
+-  type: bool
+-  default: true
+-
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD:
+   type: bool
+   default: true
+diff --git a/tests/cpp/debug_utils_tests.cpp b/tests/cpp/debug_utils_tests.cpp
+index 7e711de..fbaa731 100644
+--- a/tests/cpp/debug_utils_tests.cpp
++++ b/tests/cpp/debug_utils_tests.cpp
+@@ -74,62 +74,6 @@
+       0);
+ }
+ 
+-TEST_F(DebugUtilsTest, DebugCustomOp3) {
+-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
+-    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
+-
+-  auto S = torch::randn({2, 4}, torch::requires_grad(false));
+-  auto C = torch::relu(S);
+-  auto hS = S.to(torch::kHPU);
+-  HbLazyTensor::StepMarker({});
+-
+-  auto hT = torch::relu(hS);
+-  HbLazyTensor::StepMarker({});
+-
+-  at::Tensor hR = at::empty({8}, hS.options());
+-
+-  at::TensorImpl* impl = hR.unsafeGetTensorImpl();
+-  auto storage = hS.storage();
+-  impl->set_storage_keep_dtype(storage);
+-  impl->set_storage_offset(0);
+-  impl->set_sizes_and_strides(
+-      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
+-
+-  auto hO = torch::relu(hR);
+-  auto O = hO.to(torch::kCPU);
+-
+-  EXPECT_EQ(allclose(C, O), true);
+-  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
+-}
+-
+-TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
+-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
+-    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
+-
+-  auto S = torch::randn({2, 4}, torch::requires_grad(false));
+-  auto C = torch::relu(S);
+-  auto hS = S.to(torch::kHPU);
+-  HbLazyTensor::StepMarker({});
+-
+-  auto hT = torch::relu(hS);
+-  HbLazyTensor::StepMarker({});
+-
+-  at::Tensor hR = at::empty({0}, hS.options());
+-
+-  at::TensorImpl* impl = hR.unsafeGetTensorImpl();
+-  auto storage = hS.storage();
+-  impl->set_storage_keep_dtype(storage);
+-  impl->set_storage_offset(0);
+-  impl->set_sizes_and_strides(
+-      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
+-
+-  auto hO = torch::relu(hR);
+-  auto O = hO.to(torch::kCPU);
+-
+-  EXPECT_EQ(allclose(C, O), true);
+-  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
+-}
+-
+ TEST_F(DebugUtilsTest, CheckTensorSizeForLongType) {
+   if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);

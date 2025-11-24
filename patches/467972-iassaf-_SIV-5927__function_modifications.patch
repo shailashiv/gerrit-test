@@ -1,0 +1,665 @@
+From a9586a94ac73c8987012a72d63ed4817f779212a Mon Sep 17 00:00:00 2001
+From: Itamar Assaf <iassaf@habana.ai>
+Date: Tue, 24 Dec 2024 11:59:54 +0200
+Subject: [PATCH] [SIV-5927] function modifications
+
+Some explanations and modifications to existing functions
+on gaudi3 new driver to prepare for the fs1 new driver.
+
+Change-Id: I06e98b3df0dc99f0cb76752fdee210752835b9c8
+Signed-off-by: Itamar Assaf <iassaf@habana.ai>
+---
+
+diff --git a/drivers/hbm/gaudi3/common/common.c b/drivers/hbm/gaudi3/common/common.c
+index 9f2d3b8..1595641 100644
+--- a/drivers/hbm/gaudi3/common/common.c
++++ b/drivers/hbm/gaudi3/common/common.c
+@@ -10,6 +10,8 @@
+ 
+ struct hl_hbm_info hbm_info;
+ struct gaudi3_hbm hbm_cfg;
++const uint32_t hbm_ch_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
++const uint32_t phy_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
+ 
+ 
+ enum hbm_pll_freqs freq_to_enum(uint32_t freq)
+@@ -42,20 +44,22 @@
+ 
+ uint32_t phy_ch_mapping(uint32_t ch)
+ {
+-	uint32_t phy_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
+ 	return phy_map[ch];
+ }
+ 
+ int phy_poll_on_training(uint32_t hbm_dev)
+ {
+-	int rc = 0;
+-	// uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
+-	// uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
++	int rc;
++	/* set different time parameters depending on PLDM use or real time */
++	uint32_t timeout = pldm ? PLDM_TIMEOUT : PHY_TIMEOUT_US;
++	uint32_t sleep = pldm ? PLDM_POLL_INTERVAL : POLL_INTERVAL_US;
+ 	uint32_t reg_val = 0;
+ 
+-	// rc = PHY_POLLING_TIMEOUT(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS),
+-	// 			 reg_val, (reg_val & HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M),
+-	// 			 sleep, timeout);
++	/* preforming phy polling including timeout */
++	rc = PHY_POLLING_TIMEOUT(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS),
++				 reg_val, (reg_val & HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M),
++				 sleep, timeout);
++
+ 	if (rc) {
+ 		LOG_ERR("HBM%d Timeout while polling for training FSM completion. TrainStatus: 0x%x",
+ 			hbm_dev, reg_val);
+@@ -69,20 +73,24 @@
+ {
+ 	uint32_t reg_val, train_fsm_status_valid;
+ 
++	/* set trainrun + train_set_mode values both for asserting and status */
+ 	reg_val = HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRUN_M |
+ 		HBM_PHY_P0_MASTER_TRAINCTRL_DRAMINITRESET_M;
+ 	train_fsm_status_valid = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M |
+ 		HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITRSTDONE_M;
+ 
++	/*  assert TrainRun for future training and/or DRAM init */
+ 	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val);
+ 
+ 	/* de-assert TrainRun for future training and/or DRAM init */
+ 	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val & ~(1ULL))
+ 	;
+ 
++	/* check polling doesn't reach timeout */
+ 	if (phy_poll_on_training(hbm_dev))
+ 		return STATUS_FAIL;
+ 
++	/* check train fsm status to ensure hbm reset properly*/
+ 	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS));
+ 	if (reg_val != train_fsm_status_valid) {
+ 		LOG_ERR("HBM%d - FAILED to reset HBM device. TrainStatus: 0x%x", hbm_dev,
+@@ -97,20 +105,24 @@
+ {
+ 	uint32_t reg_val, train_fsm_status_valid;
+ 
++	/* set trainrun + trainreset values both for asserting and status */
+ 	reg_val = HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRUN_M |
+ 		HBM_PHY_P0_MASTER_TRAINCTRL_DRAMINITMRS_M;
+ 	train_fsm_status_valid = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINDONE_M |
+ 		HBM_PHY_P0_MASTER_TRAINSTATUS_DRAMINITMRSDONE_M;
+ 
++
++	/* assert TrainRun for future training and/or DRAM init */
+ 	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val);
+ 
+ 	/* de-assert TrainRun for future training and/or DRAM init */
+-	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val & ~(1ULL))
+-	;
++	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL), reg_val & ~(1ULL));
+ 
++	/* check polling doesn't reach timeout */
+ 	if (phy_poll_on_training(hbm_dev))
+ 		return STATUS_FAIL;
+ 
++	/* check train fsm status to ensure mod registers set properly*/
+ 	reg_val = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS));
+ 	if (reg_val != train_fsm_status_valid) {
+ 		LOG_ERR("HBM%d - FAILED to set mode registers. TrainStatus: 0x%x", hbm_dev,
+diff --git a/drivers/hbm/gaudi3/common/common.h b/drivers/hbm/gaudi3/common/common.h
+index a96349b..806f4ff 100644
+--- a/drivers/hbm/gaudi3/common/common.h
++++ b/drivers/hbm/gaudi3/common/common.h
+@@ -643,6 +643,8 @@
+ /* Global */
+ extern struct gaudi3_hbm hbm_cfg;
+ extern struct hl_hbm_info hbm_info;
++extern const uint32_t hbm_ch_map[];
++
+ 
+ void hbm_phy_write(uint32_t hbm_dev, uint32_t addr, uint32_t val);
+ uint32_t hbm_phy_read(uint32_t hbm_dev, uint32_t addr);
+diff --git a/drivers/hbm/gaudi3/mbist/mbist.c b/drivers/hbm/gaudi3/mbist/mbist.c
+index ec7efef..ee9d907 100644
+--- a/drivers/hbm/gaudi3/mbist/mbist.c
++++ b/drivers/hbm/gaudi3/mbist/mbist.c
+@@ -17,36 +17,36 @@
+ 
+ 
+ /* shift and sizes are +1 due to garbage bit to be ignored per channel using IEEE1500 */
+-#define LEGACY_PATTERNS_NUM_PER_SID			(2)
+-#define MBIST_PBT_STATUS_BITS_MASK			(0x3fe)		/* garbage bit modified */
++#define LEGACY_PATTERNS_NUM_PER_SID				(2)
++#define MBIST_PBT_STATUS_BITS_MASK				(0x3fe)		/* garbage bit modified */
+ #define MBIST_LEGACY_STATUS_BITS_MASK			(0xfe)		/* garbage bit modified */
+-#define MBIST_PBT_STATUS_BITS_SHIFT			(10)		/* garbage bit modified */
+-#define MBIST_PBT_DATA_BITS_SHIFT			(22)		/* garbage bit modified */
+-#define MBIST_STATUS_BIT_MASK				(0x1)
+-#define MBIST_FAIL_RA_CNT_MASK				(0x3e)
+-#define MBIST_PBT_RUN_FAIL_MASK				(0x40)
+-#define MBIST_LEGACY_RDQS_FAIL_MASK			(0x40)
+-#define MBIST_SID_MASK					(0x180)
++#define MBIST_PBT_STATUS_BITS_SHIFT				(10)		/* garbage bit modified */
++#define MBIST_PBT_DATA_BITS_SHIFT				(22)		/* garbage bit modified */
++#define MBIST_STATUS_BIT_MASK					(0x1)
++#define MBIST_FAIL_RA_CNT_MASK					(0x3e)
++#define MBIST_PBT_RUN_FAIL_MASK					(0x40)
++#define MBIST_LEGACY_RDQS_FAIL_MASK				(0x40)
++#define MBIST_SID_MASK							(0x180)
+ #define MBIST_DATA_RA_MASTER_BIT_MASK			(0x1)
+-#define MBIST_PBT_DATA_RA_MASK				(0x3ffe)
+-#define MBIST_DATA_PBT_FINISH_MASK			(0xc000)
++#define MBIST_PBT_DATA_RA_MASK					(0x3ffe)
++#define MBIST_DATA_PBT_FINISH_MASK				(0xc000)
+ #define MBIST_PBT_DATA_DQ_POSITION_MASK			(0xffff0000)
+-#define MBIST_LEGACY_DATA_RB_MASK			(0x1e00)
+-#define MBIST_LEGACY_DATA_RA_MASK			(0xfffe000)
++#define MBIST_LEGACY_DATA_RB_MASK				(0x1e00)
++#define MBIST_LEGACY_DATA_RA_MASK				(0xfffe000)
+ #define MBIST_LEGACY_DATA_DQ_POSITION_MASK		(0x30000000)
+-#define MBIST_LEGACY_STATUS_FIRST_BIT			(8)		/* garbage bit modified */
++#define MBIST_LEGACY_STATUS_FIRST_BIT			(8)			/* garbage bit modified */
+ #define MBIST_LEGACY_REPAIR_VECTOR_SIZE			(23)
+ #define MBIST_LEGACY_ERROR_CNT_FIRST_BIT		(376)		/* garbage bit modified */
+-#define MBIST_LEGACY_ERROR_CNT_SIZE			(20)
++#define MBIST_LEGACY_ERROR_CNT_SIZE				(20)
+ #define MBIST_LEGACY_IGNORE_FIRST_BIT			(396)		/* garbage bit modified */
+-#define MBIST_LEGACY_IGNORE_SIZE			(80)
+-#define MBIST_PBT_BUSY_RETRY_COUNT			(5)
+-#define MBIST_PBT_FAIL_RETRY_COUNT			(3)
++#define MBIST_LEGACY_IGNORE_SIZE				(80)
++#define MBIST_PBT_BUSY_RETRY_COUNT				(5)
++#define MBIST_PBT_FAIL_RETRY_COUNT				(3)
+ #define MBIST_PBT_SCAN_PATTERN_WAIT_TIME_MS		(2500)		/* 2.5s */
+-#define MBIST_PBT_MARCH_PATTERN_WAIT_TIME_MS		(1300)		/* 1.3s */
++#define MBIST_PBT_MARCH_PATTERN_WAIT_TIME_MS	(1300)		/* 1.3s */
+ #define MBIST_PBT_TSV_PATTERN_WAIT_TIME_MS		(300)		/* 0.3s */
+-#define MBIST_LEGACY_SCAN_PATTERN_WAIT_TIME_US		(6800000)	/* 6.8s */
+-#define MBIST_LEGACY_MARCH_PATTERN_WAIT_TIME_US		(15000000)	/* 15s */
++#define MBIST_LEGACY_SCAN_PATTERN_WAIT_TIME_US	(6800000)	/* 6.8s */
++#define MBIST_LEGACY_MARCH_PATTERN_WAIT_TIME_US	(15000000)	/* 15s */
+ #define MBIST_DRAM_CLK_ENABLE_DLY_MS			(30)
+ 
+ enum pbt_vec_shift {
+diff --git a/drivers/hbm/gaudi3/mc/mc.c b/drivers/hbm/gaudi3/mc/mc.c
+index ce80fc9..ed66c9d 100644
+--- a/drivers/hbm/gaudi3/mc/mc.c
++++ b/drivers/hbm/gaudi3/mc/mc.c
+@@ -14,30 +14,30 @@
+ 	[die1_hbm7] = 0x1,
+ };
+ static const uint32_t ieee1500_wdr_len_t[] = {
+-	[ieee1500_bypass] = 1,				/* BYPASS */
+-	[ieee1500_extest_rx] = 215,			/* EXTEST_RX */
+-	[ieee1500_extest_tx] = 215,			/* EXTEST_TX */
+-	[ieee1500_intest_rx] = 0,			/* INTEST_RX */
+-	[ieee1500_intest_tx] = 0,			/* INTEST_TX */
+-	[ieee1500_hbm_reset] = 1,			/* HBM_RESET */
+-	[ieee1500_mbist] = 375,				/* MBIST */
+-	[ieee1500_soft_repair] = 22,			/* SOFT_REPAIR */
+-	[ieee1500_hard_repair] = 22,			/* HARD_REPAIR */
+-	[ieee1500_dword_misr] = 320,			/* DWORD_MISR */
+-	[ieee1500_aword_misr] = 30,			/* AWORD_MISR */
+-	[ieee1500_channel_id] = 1,			/* CHANNEL_ID */
+-	[ieee1500_misr_mask] = 72,			/* MISR_MASK */
+-	[ieee1500_aword_misr_config] = 8,		/* AWORD_MISR_CONFIG */
+-	[ieee1500_device_id] = 82,			/* DEVICE_ID */
+-	[ieee1500_temperature] = 8,			/* TEMPERATURE */
++	[ieee1500_bypass] = 1,						/* BYPASS */
++	[ieee1500_extest_rx] = 215,					/* EXTEST_RX */
++	[ieee1500_extest_tx] = 215,					/* EXTEST_TX */
++	[ieee1500_intest_rx] = 0,					/* INTEST_RX */
++	[ieee1500_intest_tx] = 0,					/* INTEST_TX */
++	[ieee1500_hbm_reset] = 1,					/* HBM_RESET */
++	[ieee1500_mbist] = 375,						/* MBIST */
++	[ieee1500_soft_repair] = 22,				/* SOFT_REPAIR */
++	[ieee1500_hard_repair] = 22,				/* HARD_REPAIR */
++	[ieee1500_dword_misr] = 320,				/* DWORD_MISR */
++	[ieee1500_aword_misr] = 30,					/* AWORD_MISR */
++	[ieee1500_channel_id] = 1,					/* CHANNEL_ID */
++	[ieee1500_misr_mask] = 72,					/* MISR_MASK */
++	[ieee1500_aword_misr_config] = 8,			/* AWORD_MISR_CONFIG */
++	[ieee1500_device_id] = 82,					/* DEVICE_ID */
++	[ieee1500_temperature] = 8,					/* TEMPERATURE */
+ 	[ieee1500_mode_register_dump_set] = 128,	/* MODE_REGISTER_DUMP_SET */
+ 	[ieee1500_read_lfsr_compare_sticky] = 175,	/* READ_LFSR_COMPARE_STICKY */
+-	[ieee1500_soft_lane_repair] = 72,		/* SOFT_LANE_REPAIR */
+-	[ieee1500_hard_lane_repair] = 72,		/* HARD_LANE_REPAIR */
+-	[ieee1500_mbist_a6] = 2077,			/* MBIST_A6 */
+-	[ieee1500_mbist_a7] = 301,			/* MBIST_A7 */
+-	[ieee1500_tmrs_gen] = 37,			/* TMRS_GEN */
+-	[ieee1500_fuse_scan] = 26,			/* ROWS_FUSE_SCAN */
++	[ieee1500_soft_lane_repair] = 72,			/* SOFT_LANE_REPAIR */
++	[ieee1500_hard_lane_repair] = 72,			/* HARD_LANE_REPAIR */
++	[ieee1500_mbist_a6] = 2077,					/* MBIST_A6 */
++	[ieee1500_mbist_a7] = 301,					/* MBIST_A7 */
++	[ieee1500_tmrs_gen] = 37,					/* TMRS_GEN */
++	[ieee1500_fuse_scan] = 26,					/* ROWS_FUSE_SCAN */
+ };
+ 
+ static int mc_p1500_get_wdr_len(enum ieee1500_instruction inst, enum ieee1500_op op,
+diff --git a/drivers/hbm/gaudi3/phy/phy.c b/drivers/hbm/gaudi3/phy/phy.c
+index 52ea10c..6cbb2b31 100644
+--- a/drivers/hbm/gaudi3/phy/phy.c
++++ b/drivers/hbm/gaudi3/phy/phy.c
+@@ -16,16 +16,33 @@
+ static struct phy_indirect_access phy_access;
+ 
+ 
++#if defined(CONFIG_HBM_CHARACTERIZATION)
++static int bit_shift (int x){
++	return (1 << x);
++}
++
++static int sign_conversion(unsigned int val){
++	if (val & bit_shift(6))
++		return -(0x1f - (val & ~bit_shift(6)) + 1);
++	else
++		return val;
++}
++#endif
++
++/* Set chiplet type and offset by the address value */
+ static uint8_t phy_get_chiplet_type_and_offset(uint32_t addr)
+ {
+ 	uint8_t chiplet_type;
+ 
++	/* Checks if in range of Master Base */
+ 	if (IN_RANGE(addr, mmD0_HBM0_PHY_P0_MASTER_BASE, mmD0_HBM0_PHY_P0_INITENG_BASE - 1)) {
+ 		chiplet_type = PHY_CHIPLET_MASTER;
+ 		phy_access.offset = PHY_CHIPLET_MASTER_OFFSET;
++	/* Checks if in range of Initeng Base */
+ 	} else if (IN_RANGE(addr, mmD0_HBM0_PHY_P0_INITENG_BASE, mmD0_HBM1_MC0_BASE - 1)) {
+ 		chiplet_type = PHY_CHIPLET_INITENG;
+ 		phy_access.offset = PHY_CHIPLET_INITENG_OFFSET;
++	/* Checks if in range of MC Base */
+ 	} else {
+ 		chiplet_type = PHY_CHIPLET_CH;
+ 		phy_access.offset = PHY_CHIPLET_CH_OFFSET;
+@@ -40,10 +57,10 @@
+ 	uint32_t phy_addr, hbm_offset, reg_val;
+ 
+ 	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+ 	phy_addr = hbm_offset + addr - phy_access.offset;
+ 
+-	/* set chiplet type only if needed */
++	/* Set chiplet type only if needed */
++	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+ 	if (chiplet_type != phy_access.chiplet) {
+ 		phy_access.chiplet = chiplet_type;
+ 		reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+@@ -51,6 +68,8 @@
+ 		CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) +
+ 									hbm_offset, reg_val);
+ 	}
++
++	/* Writes to phy address */
+ 	CFG_WREG32(phy_addr, val);
+ }
+ 
+@@ -59,11 +78,12 @@
+ 	uint8_t chiplet_type;
+ 	uint32_t phy_addr, hbm_offset, reg_val;
+ 
++	/* Calculating phy address */
+ 	hbm_offset = CALC_HBM_OFFSET(hbm_dev);
+-	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+ 	phy_addr = hbm_offset + addr - phy_access.offset;
+ 
+ 	/* set chiplet type only if needed */
++	chiplet_type = phy_get_chiplet_type_and_offset(addr);
+ 	if (chiplet_type != phy_access.chiplet) {
+ 		phy_access.chiplet = chiplet_type;
+ 		reg_val = FIELD_PREP(CENTRAL_PHY_INDIRECT_ACCESS_PSTATE_M, phy_access.pstate);
+@@ -72,6 +92,7 @@
+ 									hbm_offset, reg_val);
+ 	}
+ 
++	/* Reads from phy address */
+ 	return HBM_RREG32(phy_addr, POLL_WR_INFLIGHT);
+ }
+ 
+@@ -80,6 +101,7 @@
+ 	uint32_t wdr[HBM_REMAP_REGS_SIZE], val, rc, ch, dw;
+ 
+ 	for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
++		/* Gets ieee1500 lane repair read instructions to wdr */
+ 		rc = mc_p1500_inst(hbm_dev, ch, ieee1500_soft_lane_repair, wir_read, wdr, 0);
+ 		if (rc) {
+ 			LOG_ERR("HBM%d CH%d: IEEE1500 soft lane repair read instruction FAILED",
+@@ -99,14 +121,14 @@
+ 
+ 		for (dw = 0; dw < HBM_CHANNEL_DWORDS_NUM; dw++) {
+ 			if (dw == 0)
+-				val = FIELD_GET(0xffff, wdr[0]);
++				val = FIELD_GET(WDR_DW0_FIELD_MASK, wdr[0]);
+ 			else if (dw == 1)
+-				val = FIELD_GET(0xffff0000, wdr[0]);
++				val = FIELD_GET(WDR_DW1_FIELD_MASK, wdr[0]);
+ 			else if (dw == 2)
+-				val = FIELD_GET(0xffff00, wdr[1]);
++				val = FIELD_GET(WDR_DW2_FIELD_MASK, wdr[1]);
+ 			else {
+-				val = FIELD_GET(0xff000000, wdr[1]) |
+-				       FIELD_PREP(0xff00, FIELD_GET(0xff, wdr[2]));
++				val = FIELD_GET(WDR_DW3_FIELD_MASK, wdr[1]) |
++				       FIELD_PREP(WDR_DW3_FIELD_PREP, FIELD_GET(WDR_DW3_FIELD_PREPMASK, wdr[2]));
+ 			}
+ 			remap_info->dw_remap_code[ch][dw] = val;
+ 		}
+@@ -128,6 +150,30 @@
+ 	reg_val |= phy_access.chiplet;
+ 	CFG_WREG32(D0_HBM0_CENTRAL_REG(mmHBM_CENTRAL_PHY_INDIRECT_ACCESS) + hbm_offset,
+ 											reg_val);
++}
++
++static void set_instr_dly(uint32_t *instr_dly)
++{
++	switch (hbm_cfg.ck_freq) {
++	case HBM_PLL_1200:
++		instr_dly[0] = 0xbb8;
++		instr_dly[1] = 0x12c;
++		instr_dly[2] = 0x96;
++		break;
++
++	case HBM_PLL_1600:
++		instr_dly[0] = 0xfa0;
++		instr_dly[1] = 0x190;
++		instr_dly[2] = 0xc8;
++		break; /* This was missing. any reason? */
++
++	case HBM_PLL_1800:
++	default:
++		instr_dly[0] = 0x1194;
++		instr_dly[1] = 0x1c2;
++		instr_dly[2] = 0xe1;
++		break;
++	}
+ }
+ static void phy_preload_initeng(uint32_t hbm_dev)
+ {
+@@ -154,25 +200,8 @@
+ 	 * INITSEQDLY1 for all PSTATE - freq / 4 for PLL Tlock of 10us
+ 	 * INITSEQDLY2 for all PSTATE - 0.5 * freq / 4 for PLL Tlock of 10us
+ 	 */
+-	switch (hbm_cfg.ck_freq) {
+-	case HBM_PLL_1200:
+-		instr_dly[0] = 0xbb8;
+-		instr_dly[1] = 0x12c;
+-		instr_dly[2] = 0x96;
+-		break;
+ 
+-	case HBM_PLL_1600:
+-		instr_dly[0] = 0xfa0;
+-		instr_dly[1] = 0x190;
+-		instr_dly[2] = 0xc8;
+-
+-	case HBM_PLL_1800:
+-	default:
+-		instr_dly[0] = 0x1194;
+-		instr_dly[1] = 0x1c2;
+-		instr_dly[2] = 0xe1;
+-		break;
+-	}
++	set_instr_dly(instr_dly);
+ 
+ 	phy_set_pstate(hbm_dev, BCAST);
+ 	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQDLY0_P0),
+@@ -189,6 +218,7 @@
+ 	hbm_phy_write(hbm_dev, D0_HBM0_PHY_P0_INITENG_REG(mmHBM_PHY_P0_INITENG_INITSEQPRE1S2),
+ 											0x400);
+ }
++// #region debug prints
+ static void debug_print_mrs(uint32_t hbm_dev)
+ {
+ 	uint32_t i;
+@@ -219,7 +249,77 @@
+ 	}
+ 	HBM_DBG("\n");
+ }
++static void debug_print_train_param_status(uint32_t hbm_dev, uint32_t train_status,
++					   enum train_params train_param)
++{
++	uint32_t train_done_mask, train_err_mask;
++	char *status_str, *train_param_str;
+ 
++	switch (train_param) {
++	case TRAIN_CA:
++		train_param_str = "CA";
++		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCADONE_M;
++		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCAERR_M;
++		break;
++	case TRAIN_RD_LAT:
++		train_param_str = "RD LAT";
++		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLDONE_M;
++		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLERR_M;
++		break;
++	case TRAIN_RD_EYE:
++		train_param_str = "RD EYE";
++		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEDONE_M;
++		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEERR_M;
++		break;
++	case TRAIN_VREF:
++		train_param_str = "VREF";
++		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFDONE_M;
++		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFERR_M;
++		break;
++	case TRAIN_WR_EYE:
++		train_param_str = "WR EYE";
++		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEDONE_M;
++		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEERR_M;
++		break;
++
++	default:
++		LOG_ERR("No such train param num %d, FAILED", train_param);
++		break;
++	}
++
++	if ((train_status & train_done_mask) && !(train_status & train_err_mask))
++		status_str = "PASSED";
++	else
++		status_str = "FAILED";
++
++	HBM_DBG("HBM%d %s training %s", hbm_dev, train_param_str, status_str);
++}
++static void debug_print_training_status(uint32_t hbm_dev)
++{
++	uint32_t train_status, train_ctrl;
++
++	if (!hl_hbm_open_dbg_prints)
++		return;
++
++	train_status = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS)) &
++				    PHY_TRAINSTATUS_M;
++	train_ctrl = hbm_phy_read(hbm_dev,  D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL));
++
++	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINCAEN_M)
++		debug_print_train_param_status(hbm_dev, train_status, TRAIN_CA);
++
++	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRLEN_M)
++		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_LAT);
++
++	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINREYEEN_M)
++		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_EYE);
++
++	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINVREFEN_M)
++		debug_print_train_param_status(hbm_dev, train_status, TRAIN_VREF);
++
++	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINWEYEEN_M)
++		debug_print_train_param_status(hbm_dev, train_status, TRAIN_WR_EYE);
++}
+ void debug_print_pub_deviceid(uint32_t hbm_dev)
+ {
+ 	uint32_t i;
+@@ -234,7 +334,9 @@
+ 	}
+ 	HBM_DBG("\n");
+ }
++// #endregion
+ 
++// region phy configs
+ static void phy_config_mode_registers(uint32_t hbm_dev)
+ {
+ 	const uint32_t mr3_tras_mask = 0x3f, mr4_parity_lat_mask = 0xc, mr4_ext_wl_mask = 0x10,
+@@ -299,7 +401,6 @@
+ 	hbm_phy_write(hbm_dev,
+ 	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_DRAMPARAM1_P0), reg_val);
+ }
+-
+ 
+ static void phy_config_dram_timing(uint32_t hbm_dev)
+ {
+@@ -464,7 +565,7 @@
+ 	D0_HBM0_PHY_P0_CH_BCAST_AW_REG(mmHBM_PHY_CHANNELS_CH_BCAST_AW_LCDLTRAINPARAM),
+ 			 hbm_cfg.phy_ac_param.extend_phased_time);
+ }
+-
++// #endregion
+ static void phy_load_initeng(uint32_t hbm_dev)
+ {
+ 	/* Part 1 - LP2 Entry Sequence */
+@@ -1766,79 +1867,6 @@
+ 	return sum_eyes_ratios / (HBM_PHY_CHANNELS_NUM * HBM_CHANNEL_DWORDS_NUM * NUM_RDQS_EDGES);
+ }
+ 
+-static void debug_print_train_param_status(uint32_t hbm_dev, uint32_t train_status,
+-					   enum train_params train_param)
+-{
+-	uint32_t train_done_mask, train_err_mask;
+-	char *status_str, *train_param_str;
+-
+-	switch (train_param) {
+-	case TRAIN_CA:
+-		train_param_str = "CA";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCADONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINCAERR_M;
+-		break;
+-	case TRAIN_RD_LAT:
+-		train_param_str = "RD LAT";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINRLERR_M;
+-		break;
+-	case TRAIN_RD_EYE:
+-		train_param_str = "RD EYE";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINREYEERR_M;
+-		break;
+-	case TRAIN_VREF:
+-		train_param_str = "VREF";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINVREFERR_M;
+-		break;
+-	case TRAIN_WR_EYE:
+-		train_param_str = "WR EYE";
+-		train_done_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEDONE_M;
+-		train_err_mask = HBM_PHY_P0_MASTER_TRAINSTATUS_TRAINWEYEERR_M;
+-		break;
+-
+-	default:
+-		LOG_ERR("No such train param num %d, FAILED", train_param);
+-		break;
+-	}
+-
+-	if ((train_status & train_done_mask) && !(train_status & train_err_mask))
+-		status_str = "PASSED";
+-	else
+-		status_str = "FAILED";
+-
+-	HBM_DBG("HBM%d %s training %s", hbm_dev, train_param_str, status_str);
+-}
+-
+-static void debug_print_training_status(uint32_t hbm_dev)
+-{
+-	uint32_t train_status, train_ctrl;
+-
+-	if (!hl_hbm_open_dbg_prints)
+-		return;
+-
+-	train_status = hbm_phy_read(hbm_dev, D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINSTATUS)) &
+-				    PHY_TRAINSTATUS_M;
+-	train_ctrl = hbm_phy_read(hbm_dev,  D0_HBM0_PHY_P0_REG(mmHBM_PHY_P0_MASTER_TRAINCTRL));
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINCAEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_CA);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINRLEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_LAT);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINREYEEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_RD_EYE);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINVREFEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_VREF);
+-
+-	if (train_ctrl & HBM_PHY_P0_MASTER_TRAINCTRL_TRAINWEYEEN_M)
+-		debug_print_train_param_status(hbm_dev, train_status, TRAIN_WR_EYE);
+-}
+-
+ static void hbm_set_vref(uint32_t hbm_dev, enum hbm_vref vref_val)
+ {
+ 	uint32_t mc;
+@@ -1980,17 +2008,6 @@
+ 		sum_valid_vref_eyes += dev_avg_eye_ratio;
+ 		weighted_sum_valid_vref_eyes += phy_vref * dev_avg_eye_ratio;
+ 		#if defined(CONFIG_HBM_CHARACTERIZATION)
+-
+-		int bit_shift (int x){
+-    		return (1 << x);
+-		}
+-
+-		int sign_conversion(unsigned int val){
+-    		if (val & bit_shift(6))
+-        		return -(0x1f - (val & ~bit_shift(6)) + 1);
+-    		else
+-        		return val;
+-		}
+ 
+ 		uint32_t ch_offset, dw_offset, dw_res_offset, ch, dw;
+ 		for (ch = 0; ch < HBM_PHY_CHANNELS_NUM; ch++) {
+@@ -2445,6 +2462,7 @@
+ {
+ 	/* Set initial pstate */
+ 	phy_set_pstate(hbm_dev, BCAST);
++
+ 	phy_config_mode_registers(hbm_dev);
+ 
+ 	phy_config_dram_timing(hbm_dev);
+@@ -2463,5 +2481,6 @@
+ 	phy_load_initeng(hbm_dev);
+ 
+ 	debug_print_mrs(hbm_dev);
++
+ 	debug_print_pub_dramtiming(hbm_dev);
+ }
+diff --git a/drivers/hbm/gaudi3/phy/phy.h b/drivers/hbm/gaudi3/phy/phy.h
+index cddb385..7a9b2a6 100644
+--- a/drivers/hbm/gaudi3/phy/phy.h
++++ b/drivers/hbm/gaudi3/phy/phy.h
+@@ -13,6 +13,13 @@
+ #include <mcbist.h>
+ // #include <mbist.h>
+ 
++#define WDR_DW0_FIELD_MASK				0xffff
++#define WDR_DW1_FIELD_MASK				0xffff0000
++#define WDR_DW2_FIELD_MASK				0xffff00
++#define WDR_DW3_FIELD_MASK				0xff000000
++#define WDR_DW3_FIELD_PREP				0xff00
++#define WDR_DW3_FIELD_PREPMASK			0xff
++
+ void hbm_phy_write(uint32_t hbm_dev, uint32_t addr, uint32_t val);
+ uint32_t hbm_phy_read(uint32_t hbm_dev, uint32_t addr);
+ void debug_print_pub_deviceid(uint32_t hbm_dev);
+diff --git a/drivers/hbm/hbm.c b/drivers/hbm/hbm.c
+index 3f839f8..49dd4ae 100644
+--- a/drivers/hbm/hbm.c
++++ b/drivers/hbm/hbm.c
+@@ -758,8 +758,7 @@
+ /* Gets MC_PC/PHY_PC index (0-15) and convert it bi-directional MC_PC <-> PHY_PC */
+ int hbm_drv_map_pseudo_channel(int pc_idx)
+ {
+-	const uint32_t hbm_ch_map[] = {0, 1, 4, 5, 2, 3, 6, 7};
+-	uint32_t ch_idx = pc_idx / 2, valid_pc;
++	uint32_t ch_idx = pc_idx / NUM_PC_PER_CH, valid_pc;
+ 
+ 	valid_pc = IN_RANGE(pc_idx, 0, NUM_PC_PER_HBM - 1);
+ 	if (!valid_pc) {

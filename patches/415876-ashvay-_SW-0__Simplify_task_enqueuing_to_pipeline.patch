@@ -1,0 +1,756 @@
+From e7ed0265644e3056db813f547ad6afa25a3815e3 Mon Sep 17 00:00:00 2001
+From: Adrian Shvay <ashvay@habana.ai>
+Date: Sat, 11 May 2024 19:30:40 +0300
+Subject: [PATCH] [SW-0] Simplify task enqueuing to pipeline
+
+Change-Id: I1049961e3a8cd3e7ca4f111578348d693dbaf02a
+---
+
+diff --git a/habana_eager/eager_pipeline_utils.h b/habana_eager/eager_pipeline_utils.h
+index 80a340d..3400770 100644
+--- a/habana_eager/eager_pipeline_utils.h
++++ b/habana_eager/eager_pipeline_utils.h
+@@ -13,32 +13,156 @@
+ #pragma once
+ 
+ #include <ATen/core/TensorBody.h>
++#include <absl/functional/any_invocable.h>
+ #include "backend/backend_meta.h"
+ #include "backend/synapse_helpers/layout_utils.h"
+ #include "eager_tensor.h"
+ #include "habana_eager/eager_context.h"
+ 
+-namespace habana {
+-namespace eager {
++namespace habana::eager {
+ 
+-template <class F, class... Args>
+-void op_Lowering_Task(F&& f, Args&&... args) {
+-  f(std::forward<Args>(args)...);
++enum class ThreadType {
++  LOWERING,
++  COMPILE,
++  EXECUTE,
++};
++
++template <typename C>
++class PipeliningTaskAllThreads {
++ public:
++  // Constructor that accepts an arbitrary number of arguments and two functions
++  template <typename F1, typename F2, typename F3>
++  PipeliningTaskAllThreads(
++      C&& c,
++      F1&& func_lowering,
++      F2&& func_compile,
++      F3&& func_execute)
++      : data(std::forward<C>(c)),
++        func_lowering_(std::forward<F1>(func_lowering)),
++        func_compile_(std::forward<F2>(func_compile)),
++        func_execute_(std::forward<F3>(func_execute)) {}
++
++  void LoweringCall() {
++    func_lowering_(data);
++  }
++
++  void CompileCall() {
++    func_compile_(data);
++  }
++
++  void ExecuteCall() {
++    func_execute_(data);
++  }
++
++  constexpr bool IsCompileNeeded() {
++    return true;
++  }
++  constexpr bool IsExecuteNeeded() {
++    return true;
++  }
++
++ private:
++  C data;
++  absl::AnyInvocable<void(C&)> func_lowering_;
++  absl::AnyInvocable<void(C&)> func_compile_;
++  absl::AnyInvocable<void(C&)> func_execute_;
++};
++
++// Deduction guide
++template <typename F1, typename F2, typename F3, typename C>
++PipeliningTaskAllThreads(C&&, F1&&, F2&&, F3&&) -> PipeliningTaskAllThreads<C>;
++
++template <ThreadType thread_type>
++class PipeliningTask {
++  absl::AnyInvocable<void()> task_;
++
++ public:
++  PipeliningTask(absl::AnyInvocable<void()> task) : task_(std::move(task)) {
++    HABANA_ASSERT(task_);
++  }
++
++  void LoweringCall() {
++    if constexpr (thread_type == ThreadType::LOWERING)
++      task_();
++  }
++  void CompileCall() {
++    if constexpr (thread_type == ThreadType::COMPILE)
++      task_();
++  }
++  void ExecuteCall() {
++    if constexpr (thread_type == ThreadType::EXECUTE)
++      task_();
++  }
++  constexpr bool IsCompileNeeded() {
++    return thread_type == ThreadType::COMPILE ||
++        thread_type == ThreadType::EXECUTE;
++  }
++  constexpr bool IsExecuteNeeded() {
++    return thread_type == ThreadType::EXECUTE;
++  }
++};
++
++template <typename T>
++class PipeliningExecutor {
++ public:
++  static void LoweringStage(T&& pipe_task) {
++    pipe_task.LoweringCall();
++
++    if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
++      habana::HPUDeviceContext::compile_thread().waitWorkComplete();
++      habana::HPUDeviceContext::execute_thread().waitWorkComplete();
++      pipe_task.CompileCall();
++      pipe_task.ExecuteCall();
++      return;
++    }
++
++    if (pipe_task.IsCompileNeeded())
++      habana::HPUDeviceContext::compile_thread().enqueue(
++          PipeliningExecutor::CompileStage, std::move(pipe_task));
++  }
++
++  static void CompileStage(T&& pipe_task) {
++    pipe_task.CompileCall();
++    if (pipe_task.IsExecuteNeeded())
++      habana::HPUDeviceContext::execute_thread().enqueue(
++          PipeliningExecutor::ExecuteStage, std::move(pipe_task));
++  }
++
++  static void ExecuteStage(T&& pipe_task) {
++    pipe_task.ExecuteCall();
++  }
++};
++
++template <ThreadType thread_type>
++void PipelineTask(absl::AnyInvocable<void()>&& task) {
++  HPUDeviceContext::lowering_thread().enqueue(
++      PipeliningExecutor<PipeliningTask<thread_type>>::LoweringStage,
++      PipeliningTask<thread_type>(std::move(task)));
+ }
+ 
+-// Generic function to move set calls in StorageExtraMeta to
+-// the lowering thread in order to avoid race conditions.
+-template <class F, class... Args>
+-void pipeline_or_direct_generic(F&& f, Args&&... args) {
++template <typename F1, typename F2, typename F3, typename C>
++void PipelineTaskAllThreads(
++    C&& c,
++    F1&& func_lowering,
++    F2&& func_compile,
++    F3&& func_execute) {
++  PipeliningTaskAllThreads task(
++      std::move(c),
++      std::move(func_lowering),
++      std::move(func_compile),
++      std::move(func_execute));
++
++  HPUDeviceContext::lowering_thread().enqueue(
++      PipeliningExecutor<PipeliningTaskAllThreads<C>>::LoweringStage,
++      std::move(task));
++}
++
++inline void PipelineOrExecuteTask(absl::AnyInvocable<void()>&& task) {
+   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
+-    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+-        op_Lowering_Task<F, Args...>,
+-        std::forward<F>(f),
+-        std::forward<Args>(args)...);
++    PipelineTask<ThreadType::LOWERING>(std::move(task));
+   } else {
+-    std::forward<F>(f)(std::forward<Args>(args)...);
++    task();
+   }
+ }
+ 
+-} // namespace eager
+-} // namespace habana
++} // namespace habana::eager
+diff --git a/habana_eager/graph_weight_permute.cpp b/habana_eager/graph_weight_permute.cpp
+index 87ea199..319382d 100644
+--- a/habana_eager/graph_weight_permute.cpp
++++ b/habana_eager/graph_weight_permute.cpp
+@@ -70,15 +70,11 @@
+     }
+ 
+     habana::eager::_copy_from(weight_cpu, m_weight, false);
+-    auto pipeline_or_direct_set_memory_permutation =
+-        [](MemoryPermutation new_permutation,
+-           habana::StorageExtraMeta* m_storage_meta) {
+-          m_storage_meta->set_memory_permutation(new_permutation);
+-        };
+-    habana::eager::pipeline_or_direct_generic(
+-        pipeline_or_direct_set_memory_permutation,
+-        std::move(new_permutation),
+-        m_storage_meta);
++    habana::eager::PipelineOrExecuteTask(
++        [new_permutation = std::move(new_permutation),
++         storage_meta = m_storage_meta]() {
++          storage_meta->set_memory_permutation(new_permutation);
++        });
+   }
+ }
+ 
+diff --git a/habana_eager/kernels_impl.cpp b/habana_eager/kernels_impl.cpp
+index b851644..58f2862 100644
+--- a/habana_eager/kernels_impl.cpp
++++ b/habana_eager/kernels_impl.cpp
+@@ -74,19 +74,15 @@
+       " stride",
+       to_string(stride));
+   auto result = habana::eager::alias_with_sizes_and_strides(self, size, stride);
+-  auto pipeline_or_direct_reshape_alias = [](const at::Tensor& self,
+-                                             const at::Tensor& result) {
+-    habana::eager::view_propagate_permutation(self, result);
+-  };
+   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
+   auto dst_backend =
+       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
+   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+   dst_hb_tmeta->set_tensor_pipelined();
+-  habana::eager::pipeline_or_direct_generic(
+-      pipeline_or_direct_reshape_alias,
+-      std::move(src_backend),
+-      std::move(dst_backend));
++  habana::eager::PipelineOrExecuteTask(
++      [self = std::move(src_backend), result = std::move(dst_backend)]() {
++        habana::eager::view_propagate_permutation(self, result);
++      });
+   return result;
+ }
+ 
+diff --git a/habana_eager/ops/as_strided.cpp b/habana_eager/ops/as_strided.cpp
+index 716f67c..0f34b33 100644
+--- a/habana_eager/ops/as_strided.cpp
++++ b/habana_eager/ops/as_strided.cpp
+@@ -37,14 +37,11 @@
+       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
+   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+   dst_hb_tmeta->set_tensor_pipelined();
+-  auto pipeline_or_direct_as_strided = [](const at::Tensor& self,
+-                                          const at::Tensor& result) {
+-    habana::eager::view_propagate_permutation(self, result);
+-  };
+-  habana::eager::pipeline_or_direct_generic(
+-      pipeline_or_direct_as_strided,
+-      std::move(src_backend),
+-      std::move(dst_backend));
++
++  habana::eager::PipelineOrExecuteTask(
++      [self = std::move(src_backend), result = std::move(dst_backend)]() {
++        habana::eager::view_propagate_permutation(self, result);
++      });
+ 
+   return result;
+ }
+diff --git a/habana_eager/ops/copy_from.cpp b/habana_eager/ops/copy_from.cpp
+index aa3abe7..14ce914 100644
+--- a/habana_eager/ops/copy_from.cpp
++++ b/habana_eager/ops/copy_from.cpp
+@@ -18,6 +18,7 @@
+ #include "backend/helpers/tensor_utils.h"
+ #include "common/utils.h"
+ #include "habana_eager/eager_context.h"
++#include "habana_eager/eager_pipeline_utils.h"
+ #include "habana_eager/ops/eager_op.h"
+ #include "habana_eager/ops/view.h"
+ #include "habana_kernels/tensor_shape_kernels.h"
+@@ -223,35 +224,6 @@
+   return dst;
+ }
+ 
+-void Execute_Copy(
+-    const at::Tensor& src,
+-    const at::Tensor& dst,
+-    bool non_blocking,
+-    c10::hpu::HPUStream stream,
+-    void* host_ptr = nullptr) {
+-  habana_helpers::copy_data_to_device(
+-      std::move(src), std::move(dst), non_blocking, stream, host_ptr);
+-}
+-
+-void Copy_Compile_Empty_Task(
+-    const at::Tensor& src,
+-    const at::Tensor& dst,
+-    bool non_blocking,
+-    c10::hpu::HPUStream stream,
+-    void* host_ptr) {
+-  HPUDeviceContext::execute_thread().enqueue(
+-      Execute_Copy,
+-      std::move(src),
+-      std::move(dst),
+-      std::move(non_blocking),
+-      std::move(stream),
+-      std::move(host_ptr));
+-
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    HPUDeviceContext::execute_thread().waitWorkComplete();
+-  }
+-}
+-
+ static void clear_permutation_info(const at::Tensor& tensor) {
+   if (not GET_ENV_FLAG_NEW(PT_HPU_CLEAR_PERM_INFO)) {
+     return;
+@@ -267,33 +239,9 @@
+   }
+ }
+ 
+-void Copy_Empty_Lowering_Task(
+-    const at::Tensor& src,
+-    const at::Tensor& dst,
+-    bool non_blocking,
+-    c10::hpu::HPUStream stream,
+-    void* host_ptr) {
+-  // Note: Here we clear the permutation info in lowering thread when the
+-  // pipeline is enabled, to avoid race condition.
+-  // Because src tensor is always not permuted and we will directly copy src
+-  // data to dst. So if dst is permuted, we need to clear the permutation info
+-  // in dst.
+-  clear_permutation_info(dst);
+-  HPUDeviceContext::compile_thread().enqueue(
+-      Copy_Compile_Empty_Task,
+-      std::move(src),
+-      std::move(dst),
+-      non_blocking,
+-      std::move(stream),
+-      std::move(host_ptr));
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    HPUDeviceContext::compile_thread().waitWorkComplete();
+-  }
+-}
+-
+ void Register_Copy_In_Pipeline(
+-    const at::Tensor& src,
+-    const at::Tensor& dst,
++    at::Tensor&& src,
++    at::Tensor&& dst,
+     bool non_blocking,
+     c10::hpu::HPUStream stream) {
+   // Set pipeline metadata on the dst hpu tensor
+@@ -321,13 +269,26 @@
+         reinterpret_cast<uint8_t*>(host_ptr));
+   }
+ 
+-  habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+-      Copy_Empty_Lowering_Task,
+-      std::move(src),
+-      std::move(dst),
+-      non_blocking,
+-      std::move(stream),
+-      std::move(host_ptr));
++  struct ResourceHolder {
++    at::Tensor src;
++    at::Tensor dst;
++    bool non_blocking;
++    c10::hpu::HPUStream stream;
++    void* host_ptr;
++  } rs = {std::move(src), std::move(dst), non_blocking, stream, host_ptr};
++
++  PipelineTaskAllThreads(
++      std::move(rs),
++      [](ResourceHolder& rs) { clear_permutation_info(rs.dst); },
++      [](ResourceHolder&) {},
++      [](ResourceHolder& rs) {
++        habana_helpers::copy_data_to_device(
++            std::move(rs.src),
++            std::move(rs.dst),
++            rs.non_blocking,
++            rs.stream,
++            rs.host_ptr);
++      });
+ }
+ 
+ void Pipeline_Or_Direct_Copy(
+@@ -348,8 +309,8 @@
+     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
+ 
+     Register_Copy_In_Pipeline(
+-        src_backend,
+-        dst_backend,
++        std::move(src_backend),
++        std::move(dst_backend),
+         non_blocking,
+         c10::hpu::getCurrentHPUStream());
+   } else {
+@@ -358,7 +319,8 @@
+     // data to dst. So if dst is permuted, we need to clear the permutation info
+     // in dst.
+     clear_permutation_info(dst);
+-    Execute_Copy(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
++    habana_helpers::copy_data_to_device(
++        src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+   }
+ }
+ 
+diff --git a/habana_eager/ops/view.cpp b/habana_eager/ops/view.cpp
+index 0737fda..208ca89 100644
+--- a/habana_eager/ops/view.cpp
++++ b/habana_eager/ops/view.cpp
+@@ -41,12 +41,10 @@
+       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
+   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+   dst_hb_tmeta->set_tensor_pipelined();
+-  auto pipeline_or_direct_view = [](const at::Tensor& self,
+-                                    const at::Tensor& result) {
+-    habana::eager::view_propagate_permutation(self, result);
+-  };
+-  pipeline_or_direct_generic(
+-      pipeline_or_direct_view, std::move(src_backend), std::move(dst_backend));
++  habana::eager::PipelineOrExecuteTask(
++      [self = std::move(src_backend), result = std::move(dst_backend)]() {
++        habana::eager::view_propagate_permutation(self, result);
++      });
+ 
+   return result;
+ }
+@@ -86,12 +84,10 @@
+       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
+   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+   dst_hb_tmeta->set_tensor_pipelined();
+-  auto pipeline_or_direct_alias = [](const at::Tensor& self,
+-                                     const at::Tensor& result) {
+-    habana::eager::view_propagate_permutation(self, result);
+-  };
+-  pipeline_or_direct_generic(
+-      pipeline_or_direct_alias, std::move(src_backend), std::move(dst_backend));
++  habana::eager::PipelineOrExecuteTask(
++      [self = std::move(src_backend), result = std::move(dst_backend)]() {
++        habana::eager::view_propagate_permutation(self, result);
++      });
+   return result;
+ }
+ 
+diff --git a/python_packages/habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.cpp b/python_packages/habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.cpp
+index 802cb1a..1a8c1e9 100644
+--- a/python_packages/habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.cpp
++++ b/python_packages/habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.cpp
+@@ -244,7 +244,7 @@
+ 
+ void Synchronize_Execute_Task(
+     const std::vector<at::Tensor>& outputs,
+-    std::shared_ptr<habana::HcclCommunicator> comm,
++    habana::HcclCommunicator& comm,
+     synapse_helpers::hpuStream_t stream) {
+   PT_DISTRIBUTED_DEBUG("Synchronize_Execute_Task");
+   for (size_t i = 0; i < outputs.size(); ++i) {
+@@ -257,32 +257,8 @@
+     if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
+       output_address = org_tensor->storage().data_ptr().get();
+     }
+-    comm->getDeviceCtxt()->synchronize_output(
++    comm.getDeviceCtxt()->synchronize_output(
+         (synapse_helpers::device_ptr)output_address, stream);
+-  }
+-}
+-
+-void Synchronize_Empty_Compile_Task(
+-    const std::vector<at::Tensor>& outputs,
+-    std::shared_ptr<habana::HcclCommunicator> comm,
+-    synapse_helpers::hpuStream_t stream) {
+-  PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Compile_Task");
+-  habana::HPUDeviceContext::execute_thread().enqueue(
+-      Synchronize_Execute_Task, std::move(outputs), comm, stream);
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
+-  }
+-}
+-
+-void Synchronize_Empty_Lowering_Task(
+-    const std::vector<at::Tensor>& outputs,
+-    std::shared_ptr<habana::HcclCommunicator> comm,
+-    synapse_helpers::hpuStream_t stream) {
+-  PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Lowering_Task");
+-  habana::HPUDeviceContext::compile_thread().enqueue(
+-      Synchronize_Empty_Compile_Task, std::move(outputs), comm, stream);
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+   }
+ }
+ 
+@@ -305,15 +281,17 @@
+           habana::get_tensor_extra_meta(outputs_backend.back())};
+       output_hb_tmeta->set_tensor_pipelined();
+     }
+-    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+-        Synchronize_Empty_Lowering_Task,
+-        std::move(outputs_backend),
+-        comm_,
+-        (c10::hpu::getCurrentHPUStream()).stream());
++
++    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
++        [outputs_backend = std::move(outputs_backend),
++         comm = comm_,
++         stream = (c10::hpu::getCurrentHPUStream()).stream()]() {
++          Synchronize_Execute_Task(outputs_backend, *comm, stream);
++        });
+   } else {
+     habana::eager::JoinPendingPipelineThreads();
+     Synchronize_Execute_Task(
+-        outputs_, comm_, (c10::hpu::getCurrentHPUStream()).stream());
++        outputs_, *comm_, (c10::hpu::getCurrentHPUStream()).stream());
+   }
+   outputs_.clear();
+   return true;
+@@ -334,11 +312,11 @@
+ }
+ 
+ void PointToPoint_Execute_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
++    habana::HcclCommunicator& comm,
+     std::unique_ptr<CollectiveContext> ctx,
+     PointToPointFn&& fn,
+     int peerRank) {
+-  auto deviceCtxt = comm_->getDeviceCtxt();
++  auto deviceCtxt = comm.getDeviceCtxt();
+   for (auto& input_output : ctx->tensors()) {
+     at::Tensor& tensor = input_output.first;
+     // Check if the tensor metadata send org tensor is available.
+@@ -352,7 +330,7 @@
+     TORCH_CHECK(
+         tensor.get_device() == 0,
+         "All tensors are expected to be assigned to device with id 0");
+-    synStreamHandle collective_stream = comm_->getCommStream();
++    synStreamHandle collective_stream = comm.getCommStream();
+ 
+     synapse_helpers::device_ptr tensor_storage_ptr =
+         (synapse_helpers::device_ptr)tensor.storage().data_ptr().get();
+@@ -374,7 +352,7 @@
+     hcclResult_t hccl_result =
+         fn(tensor,
+            tensor_address,
+-           *(comm_->GetHcclHandle()),
++           *(comm.GetHcclHandle()),
+            collective_stream,
+            peerRank);
+     TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+@@ -390,41 +368,6 @@
+   }
+ 
+   return;
+-}
+-
+-void PointToPoint_Empty_Compile_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
+-    std::unique_ptr<CollectiveContext> ctx,
+-    PointToPointFn&& fn,
+-    int peerRank) {
+-  PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Compile_Task");
+-  habana::HPUDeviceContext::execute_thread().enqueue(
+-      PointToPoint_Execute_Task,
+-      comm_,
+-      std::move(ctx),
+-      std::move(fn),
+-      peerRank);
+-
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
+-  }
+-}
+-
+-void PointToPoint_Empty_Lowering_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
+-    std::unique_ptr<CollectiveContext> ctx,
+-    PointToPointFn&& fn,
+-    int peerRank) {
+-  PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Lowering_Task");
+-  habana::HPUDeviceContext::compile_thread().enqueue(
+-      PointToPoint_Empty_Compile_Task,
+-      comm_,
+-      std::move(ctx),
+-      std::move(fn),
+-      peerRank);
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+-  }
+ }
+ 
+ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
+@@ -458,18 +401,20 @@
+ 
+   if (pipeline_flag) {
+     const auto tensors = ctx->tensors();
+-    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+-        PointToPoint_Empty_Lowering_Task,
+-        comm_,
+-        std::move(ctx),
+-        std::move(fn),
+-        peerRank);
++    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
++        [comm = comm_,
++         ctx = std::move(ctx),
++         fn = std::move(fn),
++         peerRank]() mutable {
++          PointToPoint_Execute_Task(
++              *comm, std::move(ctx), std::move(fn), peerRank);
++        });
+     // Restore the output tensors i.e. copy D2D in the main thread
+     // So that such copies are also pipelined.
+     restore_output_tensors(tensors, tensors_backend);
+   } else {
+     habana::eager::JoinPendingPipelineThreads();
+-    PointToPoint_Execute_Task(comm_, std::move(ctx), std::move(fn), peerRank);
++    PointToPoint_Execute_Task(*comm_, std::move(ctx), std::move(fn), peerRank);
+   }
+ 
+   auto work =
+@@ -482,12 +427,12 @@
+ }
+ 
+ void Collective_Execute_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
++    habana::HcclCommunicator& comm,
+     std::unique_ptr<CollectiveContext> ctx,
+     CollectiveFn&& fn,
+     [[maybe_unused]] bool is_allreduce) {
+   PT_DISTRIBUTED_DEBUG("Collective_Execute_Task");
+-  auto deviceCtxt = comm_->getDeviceCtxt();
++  auto deviceCtxt = comm.getDeviceCtxt();
+ 
+   for (auto& input_output : ctx->tensors()) {
+     at::Tensor& input = input_output.first;
+@@ -504,7 +449,7 @@
+     TORCH_CHECK(
+         input.get_device() == 0 && output.get_device() == 0,
+         "All tensors are expected to be assigned to device with id 0");
+-    synStreamHandle collective_stream = comm_->getCommStream();
++    synStreamHandle collective_stream = comm.getCommStream();
+ 
+     synapse_helpers::device_ptr input_storage_ptr =
+         (synapse_helpers::device_ptr)input.storage().data_ptr().get();
+@@ -542,7 +487,7 @@
+            output,
+            input_address,
+            output_address,
+-           *(comm_->GetHcclHandle()),
++           *(comm.GetHcclHandle()),
+            collective_stream);
+     TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+ 
+@@ -557,41 +502,6 @@
+   }
+ 
+   return;
+-}
+-
+-void Collective_Empty_Compile_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
+-    std::unique_ptr<CollectiveContext> ctx,
+-    CollectiveFn&& fn,
+-    bool is_allreduce) {
+-  PT_DISTRIBUTED_DEBUG("Collective_Empty_Compile_Task");
+-  habana::HPUDeviceContext::execute_thread().enqueue(
+-      Collective_Execute_Task,
+-      comm_,
+-      std::move(ctx),
+-      std::move(fn),
+-      is_allreduce);
+-
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
+-  }
+-}
+-
+-void Collective_Empty_Lowering_Task(
+-    std::shared_ptr<habana::HcclCommunicator> comm_,
+-    std::unique_ptr<CollectiveContext> ctx,
+-    CollectiveFn&& fn,
+-    bool is_allreduce) {
+-  PT_DISTRIBUTED_DEBUG("Collective_Empty_Lowering_Task");
+-  habana::HPUDeviceContext::compile_thread().enqueue(
+-      Collective_Empty_Compile_Task,
+-      comm_,
+-      std::move(ctx),
+-      std::move(fn),
+-      is_allreduce);
+-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+-    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+-  }
+ }
+ 
+ void ProcessGroupEagerHCCL::groupStart() {
+@@ -645,18 +555,21 @@
+ 
+   if (pipeline_flag) {
+     const auto input_output_tensors = ctx->tensors();
+-    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+-        Collective_Empty_Lowering_Task,
+-        comm_,
+-        std::move(ctx),
+-        std::move(fn),
+-        is_allreduce);
++    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
++        [comm = comm_,
++         ctx = std::move(ctx),
++         fn = std::move(fn),
++         is_allreduce]() mutable {
++          Collective_Execute_Task(
++              *comm, std::move(ctx), std::move(fn), is_allreduce);
++        });
+     // Restore the output tensors i.e. copy D2D in the main thread
+     // So that such copies are also pipelined.
+     restore_output_tensors(input_output_tensors, outputs_backend);
+   } else {
+     habana::eager::JoinPendingPipelineThreads();
+-    Collective_Execute_Task(comm_, std::move(ctx), std::move(fn), is_allreduce);
++    Collective_Execute_Task(
++        *comm_, std::move(ctx), std::move(fn), is_allreduce);
+   }
+ 
+   auto work =
+@@ -705,7 +618,7 @@
+   }
+ 
+   auto pipeline_or_direct_send_permutes =
+-      [](std::vector<std::pair<at::Tensor, at::Tensor>>&& tensors_pair) {
++      [tensors_pair = std::move(tensors_backend)]() {
+         for (auto&& tensor_pair : tensors_pair) {
+           auto&& send_tensor = tensor_pair.first;
+           auto&& clone_tensor = tensor_pair.second;
+@@ -751,8 +664,8 @@
+         }
+       };
+ 
+-  habana::eager::pipeline_or_direct_generic(
+-      pipeline_or_direct_send_permutes, std::move(tensors_backend));
++  habana::eager::PipelineOrExecuteTask(
++      std::move(pipeline_or_direct_send_permutes));
+ 
+   for (size_t i = 0; i < tensors.size(); i++) {
+     // Copy D2D, if any permutation set permutation will be cleared
+@@ -789,7 +702,7 @@
+   }
+ 
+   auto pipeline_or_direct_clear_permutes =
+-      [](std::vector<at::Tensor>&& tensors) {
++      [tensors = std::move(tensors_backend)]() {
+         for (auto&& tensor : tensors) {
+           auto s_meta{habana::get_storage_extra_meta(tensor)};
+           if (s_meta) {
+@@ -802,8 +715,8 @@
+           }
+         }
+       };
+-  habana::eager::pipeline_or_direct_generic(
+-      pipeline_or_direct_clear_permutes, std::move(tensors_backend));
++  habana::eager::PipelineOrExecuteTask(
++      std::move(pipeline_or_direct_clear_permutes));
+ }
+ 
+ } // namespace c10d

@@ -1,0 +1,308 @@
+From 370c4b27682b31de5016f5e74db0ed3394f5b185 Mon Sep 17 00:00:00 2001
+From: Segev <gilad.segev@intel.com>
+Date: Thu, 16 Jan 2025 14:16:32 +0200
+Subject: [PATCH] [HL338][Test][Stress_engine] spi_FW_update_stress_test
+
+Change-Id: I026d34f116ff9ce57d23edb4f8dd2752422ea6c4
+Signed-off-by: Segev <gilad.segev@intel.com>
+---
+
+diff --git a/hw_manager/Dut_Operations/HL338_operations.py b/hw_manager/Dut_Operations/HL338_operations.py
+index c0983a3..3b6dac1 100644
+--- a/hw_manager/Dut_Operations/HL338_operations.py
++++ b/hw_manager/Dut_Operations/HL338_operations.py
+@@ -386,6 +386,7 @@
+                         operation=f"Error occurred during get_VRM_version: {error_message}")
+             return True, {"status": False, "error_message": error_message}
+ 
++
+     # todo: Before using this operation make sure the driver is UN-LOADED
+     def run_Austin_SBR(self, test_name, iteration, op_idx):
+         try:
+@@ -487,4 +488,50 @@
+         output = return_code.stdout.strip()
+         return return_code.returncode, output
+ 
++    def burn_cards_fw(self, test_name, op_idx, iteration,  fw_path):
++        try:
++            # Get device_cli and driver_cli
++            host = hw_manager.get_machine_component("pci_machine")
++            device_cli = host.get_control(hw_manager.controls.device_cli)
++            driver_cli = host.get_control(hw_manager.controls.driver_cli)
++
++            # Verify fw_path is indeed located on host
++            find_cmd = ("find " + fw_path)
++            code, stdout = device_cli.execute_command(find_cmd)
++            if code == 0 and stdout[0] == fw_path:
++                hlsa_logger(level='debug', ident='Description', test_code='burn_cards_fw',
++                            operation='FW package path exist on host', result='SUCCESS')
++            else:
++                hlsa_logger(level='debug', ident='Description', test_code='burn_cards_fw',
++                            operation='FW package was not found on host', result='FAIL')
++                assert False, "FW package: %s was not found on host" % fw_path
++            # Burn FW on flash
++            hlsa_logger(level='debug', ident='Description', test_code='HL325_FW_UPDATE',
++                        operation='Test Initialization Failure',
++                        read_value='Burn firmware package %s: ' % fw_path)
++            burn_status = driver_cli.flash_firmware_file(fw_path, 'host_pc')
++            hlsa_checker.check_status_is_true(burn_status, ident='Description', test_code='burn_cards_fw',
++                                              operation='Test Initialization Failure',
++                                              read_value='Burning firmware %s to flash SPI: ' % fw_path)
++
++            # # Check fw version changed
++            # cmd = "cd " + fw_path.replace("gaudi3-agent-fw_loader-fit.itb", "") + " && cat hl-fw-version.txt"
++            # code, fw_ver = device_cli.execute_command(cmd)
++            # hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code='HL325_FW_UPDATE',
++            #                                   operation='can\'t read fw_version txt_file')
++            # code, stdout = device_cli.execute_command("sudo hl-fw-loader -v")
++            # hlsa_checker.check_status_is_true(code == 0, ident='Description', test_code='HL325_FW_UPDATE',
++            #                                   operation='can\'t read fw_version with: sudo hl-fw-loader -v')
++            # hlsa_checker.check_status_is_true(fw_ver in stdout, ident='Description', test_code='HL325_FW_UPDATE',
++            #                                   operation='fw_ver successfully updated in iteration: %s' % iteration)
++
++            return True, {"status": burn_status}
++        except Exception as e:
++            error_message = str(e)
++            hlsa_logger(level='error', ident='Description',
++                        operation=f"burn_cards_fw: {error_message}")
++            return True, {"status": False, "error_message": error_message}
++
++
++
+ 
+diff --git a/json/tests/HL338/tests_options.json b/json/tests/HL338/tests_options.json
+index cc02164..0c191c2 100644
+--- a/json/tests/HL338/tests_options.json
++++ b/json/tests/HL338/tests_options.json
+@@ -3945,6 +3945,52 @@
+     "svh_iterations": 2,
+     "svh_git_commit": "2ff6542fa4a81d87c2de6f8a7ece2180667b0239,[SVH]: pmon not used HL338 prod+api correction,Mon Nov 18 16:33:57 2024 +0200"
+   },
++  "TestSpiFwUpdateLoops": {
++    "fw_latest_ver": "1.19.0",
++    "stress_input": {
++      "test_flow": [
++        "init_uart",
++        "update_pci_list",
++        "start_uart_sniffer",
++        "burn_cards_fw(fw_path=/software/releases/1.18.99/firmware/gaudi3-release/gaudi3-agent-fw_loader-fit.itb)",
++        "burn_cards_fw(fw_path=/software/releases/1.19.0/firmware/gaudi3-release/gaudi3-agent-fw_loader-fit.itb)",
++        "uart(operation=get_buff)"
++      ],
++      "save_logs_on_failure": {
++        "burn_cards_fw": ["uart(operation=get_buff)"],
++        "default": []
++      },
++      "report_summary" : {
++        "status": []
++      },
++      "report_definition": {
++        "status": [
++          "burn_cards_fw"
++        ]
++      },
++      "conf": {
++        "loops": 1,
++        "stop_on_fail": false,
++        "report_header": [
++          "time",
++          "loop",
++          "status"
++        ],
++        "summary_header": [
++          "Time",
++          "Test name",
++          "Final status",
++          "# Executed iterations",
++          "# Passed iterations",
++          "% Passed/Executed iterations",
++          "Environment",
++          "Environment version",
++          "cpld_version",
++          "oam fw versions"
++        ]
++      }
++    }
++  },
+   "TestREMOVERESCANSMC": {
+     "stress_input": {
+       "test_flow": [
+diff --git a/tests/HL338/stress_engine/test_spi_fw_update_loops.py b/tests/HL338/stress_engine/test_spi_fw_update_loops.py
+new file mode 100644
+index 0000000..b925c93
+--- /dev/null
++++ b/tests/HL338/stress_engine/test_spi_fw_update_loops.py
+@@ -0,0 +1,173 @@
++"""
++****************************************************************************
++* Copyright (C) 2024 HabanaLabs, Ltd.
++* All Rights Reserved.
++*
++* Unauthorized copying of this file, via any medium is strictly prohibited.
++* Proprietary and confidential.
++****************************************************************************
++"""
++help_dict = {'Owner': 'Gilad Segev',
++'required OS system':' Linux',
++'required connection ':' ssh,',
++'pci_machine_ssh_details':'json/tests/test_machines.json',
++'test_options':'json/tests/HL338/test_options.json',
++'fw_latest_ver':'json/tests/HL338/test_options.json',
++'stress_input':'json/tests/HL338/test_options.json'
++}
++# TODO - prior running the test the tester need to update the test_options!
++
++"""
++Functionality: Shuffle loading between 2 FW images for a predetermined number of loops, counting number of failures
++               and successes
++Input: self
++Output: Print to log number of failures and successes
++PRECONDITIONS: prior running the test the tester need to update the fw packages versions test_options and add the fw
++packages in the relevant directories for the test as in test_options. 2 fw packages for the testing and another
++latest_fw package for loading the machine after the test is done. if there aren't dedicated fw packages directories, 
++the test will create them in its first run but the tester will have to copy inside the relevant fw packages and
++rerun the test
++"""
++
++import hw_manager
++import setup_manager
++import pytest
++from tests.test_base import TestBase
++from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
++
++log_manager = setup_manager.options.get_log_manager()
++
++
++class TestSpiFwUpdateLoops(TestBase):
++
++    fw_pack_location = "/software/releases/%s/firmware/%s"
++
++    @classmethod
++    def setup_class(cls):
++        try:
++            # Declare global boolean result variable
++            cls.global_status = True
++
++            # Init devices dict to hold the under-test devices
++            cls.devices = {}
++
++            # Get test_options
++            hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                        operation='Get test_options')
++            cls.test_options = hw_manager.get_test_options()
++
++            # Get DUT object
++            hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS', operation='Get DUT')
++            cls.device = hw_manager.get_dut_component()
++
++            # Get PCI machine (start SSH session)
++            hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS', operation='Get PCI machine')
++            host = hw_manager.get_machine_component("pci_machine")
++            # Get cli control
++            cls.cli_control = host.get_control(hw_manager.controls.cli)
++
++            # Get device_cli
++            hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS', operation='Get device_cli')
++            cls.device_cli = host.get_control(hw_manager.controls.device_cli)
++
++            # Get driver_cli
++            hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS', operation='Get driver_cli')
++            cls.driver_cli = host.get_control(hw_manager.controls.driver_cli)
++
++            # Removing the driver before starting the test
++            status = cls.driver_cli.remove_driver()
++            hlsa_checker.check_status_is_true(status, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                              operation='Removing the driver before starting the test')
++
++
++            # Verify the type of the machine under test
++            if cls.device.spec.dut_name is "HL338":
++                hlsa_logger(level='info', ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                            operation='###### Device under test is HL338 ######')
++                # Get MACHX05 component, controls and spec
++                hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                            operation='Get MACHX05 component, controls and spec')
++                cls.machx05 = cls.device.get_component(hw_manager.components.MACHX05)
++                cls.machx05_registers = cls.machx05.get_control(hw_manager.controls.usb_i2c_registers)
++                cls.machx05_regs_json = cls.machx05.spec
++
++                # TODO - Verify same components as in HL338
++                # Get I2C-to-SPI (SC18IS602B) component, control and flash (MX25U1633F) spec
++                hlsa_logger(level='debug', ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                            operation='Get i2c_2_spi components and spec')
++                cls.i2c_2_spi = cls.device.get_component(hw_manager.components.CPLD_I2C2SPI)
++                # Get flash memory (MX25U1633F) spec
++                cls.spi_spec = cls.device.get_component(hw_manager.components.MX25U1633F).spec
++
++                # Get FLASH_SPI_SEL (switch) initial value
++                cls._initial_FLASH_SPI_SEL_value = cls.machx05_registers.read_bit(
++                    cls.machx05_regs_json.configuration3_reg,
++                    cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_SEL.index)
++                # Verify value is not None
++                hlsa_checker.check_value_is_not_none(cls._initial_FLASH_SPI_SEL_value, ident='Value',
++                                                     test_code='HL338_FW_UPDATE_STRESS',
++                                                     operation='FLASH_SPI_SEL value')
++
++                # Set up FLASH_SPI_SEL (in SPI flash switch) to point to the CPLD
++                written = cls.machx05_registers.write_bit(cls.machx05_regs_json.configuration3_reg,
++                                                          cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_SEL.index,
++                                                          1)
++                hlsa_checker.check_status_is_true(written, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                                  operation='Write strap machx05.FLASH_SPI_SEL: 1',
++                                                  read_value=str(
++                                                      cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_SEL.__name__) + ' 1')
++
++                # Read CPLD's SPI write protect boot strap (FlASH_SPI_0_WP#) original value
++                cls._initial_FLASH_SPI_0_WPn_value = cls.machx05_registers.read_bit(
++                    cls.machx05_regs_json.configuration3_reg,
++                    cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_0_WP_N.index)
++                hlsa_checker.check_value_is_not_none(cls._initial_FLASH_SPI_0_WPn_value, ident='Description',
++                                                     test_code='HL338_FW_UPDATE_STRESS',
++                                                     operation='Read machx05 strap FLASH_SPI_0_WPn')
++
++                # Read Initial i2c_2_spi component status register value
++                cls._initial_status_reg_data = cls.i2c_2_spi.get(cls.spi_spec.instructions.READ_STATUS_REGISTER)
++                hlsa_checker.check_value_is_not_none(cls._initial_status_reg_data, ident='Description',
++                                                     test_code='HL338_FW_UPDATE_STRESS', operation='Set spi write enable')
++
++                # Set FLASH_SPI_0_WP# = 1 to DISABLE SPI Write Protect (To enable writing)
++                written = cls.machx05_registers.write_bit(cls.machx05_regs_json.configuration3_reg,
++                                                          cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_0_WP_N.index,
++                                                          1)
++                hlsa_checker.check_status_is_true(written, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                                  operation='Write strap machx05.FLASH_SPI_0_WPn %s' %
++                                                            str(
++                                                                cls.machx05_regs_json.configuration3_reg.bits.FLASH_SPI_0_WP_N),
++                                                  read_value='1')
++
++                # Enable i2c_2_spi writing
++                status = cls.i2c_2_spi.set(cls.spi_spec.instructions.WRITE_ENABLE)
++                hlsa_checker.check_status_is_true(status, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                                  operation='i2c_2_spi.WRITE_ENABLE')
++
++            # pylint:disable=broad-except
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                        operation='Test Initialization Failure',
++                        read_value='Exception:' + str(exception), result='FAIL')
++            pytest.fail()
++
++    # Create dedicated test folder on host machine
++    def test_hl338_spi_fw_update(self):
++
++        status = hw_manager.run_stress_engine(self.test_options.stress_input)
++        log_manager.log_browser()
++        hlsa_checker.check_status_is_true(status, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                          operation="Validate run_stress_engine executed successfully")
++
++        # Burn latest fw_version on the machine
++        cmd = "/software/releases/%s/firmware/%s" % (self.test_options.fw_latest_ver, "gaudi3-release/gaudi3-agent-fw_loader-fit.itb")
++        burn_status = self.driver_cli.flash_firmware_file(cmd, source='host_pc')
++        hlsa_checker.check_status_is_true(burn_status, ident='Description', test_code='HL338_FW_UPDATE_STRESS',
++                                          operation='Test Initialization Failure',
++                                          read_value='Teardown burning firmware %s, gaudi3-release'
++                                                     % self.test_options.fw_latest_ver)
++
++
++
++

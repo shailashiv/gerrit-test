@@ -1,0 +1,170 @@
+From c0d7e6bae64d4ea09a2e68592e9dc52b7ad2a2f6 Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Mon, 06 Jan 2025 11:23:57 +0000
+Subject: [PATCH] [SW-0] Enable SW interrupts
+
+Change-Id: Ieca759ac3843e26d8dd296beae18e05a8e212c12
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/boards/arc/intel_fs1/fs1_mgmt_palad.dts b/boards/arc/intel_fs1/fs1_mgmt_palad.dts
+index f5ca2be..ab0383b 100644
+--- a/boards/arc/intel_fs1/fs1_mgmt_palad.dts
++++ b/boards/arc/intel_fs1/fs1_mgmt_palad.dts
+@@ -27,25 +27,34 @@
+ };
+ 
+ &m2w_io_d0 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
++&m2w_sw {
++	status = "ok";
++};
++
++&ictl18 {
++	status = "ok";
++};
++
++
+ &ictl82 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl83 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl84 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl85 {
+-	status = "disabled";
++	status = "ok";
+ };
+ 
+ &ictl86 {
+-	status = "disabled";
++	status = "ok";
+ };
+diff --git a/boards/arc/intel_fs1/fs1_mgmt_pldm.dts b/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
+index f5ca2be..08862c1 100644
+--- a/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
++++ b/boards/arc/intel_fs1/fs1_mgmt_pldm.dts
+@@ -30,6 +30,14 @@
+ 	status = "disabled";
+ };
+ 
++&m2w_sw {
++	status = "ok";
++};
++
++&ictl18 {
++	status = "ok";
++};
++
+ &ictl82 {
+ 	status = "disabled";
+ };
+diff --git a/dts/arc/fs1_emb.dtsi b/dts/arc/fs1_emb.dtsi
+index 5d9485d..be3a6d8 100644
+--- a/dts/arc/fs1_emb.dtsi
++++ b/dts/arc/fs1_emb.dtsi
+@@ -520,6 +520,30 @@
+ 			label = "INTEL_FS_BINNING";
+ 		};
+ 
++		m2w_sw: intel_fs_m2w_sw@f9cd2100 {
++			compatible = "intel,fs_m2w";
++			reg = <0xf9cd2100 0x424>;
++			#address-cells = <1>;
++			status = "disabled";
++
++			msg_addr = <0xf9cd3000>;
++
++			ictl18: intel_fs-ictl18@f9cd12c0 {
++				compatible = "intel,fs-ictl";
++				reg = <0xf9cd12c0 0x10>;
++				interrupt-controller;
++				#interrupt-cells = <2>;
++				#address-cells = <1>;
++				interrupts = <18 3>;
++				interrupt-parent = <&intc>;
++				num_of_irqs = <8>;
++				msg_data = <0>;
++				intr_info;
++				label = "INTEL_FS_ICTL_18";
++				status = "disabled";
++			};
++		};
++
+ 		m2w_io_d0: intel_fs_m2w_io_d0@f9cd2600 {
+ 			compatible = "intel,fs_m2w";
+ 			reg = <0xf9cd2600 0x30>;
+@@ -578,7 +602,7 @@
+ 				msg_data = <513>;
+ 				intr_info;
+ 				label = "INTEL_FS_ICTL_83";
+-				msg_id = <1>;
++                                msg_id = <1>;
+ 				int_cfg_reg_start_idx = <2>;
+ 				int_cfg_reg_end_idx = <3>;
+ 				bit_map = <0xffffffff 0xffffffff>;
+diff --git a/dts/bindings/interrupt-controller/intel,fs_ictl.yaml b/dts/bindings/interrupt-controller/intel,fs_ictl.yaml
+index e670215..0e93dbd 100644
+--- a/dts/bindings/interrupt-controller/intel,fs_ictl.yaml
++++ b/dts/bindings/interrupt-controller/intel,fs_ictl.yaml
+@@ -25,6 +25,7 @@
+   msg_id:
+       type: int
+       required: false
++      default: 0
+       description: message id in for each MSG. Not applicable for SW Interrupts
+ 
+   intr_info:
+@@ -36,20 +37,23 @@
+       required: true
+ 
+   int_cfg_reg_start_idx:
+-      required: true
++      required: false
+       type: int
++      default: 0
+       description: All the interrupts that a MSG caters to, is configured
+                    by INT_CFG->STS Field. int_cfg_reg_start_idx is used as a
+                    starting address among 18 registers in STS field.
+ 
+   int_cfg_reg_end_idx:
+-      required: true
++      required: false
+       type: int
++      default: 0
+       description: Used as a end address among 18 registers in STS field.
+ 
+   bit_map:
+-      required: true
++      required: false
+       type: array
++      default: [0, 0]
+       description: This bit map is used to identify which interrupts belong to
+                     a perticular MSG.
+ 
+diff --git a/dts/bindings/interrupt-controller/intel,fs_m2w.yaml b/dts/bindings/interrupt-controller/intel,fs_m2w.yaml
+index 4963c6a..62ecf42 100644
+--- a/dts/bindings/interrupt-controller/intel,fs_m2w.yaml
++++ b/dts/bindings/interrupt-controller/intel,fs_m2w.yaml
+@@ -19,7 +19,8 @@
+ 
+   w2m_int_cfg:
+       type: int
+-      required: true
++      required: false
++      default: 0
+       description: Represents the first register in w2m int config block.
+                    When one of the MSG0..MSG7 is pended, we check the
+                    w2m_int_cfg->sts field to identify the w2m interrupt that is

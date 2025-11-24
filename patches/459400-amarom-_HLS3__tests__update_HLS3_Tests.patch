@@ -1,0 +1,205 @@
+From 8109873dbde66c5ea9079d003f2ecfef8112076c Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Tue, 29 Oct 2024 16:16:20 +0200
+Subject: [PATCH] [HLS3][tests] update HLS3 Tests
+
+Change-Id: I18eb0bec72f181b947bf395d616f9ebb874bd19d
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/json/tests/HLS3/tests_options.json b/json/tests/HLS3/tests_options.json
+index 30e7ba4..c10ffaa 100644
+--- a/json/tests/HLS3/tests_options.json
++++ b/json/tests/HLS3/tests_options.json
+@@ -2162,19 +2162,19 @@
+       "HLS3": {
+         "fw_ver": "0xd005",
+         "fw_crc": "0x39d2",
+-        "fw_rev": "0xa1",
++        "fw_rev": ["0xa0","0xa1"],
+         "num_of_phys": 10
+       },
+       "HLS3_HLB": {
+         "fw_ver": "0xd006",
+         "fw_crc": "0xe973",
+-        "fw_rev": "0xa1",
++        "fw_rev": ["0xa0","0xa1"],
+         "num_of_phys": 3
+       },
+       "default": {
+         "fw_ver": "0xd005",
+         "fw_crc": "0x39d2",
+-        "fw_rev": "0xa1",
++        "fw_rev": ["0xa0","0xa1"],
+         "num_of_phys": 10
+       }
+     }
+diff --git a/tests/HLS3/HLB/test_hlb_interrupts.py b/tests/HLS3/HLB/test_hlb_interrupts.py
+index afee37f..33d2ac6 100644
+--- a/tests/HLS3/HLB/test_hlb_interrupts.py
++++ b/tests/HLS3/HLB/test_hlb_interrupts.py
+@@ -52,11 +52,22 @@
+             # Get primary_ubb_cpld registers spec
+             cls.primary_ubb_cpld_json_regs = cls.primary_ubb_cpld.spec
+ 
++            # Get BMC component
+             hlsa_logger(level='debug', ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+                         operation='Get BMC component')
+             cls.bmc = cls.device.get_component(hw_manager.components.BMC)
+             cls.bmc_cli = cls.bmc.get_control(hw_manager.controls.bmc_cli)
+             cls.bmc_i2c_tool = cls.bmc.get_control(hw_manager.controls.i2c_tools_control)
++
++            # Get IPMI control
++            hlsa_logger(level='debug', ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                        operation='Get IPMI control')
++            cls.ipmi_control = cls.bmc.get_control(hw_manager.controls.IPMI)
++
++            status = cls.bmc_cli.disable_bmc_driver_access()
++            if not status:
++                hlsa_logger(level='error', ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                            operation='bmc driver access disable fail !!')
+ 
+         except Exception as exception:
+             hlsa_logger(level='error', ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+@@ -65,60 +76,52 @@
+             pytest.fail()
+ 
+     def test_osfps_interrupt(self):
+-        # Verify all OSFPs present
+-        val = self.primary_ubb_cpld_registers.read(
+-            self.primary_ubb_cpld_json_regs.status10_reg)
+-        hlsa_checker.check_status_is_true(val == 0, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-                                          operation='Verify all OSFPs present',
+-                                          read_value=val, expected_value=0)
+-
+-        status = self.bmc_cli.unbind_driver_by_name_and_bus("pca954x", 14, "0x70")
+-        hlsa_checker.check_status_is_true(status, ident='Value', test_code='HLS3_HLB_INTERRUPTS',
+-                                          operation='unbind TCA9548 driver', ignore_assert=False)
+-
+-        for osfp_idx in range(self.test_options.num_of_osfps):
+-            # tmp = self.primary_ubb_cpld_registers.read_bit(self.primary_ubb_cpld_json_regs.ubb_interrupt_status1_reg,
+-            #                                                self.primary_ubb_cpld_json_regs.ubb_interrupt_status1_reg.bits.OSFP_H_INT_N.index)
+-
+-            # Verify OSFPs interrupt not asserted
+-            osfp_int_bit_name = "OSFP_H_INT%d_N" % osfp_idx
+-            int_reg = self.primary_ubb_cpld_json_regs.status11_reg
+-            int_reg_bit = getattr(int_reg.bits, osfp_int_bit_name)
+-            val = self.primary_ubb_cpld_registers.read_bit(int_reg,
+-                                                           int_reg_bit.index)
+-            hlsa_checker.check_status_is_true(val, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-                                              operation='read OSFP_H_INT%d_N val' % osfp_idx, read_value=val,
+-                                              expected_value=1)
+-
+-            self.bmc_i2c_tool.i2cset(13, 0x70, 0, 2 ** osfp_idx)
+-            self.bmc_i2c_tool.i2cset(13, 0x50, 0x1d, 0x00)
+-            # Reset the relevant osfp
+-            # osfp_rst_bit_name = "OSFP%d_RST_N" % osfp_idx
+-            # rst_reg = self.primary_ubb_cpld_json_regs.reset4_reg
+-            # rst_reg_bit = getattr(rst_reg.bits, osfp_rst_bit_name)
+-
+-            # written = self.primary_ubb_cpld_registers.write_bit(rst_reg,
+-            #                                                     rst_reg_bit.index, 0)
+-            # hlsa_checker.check_status_is_true(written, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-            #                                   operation='write OSFP%d_RST_N - 0' % osfp_idx)
+-            # Verify interrupt received for the matching osfp
+-            val = self.primary_ubb_cpld_registers.read_bit(int_reg,
+-                                                           int_reg_bit.index)
++        try:
++            TEST_STATUS = True
++            # Verify all OSFPs present
++            val = self.primary_ubb_cpld_registers.read(
++                self.primary_ubb_cpld_json_regs.status10_reg)
+             hlsa_checker.check_status_is_true(val == 0, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-                                              operation='read OSFP_H_INT%d_N val' % osfp_idx, read_value=val,
+-                                              expected_value=0)
++                                              operation='Verify all OSFPs present',
++                                              read_value=val, expected_value=0)
+ 
+-            # Restore the rst val
+-            # written = self.primary_ubb_cpld_registers.write_bit(rst_reg,
+-            #                                                     rst_reg_bit.index, 1)
+-            # hlsa_checker.check_status_is_true(written, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-            #                                   operation='write OSFP%d_RST_N - 1' % osfp_idx)
+-            self.bmc_i2c_tool.i2cset(13, 0x50, 0x1d, 0x01)
+-            # Verify interrupt cleared
+-            val = self.primary_ubb_cpld_registers.read_bit(int_reg,
+-                                                           int_reg_bit.index)
+-            hlsa_checker.check_status_is_true(val, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
+-                                              operation='read OSFP_H_INT%d_N val' % osfp_idx, read_value=val,
+-                                              expected_value=1)
++            for osfp_idx in range(self.test_options.num_of_osfps):
++                # Verify OSFPs interrupt not asserted
++                osfp_int_bit_name = "OSFP_H_INT%d_N" % osfp_idx
++                int_reg = self.primary_ubb_cpld_json_regs.status11_reg
++                int_reg_bit = getattr(int_reg.bits, osfp_int_bit_name)
++                val = self.primary_ubb_cpld_registers.read_bit(int_reg,
++                                                               int_reg_bit.index)
++                hlsa_checker.check_status_is_true(val, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                                                  operation='read OSFP_%d INT_N val' % osfp_idx, read_value=val,
++                                                  expected_value=1, ignore_assert=True)
+ 
+-        status = self.bmc_cli.bind_driver_by_name_and_bus("pca954x", 14, "0x70")
+\ No newline at end of file
++                if not val:
++                    TEST_STATUS = False
++                self.bmc_i2c_tool.i2cset(13, 0x70, 0, 2 ** osfp_idx)
++                self.bmc_i2c_tool.i2cset(13, 0x50, 0x1d, 0x00)
++
++                val = self.primary_ubb_cpld_registers.read_bit(int_reg,
++                                                               int_reg_bit.index)
++                hlsa_checker.check_status_is_true(val == 0, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                                                  operation='read OSFP_%d INT_N val' % osfp_idx, read_value=val,
++                                                  expected_value=0, ignore_assert=True)
++
++                if val:
++                    TEST_STATUS = False
++                self.bmc_i2c_tool.i2cset(13, 0x50, 0x1d, 0x01)
++                # Verify interrupt cleared
++                val = self.primary_ubb_cpld_registers.read_bit(int_reg,
++                                                               int_reg_bit.index)
++                hlsa_checker.check_status_is_true(val, ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                                                  operation='read OSFP_%d INT_N val' % osfp_idx, read_value=val,
++                                                  expected_value=1, ignore_assert=True)
++                if not val:
++                    TEST_STATUS = False
++
++            status = self.bmc_cli.bind_driver_by_name_and_bus("pca954x", 14, "0x70")
++            assert TEST_STATUS
++        except Exception as exception:
++            hlsa_logger(level='error', ident='Description', test_code='HLS3_HLB_INTERRUPTS',
++                        operation=f'Exception during test: {exception}')
++            assert False
+\ No newline at end of file
+diff --git a/tests/HLS3/test_run_rt_engine.py b/tests/HLS3/test_run_rt_engine.py
+index ee53a6f..70b005a 100644
+--- a/tests/HLS3/test_run_rt_engine.py
++++ b/tests/HLS3/test_run_rt_engine.py
+@@ -78,7 +78,7 @@
+             'journalctl --since "5 minutes ago" -u "com.habanalabs.State.SerDesRetimer@*" | grep Deactivated | wc -l')
+         hlsa_checker.check_values_is_equal(int(status[1][0]),expected_num_of_phys , ident='Description', test_code='RUN_RT_ENGINE',
+                                           operation='Stop BMC access to retimer' , fail_log_level='warning', ignore_assert= True)
+-        cmd_list = ['RT_engine', '1', 'configurelanes all all', 'fwload', 'fwload 2 0','avsset 1 1','CoreDiag', 'configurelanes all all', 'ReadFW']
++        cmd_list = ['RT_engine', '1', 'configurelanes all all', 'fwload 2 0','avsset 1 1','CoreDiag', 'configurelanes all all', 'ReadFW']
+         output = self.bmc_cli.run_rt_engine_command(cmd_list=cmd_list)
+         output = self.rt_engine_clear_log(output)
+         hlsa_logger(operation=f"Restart SerDesRetimer", test_code="RUN_RT_ENGINE")
+@@ -113,13 +113,13 @@
+                                                        operation=f'{phy_id} FW CRC',
+                                                        expected_val=hex(self.test_options.fw_crc),
+                                                        mezzanine=f"exp{phy_to_exp_dict[phy_id]}")
+-                    hlsa_checker.check_values_is_equal(str(res[phy_id]['phy_rev'][0]), ident='Value',
+-                                                       test_code='RUN_RT_ENGINE', units="Intenger",
+-                                                       operation=f'{phy_id} FW REV',
+-                                                       expected_val=hex(self.test_options.fw_rev),
+-                                                       mezzanine=f"exp{phy_to_exp_dict[phy_id]}")
++                    status = str(res[phy_id]['phy_rev'][0]) in self.test_options.fw_rev
++                    hlsa_checker.check_status_is_true(status, ident='Value', test_code='RUN_RT_ENGINE',
++                              operation='Verify {} FW REV {} in Expected FW REV List {}'.format(phy_id, str(res[phy_id]['phy_rev'][0]), self.test_options.fw_rev),
++                              read_value=str(res[phy_id]['phy_rev'][0]), units='String',
++                              mezzanine=f"exp{phy_to_exp_dict[phy_id]}")
+                     hlsa_checker.check_status_is_true(res[phy_id]['status'][0] == 'PASS', ident='Description', test_code='RUN_RT_ENGINE',
+-                                                      operation='Read FW version by RT_engine',
++                                                      operation=f"Read {phy_id} FW version by RT_engine",
+                                                       mezzanine=f"exp{phy_to_exp_dict[phy_id]}")
+                     log_manager.log_browser()
+             except Exception as e:

@@ -1,0 +1,29 @@
+From 9eee3babed7d57d839b6ff7c8eaf0ebd5c5e38e3 Mon Sep 17 00:00:00 2001
+From: Udita <udidua@habana.ai>
+Date: Fri, 06 Jun 2025 12:19:26 +0300
+Subject: [PATCH] [SW-231064] g3: efuse: log  fake fuse enable flag
+
+The patch prints the value of fake_fuse_enable
+flag. The reason for adding this to verify from
+logs if the FW is reading from real or fake fuse.
+
+Related to issue SW-230413.
+
+Change-Id: Ia0d6df8d680997a568000c7c6c429804845f8e82
+Signed-off-by: Udita <udidua@habana.ai>
+---
+
+diff --git a/drivers/efuse/efuse.c b/drivers/efuse/efuse.c
+index cf419ea..0ce8258 100644
+--- a/drivers/efuse/efuse.c
++++ b/drivers/efuse/efuse.c
+@@ -76,7 +76,8 @@
+ 		if (hl_fake_fuse_en(dev) || hl_is_rma_mode_enabled())
+ 			DEV_DATA(dev)->fake_fuse_enable = true;
+ 	}
+-	LOG_DBG("Efuse device enumeration done");
++	LOG_DBG("Efuse device enumeration done. Fake fuse enable: %d",
++		DEV_DATA(dev)->fake_fuse_enable);
+ 
+ 	return 0;
+ }

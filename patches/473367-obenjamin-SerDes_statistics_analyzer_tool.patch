@@ -1,0 +1,1087 @@
+From add6b36ed55721822c22fb6022cac1617a4c04a1 Mon Sep 17 00:00:00 2001
+From: obenjamin <obenjamin@habana.ai>
+Date: Wed, 19 Feb 2025 13:16:03 +0200
+Subject: [PATCH] SerDes statistics analyzer tool
+
+Change-Id: I7646c18635f16e5c8ac14c63bb032f98eb4fc197
+Signed-off-by: obenjamin <obenjamin@habana.ai>
+---
+
+diff --git a/scripts/DB_Gui.py b/scripts/DB_Gui.py
+new file mode 100644
+index 0000000..419a212
+--- /dev/null
++++ b/scripts/DB_Gui.py
+@@ -0,0 +1,195 @@
++import subprocess
++import os 
++import tkinter as tk
++from tkinter import filedialog
++import ttkbootstrap as ttk  # Modern themed widgets
++
++def select_test_folder():
++    default_test_folder = "/software/devops/logs/pre_fec_stats"  # Replace with your desired default folder
++    test_folder_path.set(filedialog.askdirectory(initialdir=default_test_folder))  # Open folder picker with default path
++    # Change the "Browse" button color to green on click
++    browse_test_button.configure(style="BrowseButtonGreen.TButton")
++
++def select_output_folder():
++    default_output_folder = "~/"  # Replace with your desired default folder
++    output_folder_path.set(filedialog.askdirectory(initialdir=default_output_folder))  # Open folder picker with default path
++    # Change the "Browse" button color to green on click
++    browse_output_button.configure(style="BrowseButtonGreen.TButton")
++
++def select_old_test_folder():
++    default_test_folder = "/software/devops/logs/pre_fec_stats"  # Replace with your desired default folder
++    test_old_folder_path.set(filedialog.askdirectory(initialdir=default_test_folder))  # Open folder picker with default path
++    # Change the "Browse" button color to green on click
++    browse_old_button.configure(style="BrowseButtonGreen.TButton")
++
++def select_old_output_folder():
++    default_output_folder = "~/"  # Replace with your desired default folder
++    output_old_folder_path.set(filedialog.askdirectory(initialdir=default_output_folder))  # Open folder picker with default path
++    # Change the "Browse" button color to green on click
++    browse_old_output_button.configure(style="BrowseButtonGreen.TButton")
++
++def select_test_file():
++    test_file_path.set(filedialog.askopenfilename())
++
++def run_script():
++    test_path = test_folder_path.get()
++    output_path = output_folder_path.get()
++    old_test_path = test_old_folder_path.get()
++    old_output_path = output_old_folder_path.get()
++    # Define the path to your shell script
++    script_path = os.path.join(os.getcwd(), "DB_stat_calc_par.sh")
++    python_script_path = "~/SerDes/script/DB_analyze.py"
++    python_compare_script_path = "~/SerDes/script/DB_compare.py"
++    try:
++        if test_vars["build new data-base"].get() and test_path and output_path:
++            print(f"Running build new data-base on folder: {test_path} and output folder: {output_path}") 
++            # Print the command to ensure it's correct
++            command = ["bash", "~/SerDes/script/DB_stat_calc_par.sh", test_path, output_path]
++            print(f"Executing command: {' '.join(command)}")
++            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++            print(f"Script Output: {result.stdout.decode()}")
++            print(f"Script Error (if any): {result.stderr.decode()}")
++    
++        if test_vars["build new data-base"].get() and old_test_path and old_output_path:
++            print(f"Running build new data-base on folder: {old_test_path} and output folder: {old_output_path}") 
++    	# Print the command to ensure it's correct
++            command = ["bash", "~/SerDes/script/DB_stat_calc_par.sh", old_test_path, old_output_path]
++            print(f"Executing command: {' '.join(command)}")
++            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++            print(f"Script Output: {result.stdout.decode()}")
++            print(f"Script Error (if any): {result.stderr.decode()}")
++    
++        if test_vars["analyze the data-base"].get() and test_path and output_path:
++	# Execute Python Script
++            command_python = ["python3", python_script_path, output_path]
++            print(f"Executing command: {' '.join(command_python)}")
++            result_python = subprocess.run(command_python, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++            print(f"Python Script Output: {result_python.stdout.decode()}")
++            print(f"Python Script Error (if any): {result_python.stderr.decode()}")
++    
++        if test_vars["Compare two data-base"].get() and old_output_path and output_path:
++            command_python = ["python3", python_compare_script_path, output_path, old_output_path]
++            print(f"Executing command: {' '.join(command_python)}")
++            result_python = subprocess.run(command_python, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++            print(f"Python Script Output: {result_python.stdout.decode()}")
++            print(f"Python Script Error (if any): {result_python.stderr.decode()}")
++     
++        # Change the "Run" button color to green on click
++        run_button.configure(style="RunButtonGreen.TButton")  
++    except subprocess.CalledProcessError as e:
++        print(f"Error occurred: {e}")
++        print(f"Exit Code: {e.returncode}")
++        print(f"Error Output: {e.stderr.decode()}")  
++    
++    print(f"<<<<<<<<<<Finish the Run Command>>>>>>>>>")   
++
++# Create main window
++root = ttk.Window(themename="darkly")  # Modern dark theme
++root.title("SerDes Statistics analyzer Runner")
++root.geometry("450x650")  # Adjust window size
++root.minsize(750, 600)  # Minimum size of the window
++root.resizable(False, False)
++
++test_folder_path = tk.StringVar()
++output_folder_path = tk.StringVar()
++test_old_folder_path = tk.StringVar()
++output_old_folder_path = tk.StringVar()
++test_file_path = tk.StringVar()
++
++# Create styles for buttons
++style = ttk.Style()
++
++# Red font style (initial)
++style.configure("RunButtonRed.TButton", foreground="red", font=("Arial", 10, "bold"))
++style.configure("BrowseButtonRed.TButton", foreground="red", font=("Arial", 10, "bold"))
++
++# Green font style (after click)
++style.configure("RunButtonGreen.TButton", foreground="green", font=("Arial", 10))
++style.configure("BrowseButtonGreen.TButton", foreground="green", font=("Arial", 10))
++
++
++# Folder selection
++#frame = ttk.Frame(root, padding=40)
++frame = ttk.Frame(root)
++frame.pack(side="right", fill="both", expand=True)#fill="x", padx=(300, 10), pady=10)
++#frame.pack(fill="both", expand=True)
++# ========
++label_test = ttk.Label(frame, text="Select New DB Folder:")
++label_test.pack(anchor="w", pady=5)
++
++entry_test = ttk.Entry(frame, textvariable=test_folder_path, width=40, state="readonly")
++entry_test.pack(fill="x", padx=5, pady=5)
++
++# Browse button for test folder with red text
++browse_test_button = ttk.Button(frame, text="Browse", command=select_test_folder, style="BrowseButtonRed.TButton")
++browse_test_button.pack(pady=5)
++# ========
++
++#select_file_button = ttk.Button(frame, text="Select File", command=select_test_file)
++#select_file_button.pack(side="left", padx=5)
++# ========
++label_output = ttk.Label(frame, text="Select Output Folder:")
++label_output.pack(anchor="w", pady=5)
++
++entry_output = ttk.Entry(frame, textvariable=output_folder_path, width=40, state="readonly")
++entry_output.pack(fill="x", padx=5, pady=5)
++
++# Browse button for output folder with red text
++browse_output_button = ttk.Button(frame, text="Browse", command=select_output_folder, style="BrowseButtonRed.TButton")
++browse_output_button.pack(pady=5)
++# ========
++label_old = ttk.Label(frame, text="Select previous DB Folder:")
++label_old.pack(anchor="w", pady=5)
++
++entry_old = ttk.Entry(frame, textvariable=test_old_folder_path, width=40, state="readonly")
++entry_old.pack(fill="x", padx=5, pady=5)
++
++# Browse button for test folder with red text
++browse_old_button = ttk.Button(frame, text="Browse", command=select_old_test_folder, style="BrowseButtonRed.TButton")
++browse_old_button.pack(pady=5)
++# ========
++label_old_output = ttk.Label(frame, text="Select previous DB Outout Folder:")
++label_old_output.pack(anchor="w", pady=5)
++
++entry_old_output = ttk.Entry(frame, textvariable=output_old_folder_path, width=40, state="readonly")
++entry_old_output.pack(fill="x", padx=5, pady=5)
++
++# Browse button for test folder with red text
++browse_old_output_button = ttk.Button(frame, text="Browse", command=select_old_output_folder, style="BrowseButtonRed.TButton")
++browse_old_output_button.pack(pady=5)
++# ========
++# Run button with red text initially
++run_button = ttk.Button(frame, text="Run", command=run_script, style="RunButtonRed.TButton")
++run_button.pack(side="bottom", pady=10)
++
++# Create a frame for the test list on the right side
++test_list_frame = ttk.Frame(root, padding=10)
++test_list_frame.pack(side="bottom", fill="x", padx=(10,10), expand=True)
++
++frame_right = ttk.Frame(root, padding=10)
++frame_right.pack(side="bottom",fill="x", padx=(10,10), expand=True)
++
++# Label for test list
++label_tests = ttk.Label(frame_right, text="Select Tests:")
++label_tests.pack(anchor="w", pady=5)
++
++# Create a list of test names (Test1, Test2, Test3)
++tests = ["build new data-base", "analyze the data-base", "Compare two data-base"]
++
++# Create a dictionary to store the state of each test's checkbox (enabled or disabled)
++test_vars = {}
++
++# Create checkboxes for each test
++for test in tests:
++    var = tk.BooleanVar(value=False)  # Default to unchecked
++    test_vars[test] = var
++    check_button = ttk.Checkbutton(test_list_frame, text=test, variable=var)
++    check_button.pack(anchor="w", pady=3)
++
++analyze_var = tk.BooleanVar()
++analyze_checkbox = ttk.Checkbutton(frame_right, text="Analyze File", variable=analyze_var)
++analyze_checkbox.pack(anchor="w", pady=5)
++
++
++root.mainloop()
++
+diff --git a/scripts/DB_analyze.py b/scripts/DB_analyze.py
+new file mode 100644
+index 0000000..c12bb43
+--- /dev/null
++++ b/scripts/DB_analyze.py
+@@ -0,0 +1,309 @@
++import subprocess
++import pandas as pd
++import numpy as np
++import matplotlib.pyplot as plt
++import seaborn as sns
++import time
++import sys
++import os
++
++# Create a new DataFrame with transformed values
++def transform_cell(cell, p50, std):
++     # Convert std to a float (if it's a string)
++    try:
++        std = float(std)
++    except ValueError:
++        raise ValueError(f"Invalid std value: {std}")
++    # Check if std is 0
++    if std == 0:
++        return 0  # Replace with 0 if std is 0
++    else:
++        print("cell", cell)
++        print("p50", p50)
++        print("std", std)
++        return ((cell - p50) / std)
++
++def transform_cell1(cell, p50, std):
++     # Convert std to a float (if it's a string)
++    try:
++        std = float(std)
++    except ValueError:
++        raise ValueError(f"Invalid std value: {std}")
++    # Check if std is 0
++    data = ((cell - p50) / std) if (cell > p50) else 0
++    print("cell max", cell)
++    print("p50 max", p50)
++    print("std max", std)
++    if cell < -7:
++        if cell < -8:
++            return 0  # Replace with 0 if std is 0
++        else:
++            return 0.1 * data
++    else:
++    	
++        return data
++        
++# Function to find outliers based on IQR
++def find_outliers(data):
++    Q1 = np.percentile(data, 25)
++    Q3 = np.percentile(data, 75)
++    IQR = Q3 - Q1
++    lower_fence = Q1 - 1.5 * IQR
++    upper_fence = Q3 + 1.5 * IQR
++    outliers = data[(data < lower_fence) | (data > upper_fence)]
++    return outliers
++
++# Get the output_path from the command line arguments
++if len(sys.argv) < 2:
++    print("Usage: python DB_analyze.py <test_path> <output_path>")
++    sys.exit(1)
++
++output_path = sys.argv[1]
++
++# Construct the full path to the CSV file in the output folder
++csv_file_path = os.path.join(output_path, 'ALL_G3_pre_FEC_SER_int_data.csv')
++csv_file_path_max = os.path.join(output_path, 'ALL_G3_max_pre_FEC_SER_int_data.csv')
++
++# Load data
++df = pd.read_csv(csv_file_path)
++df_max = pd.read_csv(csv_file_path_max)
++#df = pd.read_csv('ALL_G3_pre_FEC_SER_int_data.csv')
++#df_max = pd.read_csv('ALL_G3_max_pre_FEC_SER_int_data.csv')
++# Ensure numeric conversion for required columns
++numeric_columns = ["ave", "P95", "P75", "P50"]
++df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++df_max[numeric_columns] = df_max[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++
++
++# =======================================
++# Arranging different data-frames
++#	1. sort by ave (performance )
++#	2. sort by card and port (logical)
++#	3. Change the data frame for box and whiskler
++# =======================================
++# Sort the DataFrame
++df_sorted = df.sort_values(
++    by=[df.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++df_max_sorted = df_max.sort_values(
++    by=[df_max.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++
++df_logical = df.sort_values(by=["card", "port"], ascending=False)
++df_max_logical = df_max.sort_values(by=["card", "port"], ascending=False)
++
++
++# Create the x-axis labels
++df_sorted["x_labels"] = df_sorted[df.columns[0]].astype(str) + "_" + \
++                        df_sorted[df.columns[1]].astype(str) + "-" + \
++                        df_sorted[df.columns[2]].astype(str)
++
++# Create the x-axis labels
++df_max_sorted["x_labels"] = df_max_sorted[df.columns[0]].astype(str) + "_" + \
++                            df_max_sorted[df.columns[1]].astype(str) + "-" + \
++                            df_max_sorted[df.columns[2]].astype(str)
++
++# Melt the DataFrame: Keep "card" and "port" as identifiers, convert server columns into one column
++# Identify server columns (starting with "g3-")
++server_columns = [col for col in df.columns if col.startswith("g3-")]
++
++# Melt the DataFrame correctly, keeping 'Type' for classification
++melted_df = df.melt(id_vars=["Type"], value_vars=server_columns, var_name="server", value_name="SER")
++
++# Remove rows where SER == 0
++melted_df = melted_df[melted_df["SER"] != 0]
++# =============================================================================
++
++
++# =======================================
++# 1st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) 
++# Create a 2x2 grid of subplots
++# =======================================
++fig, axs = plt.subplots(2, 1)  # 2 rows and 2 columns
++fig.set_size_inches(12, 6)
++
++axs[0].plot(df_sorted["x_labels"], df_sorted["ave"], label="ave", marker="o")
++axs[0].plot(df_sorted["x_labels"], df_sorted["P50"], label="P50", marker="s")
++axs[0].plot(df_sorted["x_labels"], df_sorted["P75"], label="P75", marker="^")
++axs[0].plot(df_sorted["x_labels"], df_sorted["P95"], label="P95", marker="x")
++# Adjust x-axis to range -1 to 192
++axs[0].set_xlim(-1, 192)
++# Formatting
++axs[0].set_xticks(range(len(df_sorted["x_labels"])))  # Set positions
++axs[0].set_xticklabels(df_sorted["x_labels"], rotation=90, ha='right', fontsize=8)
++axs[0].set_xlabel("Concatenated Columns (Type Card-Port)")
++axs[0].set_ylabel("Pre_FEC SER")
++axs[0].set_title("Comparison of ave, P50, P75, and P95")
++axs[0].legend()
++axs[0].set_yticks(np.arange(min(df_sorted["ave"].min(), df_max_sorted["ave"].min()), 
++                             max(df_sorted["P95"].max(), df_max_sorted["P95"].max()) + 1, 1))
++
++axs[0].grid(True)
++# Second subplot (df_max_sorted)
++axs[1].plot(df_max_sorted["x_labels"], df_max_sorted["ave"], label="ave", marker="o")
++axs[1].plot(df_max_sorted["x_labels"], df_max_sorted["P50"], label="P50", marker="s")
++axs[1].plot(df_max_sorted["x_labels"], df_max_sorted["P75"], label="P75", marker="^")
++axs[1].plot(df_max_sorted["x_labels"], df_max_sorted["P95"], label="P95", marker="x")
++# Formatting
++axs[1].set_xlim(-1, 192)
++axs[1].set_xticks(range(len(df_max_sorted["x_labels"])))  # Set positions
++axs[1].set_xticklabels(df_max_sorted["x_labels"], rotation=90, ha='right', fontsize=8)
++axs[1].set_xlabel("Concatenated Columns (Type Card-Port)")
++axs[1].set_ylabel("Max Pre FEC SER")
++axs[1].set_title("Comparison of ave, P50, P75, and P95")
++axs[1].legend()
++axs[1].set_yticks(np.arange(min(df_sorted["ave"].min(), df_max_sorted["ave"].min()), 
++                             max(df_sorted["P95"].max(), df_max_sorted["P95"].max()) + 1, 1))
++
++axs[1].grid(True)
++
++plt.tight_layout(pad=2.0)
++plt.savefig("SER_statistics_FOM.png")  # Save as PNG
++
++# Show plot
++# plt.show(block=False)
++subprocess.run(["xdg-open", "SER_statistics_FOM.png"])
++# =============================================================================
++
++
++# =======================================
++# 2nd plot linear fit between pre and max
++# ======================================= 
++# Create figure and axis
++
++# Create a 2x2 grid of subplots
++fig1, axs1 = plt.subplots(1, 1)  # 2 rows and 2 columns
++# Add grid
++axs1.plot(df_sorted["ave"], df_max_sorted["ave"], label="pre_fec", marker='+', color='blue', linestyle='none')
++axs1.grid(visible=True, linestyle='--', alpha=0.7)
++axs1.set_title('Pre FEC SER ave & Max')
++axs1.legend(loc='upper right', bbox_to_anchor=(1.15, 1))
++axs1.grid(visible=True, linestyle='--', alpha=0.7)
++# Fit a linear regression line for axs1[1]
++x = df_sorted["ave"]
++y = df_max_sorted["ave"]
++# Fit a linear regression line (degree=1 for a straight line)
++coefficients = np.polyfit(x, y, 1)
++trend_line = np.poly1d(coefficients)
++# Plot the trendline
++axs1.plot(x, trend_line(x), label='Trend Line', color='green', linestyle='-', linewidth=2)
++# Display the equation of the trend line
++slope, intercept = coefficients
++equation = f"y = {slope:.2f}x + {intercept:.2f}"
++# Add the equation as text on the plot
++axs1.text(0.05, 0.95, equation, transform=axs1.transAxes, fontsize=12, verticalalignment='top', color='green')
++plt.savefig("Average2Max_SER_fit.png")  # Save as PNG
++
++# Show the plot
++#plt.show(block=False)
++subprocess.run(["xdg-open", "Average2Max_SER_fit.png"])
++# =============================================================================
++
++
++# ===================================
++#     Box & Whisker
++#	1. on the average data set - split per port and split per card
++#	2. on the max data set - split per port and split per card
++#	3. On mekt data frame - split per server
++# ===================================
++# Plot 1
++# Define the properties for the outliers (fliers)
++flierprops = {'marker': 'o', 'color': 'red', 'markersize': 9}
++# Define outlier properties
++flierprops = dict(marker='o', color='red', alpha=0.6)
++
++fig2, axes2 = plt.subplots(2, 1, figsize=(8, 10))  # 2 rows, 1 column
++
++sns.boxplot(x='port', y='ave', data=df, ax=axes2[0],medianprops=dict(color="yellow"),flierprops=flierprops)
++axes2[0].set_title("Boxplot per Port")
++
++sns.boxplot(x='card', y='ave', data=df, ax=axes2[1],medianprops=dict(color="yellow"),flierprops=flierprops)
++axes2[1].set_title("Boxplot per Card")
++
++for ax in axes2:
++    ax.set_xticks(ax.get_xticks())  # Set tick positions explicitly
++    ax.set_xticklabels(ax.get_xticklabels())
++
++plt.tight_layout()
++plt.savefig("Box_Whisker_Ave.png")  # Save as PNG
++#plt.show(block=False)
++subprocess.run(["xdg-open", "Box_Whisker_Ave.png"])
++#  Extract Outliers - currently the print are mask, kept the code for future debug use
++for ax in axes2:
++    for x_label in ax.get_xticks():  # Iterate through x-axis labels (ports or cards)
++        # Get the subset of data for this label (port or card)
++        subset = df[df[ax.get_xlabel()] == x_label]['ave']
++        # Find outliers for this subset of data
++        outliers = find_outliers(subset)
++        
++        if not outliers.empty:
++            #print(f"\nDEBUG: Outliers detected for {ax.get_xlabel()} {x_label}:")
++            for outlier in outliers:
++                # Find the row(s) corresponding to the outlier value
++                matching_rows = df[(df[ax.get_xlabel()] == x_label) & (df['ave'] == outlier)]
++                #for _, row in matching_rows.iterrows():
++                    #print(f"DEBUG: Outlier - Port: {row['port']}, Card: {row['card']}, ave: {outlier}")
++# ===================================
++# Plot 2
++# Define the properties for the outliers (fliers)
++flierprops = {'marker': 'o', 'color': 'red', 'markersize': 9}
++
++fig2, axes2 = plt.subplots(2, 1, figsize=(8, 10))  # 2 rows, 1 column
++
++sns.boxplot(x='port', y='max', data=df, ax=axes2[0],medianprops=dict(color="yellow"),flierprops=flierprops)
++axes2[0].set_title("Boxplot per Port")
++
++sns.boxplot(x='card', y='max', data=df, ax=axes2[1],medianprops=dict(color="yellow"),flierprops=flierprops)
++axes2[1].set_title("Boxplot per Card")
++
++for ax in axes2:
++    ax.set_xticks(ax.get_xticks())  # Set tick positions explicitly
++    ax.set_xticklabels(ax.get_xticklabels())
++
++plt.tight_layout()
++plt.savefig("Box_Whisker_Max.png")  # Save as PNG
++#plt.show(block=False)
++subprocess.run(["xdg-open", "Box_Whisker_Max.png"])
++# Extract Outliers - currently the print are mask, kept the code for future debug use
++for ax in axes2:
++    for x_label in ax.get_xticks():  # Iterate through x-axis labels (ports or cards)
++        # Get the subset of data for this label (port or card)
++        subset = df[df[ax.get_xlabel()] == x_label]['max']
++        
++        # Find outliers for this subset of data
++        outliers = find_outliers(subset)
++        
++        if not outliers.empty:
++            #print(f"\nDEBUG: Outliers detected for {ax.get_xlabel()} {x_label}:")
++            for outlier in outliers:
++                # Find the row(s) corresponding to the outlier value
++                matching_rows = df[(df[ax.get_xlabel()] == x_label) & (df['max'] == outlier)]
++                #for _, row in matching_rows.iterrows():
++                    #print(f"DEBUG: Outlier - Port: {row['port']}, Card: {row['card']}, Max: {outlier}")
++# ===================================
++# Plot 3
++# Create subplots
++fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
++# Define server types
++server_types = ["External", "Internal", "Xbar"]
++titles = ["External Servers", "Internal Servers", "Xbar Servers"]
++# Plot each type separately
++for ax, server_type, title in zip(axes, server_types, titles):
++    subset = melted_df[melted_df["Type"] == server_type]
++    if not subset.empty:
++        sns.boxplot(x="server", y="SER", data=subset, ax=ax)
++        ax.set_title(title)
++        # Set x-ticks explicitly
++        ax.set_xticks(range(len(subset['server'].unique())))
++        ax.set_xticklabels(subset['server'].unique(), rotation=90, ha='right')
++
++# Final plot adjustments
++axes[-1].set_xlabel("Server", fontsize=12) 
++plt.tight_layout()
++plt.savefig("Box_Whisker_per_server.png")  # Save as PNG
++#plt.show(block=False)  
++subprocess.run(["xdg-open", "Box_Whisker_per_server.png"])
++
++
+diff --git a/scripts/DB_compare.py b/scripts/DB_compare.py
+new file mode 100644
+index 0000000..6b71673
+--- /dev/null
++++ b/scripts/DB_compare.py
+@@ -0,0 +1,277 @@
++import subprocess
++import pandas as pd
++import numpy as np
++import matplotlib.pyplot as plt
++import seaborn as sns
++import time
++import sys
++import os
++
++# Create a new DataFrame with transformed values
++def transform_cell(cell, p50, std):
++     # Convert std to a float (if it's a string)
++    try:
++        std = float(std)
++    except ValueError:
++        raise ValueError(f"Invalid std value: {std}")
++    # Check if std is 0
++    if std == 0:
++        return 0  # Replace with 0 if std is 0
++    else:
++        print("cell", cell)
++        print("p50", p50)
++        print("std", std)
++        return ((cell - p50) / std)
++
++def transform_cell1(cell, p50, std):
++     # Convert std to a float (if it's a string)
++    try:
++        std = float(std)
++    except ValueError:
++        raise ValueError(f"Invalid std value: {std}")
++    # Check if std is 0
++    data = ((cell - p50) / std) if (cell > p50) else 0
++    print("cell max", cell)
++    print("p50 max", p50)
++    print("std max", std)
++    if cell < -7:
++        if cell < -8:
++            return 0  # Replace with 0 if std is 0
++        else:
++            return 0.1 * data
++    else:
++    	
++        return data
++        
++# Function to find outliers based on IQR
++def find_outliers(data):
++    Q1 = np.percentile(data, 25)
++    Q3 = np.percentile(data, 75)
++    IQR = Q3 - Q1
++    lower_fence = Q1 - 1.5 * IQR
++    upper_fence = Q3 + 1.5 * IQR
++    outliers = data[(data < lower_fence) | (data > upper_fence)]
++    return outliers
++
++# Get the output_path of both DB from the command line arguments
++if len(sys.argv) < 3:
++    print("Usage: python DB_analyze.py <test_path> <output_path>")
++    sys.exit(1)
++
++output_path = sys.argv[1]
++old_output_path = sys.argv[2]
++
++# Construct the full path to the CSV file in the output folder
++csv_file_path = os.path.join(output_path, 'ALL_G3_pre_FEC_SER_int_data.csv')
++csv_file_path_max = os.path.join(output_path, 'ALL_G3_max_pre_FEC_SER_int_data.csv')
++csv_old_file_path = os.path.join(old_output_path, 'ALL_G3_pre_FEC_SER_int_data.csv')
++csv_old_file_path_max = os.path.join(old_output_path, 'ALL_G3_max_pre_FEC_SER_int_data.csv')
++
++# Load data
++df = pd.read_csv(csv_file_path)
++df_max = pd.read_csv(csv_file_path_max)
++old_df = pd.read_csv(csv_old_file_path)
++old_df_max = pd.read_csv(csv_old_file_path_max)
++
++numeric_columns = ["ave", "P95", "P75", "P50"]
++df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++df_max[numeric_columns] = df_max[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++old_df[numeric_columns] = old_df[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++old_df_max[numeric_columns] = old_df_max[numeric_columns].apply(pd.to_numeric, errors='coerce').fillna(0)
++
++# =======================================
++# Arranging different data-frames
++#	1. sort by ave (performance )
++#	2. sort by card and port (logical)
++#	3. Change the data frame for box and whiskler
++# =======================================
++# Sort the DataFrame
++df_sorted = df.sort_values(
++    by=[df.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++df_max_sorted = df_max.sort_values(
++    by=[df_max.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++
++df_logical = df.sort_values(by=["card", "port"], ascending=False)
++df_max_logical = df_max.sort_values(by=["card", "port"], ascending=False)
++
++
++# Create the x-axis labels
++df_sorted["x_labels"] = df_sorted[df.columns[0]].astype(str) + "_" + \
++                        df_sorted[df.columns[1]].astype(str) + "-" + \
++                        df_sorted[df.columns[2]].astype(str)
++
++# Create the x-axis labels
++df_max_sorted["x_labels"] = df_max_sorted[df.columns[0]].astype(str) + "_" + \
++                            df_max_sorted[df.columns[1]].astype(str) + "-" + \
++                            df_max_sorted[df.columns[2]].astype(str)
++# -------
++old_df_sorted = old_df.sort_values(
++    by=[old_df.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++old_df_max_sorted = old_df_max.sort_values(
++    by=[old_df_max.columns[0], "ave"],
++    key=lambda col: col.str.lower() if col.dtypes == "object" else col
++)
++
++old_df_logical = old_df.sort_values(by=["card", "port"], ascending=False)
++old_df_max_logical = old_df_max.sort_values(by=["card", "port"], ascending=False)
++
++
++# Create the x-axis labels
++df_sorted["x_labels"] = df_sorted[df.columns[0]].astype(str) + "_" + \
++                        df_sorted[df.columns[1]].astype(str) + "-" + \
++                        df_sorted[df.columns[2]].astype(str)
++
++# Create the x-axis labels
++df_max_sorted["x_labels"] = df_max_sorted[df.columns[0]].astype(str) + "_" + \
++                            df_max_sorted[df.columns[1]].astype(str) + "-" + \
++                            df_max_sorted[df.columns[2]].astype(str)
++                            
++# Create the x-axis labels
++old_df_sorted["x_labels"] = old_df_sorted[old_df.columns[0]].astype(str) + "_" + \
++                            old_df_sorted[old_df.columns[1]].astype(str) + "-" + \
++                            old_df_sorted[old_df.columns[2]].astype(str)
++
++# Create the x-axis labels
++old_df_max_sorted["x_labels"] = old_df_max_sorted[old_df.columns[0]].astype(str) + "_" + \
++                                old_df_max_sorted[old_df.columns[1]].astype(str) + "-" + \
++                                old_df_max_sorted[old_df.columns[2]].astype(str)
++# Melt the DataFrame: Keep "card" and "port" as identifiers, convert server columns into one column
++# Identify server columns (starting with "g3-")
++server_columns = [col for col in df.columns if col.startswith("g3-")]
++# Melt the DataFrame correctly, keeping 'Type' for classification
++melted_df = df.melt(id_vars=["Type"], value_vars=server_columns, var_name="server", value_name="SER")
++
++old_server_columns = [col for col in old_df.columns if col.startswith("g3-")]
++# Melt the DataFrame correctly, keeping 'Type' for classification
++old_melted_df = old_df.melt(id_vars=["Type"], value_vars=old_server_columns, var_name="server", value_name="SER")
++
++# Remove rows where SER == 0
++melted_df = melted_df[melted_df["SER"] != 0]
++old_melted_df = old_melted_df[old_melted_df["SER"] != 0]
++
++# =============================================================================
++
++
++# =======================================
++# 1st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) 
++# Create a 2x2 grid of subplots
++# =======================================
++fig, ax1 = plt.subplots()
++
++# Plot the first dataset
++ax1.plot(df_sorted["x_labels"], df_sorted["ave"], 'b--', label="New ave", marker="o")
++ax1.set_ylabel("New Rev Ave", color='b')
++ax1.tick_params(axis='y', labelcolor='b', labelsize=8)
++ax1.set_xticks(df_sorted["x_labels"])  # Ensure ticks match labels
++ax1.set_xticklabels(df_sorted["x_labels"], rotation=90, ha='right')
++ax1.set_xlim(-1, 192)
++#ax1.set_ylim(df_sorted["ave"].min(), df_sorted["ave"].max())
++
++
++# Create a second x-axis on top
++ax2 = ax1.secondary_xaxis('top')
++
++# Create a second y-axis for the second dataset
++ax3 = ax1.twinx()
++ax3.plot(df_sorted["x_labels"], old_df_sorted["ave"], 'r--', label="old ave", marker="o")
++ax3.tick_params(axis='y', labelcolor='r')
++ax3.set_xticklabels(df_sorted["x_labels"], ha='right')
++
++# Show legend
++ax1.legend(loc="upper left")
++ax3.legend(loc="upper right")
++
++plt.title("Average pre_fec compare")
++plt.tight_layout(pad=0.1)
++#plt.show(block=False)
++plt.savefig("Average_SER_statistics_FOM_compare.png")  # Save as PNG
++subprocess.run(["xdg-open", "Average_SER_statistics_FOM_compare.png"])
++# =======================================
++# 2st Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) 
++# Create a 2x2 grid of subplots
++# =======================================
++fig1, ax4 = plt.subplots()
++
++# Plot the first dataset
++ax4.plot(df_max_sorted["x_labels"], df_max_sorted["ave"], 'b--', label="New ave", marker="o")
++ax4.set_ylabel("New Rev Ave", color='b')
++ax4.tick_params(axis='y', labelcolor='b', labelsize=8)
++ax4.set_xticks(df_max_sorted["x_labels"])  # Ensure ticks match labels
++ax4.set_xticklabels(df_max_sorted["x_labels"], rotation=90, ha='right')
++ax4.set_xlim(-1, 192)
++#ax1.set_ylim(df_sorted["ave"].min(), df_sorted["ave"].max())
++
++
++# Create a second x-axis on top
++ax5 = ax4.secondary_xaxis('top')
++
++# Create a second y-axis for the second dataset
++ax6 = ax4.twinx()
++ax6.plot(df_max_sorted["x_labels"], old_df_max_sorted["ave"], 'r--', label="old ave", marker="o")
++ax6.tick_params(axis='y', labelcolor='r')
++ax6.set_xticklabels(df_max_sorted["x_labels"], ha='right')
++
++# Show legend
++ax4.legend(loc="upper left")
++ax6.legend(loc="upper right")
++
++plt.title("Max pre_fec compare")
++plt.tight_layout(pad=0.1)
++#plt.show(block=False)
++plt.savefig("Max_SER_statistics_FOM_compare.png")  # Save as PNG
++subprocess.run(["xdg-open", "Max_SER_statistics_FOM_compare.png"])
++
++# =======================================
++# 3rd Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) 
++# Create a 2x2 grid of subplots
++# =======================================
++
++# Select the numerical column to plot (e.g., "ave")
++column_to_plot = "ave"
++# Create a histogram for both datasets
++# Create a histogram with only outlines
++plt.figure(figsize=(10, 6))
++plt.hist(old_df_logical[column_to_plot], bins=30, histtype="step", linewidth=2, label="Old Data", color="blue")
++plt.hist(df_logical[column_to_plot], bins=30, histtype="step", linewidth=2, label="New Data", color="red")
++
++# Formatting
++plt.xlabel(column_to_plot)
++plt.ylabel("Frequency")
++plt.title(f"Histogram of {column_to_plot}")
++plt.legend()
++plt.grid(axis="y", linestyle="--", alpha=0.7)
++
++# Show plot
++#plt.show(block=False)
++plt.savefig("SER_Histogram_compare.png")  # Save as PNG
++subprocess.run(["xdg-open", "SER_Histogram_compare.png"])
++# =======================================
++# 4rd Plot average SER in ascending maner split per Port Type (Ext,Int,Xbar) 
++# Create a 2x2 grid of subplots
++# =======================================
++
++# Select the numerical column to plot (e.g., "ave")
++column_to_plot = "ave"
++# Create a histogram for both datasets
++# Create a histogram with only outlines
++plt.figure(figsize=(10, 6))
++plt.hist(old_df_logical[column_to_plot]-df_logical[column_to_plot], bins=20, histtype="step", linewidth=2, label="per port diff: old - new", color="blue")
++#plt.hist(df_logical[column_to_plot], bins=30, histtype="step", linewidth=2, label="New Data", color="red")
++
++# Formatting
++plt.xlabel(column_to_plot)
++plt.ylabel("Frequency")
++plt.title(f"Histogram of {column_to_plot}")
++plt.legend()
++plt.grid(axis="y", linestyle="--", alpha=0.7)
++
++# Show plot
++#plt.show()
++plt.savefig("SER_change_Histogram.png")  # Save as PNG
++subprocess.run(["xdg-open", "SER_Change_Histogram.png"])
+diff --git a/scripts/DB_stat_calc_par.sh b/scripts/DB_stat_calc_par.sh
+new file mode 100755
+index 0000000..d3b5999
+--- /dev/null
++++ b/scripts/DB_stat_calc_par.sh
+@@ -0,0 +1,273 @@
++#!/bin/bash
++
++# Directory containing the files
++# directory="/software/devops/logs/pre_fec_stats/g3"
++# directory="/home/obenjamin/eth_an_31012024/"
++# Check if the correct number of arguments are provided
++
++# Function to show progress
++show_progress() {
++    local iteration="$1"
++    local total="$2"
++
++    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
++        echo "$((iteration * 100 / total))"
++    elif [[ "$OSTYPE" == "darwin"* ]]; then
++        osascript -e "display notification \"Running iteration $iteration - $total...\" with title \"Loop Status\""
++    else
++        echo "Unsupported OS: $OSTYPE"
++        exit 1
++    fi
++}
++
++# Debugging the arguments
++echo "Number of arguments passed: $#"
++echo "Test Path: $1"
++echo "Output Path: $2"
++if [ "$#" -ne 2 ]; then
++    echo "Usage: $0 <test_path> <output_path>"
++    exit 1
++fi
++
++# Get the test_path and output_path arguments
++test_path=$1
++output_path=$2
++
++# Debug: Print values of test_path and output_path
++echo "Test Path: $test_path"
++echo "Output Path: $output_path"
++
++# Update the variables to use the provided arguments
++directory="$test_path"  # test_path from the argument
++output_file="$output_path/ALL_G3_pre_FEC_SER_int_data.csv"  # output_path from the argument
++output_maxfile="$output_path/ALL_G3_max_pre_FEC_SER_int_data.csv"  # output_path from the argument
++output_postfile="$output_path/ALL_G3_post_FEC_SER_int_data.csv" 
++
++echo "directory: $directory"
++echo "output_file: $output_file"
++#directory="/home/obenjamin/ALL_G3/"
++#directory="/software/devops/logs/pre_fec_stats/ALL_G3_Rev20P0/"
++
++# Output file to store the results
++#output_file="/home/obenjamin/Rev_1p20p0/ALL_G3_pre_FEC_SER_int_data.csv"
++#output_maxfile="/home/obenjamin/Rev_1p20p0/ALL_G3_max_pre_FEC_SER_int_data.csv"
++
++# Table data extracted from the image (assuming it's in the same order as shown)
++table_data=("Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Internal" "Internal" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Xbar" "Xbar" "Xbar" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Internal" "Xbar" "Xbar" "External" "External" "Xbar" "Xbar" "Xbar" "External" "Xbar" "Xbar" "Internal" "Internal")
++
++# Function to calculate log10 using awk
++log10() {
++    awk -v val="$1" 'BEGIN {if (val > 0) print log(val)/log(10); else print "0"}'
++}
++
++# Function to calculate median using awk
++median() {
++    sort -n | awk '
++    {
++        count[NR] = $1
++    }
++    END {
++        if (NR % 2) {
++            print count[(NR + 1) / 2]
++        } else {
++            print (count[(NR / 2)] + count[(NR / 2) + 1]) / 2
++        }
++    }'
++}
++
++percentile() {
++    sort -n | awk -v p="$1" '
++    BEGIN {ORS=" "}
++    {
++        a[NR] = $1
++    }
++    END {
++        if (NR == 0) print "0"
++        else {
++            idx = int(NR * p / 100 + 0.5);
++            if (idx < 1) idx = 1;  # Ensure index is at least 1
++            print a[idx];
++        }
++    }'
++}
++
++# Function to process a single card-port combination
++process_card_port() {
++    local card=$1
++    local port=$2
++    local row_num=$3
++    local start_time=$(date +%s)
++    index=$((card * 24 + port))
++    # Start building the line with card and port
++    #local line="$card,$port,"
++    # Initialize line with table data, card, and port
++    local line="${table_data[$index]},$card,$port,"
++
++
++    # Initialize sum and count for average calculation
++    local sum_log_pre_fec_ser_int=0
++    local count_log_pre_fec_ser_int=0
++    local sum_log_pre_fec_ser_int_sq=0
++    local log_pre_fec_ser_int_values=()
++    local max_log_pre_fec_ser_int=-99999
++
++    for file in "$directory"/*; do
++        # Skip directories
++        [ -d "$file" ] && continue
++
++        # Extract pre_FEC_SER_int data
++        #pre_fec_ser_int=$(grep -ai "^$card,$port" "$file" | awk -F, 'NR==1 {print $27}')
++        pre_fec_ser_int=$(grep -ai "^$card,$port" "$file" | awk -F, -v col="$row_num" 'NR==1 {print $col}')
++
++        
++        # Replace 0e-0 with 1e-12 if found
++        if [ "$pre_fec_ser_int" == "0e-0" ]; then
++            pre_fec_ser_int="1e-12"
++        fi
++        
++       # ***
++        if [ -z "$pre_fec_ser_int" ]; then
++            pre_fec_ser_int="1"
++            #count_log_pre_fec_ser_int=$((count_log_pre_fec_ser_int - 1))
++            # Calculate log10 of pre_fec_ser_int
++            log_pre_fec_ser_int=$(log10 $pre_fec_ser_int)
++        else
++            # Calculate log10 of pre_fec_ser_int
++            log_pre_fec_ser_int=$(log10 $pre_fec_ser_int)
++            # Update max_log_pre_fec_ser_int
++            if (( $(echo "$log_pre_fec_ser_int > $max_log_pre_fec_ser_int" | bc -l) )); then
++                max_log_pre_fec_ser_int=$log_pre_fec_ser_int
++            fi
++            # Accumulate sum and count for average calculation
++            sum_log_pre_fec_ser_int=$(awk "BEGIN {print $sum_log_pre_fec_ser_int + $log_pre_fec_ser_int}")
++            sum_log_pre_fec_ser_int_sq=$(awk "BEGIN {print $sum_log_pre_fec_ser_int_sq + ($log_pre_fec_ser_int * $log_pre_fec_ser_int)}")
++
++            count_log_pre_fec_ser_int=$((count_log_pre_fec_ser_int + 1))
++            # Collect log_pre_fec_ser_int for median calculation
++            log_pre_fec_ser_int_values+=("$log_pre_fec_ser_int")
++        fi
++        
++        
++        # Append log_pre_fec_ser_int to the line
++        line="$line$log_pre_fec_ser_int,"
++    done
++
++    # Calculate average log_pre_fec_ser_int if count is not zero
++    if [ $count_log_pre_fec_ser_int -ne 0 ]; then
++        average_log_pre_fec_ser_int=$(awk "BEGIN {print $sum_log_pre_fec_ser_int / $count_log_pre_fec_ser_int}")
++        variance_log_pre_fec_ser_int=$(awk "BEGIN {print ($sum_log_pre_fec_ser_int_sq / $count_log_pre_fec_ser_int) - ($average_log_pre_fec_ser_int * $average_log_pre_fec_ser_int)}")
++        stdev_log_pre_fec_ser_int=$(awk "BEGIN {print sqrt($variance_log_pre_fec_ser_int)}")
++        
++        # Calculate median log_pre_fec_ser_int
++        median_log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | median)
++        
++        # Calculate percentiles log_pre_fec_ser_int
++        P5log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 5)
++        P15log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 15)
++        P25log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 25)
++        P35log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 35)
++        P65log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 65)
++        P75log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 75)
++        P85log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 85)
++        P95log_pre_fec_ser_int=$(echo "${log_pre_fec_ser_int_values[@]}" | tr ' ' '\n' | percentile 95)
++    else
++        average_log_pre_fec_ser_int=0
++        stdev_log_pre_fec_ser_int=0
++        median_log_pre_fec_ser_int=0
++        max_log_pre_fec_ser_int=0
++        P5log_pre_fec_ser_int=0
++        P15log_pre_fec_ser_int=0
++        P25log_pre_fec_ser_int=0
++        P35log_pre_fec_ser_int=0
++        P55log_pre_fec_ser_int=0
++        P65log_pre_fec_ser_int=0
++        P75log_pre_fec_ser_int=0
++        P85log_pre_fec_ser_int=0
++        P95log_pre_fec_ser_int=0
++    fi
++
++    # Remove the trailing comma and append the line and average to the output file
++    # Set output file name based on row_num
++    local output_file_name
++#    if [[ $row_num -eq 27 ]]; then
++#        output_file_name="$output_file"
++#    else
++#        output_file_name="$output_maxfile"
++#    fi
++    case $row_num in
++        27) output_file_name="$output_file" ;;
++        28) output_file_name="$output_maxfile" ;;
++        29) output_file_name="$output_postfile" ;;
++    esac
++
++    
++    echo "${line%,},,$count_log_pre_fec_ser_int,, $average_log_pre_fec_ser_int,$stdev_log_pre_fec_ser_int, $P5log_pre_fec_ser_int, $P15log_pre_fec_ser_int, $P25log_pre_fec_ser_int,$P35log_pre_fec_ser_int,$median_log_pre_fec_ser_int,$P65log_pre_fec_ser_int,$P75log_pre_fec_ser_int,$P85log_pre_fec_ser_int,$P95log_pre_fec_ser_int, $max_log_pre_fec_ser_int" >> "$output_file_name"
++
++    local end_time=$(date +%s)
++    local elapsed_time=$((end_time - start_time))
++
++    # Print elapsed time
++    #echo -ne "\nProcessing completed for card $card, port $port. time: $elapsed_time."
++}
++
++# Generate the title row with all filenames from the directory
++title_row="Type,card,port,"
++for file in "$directory"/*; do
++    # Skip directories
++    [ -d "$file" ] && continue
++    title_row="$title_row$(basename "$file"),"
++done
++
++echo "${title_row%,},,Number_of_files,stats:,ave,std,P5,P15,P25,P35,P50,P65,P75,P85,P95,max" > "$output_file"
++echo "${title_row%,},,Number_of_files,stats:,ave,std,P5,P15,P25,P35,P50,P65,P75,P85,P95,max" > "$output_maxfile"
++
++# Check if card and port are provided as arguments
++if [ "$#" -eq 4 ]; then
++    # User-specified card and port
++    card=$3
++    port=$4
++
++    # Validate card and port
++    if ! [[ "$card" =~ ^[0-7]$ ]]; then
++        echo "Error: Card must be a number between 0 and 7."
++        exit 1
++    fi
++
++    if ! [[ "$port" =~ ^[0-9]{2}$ ]] || [ "$port" -lt 0 ] || [ "$port" -gt 23 ]; then
++        echo "Error: Port must be a number between 00 and 23."
++        exit 1
++    fi
++
++    # Process specific card and port
++    process_card_port $card $port 27
++    exit 0
++fi
++
++# Processing all cards and ports in parallel
++i=0
++total=192
++
++for card in {0..7}; do
++    for port in {0..23}; do
++        process_card_port $card $port 27 &
++    done
++done
++
++for card in {0..7}; do
++    for port in {0..23}; do
++        process_card_port $card $port 28 &
++    done
++done
++
++for card in {0..7}; do
++    for port in {0..23}; do
++        process_card_port $card $port 29 &
++    done
++done
++
++# Wait for all background processes to finish
++wait
++
++echo -ne "\nAll processing completed. Results saved to $output_file & $output_maxfile.\n"
++exit 0
++

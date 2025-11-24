@@ -1,0 +1,56 @@
+From 3f158175462b4eb8c5e76a52e706312898a82d81 Mon Sep 17 00:00:00 2001
+From: Alexey Puzhevich <alexey.puzhevich@intel.com>
+Date: Mon, 26 May 2025 15:13:43 +0300
+Subject: [PATCH] [FSW-12726] fs1: preboot: unified mem rd/wr lib
+
+Duplicated functionality was consolidated in the
+stand-alone header only library.
+
+Change-Id: Idaf0a09ea471e1c5ddcba7bd81d53c51857cdf85
+Signed-off-by: Alexey Puzhevich <alexey.puzhevich@intel.com>
+---
+
+diff --git a/include/preboot.h b/include/preboot.h
+index 297f002..bd0d939 100644
+--- a/include/preboot.h
++++ b/include/preboot.h
+@@ -36,6 +36,8 @@
+ #include <types.h>
+ #include "auto_generated.h"
+ 
++#include <regmap_io.h>
++
+ #define VERSION_MAX_LEN		128
+ 
+ #define VERSION_STR	"version " PREBOOT_VER \
+@@ -86,30 +88,6 @@
+ 
+ extern u8 hl_asic_sn[FUSE_DEVID_SIZE];
+ extern u8 hl_stepping;
+-
+-static inline u8 regmap_readb(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return (u8)(reg & 0xFF);
+-}
+-
+-static inline void regmap_writeb(u8 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = (u32)val;
+-}
+-
+-static inline u32 regmap_readl(u32 offset)
+-{
+-	u32 reg = *((volatile u32 *)(HL_CFG_BASE + offset));
+-
+-	return reg;
+-}
+-
+-static inline void regmap_writel(u32 val, u32 offset)
+-{
+-	*((volatile u32 *)(HL_CFG_BASE + offset)) = val;
+-}
+ 
+ static inline void regmap_rmwritel(u32 addr, u32 data, u32 mask)
+ {

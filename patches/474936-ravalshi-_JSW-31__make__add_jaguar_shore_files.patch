@@ -1,0 +1,838 @@
+From 2b3feff43593dccb11d1389b350cddc6fc70b5c5 Mon Sep 17 00:00:00 2001
+From: Shivani Raval <sraval@habana.ai>
+Date: Tue, 11 Mar 2025 10:38:11 +0200
+Subject: [PATCH] [JSW-31] make: add jaguar shore files
+
+Added required files to build JS asic
+target. Command is -
+make jgs-asic-prepare;make jgs-distclean;make jgs-asic-build
+
+Change-Id: I4af8ef4993c3d2fad4d5dc5ea4c215a6cc9c334a
+Signed-off-by: Shivani Raval <sraval@habana.ai>
+---
+
+diff --git a/board/habanalabs/jgs/jgs-image-utility.sh b/board/habanalabs/jgs/jgs-image-utility.sh
+new file mode 100755
+index 0000000..1a2b63e
+--- /dev/null
++++ b/board/habanalabs/jgs/jgs-image-utility.sh
+@@ -0,0 +1,280 @@
++source ${BR2_EXTERNAL}/board/habanalabs/common/dirs.sh
++
++BINS_CONFIG_DIR="${BR2_EXTERNAL}/output/${HL_DEV}/images/bins_config"
++
++function swap_file {
++	local INF=$1
++	local OUTF=$2
++	local DBG=${3:-}
++
++	# SWAP needs this to be 4B aligned in size
++	dd status=none conv=sync bs=4 if=${INF} > ${OUTF}.tmp
++	# Sadly --endian=big is not swapping for -tx1 so I used some gawk magic
++	od -Anone -v -tx1 -w4 ${OUTF}.tmp | gawk '{ print $4 $3 $2 $1 }' | xxd -r -p > ${OUTF}
++
++	if [ -z "$DBG" ]; then
++		rm -f ${OUTF}.tmp
++	fi
++}
++
++function rev_bytes_stdin {
++	local str=$(cat -)
++
++	local len=${#str}
++	local reverse=""
++
++	[[ $len -eq 0 || $((len % 2)) -ne 0 ]] && return 1;
++	for ((i=((len - 2)); i>=0; i-=2)); do
++		reverse+=${str:$i:2}
++	done
++
++	echo -n $reverse
++}
++
++# get_image_property - returns value of a variable named: <name><property>
++function get_image_property {
++	local name=${1^^}
++	local property=${2^^}
++	local value=$(eval "echo \${${name}${property}}")
++
++	if [ -z "$value" ]; then
++		echo "Error: no \"${name}${property}\" value exist..."
++		exit 1;
++	else
++		echo $value
++	fi
++}
++
++function get_image_fname {
++	get_image_property $1 "_BINFILE"
++}
++
++function get_image_base {
++	get_image_property $1 "_OFFSET"
++}
++
++function get_image_loadaddr {
++	get_image_property $1 "_TEXT_BASE"
++}
++
++function get_image_startaddr {
++	get_image_property $1 "_START_ADDR"
++}
++
++function get_image_size {
++	local name=${1^^}
++
++	stat -Lc "%s" $(eval "echo \${${name}_BINFILE}")
++}
++
++function zephyr_objcopy_sections() {
++	local PREFIX=$1
++	local MEM=$2
++	local ALIGN=$3
++	local SECTIONS=${*:4}
++
++	${OBJCOPY} -S --gap-fill 0xff --output-target=binary --remove-section=.comment --remove-section=COMMON \
++	--remove-section=.eh_frame $(echo -n $SECTIONS | sed 's/[^ ]* */ --only-section=&/g') ${ELFS_DIR}/zephyr_${PREFIX}.elf \
++	--set-section-flags=bss=alloc,load,contents --set-section-flags=noinit=alloc,load,contents \
++	${STAGE_DIR}/zephyr-${PREFIX}-${MEM}.bin
++
++	dd status=none conv=sync bs=${ALIGN} if=${STAGE_DIR}/zephyr-${PREFIX}-${MEM}.bin > \
++	${BINS_DIR}/${DEV_PREFIX}-zephyr-${PREFIX}-${MEM}.bin
++}
++
++function print_elf_sections_csv {
++	local app=$1
++
++	echo "name,size,address"
++	arc-linux-objdump -h ${ELFS_DIR}/zephyr_${app}.elf | \
++		awk '/^[ \t]+[0-9]+ [^.]/ { printf("%s,0x%s,0x%s\n", $2, $3, $4);}'
++}
++
++function remove_empty_lines {
++	sed '/^[[:space:]]*$/d'
++}
++
++function extract_zephyr_bins_sections {
++	local app=$1
++	local bins_file=$2
++	local sections=()
++	local bin_start
++	local bin_end
++	local sec_start
++	local sec_end
++
++	echo "Extracting sections for ${app} app"
++	while IFS=',' read -r bin_name bin_addr bin_size bin_align; do
++		echo -e "\tBinary ${bin_name} ($((${bin_size} * 1024))@${bin_addr})"
++		sections=()
++		bin_start=$((${bin_addr}))
++		bin_end=$((${bin_addr} + $((${bin_size} * 1024))))
++
++		while IFS=',' read -r sec_name sec_size sec_addr; do
++			sec_start=$((${sec_addr}))
++			sec_end=$((${sec_addr} + ${sec_size}))
++
++			if [ ${sec_start} -lt ${bin_start} -o ${sec_end} -gt ${bin_end} ]; then
++				continue
++			fi
++
++			sections+=(${sec_name})
++
++			echo -e "\t\tSection ${sec_name} ($((${sec_size}))@${sec_addr})";
++		done < <(print_elf_sections_csv ${app} | tail -n +2)
++
++		zephyr_objcopy_sections ${app} ${bin_name} ${bin_align} ${sections[@]}
++
++		echo ""
++
++	done < <(tail -n +2 ${bins_file} | remove_empty_lines)
++}
++
++# Find a bins file which fits the app
++function zephyr_get_bins {
++	local app=$1
++	local bins_file
++	local bins_app
++
++	# Try to find to closest match between an elf and its bins file
++	while [ $(echo ${app} | tr "_" " " | wc -w) -gt 0 ]; do
++		for bins_file in $(ls $BINS_CONFIG_DIR/${HL_TARGET}_*.bins); do
++			bins_app=$(echo ${bins_file} | sed "s/.*\/${HL_TARGET}_\(.*\)\.bins/\1/")
++
++			if [ "${bins_app}" == "${app}" ]; then
++				echo -n ${bins_file}
++				return
++			fi
++		done
++
++		# Remove last word
++		app=$(echo ${app} | awk -F_ 'BEGIN {OFS="_"} {NF-=1} 1')
++	done
++}
++
++#This function should be called after create_zephyr_bins_config
++function extract_zephyr_elf_sections {
++	local elf_file
++	local bins_file
++	local app
++
++	for elf_file in $(ls ${ELFS_DIR}/zephyr_*.elf); do
++		app=$(echo ${elf_file} | sed "s/.*\/zephyr_\(.*\)\.elf/\1/")
++		bins_file=$(zephyr_get_bins ${app})
++
++		if [ -n "${bins_file}" ]; then
++			extract_zephyr_bins_sections ${app} ${bins_file}
++			continue
++		fi
++	done
++}
++
++function create_zephyr_bins_config {
++mkdir -p $BINS_CONFIG_DIR
++	rm $BINS_CONFIG_DIR/* -fr
++	mem_sections_hdr_path=${SPECS_EMB_PROJ_DIR}/${DEV_PREFIX}/${DEV_PREFIX}_mem_addr_dt.h
++
++	while read -r module; do
++		if echo "$module" | grep -q -E "iccm" || echo "$module" | grep -q -E "dccm"; then
++			module=$(echo "$module" | cut -d '_' -f 1)
++		fi
++
++		# TEMPORARY:
++		# Skip all the modules except "mgmt", because they are not implemented yet.
++		# Only a basic implementation of arcmgmt is being implemented for now.
++		if ! echo "$module" | grep -q -E  -e "mgmt" -e "agent"; then
++			continue;
++		fi
++
++		bins_path=$BINS_CONFIG_DIR/${HL_TARGET}_${module}.bins
++		echo "name,address,size_kb,align_bytes" > $bins_path
++		if echo "$module" | grep -q -E "io" ||  echo "$module" | grep -q -E "compute"; then
++			while read -r section; do
++				off=`grep ${module^^}_$section.*_OFFSET $mem_sections_hdr_path | sed 's/[[:space:]]\+/ /g' | cut -d ' ' -f3`
++				sz=`grep ${module^^}_$section.*_SIZE $mem_sections_hdr_path | sed 's/[[:space:]]\+/ /g' | cut -d ' ' -f3`
++				echo ${section,,},0x$off,$sz,16 >> $bins_path
++			done <<< `grep "_SECTION" $mem_sections_hdr_path | grep ${module^^} | cut -d '_' -f4| sort -u` #section
++		else
++			while read -r section; do
++				if [ "$section" == "ICCM" ] || [ "$section" == "DCCM" ]; then
++					off=`grep ${module^^}_$section.*_OFFSET $mem_sections_hdr_path | sed 's/[[:space:]]\+/ /g' | cut -d ' ' -f3`
++					sz=`grep ${module^^}_$section.*_SIZE $mem_sections_hdr_path | sed 's/[[:space:]]\+/ /g' | cut -d ' ' -f3`
++					echo ${section,,},0x$off,$sz,16 >> $bins_path
++				fi
++			done <<< `grep "_SECTION" $mem_sections_hdr_path | grep ${module^^} | cut -d '_' -f3`
++		fi
++	done <<< `grep "_SECTION" $mem_sections_hdr_path | cut -d '_' -f2,3 | tr [:upper:] [:lower:]`   #module}
++}
++
++function create_section_variables {
++	local mem_sections_hdr_path=${SPECS_EMB_PROJ_DIR}/${DEV_PREFIX}/${DEV_PREFIX}_mem_addr_dt.h
++
++	while read line; do
++		export $line
++	done <<< `grep "define" $mem_sections_hdr_path | sed 's/[[:space:]]\+/ /g' | cut -d ' ' -f2-3 | sed  's/ /=/g'`
++}
++
++function get_struct_size {
++	header_file="$1"
++	struct_name="$2"
++
++	# Check if a filename is provided
++	if [ -z "$header_file" ]; then
++		echo "Usage: get_struct_size <header_file> <struct_name>"
++		exit 1
++	fi
++
++	# Check if a struct name is provided
++	if [ -z "$struct_name" ]; then
++		echo "Usage: get_struct_size <header_file> <struct_name>"
++		exit 1
++	fi
++
++	# Use gcc to preprocess the header file and calculate the size of the struct
++	size=$(echo "#include \"$header_file\"
++	#include <stdio.h>
++	int main() {
++		printf(\"%zu\", sizeof(struct $struct_name));
++		return 0;
++	}" | gcc -x c - -o tmp - && ./tmp)
++
++	if [ -z "$size" ]; then
++		echo "Error: Struct '$struct_name' not found in '$header_file'"
++		exit 1
++	else
++		echo $size
++	fi
++
++	# Clean up
++	rm -f tmp
++}
++
++function get_fake_fuse_bin_list_array {
++	HEADER_FILE="$1"
++	TARGET_ENUM="$2"
++
++	# Check if the header file exists
++	if [[ ! -f "$HEADER_FILE" ]]; then
++		echo "Header file '$HEADER_FILE' does not exist."
++		exit 1
++	fi
++
++	# Extract enum members for the specific enum using awk
++	ENUM_MEMBERS=$(awk -v enum_name="$TARGET_ENUM" '
++		BEGIN { inside_enum = 0 }
++		/enum[[:space:]]+[^[:space:]]*[[:space:]]*{/{
++			if ($0 ~ "enum[[:space:]]+" enum_name "[[:space:]]*{") {
++				inside_enum = 1
++			}
++		}
++		/}/ { if (inside_enum) { inside_enum = 0; next } }
++		inside_enum && /^[[:space:]]*[[:upper:]][[:alnum:]_]*/ {
++			gsub(/[[:space:]]*,?[[:space:]]*$/, "", $0)
++			print $0
++		}
++	' "$HEADER_FILE")
++
++	IFS=' ' read -r -a FAKE_FUSE_ARRAY <<< "$(echo "$ENUM_MEMBERS" | awk '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); gsub(/[[:space:]]+/, " ", $0); printf "%s ", $0}' | sed 's/ $//')"
++
++	export FAKE_FUSE_ARRAY
++}
+diff --git a/board/habanalabs/jgs/jgs-post-image-spi-global.sh b/board/habanalabs/jgs/jgs-post-image-spi-global.sh
+new file mode 100755
+index 0000000..ba43d8b
+--- /dev/null
++++ b/board/habanalabs/jgs/jgs-post-image-spi-global.sh
+@@ -0,0 +1,405 @@
++#!/usr/bin/env bash
++
++set -e          # stop on any error in this script
++set -u          # stop on any reference to undefine variable
++set -o pipefail # stop on any error in pipeline
++
++SHA256_SIZE=32
++SHA256_CHKSUM=sha256sum
++BOOTLOADER_BINFILE=${HL_TARGET}_bloader.bin
++COMP_BOOTLOADER_BINFILE=${HL_TARGET}_bloader_comp.bin
++HL_BASE_PATH=${BR2_EXTERNAL}/board/habanalabs
++BOARD_BASE=${HL_BASE_PATH}/${HL_DEV}
++DEVICE_BASE=${HL_BASE_PATH}/${HL_DEV}
++KEY_BASE=${BR2_EXTERNAL}/board/habanalabs/${DEV_PREFIX}_arc
++SCRIPTS_DIR=${BR2_EXTERNAL}/scripts
++source ${DEVICE_BASE}/jgs-image-utility.sh
++OBJCOPY=objcopy
++ARCBOOT_BINFILE=${ARCBOOT_BINFILE:-boot_rom.bin}
++ARCBOOT_COMP_BINFILE=${ARCBOOT_COMP_BINFILE:-boot_rom_comp.bin}
++PPBOOT_BINFILE=${PPBOOT_BINFILE:-ppboot.bin}
++PREBOOT_BINFILE=${PREBOOT_BINFILE:-preboot.bin}
++PCIE_PHY_BINFILE=${PCIE_PHY_BINFILE:-pcie_phy_fw.bin}
++
++#SECURITY_BOOT_MODE
++SECURE_BOOT=1
++
++#[REVOKE/HASH/FW_VERSION]_LOCATION
++ASIC_EFUSE=0
++
++#SPI_CONTROLLER
++SPI_CONT=1
++
++# current efuse settings
++REVOKE_LOCATION=${ASIC_EFUSE}
++HASH_LOCATION=${ASIC_EFUSE}
++SECURITY_BOOT_MODE=${SECURE_BOOT}
++ENABLE_SECURITY_VALIDATION=1
++DISBLE_DEBUG_IF=0
++FW_VERSION_LOCATION=${ASIC_EFUSE}
++SPI_CONTROLLER=${SPI_CONT}
++
++FLASH_BASE_ADDR=0x60000
++
++HABANA_KEY_REVOKE=0
++PROD1_KEY_REVOKE=0
++PROD2_KEY_REVOKE=0
++PROD3_KEY_REVOKE=0
++PROD4_KEY_REVOKE=0
++
++PRIME_IMAGE_PPBOOT_KEY=0
++PRIME_IMAGE_RAM_KEY=0
++
++PRIME_IMAGE_PPBOOT_CRC_ERROR=0
++PRIME_IMAGE_RAM_CRC_ERROR=0
++
++PRIME_IMAGE_PPBOOT_SIGN_ERROR=0
++PRIME_IMAGE_RAM_SIGN_ERROR=0
++
++KEY_BASE_NAME=rsa3072
++
++SECURITY_VER_FILE=${SPECS_EMB_PROJ_DIR}/${DEV_PREFIX}_security.h
++export BOOT_POINTER_HEADER=${SPECS_EMB_PROJ_DIR}/jgs_boot_desc.h
++export FW_IF_HEADER=${SPECS_EMB_PROJ_DIR}/jgs_fw_if.h
++
++source ${DEVICE_BASE}/post-image-spi.sh
++
++SECURITY_FW_VERSION=$(grep -owE "JGS_SEC_FW_VERSION[[:space:]]+[0-9]+" $SECURITY_VER_FILE | sed 's/^.*[ \t]\([0-9]\+\)/\1/;')
++ENDIANNESS="${ENDIANNESS:-be}"
++
++function reverse_words {
++	FILE=$1
++	OUT_FILE=$2
++	WORD_SIZE=${3}
++
++	local filesize=$(wc -c < $FILE)
++	echo $FILE $filesize $WORD_SIZE
++	${OBJCOPY}  -Ibinary --reverse-bytes=${WORD_SIZE} ${FILE} ${OUT_FILE}
++}
++
++function calc_crc32 {
++	FILE=$1
++
++	# reverse CRC32 source as DMA engine works like that
++	reverse_words ${FILE} ${FILE}.out 4
++	CRC32=$(crc32 ${FILE}.out)
++	echo ${CRC32} | xxd -r -p > ${FILE}.crc32
++}
++
++function sec_fw {
++	FILE=${1}
++	if [ ${2} -ge 64 ]; then
++		VERSION=$(printf "%016x" $(( ~$((1<<${2})) )))
++		VERSION+=$(printf "%016x" $(( ~0 )))
++	else
++		VERSION=$(printf "%016x" $(( ~0 )))
++		VERSION+=$(printf "%016x" $(( ~$((1<<${2})) )))
++	fi
++	echo ${VERSION} | xxd -r -p | xxd -e -g16 | xxd -r		> ${FILE}.tmp
++	dd status=none conv=notrunc seek=0 bs=16 if=${FILE}.tmp of=${FILE}
++
++	if [ ${HL_TARGET} == "palad" ]; then
++		if [ ${2} -ge 64 ]; then
++				VERSION=$(printf "%016x" $((1<<${2})))
++				VERSION+=$(printf "%016x" $((0)))
++			else
++				VERSION=$(printf "%016x" $((0)))
++				VERSION+=$(printf "%016x" $((1<<${2})))
++		fi
++		for i in {0..3}; do
++			DWORD=$(echo ${VERSION} | xxd -r -p | xxd -g4 | cut -d' ' -f$(( 5 - ${i} )))
++			FORCE="{h5_core.h5_psoc_top.psoc_macro.efuse.efuse_cfg_reg.u_efuse_cfg_reg_fields.u_cfg_reg_base_data_$(( 59 + ${i}))_r.data_in_r[31:0]}"
++			echo "force ${FORCE} 'h${DWORD}" >> ${HL_TARGET}-force.hex
++		done
++	fi
++}
++
++function sec_key {
++	FILE=${1}
++	NAME=${2}
++        KEY_OFFSET=${3}
++        KEY_BASE_NAME_PUB=${KEY_BASE_NAME}.pub
++
++	calculate_hash ${STAGE_DIR}/${NAME}_${KEY_BASE_NAME_PUB} ${STAGE_DIR}/${NAME}_${KEY_BASE_NAME_PUB}.hash
++	cat ${STAGE_DIR}/${NAME}_${KEY_BASE_NAME_PUB}.hash				> ${FILE}.tmp
++	dd status=none conv=notrunc seek=$(( ${KEY_OFFSET}*2 + 1 )) bs=16 if=${FILE}.tmp of=${FILE}
++
++	if [ ${HL_TARGET} == "palad" ]; then
++		for i in $(seq 1 $HASH_SZ); do
++			DWORD=$(xxd -e -c32 -g4 ${STAGE_DIR}/${NAME}_${KEY_BASE_NAME_PUB}.hash | cut -d' ' -f$(( ${i} + 2 )))
++			OFFSET=$(( $(( ${KEY_OFFSET}*8 )) +  ${i} ))
++			FORCE="{h5_core.h5_psoc_top.psoc_macro.efuse.efuse_cfg_reg.u_efuse_cfg_reg_fields.u_cfg_reg_base_data_$(( 18 + ${OFFSET}))_r.data_in_r[31:0]}"
++			echo "force ${FORCE} 'h${DWORD}" >> ${STAGE_DIR}/${HL_TARGET}-force.hex
++		done
++	fi
++}
++
++function key_revoke {
++	REVOKE_STATUS=$1
++	if [ $REVOKE_STATUS -eq 1 ]; then
++		echo -n fe >> ${STAGE_DIR}/revoke_status.hex
++	else
++		echo -n ff >> ${STAGE_DIR}/revoke_status.hex
++	fi
++}
++
++function efuse_sys_config_generate {
++	DWORD=${HABANA_KEY_REVOKE}
++	DWORD=$(( DWORD + $((${PROD1_KEY_REVOKE}<<1))))
++	DWORD=$(( DWORD + $((${PROD2_KEY_REVOKE}<<2))))
++	DWORD=$(( DWORD + $((${PROD3_KEY_REVOKE}<<3))))
++	DWORD=$(( DWORD + $((${PROD4_KEY_REVOKE}<<4))))
++	DWORD=$(( DWORD + $((${REVOKE_LOCATION}<<5))))
++	DWORD=$(( DWORD + $((${HASH_LOCATION}<<7))))
++	DWORD=$(( DWORD + $((${SECURITY_BOOT_MODE}<<9))))
++	DWORD=$(( DWORD + $((${ENABLE_SECURITY_VALIDATION}<<10))))
++	DWORD=$(( DWORD + $((${DISBLE_DEBUG_IF}<<12))))
++	DWORD=$(( DWORD + $((${FW_VERSION_LOCATION}<<13))))
++	DWORD=$(( DWORD + $((${SPI_CONTROLLER}<<17))))
++	DWORD=$(printf "%08x" ${DWORD})
++	echo "force {h5_core.h5_psoc_top.psoc_macro.efuse.efuse_cfg_reg.u_efuse_cfg_reg_fields.u_cfg_reg_base_data_58_r.data_in_r[31:0]} 'h${DWORD}" > ${HEXS_DIR}${HL_TARGET}-force.hex
++}
++
++function report_missing_spi_region_offset_and_exit {
++	local red=$(tput setaf 1)
++	local normal=$(tput sgr0)
++
++	printf "$red The offset of SPI flash region %s is not defined $normal \n" $1
++	exit 1
++}
++
++function report_missing_spi_region_size_and_exit {
++	local red=$(tput setaf 1)
++	local normal=$(tput sgr0)
++
++	printf "$red The size of SPI flash region %s is not defined $normal \n" $1
++	exit 1
++}
++
++# This function checks, that for each SPI flash region
++# both offset and size are defined in jgs_mem_addr_dt.h
++#
++# Parameters:
++# 1 - associative array region name to file name
++# 2 - associative array region name to offset
++# 3 - associative array region name to size
++# Result:
++# normal return if everything is OK
++# printing error message and exit if problem encountered
++function validate_spi_flash_layout {
++	local -n spi_region_to_file=$1
++	local -n spi_region_offsets=$2
++	local -n spi_region_sizes=$3
++	local region_name
++
++	for region_name in "${!spi_region_to_file[@]}"; do
++		if [[ -z "${spi_region_offsets[$region_name]+unset}" ]]; then
++			report_missing_spi_region_offset_and_exit $region_name
++		fi
++		if [[ -z "${spi_region_sizes[$region_name]+unset}" ]]; then
++			report_missing_spi_region_size_and_exit $region_name
++		fi
++	done
++}
++
++# This function parses header file spec/fs1_mem_addr_dt.h
++# and learns SPI flash layout: region names, their offsets
++# and sizes
++# Result:
++# function fills 2 associaive arrays:
++# region name to offset and region name to size
++function parse_spi_flash_regions {
++	local -n spi_region_offsets=$1
++	local -n spi_region_sizes=$2
++	local platform=$3
++	local mem_addr_header_file=${BR2_EXTERNAL}/../specs/fs/${platform}/${platform}_mem_addr_dt.h
++	local regex_offset="\#define(.*)SPI_FLASH_REGION_([A-Z_0-9]+)_OFFSET(\s+)([0-9a-fA-F]+)"
++	local regex_size="\#define(.*)SPI_FLASH_REGION_([A-Z_0-9]+)_SIZE(\s+)([0-9a-fA-F]+)"
++	local region_name
++	local region_offset
++	local region_size
++	local red=$(tput setaf 1)
++	local normal=$(tput sgr0)
++
++	if [ ! -f $mem_addr_header_file ]; then
++		printf "$red File %s not exists $normal \n" "$mem_addr_header_file"
++		exit 1
++	fi
++	IFS=$'\n'
++	for line in $(cat "$mem_addr_header_file"); do
++		if [[ $line =~ $regex_offset ]]; then
++			region_name=${BASH_REMATCH[2]}
++			region_offset=$(echo "ibase=16; ${BASH_REMATCH[4]^^}"|bc)
++			spi_region_offsets[${region_name}]=$region_offset
++		elif [[ $line =~ $regex_size ]]; then
++			region_name=${BASH_REMATCH[2]}
++			region_size=$(echo "ibase=16; ${BASH_REMATCH[4]^^}"|bc)
++			spi_region_sizes[${region_name}]=$region_size
++		fi
++	done
++}
++
++# This function is intended to check, that the length of
++# given files does not exceed the size of appropriate SPI
++# flash region
++function check_length_of_spi_files {
++	local -n region_to_file=$1
++	local -n region_to_size=$2
++	local file_name
++	local region_name
++	local block_size
++	local diff
++	local red=$(tput setaf 1)
++	local normal=$(tput sgr0)
++
++	for region_name in "${!region_to_file[@]}"; do
++		file_name="${region_to_file[${region_name}]}"
++		[[ $file_name == FF ]] && continue
++		[[ $file_name == 00 ]] && continue
++		block_size="${region_to_size[${region_name}]}"
++		if [ ! -f $file_name ]; then
++			printf "$red File %s not exists $normal \n" "$file_name"
++			exit 1
++		fi
++		file_size=$(wc -c <"$file_name")
++		if [ $file_size -eq 0 ]; then
++			printf "$red File %s is empty $normal \n" "$file_name"
++			exit 1
++		fi
++		if [ $file_size -gt $block_size ]; then
++			diff=$(expr $file_size - $block_size)
++			printf "$red File %s size %s exceeds SPI block size %s by %s bytes $normal \n" \
++				"$file_name" "$file_size" "$block_size" "$diff"
++			exit 1
++		else
++			printf "Region %s file size: %s    SPI block size: %s\n" \
++				"$region_name" "$file_size" "$block_size"
++		fi
++	done
++}
++
++# This function builds SPI flash file
++function build_spi_flash_file {
++	local -n region_to_file=$1
++	local -n region_to_offset=$2
++	local -n region_to_size=$3
++	local -n out_file=$4
++	local file_length=0
++	local input_file
++	local file_length
++	local offset
++	local size
++	local kb
++	local end_of_region
++	local current_region_offset=0
++	local region_found
++	local red=$(tput setaf 1)
++	local normal=$(tput sgr0)
++
++	for region_name in "${!region_to_offset[@]}"; do
++		offset="${region_to_offset[${region_name}]}"
++		size="${region_to_size[${region_name}]}"
++		end_of_region=$(expr $offset + $size)
++		if [ $end_of_region -gt $file_length ]; then
++			file_length=$end_of_region
++		fi
++	done
++
++	printf "\nLength of flash image file %s: 0x%x bytes \n\n" "$out_file" "$file_length"
++	rm -f "$out_file"
++	touch "$out_file"
++
++	while [ $current_region_offset -lt $file_length ]; do
++		region_found=false
++		for region_name in "${!region_to_offset[@]}"; do
++			offset="${region_to_offset[${region_name}]}"
++			size="${region_to_size[${region_name}]}"
++			kb=$(expr "$size" \/ 1024)
++			if [ $offset -eq $current_region_offset ]; then
++				region_found=true
++				input_file="${region_to_file[${region_name}]}"
++				if [ "$input_file" = "FF" ]; then
++					printf "Writing FF to offset 0x%x  %sK (Region name: %s)\n" "$offset" "$kb" "$region_name"
++					dd status=none conv=sync bs=${kb}K count=1 if=/dev/zero | tr "\000" "\377" >> ${out_file}
++				elif [ "$input_file" = "00" ]; then
++					printf "Writing 00 to offset 0x%x  %sK (Region name: %s)\n" "$offset" "$kb" "$region_name"
++					dd status=none conv=sync bs=${kb}K count=1 if=/dev/zero >> ${out_file}
++				else
++					printf "Writing %s from %s to offset 0x%x  %sK \n" "$region_name" "$input_file" "$offset" "$kb"
++					dd status=none conv=sync bs=${kb}K if=${input_file} >> ${out_file}
++				fi
++				current_region_offset=$(expr $offset + $size)
++				break
++			fi
++		done
++		if [ "$region_found" = false ]; then
++			printf "$red SPI flash region with offset 0x%x not defined $normal \n" "$current_region_offset"
++			exit 1
++		fi
++	done
++}
++
++pushd ${STAGE_DIR}
++
++	copy_binaries ${BINS_DIR}
++
++	export IMG_PTR_SZ="$(get_struct_size $BOOT_POINTER_HEADER fw_boot_ptrs)"
++	export IMG_DESC_SZ="$(get_struct_size $BOOT_POINTER_HEADER fw_img_desc)"
++
++	for i in $(seq 1 $NUM_PROD_KEYS); do
++		CUST=cust${i}
++		gen_cert ${CUST} "Habana Embedded Team"
++	done
++
++	## create otp spi image
++	dd status=none conv=sync count=12 bs=16 if=/dev/zero | tr '\000' $'\xFF' > ${BINS_DIR}/${DEV_PREFIX}-spi-otp-flash.bin
++
++	# get private and public keys
++	copy_all_keys ${BINS_PROD_DIR}
++
++	#generate public key components
++	generate_public_keys
++
++	# Create erom binaries
++	prep_image_erom ${BINS_DIR}/${DEV_PREFIX}-erom.bin.le
++
++	# Create fake fuse binary
++	prep_image_fake_fuse ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.le
++
++	# Pad preboot binary and then pack
++	zephyr_preboot_pack ${BINS_DIR}/${PREBOOT_BINFILE} ${PRIME_IMAGE_RAM_KEY} ${PRIME_IMAGE_RAM_CRC_ERROR} ${PRIME_IMAGE_RAM_SIGN_ERROR}
++
++	# create combined name of ppboot and pcie
++	PPBOOT=$(echo "$PPBOOT_BINFILE" | cut -f 1 -d '.')
++	PCIE_PHY=$(echo "$PCIE_PHY_BINFILE" | cut -f 1 -d '.')
++	PPBOOT_PCIE_PHY_BINFILE=${PPBOOT}-${PCIE_PHY}.bin
++	PPBOOT_PCIE_PHY_PADDED_BINFILE=${PPBOOT_PCIE_PHY_BINFILE}.pad
++
++	# concatenate both FW
++	join_bin ${BINS_DIR}/${PPBOOT} ${PCIE_PHY} ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE}
++
++	# pack and sign image
++	pack_bin ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE} 64K ${PRIME_IMAGE_PPBOOT_KEY} ${PRIME_IMAGE_PPBOOT_CRC_ERROR} ${PRIME_IMAGE_PPBOOT_SIGN_ERROR}
++
++	# Create image pointers
++	prep_image_ptrs ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.le
++
++	if [ ${HL_TARGET} == "palad" ]; then
++		efuse_sys_config_generate
++	fi
++	swap_file ${BINS_DIR}/${DEV_PREFIX}-ppboot-pcie_phy_fw.bin.le ${BINS_DIR}/${DEV_PREFIX}-ppboot-pcie_phy_fw.bin.be
++	swap_file ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.le  ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.be
++	swap_file ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.le ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.be
++	swap_file ${BINS_DIR}/${DEV_PREFIX}-preboot.bin.le ${BINS_DIR}/${DEV_PREFIX}-preboot.bin.be
++
++
++	rm -rf ${BINS_DIR}/${PPBOOT_PCIE_PHY_BINFILE}
++
++	if [ -f "${KEY_BASE}/spi-flash-layout-validator.sh" ]; then
++		source ${KEY_BASE}/spi-flash-layout-validator.sh
++		validate_spi_flash_layout ${BINS_DIR}/${DEV_PREFIX}-ppboot-pcie_phy_fw.bin.${ENDIANNESS} \
++					  ${BINS_DIR}/${DEV_PREFIX}-preboot.bin.${ENDIANNESS} \
++					  ${BINS_DIR}/${DEV_PREFIX}-images-pointers.bin.${ENDIANNESS} \
++					  ${BINS_DIR}/${DEV_PREFIX}-fake-fuse.bin.${ENDIANNESS}
++	fi
++popd
+diff --git a/board/habanalabs/jgs/post-image-spi.sh b/board/habanalabs/jgs/post-image-spi.sh
+new file mode 100755
+index 0000000..bcc3754
+--- /dev/null
++++ b/board/habanalabs/jgs/post-image-spi.sh
+@@ -0,0 +1,93 @@
++#!/usr/bin/env bash
++
++NUM_PROD_KEYS=0
++
++function copy_binaries {
++	# TODO fill with content
++
++	# creating temporary dummy files
++	touch jgs-erom.bin.le
++	touch jgs-erom_tpm.bin.le
++	touch jgs-ppboot-pcie_phy_fw.bin.le
++	touch jgs-preboot.bin.le
++	touch jgs-images-pointers.bin.le
++	touch jgs-fake-fuse.bin.le
++	touch preboot.bin
++	touch arcboot_rom.bin
++
++	return
++}
++
++function copy_all_keys {
++	# TODO fill with content
++	return
++}
++
++function generate_public_keys {
++	# TODO fill with content
++	return
++}
++
++function prep_image_pcie_pif {
++	# TODO fill with content
++	return
++}
++
++function prep_image_erom {
++	# TODO fill with content
++	return
++}
++
++function prep_image_fake_fuse {
++	# TODO fill with content
++	return
++}
++
++function zephyr_preboot_pack {
++	# TODO fill with content
++	return
++}
++
++function join_bin {
++	# TODO fill with content
++	return
++}
++
++function pack_bin {
++	# TODO fill with content
++	return
++}
++
++function prep_image_ptrs {
++	# TODO fill with content
++	return
++}
++
++function prep_image_spi_tpm {
++	# TODO fill with content
++	return
++}
++
++function calculate_hash {
++	# TODO fill with content
++
++	# creating temporary dummy hash result
++	touch jgs_rsa3072.pub.hash
++
++	return
++}
++
++function create_spi_image {
++	# TODO fill with content
++
++	# creating temporary dummy image
++	touch jgs-spi-flash.bin.nocrc
++
++	return
++}
++
++function pad_arcboot_rom {
++	# TODO fill with content
++
++	return
++}
+diff --git a/configs/jgs_asic_defconfig b/configs/jgs_asic_defconfig
+new file mode 100644
+index 0000000..a8bd970
+--- /dev/null
++++ b/configs/jgs_asic_defconfig
+@@ -0,0 +1,15 @@
++BR2_USE_MMU=y
++BR2_arcle=y
++BR2_archs4x=y
++BR2_SVN="svn"
++BR2_DL_DIR="$(BR2_EXTERNAL_HABANALABS_PATH)/dl"
++BR2_SHARED_STATIC_LIBS=y
++BR2_PACKAGE_OVERRIDE_FILE="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/common/local.mk"
++BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/common/patches"
++BR2_TOOLCHAIN_EXTERNAL=y
++BR2_TARGET_GENERIC_HOSTNAME=""
++BR2_TARGET_GENERIC_ISSUE=""
++BR2_INIT_NONE=y
++BR2_SYSTEM_BIN_SH_NONE=y
++# BR2_TARGET_GENERIC_GETTY is not set
++BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_HABANALABS_PATH)/board/habanalabs/jgs/jgs-post-image-spi-global.sh"
+diff --git a/scripts/make/jgs/Makefile b/scripts/make/jgs/Makefile
+new file mode 100644
+index 0000000..df4dc86
+--- /dev/null
++++ b/scripts/make/jgs/Makefile
+@@ -0,0 +1,2 @@
++.PHONY: jgs-post-image
++jgs-post-image:

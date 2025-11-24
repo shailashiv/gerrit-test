@@ -1,0 +1,24 @@
+From 633525cba27f3b7d349ccc71fa3159e78630e35f Mon Sep 17 00:00:00 2001
+From: acierniakx <acierniakx@habana.ai>
+Date: Wed, 06 Nov 2024 15:18:46 +0200
+Subject: [PATCH] [SW-189555] Arange with negative step param.
+
+This commit fixed graph compilation exception. There is still an
+issue with accuracy for bfloat16 but jira  for that already exists. See [SW-187505]
+
+Change-Id: I2e355377a9d53f82f56c44d58170332db3c175b0
+---
+
+diff --git a/habana_eager/strided_dynamic_ops.cpp b/habana_eager/strided_dynamic_ops.cpp
+index 97b9b52..b6a8e9a 100644
+--- a/habana_eager/strided_dynamic_ops.cpp
++++ b/habana_eager/strided_dynamic_ops.cpp
+@@ -381,7 +381,7 @@
+   int64_t end = 0;
+   symint_idx = mixed_list[1].at(1).first;
+   symint_val = mixed_list[1].at(1).second;
+-  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
++  if (symint_idx == LONG_MAX) {
+     end = symint_val;
+   } else {
+     end = GetSymintValue(orig_stack, symint_idx);

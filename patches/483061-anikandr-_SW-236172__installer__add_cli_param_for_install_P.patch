@@ -1,0 +1,131 @@
+From eaa2ed40ed63d0a2c648e21c1438304c26038f73 Mon Sep 17 00:00:00 2001
+From: Alexey Nikandrov <anikandrov@habana.ai>
+Date: Sun, 24 Aug 2025 17:07:49 +0300
+Subject: [PATCH] [SW-236172] installer: add cli param for install PT from upstream
+
+Update installation environment variables and commands
+
+- Updated environment variable defaults to use more descriptive paths, such as `habanalabs-venv` for the virtual environment path.
+- Added a new command option `--upstream` to install PyTorch from the upstream repository.
+- Modified the installation log file path to use a more consistent format, including the `##DATE##` placeholder for the date.
+- Updated the installation log file path to use a more descriptive path, including the `habanalabs-installer-log` directory.
+- Added a new variable `HABANA_PT_INSTALL_UPSTREAM` to track the upstream installation option.
+
+Change-Id: Iead272e261573359b8a98d0ed1b2807cc9febd51
+Signed-off-by: Alexey Nikandrov <anikandrov@habana.ai>
+---
+
+diff --git a/installer/src/bashly.yml b/installer/src/bashly.yml
+index d1c1bba..79dd818 100644
+--- a/installer/src/bashly.yml
++++ b/installer/src/bashly.yml
+@@ -8,11 +8,11 @@
+   help: Set your server name
+ 
+ - name: habanalabs_installer_log
+-  default: $HOME/habanalabs-installer-log/install-$(date -d "today" +"%Y-%m-%d-%H-%M-%S").log
++  default: habanalabs-installer-log/install-###DATE###.log
+   help: Install log filepath
+ 
+ - name: habanalabs_virtual_dir
+-  default: $HOME/habanalabs-venv
++  default: habanalabs-venv
+   help: User virtual environment path
+ 
+ commands:
+@@ -47,6 +47,8 @@
+     help: Enable verbose output
+   - long: --skip-habanalabs-repo
+     help: Skip adding Habanalabs repository
++  - long: --upstream
++    help: Install pytorch from stream
+ 
+ - name: uninstall
+   help: Uninstall habanalabs environment
+diff --git a/installer/src/install_command.sh b/installer/src/install_command.sh
+index 23ea5c1..12cacb3 100644
+--- a/installer/src/install_command.sh
++++ b/installer/src/install_command.sh
+@@ -8,6 +8,9 @@
+ if [ -n "${args[--venv]}" ]; then
+   __python_user_opt="venv"
+ fi
++if [ -n "${args[--upstream]}" ]; then
++  HABANA_PT_INSTALL_UPSTREAM="upstream"
++fi
+ # Install frameworks (PT) use user workspace (/home/USERNAME)
+ # and before call '__init_action' func sould be redefine internal variables
+ # Later on need to refactoring
+diff --git a/installer/src/lib/_vars.sh b/installer/src/lib/_vars.sh
+index 55cf233..7afb7ae 100644
+--- a/installer/src/lib/_vars.sh
++++ b/installer/src/lib/_vars.sh
+@@ -61,4 +61,4 @@
+ HABANALABS_K8S_DEPENDENCIES=""
+ HABANALABS_K8S_OPTIONAL="habanalabs-firmware-odm"
+ GENERATE_REPOS=TRUE
+-
++HABANA_PT_INSTALL_UPSTREAM=""
+diff --git a/installer/src/lib/common.sh b/installer/src/lib/common.sh
+index 501e763..8d94392 100644
+--- a/installer/src/lib/common.sh
++++ b/installer/src/lib/common.sh
+@@ -414,6 +414,7 @@
+ }
+ 
+ function __create_log_dir(){
++    HABANALABS_INSTALLER_LOG="${HOME}/${HABANALABS_INSTALLER_LOG}"
+     HABANA_INSTALLER_LOG_DIR=$(dirname "${HABANALABS_INSTALLER_LOG}")
+     if [ ! -d "$HABANA_INSTALLER_LOG_DIR" ]; then
+         mkdir -p "$HABANA_INSTALLER_LOG_DIR" || fatal "Failed to create log dir ${HABANA_INSTALLER_LOG_DIR}"
+@@ -620,7 +621,8 @@
+ }
+ 
+ function __activate_venv(){
+-    if [ -z ${VIRTUAL_ENV} ]; then
++    if [ -z "${VIRTUAL_ENV}" ]; then
++        HABANALABS_VIRTUAL_DIR="${HOME}/${HABANALABS_VIRTUAL_DIR}"
+         if [[ ! -d $HABANALABS_VIRTUAL_DIR ]]; then
+             mkdir -p $HABANALABS_VIRTUAL_DIR
+         fi
+@@ -680,14 +682,15 @@
+ }
+ 
+ function __install_openmpi(){
+-    local _mpi_temp_dir=$(mktemp -d)
+-    wget -q -O ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz "${DEFAULT_OPENMPI_DOWNLOAD_URL}/openmpi-${OPENMPI_VERSION}.tar.gz"
+-    pushd ${_mpi_temp_dir} && tar xzf ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz && popd
+-    pushd ${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}
+-    ./configure --prefix=${OPENMPI_ROOT} 2>&1 | tee -a "$HABANALABS_INSTALLER_LOG" > /dev/null
+-    make -j `nproc --all` 2>&1 | tee -a "$HABANALABS_INSTALLER_LOG" > /dev/null
+-    $_SUDO_CMD make install 2>&1 | tee -a "$HABANALABS_INSTALLER_LOG" > /dev/null
+-    $_SUDO_CMD cp LICENSE ${OPENMPI_ROOT}
++    local _mpi_temp_dir
++    _mpi_temp_dir=$(mktemp -d)
++    wget -q -O "${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz" "${DEFAULT_OPENMPI_DOWNLOAD_URL}/openmpi-${OPENMPI_VERSION}.tar.gz"
++    pushd "${_mpi_temp_dir}" && tar xzf "${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}.tar.gz" && popd
++    pushd "${_mpi_temp_dir}/openmpi-${OPENMPI_VERSION}"
++    ./configure --prefix="${OPENMPI_ROOT}" 2>&1 | tee -a "${HABANALABS_INSTALLER_LOG}" > /dev/null
++    make -j "$(nproc --all)" 2>&1 | tee -a "${HABANALABS_INSTALLER_LOG}" > /dev/null
++    $_SUDO_CMD make install 2>&1 | tee -a "${HABANALABS_INSTALLER_LOG}" > /dev/null
++    $_SUDO_CMD cp LICENSE "${OPENMPI_ROOT}"
+     popd
+     rm -rf ${_mpi_temp_dir}
+ }
+diff --git a/installer/src/lib/pt_func.sh b/installer/src/lib/pt_func.sh
+index 91e1a1a..0136786 100644
+--- a/installer/src/lib/pt_func.sh
++++ b/installer/src/lib/pt_func.sh
+@@ -41,9 +41,9 @@
+         cp ${HABANALABS_LOCAL_DIR}/${__pt_module} ${_pt_temp_dir}/
+     fi
+     __remove_previous_pt_python_packages
+-    pushd ${_pt_temp_dir}
+-    tar -xvf ./${__pt_module}
+-    PYTHON_VERSION="${MIN_PYTHON_VER}" PYTHON_OPTIONS="${__python_opt}" PYTHON_INDEX_URL="${__extra_index_url}" HABANALABS_LOCAL_DIR="${HABANALABS_LOCAL_DIR}" ./install.sh $HABANA_RELEASE_VERSION $HABANA_RELEASE_ID
++    pushd "${_pt_temp_dir}" || exit
++    tar -xvf ./"${__pt_module}"
++    PYTHON_VERSION="${MIN_PYTHON_VER}" PYTHON_OPTIONS="${__python_opt}" PYTHON_INDEX_URL="${__extra_index_url}" HABANALABS_LOCAL_DIR="${HABANALABS_LOCAL_DIR}" ./install.sh $HABANA_RELEASE_VERSION $HABANA_RELEASE_ID "${HABANA_PT_INSTALL_UPSTREAM}"
+     popd
+     rm -rf ${_pt_temp_dir}
+ }

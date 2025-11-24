@@ -1,0 +1,26 @@
+From cfd71decfe5d2b7dc44bba98b3207b2a242432b9 Mon Sep 17 00:00:00 2001
+From: Pavan S <psreenivas@habana.ai>
+Date: Tue, 27 Feb 2024 10:44:05 +0200
+Subject: [PATCH] [SW-176446] gaudi3: reset control init
+
+This patch adds support to call new reset
+control sequence off soc init. This sequence
+followed is as per the embedded PRM.
+
+Signed-off-by: Pavan S <psreenivas@habana.ai>
+Change-Id: I5c644212a7fca72a91fa58d804a1335fb5aac768
+---
+
+diff --git a/src/gaudi3/device.c b/src/gaudi3/device.c
+index a89ffe8..b959194 100644
+--- a/src/gaudi3/device.c
++++ b/src/gaudi3/device.c
+@@ -665,6 +665,8 @@
+ 	int ret = 0;
+ 	struct hl_noc_cfg_info noc_info;
+ 
++	gaudi3_rst_ctrl_init();
++
+ 	noc_info.redundancy_ctx = get_redundancy_ctx();
+ 
+ 	ret = gaudi3_noc_init(&noc_info);

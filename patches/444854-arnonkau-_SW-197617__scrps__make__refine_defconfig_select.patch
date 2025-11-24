@@ -1,0 +1,56 @@
+From d60101b83994871c6496f7075ce31c5485ea602d Mon Sep 17 00:00:00 2001
+From: Arnon Kaufman <akaufman@habana.ai>
+Date: Mon, 26 Aug 2024 15:27:04 +0300
+Subject: [PATCH] [SW-197617] scrps: make: refine defconfig select
+
+Look for <dev>_<arch>_<target>_defconfig instead of <dev>_<arch>_defconfig
+only when needed.
+
+Change-Id: I73091ab7e3120d1bb9a8ff577553cf6ba5d4d079
+Signed-off-by: Arnon Kaufman <akaufman@habana.ai>
+---
+
+diff --git a/scripts/make/hl-common/Makefile b/scripts/make/hl-common/Makefile
+index d81b2b9..28cc699 100644
+--- a/scripts/make/hl-common/Makefile
++++ b/scripts/make/hl-common/Makefile
+@@ -2,6 +2,7 @@
+ HL_DEFAULT_DEV_ARCH := gaudi2_arm gaudi3_arc fs1_arc
+ HL_SINGLE_ARCH_RELEASE :=
+ HL_SECURITY_RELEASE :=
++HL_TARGET_TYPES := asic onix pldm
+ 
+ RELEASE_JOB_FAKE_SEC := "fake_security=true"
+ RELEASE_JOB_RUN_TEST_BIN := "run_test_on_bin=false"
+@@ -69,6 +70,12 @@
+ 	$(lastword $(subst _, ,$(filter $(call hl-device,$1)%,$(HL_DEFAULT_DEV_ARCH))))
+ endef
+ 
++define hl-defconfig
++	@$(if $(filter $(strip $(call hl-vars-target,$1)),$(HL_TARGET_TYPES)), \
++		echo $(strip $(call hl-device,$1))_$(strip $(call hl-vars-target, $1))_defconfig, \
++		echo $(strip $(call hl-device,$1))_defconfig)
++endef
++
+ .PHONY: hl-common-%
+ hl-common-%: $(OUTPUT_DIR)
+ 	@$(if $(filter $(call add-hl-prefix, $(HL_TARGET_ARCH)), $@), \
+@@ -96,9 +103,6 @@
+ HL_TARGET_ARCH_PREPARE := $(addsuffix -%,$(HL_SINGLE_ARCH_RELEASE)) \
+ 			  $(addsuffix _%,$(HL_MULTI_ARCH_RELEASE))
+ 
+-TARGET_TYPE ?= $(strip $(call hl-vars-target, $@))
+-TARGET_DEFCONFIG ?= $(strip $(call hl-device, $@))_$(TARGET_TYPE)_defconfig
+-
+ .PHONY: %-prepare
+ %-prepare:
+ 	@$(if $(filter $(HL_MULTI_ARCH), $@), \
+@@ -109,7 +113,7 @@
+ 		$(patsubst %-prepare,%-target,$@))
+ 	@$(if $(filter $(HL_TARGET_ARCH_PREPARE), $@), \
+ 		$(MAKE) \
+-		$(TARGET_DEFCONFIG))
++		$(strip $(call hl-defconfig, $@))
+ 
+ .PHONY: %-build
+ %-build:

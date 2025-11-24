@@ -1,0 +1,2178 @@
+From 1d8d1203cc602caa7ebe122df839070109d73b85 Mon Sep 17 00:00:00 2001
+From: Faive Gurevich <fgurevich@habana.ai>
+Date: Tue, 06 May 2025 14:03:09 +0300
+Subject: [PATCH] Added New Exceptions to: 	mach05_exceptions 	device_cli_excpetions 	driver_cli_excpeiotns New Exceptions File: 	connection_exceptions/connection_manager_exceptions.py Bug Fix: 	HL338 test_hl3090_soc_boot_strap.py Added Exceptions to HL338 tests: 	test_svh_ber 	test_manf_mode_debug 	test_quad_id 	test_fw_eeprom_validate_via_PCIe 	test_dc_power_cycle
+
+Change-Id: Iab7f684884d8c93070bb8394f0ecf3b01fd024ea
+Signed-off-by: Faive Gurevich <fgurevich@habana.ai>
+---
+
+diff --git a/hlsa_exceptions/connection_exceptions/connection_manager_exceptions.py b/hlsa_exceptions/connection_exceptions/connection_manager_exceptions.py
+new file mode 100644
+index 0000000..58a0cf9
+--- /dev/null
++++ b/hlsa_exceptions/connection_exceptions/connection_manager_exceptions.py
+@@ -0,0 +1,43 @@
++"""
++****************************************************************************
++* Copyright (C) 2021 HabanaLabs, Ltd.
++* All Rights Reserved.
++*
++* Unauthorized copying of this file, via any medium is strictly prohibited.
++* Proprietary and confidential.
++****************************************************************************
++"""
++import os
++import sys
++from setup_manager.hlsa_logger import debuginfo
++from setup_manager.options import get_cfg_option
++
++__ROOT = os.path.abspath(os.path.join(__file__, '..', '..'))
++sys.path.append(__ROOT)
++
++
++class GetNumDevices(Exception):
++    """Get Number Of Connected Devices"""
++
++    def __init__(self, test_code="", operation="", hw_component="", caller_order=2):
++        super(GetNumDevices, self).__init__()
++        self._caller_order = caller_order
++        self._test_code = test_code
++        self._operation = operation
++        self._hw_component = hw_component
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = "Test Code: " + self._test_code
++        error_msg = (error_options.connections.connection_manager.get_num_devices + "\n" +
++                     self._operation)
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++def raise_get_num_devices(**kwargs):
++    raise GetNumDevices(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                        hw_component=kwargs["HW_Component"], caller_order=5)
+diff --git a/hlsa_exceptions/hw_manager_exceptions/componenets_exceptions/machx05_exceptions.py b/hlsa_exceptions/hw_manager_exceptions/componenets_exceptions/machx05_exceptions.py
+index f88cf00..30d3fb5 100644
+--- a/hlsa_exceptions/hw_manager_exceptions/componenets_exceptions/machx05_exceptions.py
++++ b/hlsa_exceptions/hw_manager_exceptions/componenets_exceptions/machx05_exceptions.py
+@@ -259,6 +259,26 @@
+         return msg
+ 
+ 
++class SoftCPLDReset(Exception):
++    def __init__(self, test_code="", operation="", hw_component="", caller_order=2):
++        super(SoftCPLDReset, self).__init__()
++        self._caller_order = caller_order
++        self._test_code = test_code
++        self._operation = operation
++        self._hw_component = hw_component
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code)
++        error_msg = error_options.hw_manager.components.machx05.soft_reset_cpld
++        error_msg = error_msg + "\n" + self._operation
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
+ def raise_route_i2c_from_bmc_to_cpld(**kwargs):
+     raise RouteI2cFromBmcToCpld(test_code=kwargs["test_code"], operation=kwargs["operation"],
+                                 hw_component=kwargs["HW_Component"], caller_order=5)
+@@ -314,3 +334,8 @@
+ def raise_set_strap(**kwargs):
+     raise SetStrap(test_code=kwargs["test_code"], operation=kwargs["operation"],
+                    hw_component=kwargs["HW_Component"], read_value=kwargs["read_value"], caller_order=5)
++
++
++def raise_soft_cpld_reset(**kwargs):
++    raise SoftCPLDReset(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                        hw_component=kwargs["HW_Component"], caller_order=5)
+diff --git a/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/device_cli_exceptions.py b/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/device_cli_exceptions.py
+index f46b593..48cf2bf 100644
+--- a/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/device_cli_exceptions.py
++++ b/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/device_cli_exceptions.py
+@@ -11,6 +11,324 @@
+ import sys
+ from setup_manager.hlsa_logger import debuginfo
+ from setup_manager.options import get_cfg_option
++"""
++****************************************************************************
++* Copyright (C) 2021 HabanaLabs, Ltd.
++* All Rights Reserved.
++*
++* Unauthorized copying of this file, via any medium is strictly prohibited.
++* Proprietary and confidential.
++****************************************************************************
++"""
++import os
++import sys
++from setup_manager.hlsa_logger import debuginfo
++from setup_manager.options import get_cfg_option
++
++__ROOT = os.path.abspath(os.path.join(__file__, '..', '..'))
++sys.path.append(__ROOT)
++
++
++class GetPcieAddressesList(Exception):
++
++    def __init__(self, test_code="", operation="", read_value=None, caller_order=2):
++        super(GetPcieAddressesList, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._read_value = read_value
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = (error_options.hw_manager.controls.device_cli.get_pcie_addresses_list + "\n"
++                     + "Actual Read Value: " + str(self._read_value))
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class CompareConnectedExpectedDevices(Exception):
++
++    def __init__(self, test_code="", operation="", hw_component="", read_value=None,
++                 expected_value=None, caller_order=2):
++        super(CompareConnectedExpectedDevices, self).__init__()
++        self._read_value = read_value
++        self._caller_order = caller_order
++        self._expected_value = expected_value
++        self._test_code = test_code
++        self._operation = operation
++        self._hw_component = hw_component
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code
++                       + " Operation: " + self._operation)
++        if self._hw_component != "":
++            details_msg = details_msg + " HW Component: " + self._hw_component
++        error_msg = error_options.hw_manager.controls.device_cli.compare_connected_expected_devices
++        if self._read_value is not None:
++            error_msg = error_msg + "\nActual Value: " + str(self._read_value)
++        if self._expected_value is not None:
++            error_msg = error_msg + "\nExpected Value: " + str(self._expected_value)
++
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class ResetDeviceFwLoader(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(ResetDeviceFwLoader, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.reset_device_fw_loader
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetHLNumber(Exception):
++
++    def __init__(self, test_code="", operation="", pcie_address="", caller_order=2):
++        super(GetHLNumber, self).__init__()
++        self._pcie_address = pcie_address
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_hl_number
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetFitVersion(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetFitVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_fit_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetUbootVersion(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetUbootVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_uboot_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetPrebootVersion(Exception):
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetPrebootVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_preboot_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetDriverVersion(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetDriverVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_driver_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetCpldVersion(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetCpldVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_cpld_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetVrmVersion(Exception):
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetVrmVersion, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.device_cli.get_vrm_version
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class ExecuteCommand(Exception):
++    """Device CLI Execute Command"""
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(ExecuteCommand, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = "Test Code: " + self._test_code
++        error_msg = (error_options.hw_manager.controls.device_cli.execute_command
++                     + "\n Executed Command: " + self._operation)
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++def raise_get_pcie_addresses_list(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    if kwargs["read_value"] == "":
++        kwargs["read_value"] = "N/A"
++    raise GetPcieAddressesList(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                               read_value=kwargs["read_value"], caller_order=caller_order)
++
++
++def raise_compare_connected_expected_devices(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    if kwargs["read_value"] == "":
++        kwargs["read_value"] = "N/A"
++    if kwargs["expected_value"] == "":
++        kwargs["expected_value"] = "N/A"
++    raise CompareConnectedExpectedDevices(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                                          hw_component=kwargs["HW_Component"], read_value=kwargs["read_value"],
++                                          expected_value=kwargs["expected_value"], caller_order=caller_order)
++
++
++def raise_reset_device_fw_loader(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    raise ResetDeviceFwLoader(test_code=kwargs["test_code"],
++                              operation=kwargs["operation"], caller_order=caller_order)
++
++
++def raise_get_hl_number(**kwargs):
++    raise GetHLNumber(test_code=kwargs["test_code"],
++                      operation=kwargs["operation"], pcie_address="", caller_order=5)
++
++
++def raise_get_fit_version(**kwargs):
++    raise GetFitVersion(test_code=kwargs["test_code"],
++                        operation=kwargs["operation"], caller_order=5)
++
++
++def raise_get_uboot_version(**kwargs):
++    raise GetUbootVersion(test_code=kwargs["test_code"],
++                          operation=kwargs["operation"], caller_order=5)
++
++
++def raise_get_preboot_version(**kwargs):
++    raise GetPrebootVersion(test_code=kwargs["test_code"],
++                            operation=kwargs["operation"], caller_order=5)
++
++
++def raise_get_driver_version(**kwargs):
++    raise GetDriverVersion(test_code=kwargs["test_code"],
++                           operation=kwargs["operation"], caller_order=5)
++
++
++def raise_get_cpld_version(**kwargs):
++    raise GetCpldVersion(test_code=kwargs["test_code"],
++                         operation=kwargs["operation"], caller_order=5)
++
++
++def raise_get_vrm_version(**kwargs):
++    raise GetVrmVersion(test_code=kwargs["test_code"],
++                        operation=kwargs["operation"], caller_order=5)
++
++
++def raise_execute_command(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    raise ExecuteCommand(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                         caller_order=caller_order)
+ 
+ __ROOT = os.path.abspath(os.path.join(__file__, '..', '..'))
+ sys.path.append(__ROOT)
+diff --git a/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/driver_cli_exceptions.py b/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/driver_cli_exceptions.py
+index b3e9623..f1e3227 100644
+--- a/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/driver_cli_exceptions.py
++++ b/hlsa_exceptions/hw_manager_exceptions/controls_exceptions/driver_cli_exceptions.py
+@@ -180,6 +180,46 @@
+         return msg
+ 
+ 
++class CreateModifiedBashrcFile(Exception):
++    """Create Modified Bashrc File"""
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(CreateModifiedBashrcFile, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.driver_cli.create_modified_bashrc_file
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
++class GetDriverMode(Exception):
++    """Get Driver Mode"""
++
++    def __init__(self, test_code="", operation="", caller_order=2):
++        super(GetDriverMode, self).__init__()
++        self._caller_order = caller_order
++        self._operation = operation
++        self._test_code = test_code
++        self._file_name, self._caller_line, self._func_name = debuginfo(caller_order=self._caller_order)
++
++    def __str__(self):
++        error_options = get_cfg_option("errors_options")
++        details_msg = ("Test Code: " + self._test_code + " Operation: " + self._operation)
++        error_msg = error_options.hw_manager.controls.driver_cli.get_driver_mode
++        msg = ("\nPath: " + self._file_name + ":" + self._func_name + ":" + str(self._caller_line)
++               + "\n" + details_msg
++               + "\n" + error_msg)
++        return msg
++
++
+ def raise_load_driver(**kwargs):
+     if kwargs["caller_order"] is None:
+         caller_order = 2
+@@ -227,7 +267,8 @@
+         caller_order = 2
+     else:
+         caller_order = 5
+-    raise GetOperationalDevices(test_code=kwargs["test_code"], operation=kwargs["operation"], caller_order=caller_order)
++    raise GetOperationalDevices(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                                caller_order=caller_order)
+ 
+ 
+ def raise_execute_command(**kwargs):
+@@ -235,7 +276,8 @@
+         caller_order = 2
+     else:
+         caller_order = 5
+-    raise ExecuteCommand(test_code=kwargs["test_code"], operation=kwargs["operation"], caller_order=caller_order)
++    raise ExecuteCommand(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                         caller_order=caller_order)
+ 
+ 
+ def raise_flash_firmware_file(**kwargs):
+@@ -243,4 +285,23 @@
+         caller_order = 2
+     else:
+         caller_order = 5
+-    raise FlashFirmwareFile(test_code=kwargs["test_code"], operation=kwargs["operation"], caller_order=caller_order)
++    raise FlashFirmwareFile(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                            caller_order=caller_order)
++
++
++def raise_create_modified_bashrc_file(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    raise CreateModifiedBashrcFile(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                                   caller_order=caller_order)
++
++
++def raise_get_driver_mode(**kwargs):
++    if kwargs["caller_order"] is None:
++        caller_order = 2
++    else:
++        caller_order = 5
++    raise GetDriverMode(test_code=kwargs["test_code"], operation=kwargs["operation"],
++                        caller_order=caller_order)
+diff --git a/tests/HL338/test_dc_power_cycle.py b/tests/HL338/test_dc_power_cycle.py
+index 62ad3b8..a090a22 100644
+--- a/tests/HL338/test_dc_power_cycle.py
++++ b/tests/HL338/test_dc_power_cycle.py
+@@ -9,13 +9,12 @@
+ """
+ from sys import stdout
+ 
+-help_dict = {'Owner':'Yuval Zecharia',
++help_dict = {'Owner': 'Yuval Zecharia',
+              'required OS system': 'Linux',
+              'required connection ': 'Ethernet',
+              'must_params': ['pci_machine_ssh_details'],
+              'pci_machine_ssh_details': 'json/tests/test_machines.json'}
+ import logging
+-from logging import Logger
+ import pytest
+ import hw_manager
+ import setup_manager
+@@ -25,149 +24,167 @@
+ import importlib
+ from setup_manager import options
+ 
++# Exceptions imports start
++import hlsa_exceptions.hw_manager_exceptions.functions_exceptions as functions_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.device_cli_exceptions as device_cli_exceptions
++import hlsa_exceptions.hw_manager_exceptions.componenets_exceptions.oam_controller_exceptions as oam_exceptions
++import hlsa_exceptions.hlsa_checker as hlsa_checker_exceptions
++# Exceptions imports end
++
+ logger = logging.getLogger(__name__)
+ # Logging Manipulation
+ log_manager = options.get_log_manager()
++
+ 
+ # this test is doing DC power cycle iteration for BMC and then run tests to verify that the BMC is ok
+ @pytest.mark.HL338_input
+ class TestDcPowerCycle(TestBase):
+     cmd_shutdown_vm = 'virsh destroy desktop-generic'
+-    cmd_poweron_vm = 'virsh start desktop-generic'
++    cmd_power_on_vm = 'virsh start desktop-generic'
+     device = None
++
+     @classmethod
+     def setup_class(cls):
+-        cls.test_options = hw_manager.get_test_options()
+-        cls.loop = 0
+-        host = hw_manager.get_machine_component("pci_machine")
+-        cls.device = hw_manager.get_dut_component()
+-        cls.device_cli = host.get_control(hw_manager.controls.device_cli)
+-        cls.driver_cli = host.get_control(hw_manager.controls.driver_cli)
++        try:
++            cls.test_options = hw_manager.get_test_options()
++            cls.loop = 0
++            host = hw_manager.get_machine_component("pci_machine")
++            cls.device = hw_manager.get_dut_component()
++            cls.device_cli = host.get_control(hw_manager.controls.device_cli)
++            cls.driver_cli = host.get_control(hw_manager.controls.driver_cli)
+ 
+-        cls.operational_devices_address = cls.driver_cli.get_operational_devices()
+-        # Get Driver Options
+-        cls.driver_options = hw_manager.get_driver_options()
++            cls.operational_devices_address = cls.driver_cli.get_operational_devices()
++            # Get Driver Options
++            cls.driver_options = hw_manager.get_driver_options()
+ 
+-        # Init devices Dict
+-        cls.devices = {}
++            # Init devices Dict
++            cls.devices = {}
+ 
+-        cls.usb_devices = hw_manager.get_num_usb_devices()
+-        hlsa_checker.check_status_is_true(cls.usb_devices > 0, ident='Description', test_code='FAN SPEED MULTI',
+-                                          operation='Get num of USB devices', read_value=cls.usb_devices,
+-                                          expected_value='USB Devices > 0')
++            cls.usb_devices = hw_manager.get_num_usb_devices()
++            hlsa_checker.check_status_is_true(cls.usb_devices > 0, ident='Description', test_code='DC_POWER_CYCLE',
++                                              operation='Get num of USB devices', read_value=cls.usb_devices,
++                                              expected_value='USB Devices > 0',
++                                              exception_to_raise=functions_exceptions.raise_zero_devices)
+ 
+-        expected_num_of_devices = cls.test_options.num_of_devices
+-        if cls.usb_devices != expected_num_of_devices:
+-            hlsa_logger(level='error', ident='Description', test_code='FAN SPEED MULTI',
+-                        operation='Validate num of USB Devices',
+-                        read_value=cls.usb_devices, expected_value=expected_num_of_devices, result='FAIL')
+-            assert cls.usb_devices == expected_num_of_devices, '\nEqual, Expected Devices: %d, Acutal: %d, #FAIL_DETAIL' \
+-                                                               '#' % (expected_num_of_devices, cls.usb_devices)
++            expected_num_of_devices = cls.test_options.num_of_devices
++            hlsa_checker.check_values_is_equal(read_value=expected_num_of_devices,
++                                               expected_value=cls.test_options.num_of_devices,
++                                               ident='Description', test_code='DC_POWER_CYCLE',
++                                               operation='Equal,Expected Devices: %d, Actual: %d' % (
++                                                   cls.test_options.num_of_devices, expected_num_of_devices),
++                                               exception_to_raise=functions_exceptions.raise_usb_devices_not_equal)
+ 
+-        # Iterate through USB devices
+-        for device_idx in range(cls.usb_devices):
+-            # Init Device Dict
+-            cls.devices[device_idx] = {}
+-            hlsa_logger(level='info', ident='Description', test_code='FAN SPEED MULTI',
+-                        operation='Setup Device Index: (%d/%d) -' % (device_idx + 1, cls.usb_devices),
+-                        result='SUCCESS')
++            # Iterate through USB devices
++            for device_idx in range(cls.usb_devices):
++                # Init Device Dict
++                cls.devices[device_idx] = {}
++                hlsa_logger(level='info', ident='Description', test_code='DC_POWER_CYCLE',
++                            operation='Setup Device Index: (%d/%d) -' % (device_idx + 1, cls.usb_devices),
++                            result='SUCCESS')
+ 
+-            # Log PCI Device Information
+-            hlsa_logger(level='info', ident='Description', operation=f'[SETUP] PCI Device: {device_idx} - SETUP...')
+-            # Init Device's Dict
+-            cls.devices[device_idx] = {}
+-            cls.devices[device_idx]["hl_num"] = cls.device_cli.get_hl_number(device_idx)
+-            cls.devices[device_idx]["long_pci_address"] = "0000:" + str(device_idx)
++                # Log PCI Device Information
++                hlsa_logger(level='info', ident='Description', operation=f'[SETUP] PCI Device: {device_idx} - SETUP...')
++                # Init Device's Dict
++                cls.devices[device_idx] = {}
++                cls.devices[device_idx]["hl_num"] = cls.device_cli.get_hl_number(device_idx)
++                cls.devices[device_idx]["long_pci_address"] = "0000:" + str(device_idx)
+ 
+-
+-            try:
+                 # Get DUT
+                 cls.devices[device_idx]['device'] = hw_manager.get_dut_component(device_idx)
+-                hlsa_logger(level='debug', ident='Description', test_code='FAN SPEED MULTI',
++                hlsa_logger(level='debug', ident='Description', test_code='DC_POWER_CYCLE',
+                             operation='Get DUT (Device index: %d)' % device_idx)
+ 
+                 # # Get MACHX05
+-                # hlsa_logger(level='debug', ident='Description', test_code='POWER_CYCLE', operation='Get MACHX05')
++                # hlsa_logger(level='debug', ident='Description', test_code='DC_POWER_CYCLE', operation='Get MACHX05')
+                 # cls.devices[device_idx]['machx05'] = cls.devices[device_idx]['device'].get_component(hw_manager.components.MACHX05)
+                 # cls.devices[device_idx]['machx05_registers'] = cls.devices[device_idx]['machx05'].get_control(hw_manager.controls.usb_i2c_registers)
+                 # cls.devices[device_idx]['machx05_json_regs'] = cls.devices[device_idx]['machx05'].spec
+ 
+                 # Get OAM controller
+-                hlsa_logger(level='debug', ident='Description', test_code='POWER_CYCLE', operation='Get OAM CONTROLLER')
++                hlsa_logger(level='debug', ident='Description', test_code='DC_POWER_CYCLE', operation='Get OAM CONTROLLER')
+                 cls.devices[device_idx]['oam_controller'] = cls.devices[device_idx]['device'].get_component(
+                     hw_manager.components.OAM_CONTROLLER)
+                 cls.devices[device_idx]['oam_controller_signals'] = cls.devices[device_idx]['oam_controller'].spec
+ 
+-            except Exception as exception:
+-                hlsa_logger(level='error', ident='Description', test_code='FAN SPEED MULTI',
+-                            operation='Test Initialization Failure',
+-                            read_value='Exception:' + str(exception), result='FAIL')
+-                pytest.fail()
++            # tests list to run after power cycle [ test module , test class ]
++            cls.test_list = [['tests.HLS3.test_version', 'TestVERSION'],
++                             ['tests.HLS3.test_verify_all_system_sensors', 'TestVERIFYALLSYSTEMSENSORS']]
++            cls.root_port_bdf_list = []
+ 
+-        # tests list to run after power cycle [ test module , test class ]
+-        cls.test_list = [['tests.HLS3.test_version', 'TestVERSION'],
+-                         ['tests.HLS3.test_verify_all_system_sensors', 'TestVERIFYALLSYSTEMSENSORS']]
+-        cls.root_port_bdf_list = []
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='DC_POWER_CYCLE',
++                                          operation='Test (TestDcPowerCycle) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def test_dc_power_cycle(self):
+-        mark = setup_manager.get_command_line_option("-m")
+-        failure_list = []
+-        curr_iteration = 0
+-        status = self.root_port = self.find_root_port()
+-        hlsa_checker.check_status_is_true(status, test_code='DC_POWER',
+-                                          operation=f"find all root port of all pci devices")
+-        total_iterations = self.test_options.iteration
+-        while(total_iterations - curr_iteration > 0):
+-            try:
+-                dc_power_start_time = time.time()
+-                iter_start_time = time.time()
+-                curr_iteration += 1
+-                hlsa_logger(test_code='DC_POWER',operation=f'Test DC_POWER Iteration:  {curr_iteration} started',
+-                            loop=curr_iteration)
+-                curr_test = ['BMC DC power cycle', 'running Power cycle']
+-
+-                self.perform_dc_power_cycle()
+-                dc_power_time = time.time() - dc_power_start_time
+-                dc_power_time_min, dc_power_time_sec = divmod(dc_power_time, 60)
+-                dc_power_time_hours, dc_power_time_min = divmod(dc_power_time_min, 60)
+-                hlsa_logger(level='info', ident='value', operation='DC Power Cycle', loop=curr_iteration,
+-                            read_value=f'%02d:%02d:%02d' % (dc_power_time_hours, dc_power_time_min, dc_power_time_sec),
+-                            expected_value='min=5 | max=8', test_code='DC_POWER', units='Min')
+-                # for curr_test in self.test_list:
+-                #     self.loop = curr_iteration
+-                #     self.run_test(curr_test[0], curr_test[1])
+-                #     time.sleep(0.5)
+-                total_iter_time = time.time() - iter_start_time
+-                total_iter_min, total_iter_sec = divmod(total_iter_time, 60)
+-                total_iter_hours, total_iter_min = divmod(total_iter_min, 60)
+-                hlsa_logger(level='info',ident='value',operation='Iteration',loop=curr_iteration,
+-                            read_value=f'%02d:%02d:%02d' % (total_iter_hours,total_iter_min,total_iter_sec),
+-                            expected_value='min=5 | max=8',test_code='DC_POWER',units='Min')
+-            except Exception as e:
+-                total_iter_time = time.time() - iter_start_time
+-                total_iter_min, total_iter_sec = divmod(total_iter_time, 60)
+-                total_iter_hours, total_iter_min = divmod(total_iter_min, 60)
+-                hlsa_logger(level='info', ident='value', operation='Iteration', loop=curr_iteration,
+-                            read_value=f'%02d:%02d:%02d' % (total_iter_hours, total_iter_min, total_iter_sec),
+-                            expected_value='min=5 | max=8', test_code='DC_POWER', units='Min')
+-                hlsa_logger(level='error', ident='Description', test_code='DC_POWER',
+-                            operation=f'Test DC_POWER failed after {curr_iteration} Iteration', loop=curr_iteration)
+-                hlsa_logger(level='error', ident='Description', test_code='DC_POWER',
+-                            operation=f'{curr_test[0]}.py::{curr_test[1]} Failed with {str(e)}', loop=curr_iteration)
+-                failure_list.append(e)
+-                if total_iterations - curr_iteration < 3:
+-                    total_iterations += total_iterations - curr_iteration
+-                    hlsa_logger(test_code='DC_POWER', operation=f'Total iterations after fail is less then 3, adding more',
++        try:
++            mark = setup_manager.get_command_line_option("-m")
++            failure_list = []
++            curr_iteration = 0
++            status = self.root_port = self.find_root_port()
++            hlsa_checker.check_status_is_true(status, test_code='DC_POWER_CYCLE',
++                                              operation=f"find all root port of all pci devices",
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
++            total_iterations = self.test_options.iteration
++            iter_start_time = None
++            while total_iterations - curr_iteration > 0:
++                try:
++                    dc_power_start_time = time.time()
++                    iter_start_time = time.time()
++                    curr_iteration += 1
++                    hlsa_logger(test_code='DC_POWER_CYCLE', operation=f'Test DC_POWER Iteration:  {curr_iteration} started',
+                                 loop=curr_iteration)
+-                else:
+-                    hlsa_logger(test_code='DC_POWER', operation=f'Total iterations after fail is {len(failure_list)} less then 3, continueing',
+-                                loop=curr_iteration)
+-                if len(failure_list) > 2:
+-                    hlsa_logger(test_code='DC_POWER',
+-                                operation=f'failed 2 times, stoping test', loop=curr_iteration)
+-                    raise e
++                    curr_test = ['BMC DC power cycle', 'running Power cycle']
+ 
+-    def run_test(self, test_module, test_class, test_method=None):
++                    self.perform_dc_power_cycle()
++                    dc_power_time = time.time() - dc_power_start_time
++                    dc_power_time_min, dc_power_time_sec = divmod(dc_power_time, 60)
++                    dc_power_time_hours, dc_power_time_min = divmod(dc_power_time_min, 60)
++                    hlsa_logger(level='info', ident='value', operation='DC Power Cycle', loop=curr_iteration,
++                                read_value=f'%02d:%02d:%02d' % (dc_power_time_hours, dc_power_time_min, dc_power_time_sec),
++                                expected_value='min=5 | max=8', test_code='DC_POWER_CYCLE', units='Min')
++                    # for curr_test in self.test_list:
++                    #     self.loop = curr_iteration
++                    #     self.run_test(curr_test[0], curr_test[1])
++                    #     time.sleep(0.5)
++                    total_iter_time = time.time() - iter_start_time
++                    total_iter_min, total_iter_sec = divmod(total_iter_time, 60)
++                    total_iter_hours, total_iter_min = divmod(total_iter_min, 60)
++                    hlsa_logger(level='info', ident='value', operation='Iteration', loop=curr_iteration,
++                                read_value=f'%02d:%02d:%02d' % (total_iter_hours, total_iter_min, total_iter_sec),
++                                expected_value='min=5 | max=8', test_code='DC_POWER_CYCLE', units='Min')
++                except Exception as e:
++                    total_iter_time = time.time() - iter_start_time
++                    total_iter_min, total_iter_sec = divmod(total_iter_time, 60)
++                    total_iter_hours, total_iter_min = divmod(total_iter_min, 60)
++                    hlsa_logger(level='info', ident='value', operation='Iteration', loop=curr_iteration,
++                                read_value=f'%02d:%02d:%02d' % (total_iter_hours, total_iter_min, total_iter_sec),
++                                expected_value='min=5 | max=8', test_code='DC_POWER_CYCLE', units='Min')
++                    hlsa_logger(level='error', ident='Description', test_code='DC_POWER_CYCLE',
++                                operation=f'Test DC_POWER failed after {curr_iteration} Iteration', loop=curr_iteration)
++                    hlsa_logger(level='error', ident='Description', test_code='DC_POWER_CYCLE',
++                                operation=f'{curr_test[0]}.py::{curr_test[1]} Failed with {str(e)}', loop=curr_iteration)
++                    failure_list.append(e)
++                    if total_iterations - curr_iteration < 3:
++                        total_iterations += total_iterations - curr_iteration
++                        hlsa_logger(test_code='DC_POWER_CYCLE',
++                                    operation=f'Total iterations after fail is less then 3, adding more',
++                                    loop=curr_iteration)
++                    else:
++                        hlsa_logger(test_code='DC_POWER_CYCLE',
++                                    operation=f'Total iterations after fail is {len(failure_list)} less then 3, continueing',
++                                    loop=curr_iteration)
++                    if len(failure_list) > 2:
++                        hlsa_logger(test_code='DC_POWER_CYCLE',
++                                    operation=f'failed 2 times, stoping test', loop=curr_iteration)
++                        raise e
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='DC_POWER_CYCLE',
++                                          operation='Test (test_dc_power_cycle) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
++
++    @staticmethod
++    def run_test(test_module, test_class, test_method=None):
+         try:
+             module = importlib.import_module(test_module)
+             test_instance = getattr(module, test_class)()
+@@ -218,7 +235,9 @@
+         self.device_cli.remove_PCIe_devices()
+         # check all devices was removed
+         self.pci_addr_list = self.device_cli.get_pcie_addresses_list()
+-        hlsa_checker.check_status_is_true(len(self.pci_addr_list) == 0, test_code='DC_POWER', operation="check all devices was removed")
++        hlsa_checker.check_status_is_true(len(self.pci_addr_list) == 0, test_code='DC_POWER_CYCLE',
++                                          operation="check all devices was removed",
++                                          exception_to_raise=device_cli_exceptions.raise_get_pcie_addresses_list)
+         # power off
+         self.power_off_devices()
+         time.sleep(30)
+@@ -237,8 +256,9 @@
+                 break
+             time.sleep(15)
+         self.pci_addr_list = self.device_cli.get_pcie_addresses_list()
+-        hlsa_checker.check_status_is_true(len(self.pci_addr_list) == 4, test_code='DC_POWER',
+-                                          operation="check all devices was removed")
++        hlsa_checker.check_status_is_true(len(self.pci_addr_list) == 4, test_code='DC_POWER_CYCLE',
++                                          operation="check all devices was removed",
++                                          exception_to_raise=device_cli_exceptions.raise_get_pcie_addresses_list)
+ 
+         self.validate_version()
+ 
+@@ -261,18 +281,21 @@
+                 bdf = "0000:" + pci_add
+                 command = f'sudo setpci -f -s {bdf} CAP_EXP+02.W'
+                 code, stdout = self.device_cli.execute_command(command)
+-                hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER',
+-                                                     operation=f"run command - {command} on HOST PC")
++                hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER_CYCLE',
++                                                  operation=f"run command - {command} on HOST PC",
++                                                  exception_to_raise=device_cli_exceptions.raise_execute_command)
+                 pciec = stdout[0]
+                 # Extract port type (pt)
+                 pt = (int(pciec, 16) & 0xF0) >> 4
+ 
+                 # # Find the port by navigating the PCI device path
+-                code,stdout = self.device_cli.execute_command( f'basename "$(dirname "$(readlink "/sys/bus/pci/devices/{bdf}")")" ')
+-                hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER',
+-                                                     operation=f"run command - {command} on HOST PC")
++                code, stdout = self.device_cli.execute_command(
++                    f'basename "$(dirname "$(readlink "/sys/bus/pci/devices/{bdf}")")" ')
++                hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER_CYCLE',
++                                                  operation=f"run command - {command} on HOST PC",
++                                                  exception_to_raise=device_cli_exceptions.raise_execute_command)
+                 port = stdout[0]
+-                if pt in [0,1,5,6]:
++                if pt in [0, 1, 5, 6]:
+                     self.root_port_bdf_list.append(port)
+             if len(self.root_port_bdf_list) < 4:
+                 return False
+@@ -281,15 +304,16 @@
+             print(f"Error in finding root port: {e}")
+             return False
+ 
+-    def disable_enable_link(self,disable):
++    def disable_enable_link(self, disable):
+         for root_port in self.root_port_bdf_list:
+             if disable:
+                 command = f"sudo setpci -f -s {root_port} cap10+10.b=10:10"
+             else:
+                 command = f"sudo setpci -f -s {root_port} cap10+10.b=0:10"
+-            code,stdout = self.device_cli.execute_command(command)
+-            hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER',
+-                                              operation=f"run command - {command} on HOST PC")
++            code, stdout = self.device_cli.execute_command(command)
++            hlsa_checker.check_status_is_true(code == 0, test_code='DC_POWER_CYCLE',
++                                              operation=f"run command - {command} on HOST PC",
++                                              exception_to_raise=device_cli_exceptions.raise_execute_command)
+ 
+     def check_vm_reset_by_user(self):
+         # check if production and wait for user to define BMC IP and then send command.
+@@ -297,8 +321,6 @@
+             ans = self.delay_input("Is HOST VM Reset complete? [Y/N]:", 0)
+             if ans.upper() != 'Y':
+                 break
+-
+-
+ 
+     # TODO - Move to HLSA
+     @staticmethod
+@@ -320,21 +342,26 @@
+         calc_time = end_time - start_time
+         if calc_time < delay_time:
+             time.sleep(delay_time - calc_time)
+-            hlsa_logger(test_code='DC_POWER', operation='Starting Sleep For %s Sec' % delay_time,loop=self.loop)
++            hlsa_logger(test_code='DC_POWER_CYCLE', operation='Starting Sleep For %s Sec' % delay_time, loop=self.loop)
+         return ans
+ 
+     def power_off_devices(self):
+         for device_idx in range(self.usb_devices):
+             # Turn OFF 12V for each device
+-            status = self.devices[device_idx]['oam_controller'].set_signal(getattr(self.devices[device_idx]['oam_controller_signals'].OAM_signals, "PSU_EN_12V"), 0)
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='OnOff', operation=f'Turn OFF 12V for OAM{device_idx}')
++            status = self.devices[device_idx]['oam_controller'].set_signal(
++                getattr(self.devices[device_idx]['oam_controller_signals'].OAM_signals, "PSU_EN_12V"), 0)
++            hlsa_checker.check_status_is_true(status, ident='Description', test_code='DC_POWER_CYCLE',
++                                              operation=f'Turn OFF 12V for OAM{device_idx}',
++                                              exception_to_raise=oam_exceptions.raise_set_signal)
+ 
+     def power_on_devices(self):
+         for device_idx in range(self.usb_devices):
+             # Turn OFF 12V for each device
+-            status = self.devices[device_idx]['oam_controller'].set_signal(getattr(self.devices[device_idx]['oam_controller_signals'].OAM_signals, "PSU_EN_12V"), 1)
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='OnOff', operation=f'Turn ON 12V for OAM{device_idx}')
+-
++            status = self.devices[device_idx]['oam_controller'].set_signal(
++                getattr(self.devices[device_idx]['oam_controller_signals'].OAM_signals, "PSU_EN_12V"), 1)
++            hlsa_checker.check_status_is_true(status, ident='Description', test_code='DC_POWER_CYCLE',
++                                              operation=f'Turn ON 12V for OAM{device_idx}',
++                                              exception_to_raise=oam_exceptions.raise_set_signal)
+ 
+     # def host_reboot(self, logger):
+     #     logger.info('Rebooting Host (via virsh destroy and start)...')
+@@ -359,7 +386,7 @@
+     #
+     #     logger.info('Starting the VM...')
+     #     time.sleep(5)
+-    #     code, stdout = device_cli.execute_command(self.cmd_poweron_vm)  # virsh start
++    #     code, stdout = device_cli.execute_command(self.cmd_power_on_vm)  # virsh start
+     #     if code != 0:
+     #         self.log_error_and_fail(logger, f"Failed to start VM: {stdout}")
+     #
+@@ -382,6 +409,7 @@
+             status = self.driver_cli.is_device_operational(i)
+             if status is False:
+                 all_operational = False
+-            hlsa_checker.check_status_is_true(status, operation=f'Check OAM{i} is operational')
++            hlsa_checker.check_status_is_true(status, operation=f'Check OAM{i} is operational',
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+         return all_operational
+diff --git a/tests/HL338/test_fw_eeprom_validate_via_PCIe.py b/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
+index c995eeb..72538f1 100644
+--- a/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
++++ b/tests/HL338/test_fw_eeprom_validate_via_PCIe.py
+@@ -15,20 +15,24 @@
+              'keywords': 'json/tests/HL338/tests_options.json',
+              'info_params': 'json/tests/HL338/tests_options.json',
+              'itb_file': '/lib/firmware/habanalabs/gaudi3/gaudi3-eeprom_read.itb',
+-             'data_text_file':'tests/HL338/External_tests/hl338_eeproms/fw/eeprom_fw_data.txt'
+-            }
+-
+-
++             'data_text_file': 'tests/HL338/External_tests/hl338_eeproms/fw/eeprom_fw_data.txt'
++             }
+ 
+ import logging
+ from logging import Logger
+ import pytest
+ import hw_manager
+ from tests.test_base import TestBase
+-from setup_manager import options, get_command_line_option
++from setup_manager import options
+ import time
+-from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker, Level, Ident, TestCode, Result
++from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
+ 
++# Exceptions imports start
++import hlsa_exceptions.hlsa_checker as hlsa_checker_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.device_cli_exceptions as device_cli_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.driver_cli_exceptions as driver_cli_exceptions
++import hlsa_exceptions.default_exceptions as default_exceptions
++# Exceptions imports end
+ 
+ # Logging Manipulation
+ log_manager = options.get_log_manager()
+@@ -69,11 +73,19 @@
+             if cls.set_log_by_mezz:
+                 cls.driver_options = hw_manager.get_driver_options()
+                 status = cls.driver_cli.load_driver(drivin_flags=cls.driver_options, driver_form="habanalabs_en")
+-                hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  test_code='FW EEprom Validate',
++                                                  operation='Load Habanalabs driver. Driver Form: '
++                                                            + str(cls.driver_options),
++                                                  exception_to_raise=driver_cli_exceptions.raise_load_driver)
+ 
+             # Get Connected Devices
+             cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
+-
++            hlsa_checker.check_status_is_true(len(cls.connected_pcie_devices) != 0, ident='Description',
++                                              test_code='HL_SMI',
++                                              operation='PCIE Address Connected Device (Short Name)',
++                                              read_value=str(cls.connected_pcie_devices), units='String',
++                                              exception_to_raise=device_cli_exceptions.raise_get_pcie_addresses_list)
+             cls.pci_to_mezz = {}
+             cls.mezz_to_pci = {}
+             cls.pci_to_mezz_log_format = {}
+@@ -108,24 +120,30 @@
+             cls.driver_status = cls.driver_cli.check_driver_status()
+             if cls.driver_status:
+                 status = cls.driver_cli.remove_driver()
+-                hlsa_checker.check_status_is_true(status, ident='Description', test_code='FW EEprom Validate',
+-                                                  operation='Remove Driver,Habanalabs')
++                hlsa_checker.check_status_is_true(status, ident='Description',
++                                                  test_code='FW EEprom Validate',
++                                                  operation='Remove Driver,Habanalabs',
++                                                  exception_to_raise=driver_cli_exceptions.raise_remove_driver)
+ 
+             hlsa_logger(level='info', ident='Description',
+                         operation=f'Reset all devices using hl-fw-loader ')
+-            cls.driver_cli.execute_command("sudo hl-fw-loader -R -y")
++            code, res = cls.driver_cli.execute_command("sudo hl-fw-loader -R -y")
++            hlsa_checker.check_status_is_true(code == 0, ident='Description',
++                                              test_code='VALIDATE_CARDS',
++                                              operation='execute sudo hl-fw-loader -R -y , output: %s' % res,
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+             time.sleep(10)
+ 
+             # Validate Connected Devices != 0
+             status = len(cls.connected_pcie_devices) != 0
+             hlsa_checker.check_status_is_true(status, ident='Description',
+-                                              operation='Number of connected Devices: 0 (!)')
++                                              operation='Number of connected Devices: 0 (!)',
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+         except Exception as exception:
+-            hlsa_logger(level='error', ident='Description', test_code='FW EEprom Validate',
+-                        operation='[FW-EEPROM] Test Initialization Failure Exception:' + str(exception) + '\n',
+-                        result='FAIL')
+-            pytest.fail()
++            hlsa_checker.classmethod_fail(ident='Description', test_code='FW EEprom Validate',
++                                          operation='Test (TestFwEepromValidateViaPcie) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def test_ft2_fw_eeprom_validate(self):
+         try:
+@@ -137,7 +155,9 @@
+                 log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
+                 code, stdout = self.device_cli.load_fw_file(itb_file, pci_addr, True)
+                 hlsa_checker.check_value_is_not_none(stdout, ident='Description', test_code='FW EEprom Validate',
+-                                                     operation='HL-FW-LOADER operation', ignore_assert=True)
++                                                     operation='HL-FW-LOADER operation', ignore_assert=True,
++                                                     exception_to_raise=device_cli_exceptions.
++                                                     raise_reset_device_fw_loader)
+                 status = self.check_validate_input_output(reference_data_dic, stdout, pci_addr)
+                 if status:
+                     message = 'Validate EEprom Data Pass'
+@@ -148,11 +168,13 @@
+ 
+                 hlsa_checker.check_status_is_true(status, ident='Description', test_code='FW EEprom Validate',
+                                                   dev_address=pci_addr, operation=message,
+-                                                  ignore_assert=True)
++                                                  ignore_assert=True,
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+                 log_manager.log_browser(self.pci_to_mezz_log_format[pci_addr])
+                 hlsa_checker.check_status_is_true(status, ident='Description', test_code='FW EEprom Validate',
+                                                   dev_address=pci_addr, operation=message,
+-                                                  ignore_assert=True)
++                                                  ignore_assert=True,
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+                 log_manager.log_browser()
+             log_manager.log_browser()
+ 
+@@ -168,11 +190,14 @@
+                 # TODO add test summary per device here
+             log_manager.log_browser()
+ 
++            assert self.TEST_STATUS
++            if self.TEST_STATUS is False:
++                raise default_exceptions.CustomMsgException(
++                    "self.TEST_STATUS is False , Test (test_ft2_fw_eeprom_validate) Failed")
+         except Exception as exception:
+-            log_manager.log_browser()
+-            hlsa_logger(level='error', ident='Description', test_code='FW EEprom Validate',
+-                        operation=f'Exception during test: {exception}')
+-        assert self.TEST_STATUS
++            hlsa_checker.classmethod_fail(ident='Description', test_code='FW EEprom Validate',
++                                          operation='Test (test_ft2_fw_eeprom_validate) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def check_validate_input_output(self, reference_data_dic, std_out, pci_addr):
+         dict_param_val = dict()
+@@ -239,9 +264,11 @@
+         irrelevant_crc_info = self.test_options.irrelevant_crc_info
+         for param, value in dict_param_val.items():
+             if str(param) in info_params:
+-                hlsa_checker.check_status_is_true(True, ident='Value', test_code='FW EEprom Validate', operation=str(param),
++                hlsa_checker.check_status_is_true(True, ident='Value', test_code='FW EEprom Validate',
++                                                  operation=str(param),
+                                                   dev_address=f'{pci_addr}', units='String',
+-                                                  read_value=value, ignore_assert=True)
++                                                  read_value=value, ignore_assert=True,
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+                 continue
+             if (str(param) == "MAC1") and not (str(param) == "MAC1 Count"):
+                 allowed_prefix = self.test_options.mac_prefix.allowed_prefix
+@@ -249,14 +276,17 @@
+                 prefix_value = str(value[:6]).upper()
+                 status = prefix_value in allowed_prefix and prefix_value not in non_allowed_prefix
+                 hlsa_checker.check_status_is_true(status, ident='Value', test_code='FW EEprom Validate',
+-                                                  operation='Verify MAC1 Prefix {} in Expected MAC1 List {}'.format(prefix_value, allowed_prefix),
++                                                  operation='Verify MAC1 Prefix {} in Expected MAC1 List {}'.format(
++                                                      prefix_value, allowed_prefix),
+                                                   read_value=prefix_value, units='String',
+                                                   dev_address=f'{pci_addr}', ignore_assert=True,
+-                                                  fail_log_level=self.test_options.mac_prefix.failure_log_level)
++                                                  fail_log_level=self.test_options.mac_prefix.failure_log_level,
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+                 hlsa_checker.check_status_is_true(True, ident='Value', test_code='FW EEprom Validate',
+                                                   operation='Device MAC1 Address',
+                                                   read_value=value.upper(), units='String',
+-                                                  dev_address=f'{pci_addr}', ignore_assert=True)
++                                                  dev_address=f'{pci_addr}', ignore_assert=True,
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+                 if not status and self.test_options.mac_prefix.failure_log_level == 'error':
+                     all_pass = False
+                 continue
+@@ -266,12 +296,14 @@
+                                               dev_address=f'{pci_addr}',
+                                               test_code='FW EEprom Validate', operation=param, read_value=value.upper(),
+                                               units='String',
+-                                              expected_value=reference_data_dic[param].upper(), ignore_assert=True)
++                                              expected_value=reference_data_dic[param].upper(), ignore_assert=True,
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+             if value.upper() != reference_data_dic[param].upper():
+                 all_pass = False
+         hlsa_checker.check_status_is_true(all_pass, ident='Description', test_code='FW EEprom Validate',
+                                           dev_address=f'{pci_addr}',
+-                                          operation='Validate EEPROM content checker', ignore_assert=True)
++                                          operation='Validate EEPROM content checker', ignore_assert=True,
++                                          exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+         return all_pass
+ 
+     @staticmethod
+@@ -289,9 +321,3 @@
+                     line_param_val[1] = line_param_val[1].lstrip('0')
+             dict_param_val[line_param_val[0]] = line_param_val[1]
+         return dict_param_val
+-
+-
+-
+-
+-
+-
+diff --git a/tests/HL338/test_hl3090_soc_boot_strap.py b/tests/HL338/test_hl3090_soc_boot_strap.py
+index 3d9d5fc..236cab2 100644
+--- a/tests/HL338/test_hl3090_soc_boot_strap.py
++++ b/tests/HL338/test_hl3090_soc_boot_strap.py
+@@ -92,16 +92,18 @@
+                                           operation='Test (Test338SocBootStrap) Initialization Failed',
+                                           read_value='Exception: %s' % str(exception))
+ 
+-
+         if cls.mark_input != "HL338_pt":
+             # Set Boot Straps Debug Mode
+             status = cls.machx05.set_default("i2c_debug")
+             hlsa_checker.check_status_is_true(status, ident='Description', test_code='SOC',
+-                                              operation='Set MACHX05 straps into Debug Mode')
++                                              operation='Set MACHX05 straps into Debug Mode',
++                                              exception_to_raise=machx05_exceptions.raise_set_default)
+ 
+             # Execute Power Cycle
+             status = cls.machx05.power_cycle()
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='SOC', operation='Power Cycle MACH0X5')
++            hlsa_checker.check_status_is_true(status, ident='Description', test_code='SOC',
++                                              operation='Power Cycle MACH0X5',
++                                              exception_to_raise=machx05_exceptions.raise_power_cycle)
+ 
+             # Route I2C from bmc
+             status = cls.machx05.route_i2c_from_bmc_to_cpld()
+@@ -197,8 +199,9 @@
+                     for strap_name in self.toggle_strap_list:
+                         strap_obj = getattr(self.soc_boot_strap_definitions[die], strap_name)
+                         for i in range(0, self.num_of_retry_cycles):
+-                            soc_strap_value = self.soc_boot_strap.read_soc_boot_strap(self.hl3090_debug_soc_register[die],
+-                                                                                      strap_obj)
++                            soc_strap_value = self.soc_boot_strap.read_soc_boot_strap(
++                                self.hl3090_debug_soc_register[die],
++                                strap_obj)
+                             if soc_strap_value is None:
+                                 time.sleep(2)
+                             else:
+diff --git a/tests/HL338/test_manf_mode_debug.py b/tests/HL338/test_manf_mode_debug.py
+index 6448f03..69d3b8d 100644
+--- a/tests/HL338/test_manf_mode_debug.py
++++ b/tests/HL338/test_manf_mode_debug.py
+@@ -7,12 +7,12 @@
+ * Proprietary and confidential.
+ ****************************************************************************
+ """
+-help_dict = {'Owner':'Maor Busidan',
+-'required OS system':' Linux or Windows',
+-'required connection ':' usb,',
+-'num_of_devices':'json/tests/HL338/tests_options.json',
+-'production_flags':'json/tests/HL338/tests_options.json',
+-}
++help_dict = {'Owner': 'Maor Busidan',
++             'required OS system': ' Linux or Windows',
++             'required connection ': ' usb,',
++             'num_of_devices': 'json/tests/HL338/tests_options.json',
++             'production_flags': 'json/tests/HL338/tests_options.json',
++             }
+ import logging
+ import time
+ import pytest
+@@ -21,6 +21,17 @@
+ from setup_manager import options, get_command_line_option
+ from hw_manager.interfaces.usb_i2c import UsbI2c
+ from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
++
++# Exceptions imports start
++import hlsa_exceptions.hlsa_checker as hlsa_checker_exceptions
++import hlsa_exceptions.hw_manager_exceptions.componenets_exceptions.machx05_exceptions as machx05_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.device_cli_exceptions as device_cli_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.driver_cli_exceptions as driver_cli_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.usb_i2c_registers_exceptions as usb_i2c_exceptions
++import hlsa_exceptions.hw_manager_exceptions.componenets_exceptions.oam_controller_exceptions as oam_exceptions
++import hlsa_exceptions.connection_exceptions.connection_manager_exceptions as connection_manager_exceptions
++import hlsa_exceptions.default_exceptions as default_exceptions
++# Exceptions imports end
+ 
+ # Logging Manipulation
+ log_manager = options.get_log_manager()
+@@ -40,7 +51,8 @@
+             cls.TEST_STATUS = True
+ 
+             # Get Command Line Controls
+-            hlsa_logger(level='debug', ident='Description', test_code='ManfModeDebug', operation='Get Command Line Controls')
++            hlsa_logger(level='debug', ident='Description', test_code='ManfModeDebug',
++                        operation='Get Command Line Controls')
+             host = hw_manager.get_machine_component("pci_machine")
+             cls.device = hw_manager.get_dut_component()
+             cls.device_cli = host.get_control(hw_manager.controls.device_cli)
+@@ -55,14 +67,22 @@
+                 cls.usb_devices = UsbI2c.get_num_devices()
+                 hlsa_checker.check_status_is_true(cls.usb_devices > 0, ident='Description', test_code='ManfModeDebug',
+                                                   operation='Getting USB Devices', read_value='0',
+-                                                  expected_value='USB Devices > 0')
++                                                  expected_value='USB Devices > 0',
++                                                  exception_to_raise=connection_manager_exceptions.raise_get_num_devices)
+ 
+             # Get Connected Devices - Long Name
+             cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
++            hlsa_checker.check_value_is_not_none(value=cls.connected_pcie_devices,
++                                                 ident='Description',
++                                                 test_code='ManfModeDebug',
++                                                 operation='Get PCIE Address List',
++                                                 exception_to_raise=device_cli_exceptions.raise_get_pcie_addresses_list)
+             for pcie in cls.connected_pcie_devices:
+-                hlsa_checker.check_status_is_true(len(cls.connected_pcie_devices) != 0, ident='Description', test_code='ManfModeDebug',
++                hlsa_checker.check_status_is_true(len(cls.connected_pcie_devices) != 0, ident='Description',
++                                                  test_code='ManfModeDebug',
+                                                   operation='PCIE Address Connected Device (Long Name)',
+-                                                  read_value=str(pcie), units='String')
++                                                  read_value=str(pcie), units='String',
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+             # Devices Dict
+             cls.devices = {}
+ 
+@@ -71,7 +91,8 @@
+             hlsa_checker.check_values_is_equal(cls.usb_devices, expected_value=cls.expected_devices_usb,
+                                                ident='Description',
+                                                operation=f'Getting USB Devices', ignore_assert=True,
+-                                               fail_log_level='warning')
++                                               fail_log_level='warning',
++                                               exception_to_raise=hlsa_checker_exceptions.raise_not_equal)
+ 
+             cls.mcp_first_module_id_idx = cls.test_options.mcp_first_module_id_idx
+             cls.bridge_manf_mode_value_to_validate = cls.test_options['bridge_manf_mode_value_to_validate']
+@@ -100,7 +121,8 @@
+ 
+             if not cls.test_options.station_setup_module == 'HLB':
+                 # Iterate Through USB Devices
+-                for device_idx in range(cls.mcp_first_module_id_idx, cls.expected_devices_usb + cls.mcp_first_module_id_idx):
++                for device_idx in range(cls.mcp_first_module_id_idx,
++                                        cls.expected_devices_usb + cls.mcp_first_module_id_idx):
+                     # Init Device's Dict
+                     cls.devices[device_idx] = {}
+                     hlsa_logger(level='info', ident='Description', test_code='ManfModeDebug',
+@@ -114,7 +136,8 @@
+                                                                                          mcp_index=device_idx)
+ 
+                         # Get MACHX05
+-                        hlsa_logger(level='debug', ident='Description', test_code='ManfModeDebug', operation='Get MACHX05')
++                        hlsa_logger(level='debug', ident='Description', test_code='ManfModeDebug',
++                                    operation='Get MACHX05')
+                         cls.devices[device_idx]['machx05'] = cls.devices[device_idx]['device'].get_component(
+                             hw_manager.components.MACHX05)
+                         cls.devices[device_idx]['machx05_registers'] = cls.devices[device_idx]['machx05'].get_control(
+@@ -124,8 +147,10 @@
+                         # Get OAM_CONTROLLER from HL325 object
+                         hlsa_logger(level='debug', ident='Description', test_code='ManfModeDebug',
+                                     operation='Get OAM_CONTROLLER from HL325 object')
+-                        cls.devices[device_idx]['oam_controler'] = cls.devices[device_idx]['device'].get_component(hw_manager.components.OAM_CONTROLLER)
+-                        cls.devices[device_idx]['oam_controler_signals'] = cls.devices[device_idx]['oam_controler'].spec.OAM_signals
++                        cls.devices[device_idx]['oam_controler'] = cls.devices[device_idx]['device'].get_component(
++                            hw_manager.components.OAM_CONTROLLER)
++                        cls.devices[device_idx]['oam_controler_signals'] = cls.devices[device_idx][
++                            'oam_controler'].spec.OAM_signals
+                         cls.PSU_EN_12V = cls.devices[device_idx]['oam_controler_signals'].PSU_EN_12V
+ 
+                     # pylint:disable=broad-except
+@@ -135,112 +160,145 @@
+                                     read_value='Exception: %s' % str(exception), result='FAIL')
+                         cls.TEST_STATUS = False
+ 
+-        # pylint:disable=broad-except
+-        except Exception as exception:
+-            # catch any exception during init class test, log and fail
+-            hlsa_logger(level='error', ident='Description', test_code='ManfModeDebug', operation='Test Initialization Failure',
+-                        read_value='Exception: %s' % str(exception), result='FAIL')
+-            cls.TEST_STATUS = False
++                if cls.TEST_STATUS is False:
++                    raise default_exceptions.CustomMsgException(
++                        "cls.TEST_STATUS is False , Test (TestManfModeDebug) Initialization Failed")
+ 
+-        if not cls.TEST_STATUS:
++        except Exception as exception:
+             for pcie in cls.connected_pcie_devices:
+                 log_manager.log_browser(pcie)
+                 hlsa_logger(level='INFO', ident='Description', dev_address=pcie,
+-                            test_code='Final Test Result', operation='test summary:manf_mode_debug', result='#RESULTS_FAIL#')
++                            test_code='Final Test Result', operation='test summary:manf_mode_debug',
++                            result='#RESULTS_FAIL#')
+             log_manager.log_browser()
+-            pytest.fail()
++            hlsa_checker.classmethod_fail(ident='Description', test_code='ManfModeDebug',
++                                          operation='Test (ManfModeDebug) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def test_manf_mode_debug(self):
+-        if not self.test_options.station_setup_module == 'HLB':
+-            # Iterate Through USB Devices
+-            for device_idx in range(self.mcp_first_module_id_idx, self.expected_devices_usb + self.mcp_first_module_id_idx):
+-                hlsa_logger(level='info', ident='Description', test_code='ManfModeDebug',
+-                            operation='Test Device Index:(%d/%d)' % (device_idx + 1, self.usb_devices))
+-
+-                # Get Initial Signals Values
+-                bridge_manf_mode_original_value = self.devices[device_idx]['machx05_registers'].read_bit(self.devices[device_idx]['machx05_json_regs'].status1_reg,
+-                                                                       self.devices[device_idx]['machx05_json_regs'].status1_reg.bits.MANF_MODE_N.index)
+-                hlsa_checker.check_value_is_not_none(str(hex(bridge_manf_mode_original_value)), ident='Description', test_code='ManfModeDebug',
+-                                                     operation='Bridge Manf Mode Value Before Change')
+-
+-                # Validate Bridge Config
+-                hlsa_checker.check_values_is_equal(read_value=bridge_manf_mode_original_value,expected_value= self.bridge_manf_mode_value_to_validate,
+-                                                   ident='Description',test_code='ManfModeDebug',operation='Validate Bridge Manf Mode Value')
+-
+-                cpld_manf_mode_original_value = self.devices[device_idx]['machx05_registers'].read_bit(self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
+-                                                                       self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index)
+-                hlsa_checker.check_value_is_not_none(str(hex(cpld_manf_mode_original_value)), ident='Description', test_code='ManfModeDebug',
+-                                                     operation='CPLD Manf Mode Before Change')
+-
+-                # Change Signal Value Form CPLD Side To Set Card On Manf Mode
+-                status = self.devices[device_idx]['machx05_registers'].write_bit(self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
+-                                                          self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index,
+-                                                          self.cpld_manf_mode_value_to_set)
+-                hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug',
+-                                                  operation='Set %d On CPLD Manf Mode' % self.cpld_manf_mode_value_to_set)
+-
+-                # Get Signal To Validate The Changes
+-                cpld_manf_mode_signal = self.devices[device_idx]['machx05_registers'].read_bit(self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
+-                                                                       self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index)
+-                hlsa_checker.check_value_is_not_none(str(hex(cpld_manf_mode_signal)), ident='Description', test_code='ManfModeDebug',
+-                                                     operation='CPLD Manf Mode After Change')
+-
+-
+-                if cpld_manf_mode_signal == self.cpld_manf_mode_value_to_set and bridge_manf_mode_original_value == self.bridge_manf_mode_value_to_validate:
++        try:
++            if not self.test_options.station_setup_module == 'HLB':
++                # Iterate Through USB Devices
++                for device_idx in range(self.mcp_first_module_id_idx,
++                                        self.expected_devices_usb + self.mcp_first_module_id_idx):
+                     hlsa_logger(level='info', ident='Description', test_code='ManfModeDebug',
+-                                operation='Card On Manf Mode Debug State', result='SUCCESS')
++                                operation='Test Device Index:(%d/%d)' % (device_idx + 1, self.usb_devices))
+ 
++                    # Get Initial Signals Values
++                    bridge_manf_mode_original_value = self.devices[device_idx]['machx05_registers'].read_bit(
++                        self.devices[device_idx]['machx05_json_regs'].status1_reg,
++                        self.devices[device_idx]['machx05_json_regs'].status1_reg.bits.MANF_MODE_N.index)
++                    hlsa_checker.check_value_is_not_none(str(hex(bridge_manf_mode_original_value)), ident='Description',
++                                                         test_code='ManfModeDebug',
++                                                         operation='Bridge Manf Mode Value Before Change',
++                                                         exception_to_raise=usb_i2c_exceptions.raise_i2c_read_bit)
++
++                    # Validate Bridge Config
++                    hlsa_checker.check_values_is_equal(read_value=bridge_manf_mode_original_value,
++                                                       expected_value=self.bridge_manf_mode_value_to_validate,
++                                                       ident='Description', test_code='ManfModeDebug',
++                                                       operation='Validate Bridge Manf Mode Value',
++                                                       exception_to_raise=hlsa_checker_exceptions.raise_not_equal)
++
++                    cpld_manf_mode_original_value = self.devices[device_idx]['machx05_registers'].read_bit(
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index)
++                    hlsa_checker.check_value_is_not_none(str(hex(cpld_manf_mode_original_value)), ident='Description',
++                                                         test_code='ManfModeDebug',
++                                                         operation='CPLD Manf Mode Before Change',
++                                                         exception_to_raise=usb_i2c_exceptions.raise_i2c_read_bit)
++
++                    # Change Signal Value Form CPLD Side To Set Card On Manf Mode
++                    status = self.devices[device_idx]['machx05_registers'].write_bit(
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index,
++                        self.cpld_manf_mode_value_to_set)
++                    hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug',
++                                                      operation='Set %d On CPLD Manf Mode'
++                                                                % self.cpld_manf_mode_value_to_set,
++                                                      exception_to_raise=usb_i2c_exceptions.raise_i2c_write_bit)
++
++                    # Get Signal To Validate The Changes
++                    cpld_manf_mode_signal = self.devices[device_idx]['machx05_registers'].read_bit(
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg,
++                        self.devices[device_idx]['machx05_json_regs'].configuration2_reg.bits.RMA_mode_en.index)
++                    hlsa_checker.check_value_is_not_none(str(hex(cpld_manf_mode_signal)), ident='Description',
++                                                         test_code='ManfModeDebug',
++                                                         operation='CPLD Manf Mode After Change',
++                                                         exception_to_raise=usb_i2c_exceptions.raise_i2c_read_bit)
++
++                    if cpld_manf_mode_signal == self.cpld_manf_mode_value_to_set and bridge_manf_mode_original_value == self.bridge_manf_mode_value_to_validate:
++                        hlsa_logger(level='info', ident='Description', test_code='ManfModeDebug',
++                                    operation='Card On Manf Mode Debug State', result='SUCCESS')
++
++                    else:
++                        self.TEST_STATUS = False
++                        hlsa_logger(level='error', ident='Description', test_code='ManfModeDebug',
++                                    operation='Card Not On Manf Mode Debug State', result='FAIL')
++
++            for pcie in self.connected_pcie_devices:
++                log_manager.log_browser(pcie)
++                if self.TEST_STATUS:
++                    hlsa_logger(level='info', ident='Description', test_code='Final Test Results',
++                                dev_address=pcie, operation='test summary:manf_mode_debug',
++                                result='#RESULTS_PASS#')
+                 else:
+-                    self.TEST_STATUS = False
+-                    hlsa_logger(level='error', ident='Description', test_code='ManfModeDebug',
+-                                operation='Card Not On Manf Mode Debug State', result='FAIL')
+-
+-        for pcie in self.connected_pcie_devices:
+-            log_manager.log_browser(pcie)
+-            if self.TEST_STATUS:
+-                hlsa_logger(level='info', ident='Description', test_code='Final Test Results',
+-                            dev_address=pcie, operation='test summary:manf_mode_debug',
+-                            result='#RESULTS_PASS#')
+-            else:
+-                hlsa_logger(level='INFO', ident='Description', dev_address=pcie,
+-                            test_code='Final Test Result', operation='test summary:manf_mode_debug', result='#RESULTS_FAIL#')
+-        log_manager.log_browser()
+-        assert self.TEST_STATUS
++                    hlsa_logger(level='INFO', ident='Description', dev_address=pcie,
++                                test_code='Final Test Result', operation='test summary:manf_mode_debug',
++                                result='#RESULTS_FAIL#')
++            log_manager.log_browser()
++            if self.TEST_STATUS is False:
++                raise default_exceptions.CustomMsgException(
++                    "cls.TEST_STATUS is False , Test (test_manf_mode_debug) Failed")
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='ManfModeDebug',
++                                          operation='Test (test_manf_mode_debug) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     @classmethod
+     def teardown_class(cls):
+-        if not cls.test_options.station_setup_module == 'HLB':
+-            # Validate Driver Status And Remove Driver
+-            if cls.driver_cli.check_driver_status():
+-                status = cls.driver_cli.remove_driver()
+-                hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug',
+-                                                  operation='Remove Driver')
+-                time.sleep(3)
++        try:
++            if not cls.test_options.station_setup_module == 'HLB':
++                # Validate Driver Status And Remove Driver
++                if cls.driver_cli.check_driver_status():
++                    status = cls.driver_cli.remove_driver()
++                    hlsa_checker.check_status_is_true(status, ident='Description',
++                                                      test_code='ManfModeDebug',
++                                                      operation='Remove Driver',
++                                                      exception_to_raise=driver_cli_exceptions.raise_remove_driver)
++                    time.sleep(3)
+ 
+-            # on Default Run have Power Cycle 54V , On Production_mode Need Config The JSON File
+-            if cls.production_mode is not None and cls.mark_input is not None:
+-                attr_list = cls.test_options.production_flags
+-                if attr_list is not None:
+-                    for attr in attr_list:
+-                        if attr == "12V_reset_enable":
+-                            cls._12v_reset()
+-                        if attr == "machx05_reset_enable":
+-                            cls._mach05_reset()
+-                        if attr == "reset_device_fw_loader_enable":
+-                            cls._fw_loader_reset()
+-                        if attr == "machx05_soft_reset_enable":
+-                            cls._mach05_soft_reset()
+-            else:
+-                cls._12v_reset()
++                # on Default Run have Power Cycle 54V , On Production_mode Need Config The JSON File
++                if cls.production_mode is not None and cls.mark_input is not None:
++                    attr_list = cls.test_options.production_flags
++                    if attr_list is not None:
++                        for attr in attr_list:
++                            if attr == "12V_reset_enable":
++                                cls._12v_reset()
++                            if attr == "machx05_reset_enable":
++                                cls._mach05_reset()
++                            if attr == "reset_device_fw_loader_enable":
++                                cls._fw_loader_reset()
++                            if attr == "machx05_soft_reset_enable":
++                                cls._mach05_soft_reset()
++                else:
++                    cls._12v_reset()
+ 
+-            time.sleep(5)
++                time.sleep(5)
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='ManfModeDebug',
++                                          operation='Test (ManfModeDebug) Teardown Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     @classmethod
+     def _mach05_reset(cls):
+         # Iterate Through USB Devices
+         for device_idx in range(cls.mcp_first_module_id_idx, cls.expected_devices_usb + cls.mcp_first_module_id_idx):
+             status = cls.devices[device_idx]['machx05'].power_cycle()
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug', operation='Power Cycle MACH0X5')
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              test_code='ManfModeDebug',
++                                              operation='Power Cycle MACH0X5',
++                                              exception_to_raise=machx05_exceptions.raise_power_cycle)
+         time.sleep(cls.test_options['wait_after_cpld_power_cycle'])
+ 
+     @classmethod
+@@ -248,7 +306,10 @@
+         for pci in cls.connected_pcie_devices:
+             # Reset Card
+             status = cls.device_cli.reset_device_fw_loader(pcie_addr=pci)
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug', dev_address=pci, operation="HL_FW_Loader Reset Device")
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              test_code='ManfModeDebug', dev_address=pci,
++                                              operation="HL_FW_Loader Reset Device",
++                                              exception_to_raise=device_cli_exceptions.raise_reset_device_fw_loader)
+         time.sleep(cls.test_options['wait_after_fw_loader_power_cycle'])
+ 
+     # 54V Power Cycle
+@@ -259,7 +320,8 @@
+             # Power Cycle Device
+             status = cls.devices[device_idx]['oam_controler'].set_signal(cls.PSU_EN_12V, 0, True)
+             hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug',
+-                                              operation='Set OAM Signal: 12V - Full Power Cycle')
++                                              operation='Set OAM Signal: 12V - Full Power Cycle',
++                                              exception_to_raise=oam_exceptions.raise_set_signal)
+             time.sleep(cls.test_options['wait_after_12V_power_cycle'])
+ 
+     @classmethod
+@@ -267,5 +329,8 @@
+         # Iterate Through USB Devices
+         for device_idx in range(cls.mcp_first_module_id_idx, cls.expected_devices_usb + cls.mcp_first_module_id_idx):
+             status = cls.devices[device_idx]['machx05'].soft_reset_cpld()
+-            hlsa_checker.check_status_is_true(status, ident='Description', test_code='ManfModeDebug', operation='Soft Reset MACH0X5')
++            hlsa_checker.check_status_is_true(status, ident='Description',
++                                              test_code='ManfModeDebug',
++                                              operation='Soft Reset MACH0X5',
++                                              exception_to_raise=machx05_exceptions.raise_soft_cpld_reset)
+         time.sleep(cls.test_options['wait_after_cpld_power_cycle'])
+diff --git a/tests/HL338/test_quad_id.py b/tests/HL338/test_quad_id.py
+index 22aecf0..4495269 100644
+--- a/tests/HL338/test_quad_id.py
++++ b/tests/HL338/test_quad_id.py
+@@ -20,7 +20,12 @@
+ import hw_manager
+ from setup_manager import options
+ from tests.test_base import TestBase
+-from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker, Level, Ident
++from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker, Level
++
++# Exceptions imports start
++import hlsa_exceptions.hlsa_checker as hlsa_checker_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.driver_cli_exceptions as driver_cli_exceptions
++# Exceptions imports end
+ 
+ # Logging Manipulation
+ log_manager = options.get_log_manager()
+@@ -28,8 +33,8 @@
+ # Main Logger
+ logger = logging.getLogger(__name__)
+ 
+-@pytest.mark.HL338_ft_bridge
+ 
++@pytest.mark.HL338_ft_bridge
+ class TestQuadId(TestBase):
+     @classmethod
+     def setup_class(cls):
+@@ -48,10 +53,11 @@
+             # Load Driver
+             cls.driver_options = hw_manager.get_driver_options()
+             status = cls.driver_cli.load_driver(drivin_flags=cls.driver_options, driver_form="habanalabs_en")
+-            hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver')
++            hlsa_checker.check_status_is_true(status, ident='Description', operation='Load Driver',
++                                              exception_to_raise=driver_cli_exceptions.raise_load_driver)
+ 
+             # Get Operational Devices
+-            for i in range(0,4):
++            for i in range(0, 4):
+                 cls.operational_devices_address = cls.driver_cli.get_operational_devices()
+                 if len(cls.operational_devices_address) != len(cls.connected_pcie_devices):
+                     time.sleep(30)
+@@ -61,32 +67,34 @@
+             # Validate Operational Devices != 0
+             status = len(cls.connected_pcie_devices) != 0
+             hlsa_checker.check_status_is_true(status, ident='Description', test_code='QUAD_ID',
+-                                              operation='Number of connected Devices: 0 (!)')
++                                              operation='Number of connected Devices: 0 (!)',
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+         except Exception as exception:
+-            hlsa_logger(level='info', ident='Description', test_code='QUAD_ID',
+-                        operation=f'Test Setup Failure, Exception: {str(exception)}')
+-            pytest.fail()
++            hlsa_checker.classmethod_fail(ident='Description', test_code='QUAD_ID',
++                                          operation='Test (TestQuadId) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def test_quad_oid(self):
+-        quad_id = self.test_options.QUAD_ID
+-        group = self.test_options['group_' + str(quad_id)]
+-        correct_id = True
+-        module_id_list = []
+-        for pci_addr in self.operational_devices_address:
+-            module_id = self.smi_control.get_module_id(pci_addr)
+-            if module_id is not None:
+-                module_id_list.append(int(self.smi_control.get_module_id(pci_addr)))
+-            else:
+-                hlsa_logger(level=Level.ERROR, dev_address=pci_addr, test_code='QUAD_ID',
+-                            operation='Failed to get Module ID')
+-                correct_id = False
+-        module_id_list.sort()
+-        hlsa_checker.check_status_is_true(module_id_list == group, test_code='QUAD_ID',
+-                                          operation=f'Check Module ID in group_{quad_id}',
+-                                          read_value=module_id_list, expected_value=group)
+-
+-
+-
+-
+-
++        try:
++            quad_id = self.test_options.QUAD_ID
++            group = self.test_options['group_' + str(quad_id)]
++            correct_id = True
++            module_id_list = []
++            for pci_addr in self.operational_devices_address:
++                module_id = self.smi_control.get_module_id(pci_addr)
++                if module_id is not None:
++                    module_id_list.append(int(self.smi_control.get_module_id(pci_addr)))
++                else:
++                    hlsa_logger(level=Level.ERROR, dev_address=pci_addr, test_code='QUAD_ID',
++                                operation='Failed to get Module ID')
++                    correct_id = False
++            module_id_list.sort()
++            hlsa_checker.check_status_is_true(module_id_list == group, test_code='QUAD_ID',
++                                              operation=f'Check Module ID in group_{quad_id}',
++                                              read_value=module_id_list, expected_value=group,
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='QUAD_ID',
++                                          operation='Test (test_quad_oid) Failed',
++                                          read_value='Exception: %s' % str(exception))
+diff --git a/tests/HL338/test_svh_ber.py b/tests/HL338/test_svh_ber.py
+index 477a5f9..e8f2c1f 100644
+--- a/tests/HL338/test_svh_ber.py
++++ b/tests/HL338/test_svh_ber.py
+@@ -20,7 +20,7 @@
+ import pytest
+ import hw_manager
+ from tests.test_base import TestBase
+-from setup_manager import options, get_command_line_option
++from setup_manager import options
+ import time
+ from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker, Ident, Level, TestCode, Result
+ import csv
+@@ -28,18 +28,26 @@
+ import signal
+ import sys
+ 
++# Exceptions imports start
++import hlsa_exceptions.hlsa_checker as hlsa_checker_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.driver_cli_exceptions as driver_cli_exceptions
++import hlsa_exceptions.hw_manager_exceptions.controls_exceptions.device_cli_exceptions as device_cli_exceptions
++import hlsa_exceptions.default_exceptions as default_exceptions
++# Exceptions imports end
++
++
+ # Logging Manipulation
+ log_manager = options.get_log_manager()
+ 
+ # Main Logger
+ logger = logging.getLogger(__name__)
+ 
++
+ @pytest.mark.HL338_pt  # Accton
+ @pytest.mark.HL338_ft_bridge  # Accton
+ @pytest.mark.HL338_ft
+ @pytest.mark.HL338_bi
+ class TestSVHBER(TestBase):
+-
+     smi_control = None
+     driver_options = None
+     driver_mode = None
+@@ -72,7 +80,8 @@
+                 hlsa_checker.check_values_is_equal(git_commit_id,
+                                                    expected_value=cls.test_options.svh_git_commit,
+                                                    ident=Ident.VALUE, test_code=TestCode.SVH_BER,
+-                                                   operation='Compare SVH git commit id',)
++                                                   operation='Compare SVH git commit id',
++                                                   exception_to_raise=hlsa_checker_exceptions.raise_not_equal)
+ 
+             # Get Command Line Controls
+             hlsa_logger(level='debug', ident='Description', operation=f'Get Command Line Controls')
+@@ -83,13 +92,23 @@
+             cls.smi_control = host.get_control(hw_manager.controls.smi_cli)
+ 
+             status = cls.driver_cli.create_modified_bashrc_file()
+-            assert status, "\nfailed to create .modified_bashrc in HOST"
++            hlsa_checker.check_status_is_true(status=status, ident='Description', test_code=TestCode.SVH_BER,
++                                              operation='Modify Bashrc File',
++                                              exception_to_raise=driver_cli_exceptions.raise_create_modified_bashrc_file)
+ 
+             # Get Connected Devices
+             cls.connected_pcie_devices = cls.device_cli.get_pcie_addresses_list()
++            hlsa_checker.check_value_is_not_none(cls.connected_pcie_devices, ident='Description',
++                                                 test_code=TestCode.SVH_BER,
++                                                 operation='Get number of connected devices',
++                                                 exception_to_raise=device_cli_exceptions.
++                                                 raise_get_pcie_addresses_list)
++
+ 
+             cls.driver_mode = cls.driver_cli.get_driver_mode()
+-            assert cls.driver_mode is not None
++            hlsa_checker.check_value_is_not_none(value=cls.driver_mode, ident='Description', test_code=TestCode.SVH_BER,
++                                                 operation='Get Driver Mode',
++                                                 exception_to_raise=driver_cli_exceptions.raise_get_driver_mode)
+ 
+             # hlsa_logger(level='info', ident='Description', operation=f'Send hard_reset for all devices')
+             # num_of_devices = int(cls.test_options.num_of_devices)
+@@ -101,7 +120,7 @@
+             hlsa_checker.check_status_is_true(status, ident='Description',
+                                               operation='remove Driver', ignore_assert=True)
+             time.sleep(5)
+-            hlsa_logger(level='info', ident='Description',operation=f'Reset all devices using hl-fw-loader ')
++            hlsa_logger(level='info', ident='Description', operation=f'Reset all devices using hl-fw-loader ')
+             cls.driver_cli.execute_command("sudo hl-fw-loader -R -y")
+             time.sleep(5)
+ 
+@@ -133,12 +152,14 @@
+             # Validate Operational Devices != 0
+             status = len(cls.connected_pcie_devices) != 0
+             hlsa_checker.check_status_is_true(status, ident='Description',
+-                                              operation='Number of connected Devices: 0 (!)')
++                                              operation='Number of connected Devices: 0 (!)',
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+             # Validate Operational Devices != 0
+             status = len(cls.operational_devices_address) != 0
+             hlsa_checker.check_status_is_true(status, ident='Description',
+-                                              operation='Number of Operational Devices: 0 (!)')
++                                              operation='Number of Operational Devices: 0 (!)',
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+             cls.set_log_by_mezz = cls.test_options.set_log_by_mezz
+             if cls.test_options.station_setup_module == 'HLB':
+@@ -212,7 +233,8 @@
+                 hl_device_number = cls.devices[device]["hl_num"]
+                 hlsa_checker.check_value_is_not_none(hl_device_number, ident='Description',
+                                                      operation="Get, get_hl_number(%s), %s" % (
+-                                                     device, str(hl_device_number)))
++                                                         device, str(hl_device_number)),
++                                                     exception_to_raise=hlsa_checker_exceptions.raise_none)
+                 cls.devices[device]["status"] = True
+                 # Get DUT
+                 logger.debug('Get DUT')
+@@ -226,20 +248,23 @@
+             command = r'sed -i.bak ' + r'"3s/\[.*\]/' + r'\[' + operational_devices_mezz[
+                                                                 1:] + r'\]' + r'/"' + f' {cls.config_file_production_yaml}'
+ 
+-            hlsa_logger(level='info', ident='Description', operation=f'Execute on tpc command: {command} (comma between mezz replaced by space)')
++            hlsa_logger(level='info', ident='Description',
++                        operation=f'Execute on tpc command: {command} (comma between mezz replaced by space)')
+             subprocess.getoutput(command)
+ 
+             command = r"grep 'Host_name:\(.*\)' " + f' {cls.config_file_production_yaml}' + r" | awk '{print $2}'"
+             hlsa_logger(level='info', ident='Description', operation=f'Execute on tpc command: {command}')
+             svh_host_name = subprocess.getoutput(command)
+             hlsa_checker.check_value_is_not_none(svh_host_name.strip(), ident='Description',
+-                                                 operation=f'check svh configuration yaml for host_name')
++                                                 operation=f'check svh configuration yaml for host_name',
++                                                 exception_to_raise=hlsa_checker_exceptions.raise_none)
+ 
+             hlsa_checker.check_values_is_equal(read_value=svh_host_name.strip(),
+                                                expected_value=cls.test_machines_sobj.pci_machine_ssh_details.name,
+                                                ident='Description', operation=f'check svh configuration yaml host_name'
+                                                                               f' match test_machines host name',
+-                                               ignore_assert=True)
++                                               ignore_assert=True,
++                                               exception_to_raise=hlsa_checker_exceptions.raise_not_equal)
+ 
+             command = 'cat ' + f' {cls.config_file_production_yaml}'
+             hlsa_logger(level='info', ident='Description',
+@@ -264,7 +289,9 @@
+                 log_manager.update_status_false(cls.pci_to_mezz_log_format[pci_addr])
+             log_manager.log_browser()
+             hw_manager.save_dmesg_to_log()
+-            pytest.fail()
++            hlsa_checker.classmethod_fail(ident='Description', test_code=TestCode.SVH_BER,
++                                          operation='Test (TestSVHBER) Initialization Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     # - PyTest - Setup Method -
+     def setup_method(self, method):
+@@ -272,10 +299,16 @@
+ 
+         # Setup Test PCI Bandwidth
+         if method.__name__ == 'test_svh_ber':
+-            self.test_code = 'SVH BER'
+-            self.snip_method_name = 'svh_ber'
+-            for pci_addr in self.connected_pcie_devices:
+-                self.devices[pci_addr]['functional_tests'][self.snip_method_name] = {'status': '#RESULTS_FAILED#'}
++            try:
++                self.test_code = 'SVH BER'
++                self.snip_method_name = 'svh_ber'
++                for pci_addr in self.connected_pcie_devices:
++                    self.devices[pci_addr]['functional_tests'][self.snip_method_name] = {'status': '#RESULTS_FAILED#'}
++            except Exception as exception:
++                hlsa_checker.classmethod_fail(ident='Description', test_code='ALERT',
++                                              operation='Test (test_svh_ber)'
++                                                        ' Method Initialization Failed',
++                                              read_value='Exception: %s' % str(exception))
+ 
+         elif method.__name__ == 'test_analyze_global_result':
+             try:
+@@ -287,6 +320,10 @@
+                     log_manager.update_status_false(self.pci_to_mezz_log_format[con_dev.strip()])
+                     hlsa_logger(level='error', ident='Description',
+                                 operation=f'update {con_dev.strip()} test status false')
++                    hlsa_checker.classmethod_fail(ident='Description', test_code='ALERT',
++                                                  operation='Test (test_analyze_global_result)'
++                                                            ' Method Initialization Failed',
++                                                  read_value='Exception: %s' % str(exception))
+         # Invalid Setup Method
+         else:
+             hlsa_logger(level='warning', ident='Description', operation=f'Setup Method: {method.__name__} Not Found!')
+@@ -294,143 +331,167 @@
+         log_manager.log_browser()
+ 
+     # - PyTest - Teardown Method -
+-    def teardown_method(self, method):
+-        # Teardown Test PCI Bandwidth
+-        if method.__name__ == 'test_svh_ber':
+-            pass
++    @classmethod
++    def teardown_method(cls, method):
++        try:
++            # Teardown Test PCI Bandwidth
++            if method.__name__ == 'test_svh_ber':
++                pass
+ 
+-        elif method.__name__ == 'test_analyze_global_result':
+-            pass
++            elif method.__name__ == 'test_analyze_global_result':
++                pass
+ 
+-        # Invalid Teardown Method
+-        else:
+-            logger.warning('[Functional Test] Teardown Method: %s Not Found!' % method.__name__)
++            # Invalid Teardown Method
++            else:
++                logger.warning('[Functional Test] Teardown Method: %s Not Found!' % method.__name__)
+ 
+-        log_manager.log_browser()
++            log_manager.log_browser()
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code=TestCode.SVH_BER,
++                                          operation='Test (TestSVHBER) Method Teardown Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def test_svh_ber(self):
+-        svh_path = self.test_options.svh_path  # '~/SerDes/SVH'
+-        path_csv_file = '/tmp/HL338s_stability/serdes_params_int0.csv'
+-        path_log_file = '/tmp/HL338s_stability/logfile.txt'
++        try:
++            svh_path = self.test_options.svh_path  # '~/SerDes/SVH'
++            path_csv_file = '/tmp/HL338s_stability/serdes_params_int0.csv'
++            path_log_file = '/tmp/HL338s_stability/logfile.txt'
+ 
+-        for iteration in range(self.test_options.svh_iterations):
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'Start svh iteration:{iteration}')
+-            self.remove_old_logs('serdes_params_int*')
+-            run_svh_prod_test = ["sudo -E python3 ./Hl338s_stability_test_production.py"]
+-            if self.test_options.station_setup_module == 'SA':
+-                run_svh_prod_test = ["sudo -E python3 ./Hl338s_stability_test_production_pt.py"]
++            for iteration in range(self.test_options.svh_iterations):
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                            operation=f'Start svh iteration:{iteration}')
++                self.remove_old_logs('serdes_params_int*')
++                run_svh_prod_test = ["sudo -E python3 ./Hl338s_stability_test_production.py"]
++                if self.test_options.station_setup_module == 'SA':
++                    run_svh_prod_test = ["sudo -E python3 ./Hl338s_stability_test_production_pt.py"]
+ 
+-            timeout_s = 600
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code, loop=iteration,
+-                        operation=f'Start {run_svh_prod_test}')
+-            try:
+-                p = subprocess.Popen(run_svh_prod_test, start_new_session=True, cwd=f'{svh_path}/Tests/', shell=True,
+-                                     stdout=subprocess.DEVNULL)
+-                p.wait(timeout=timeout_s)
+-            except subprocess.TimeoutExpired:
+-                print(f'Timeout for {run_svh_prod_test} ({timeout_s}s) expired', file=sys.stderr)
+-                print('Terminating the whole process group...', file=sys.stderr)
+-                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
++                timeout_s = 600
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code, loop=iteration,
++                            operation=f'Start {run_svh_prod_test}')
++                try:
++                    p = subprocess.Popen(run_svh_prod_test, start_new_session=True, cwd=f'{svh_path}/Tests/',
++                                         shell=True,
++                                         stdout=subprocess.DEVNULL)
++                    p.wait(timeout=timeout_s)
++                except subprocess.TimeoutExpired:
++                    print(f'Timeout for {run_svh_prod_test} ({timeout_s}s) expired', file=sys.stderr)
++                    print('Terminating the whole process group...', file=sys.stderr)
++                    os.killpg(os.getpgid(p.pid), signal.SIGTERM)
++
++                status = path.isfile(path_csv_file)
++                hlsa_checker.check_status_is_true(status, ident='Description', loop=iteration,
++                                                  operation=f'check if svh output csv exist {path_csv_file}',
++                                                  ignore_assert=True, fail_log_level='warning',
++                                                  exception_to_raise=hlsa_checker_exceptions.raise_not_true)
++                if status:
++                    break
++                else:
++                    status = path.isfile(path_log_file)
++                    hlsa_checker.check_status_is_true(status, ident='Description', loop=iteration,
++                                                      operation=f'check if svh log exist {path_log_file}',
++                                                      ignore_assert=True, fail_log_level='warning',
++                                                      exception_to_raise=hlsa_checker_exceptions.raise_not_true)
++
++                    with open(path_log_file, 'r') as svh_log:
++                        for line in svh_log:
++                            hlsa_logger(level='info', ident='Description', test_code=self.test_code, loop=iteration,
++                                        operation=f'svh log', read_value=line.strip())
+ 
+             status = path.isfile(path_csv_file)
+-            hlsa_checker.check_status_is_true(status, ident='Description', loop=iteration,
++            hlsa_checker.check_status_is_true(status, ident='Description',
+                                               operation=f'check if svh output csv exist {path_csv_file}',
+-                                              ignore_assert=True, fail_log_level='warning')
+-            if status:
+-                break
+-            else:
+-                status = path.isfile(path_log_file)
+-                hlsa_checker.check_status_is_true(status, ident='Description',  loop=iteration,
+-                                                  operation=f'check if svh log exist {path_log_file}',
+-                                                  ignore_assert=True, fail_log_level='warning')
++                                              exception_to_raise=hlsa_checker_exceptions.raise_not_true)
+ 
+-                with open(path_log_file, 'r') as svh_log:
+-                    for line in svh_log:
+-                        hlsa_logger(level='info', ident='Description', test_code=self.test_code, loop=iteration,
+-                                    operation=f'svh log', read_value=line.strip())
++            for device in self.connected_pcie_devices:
++                self.devices[device]["svh_results"] = {}
+ 
+-        status = path.isfile(path_csv_file)
+-        hlsa_checker.check_status_is_true(status, ident='Description',
+-                                          operation=f'check if svh output csv exist {path_csv_file}')
++            with open(path_csv_file) as svh_results_csv:
++                reader_obj = csv.reader(svh_results_csv)
++                header = next(reader_obj)
++                hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'raw svh csv',
++                            read_value=header[0:17])
++                for row in reader_obj:
++                    hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'raw svh csv',
++                                read_value=row[0:17])
+ 
+-        for device in self.connected_pcie_devices:
+-            self.devices[device]["svh_results"] = {}
++            with open(path_csv_file, 'r') as svh_results_csv:
++                reader = csv.DictReader(svh_results_csv)
++                data_dict = [row for row in reader]
+ 
+-        with open(path_csv_file) as svh_results_csv:
+-            reader_obj = csv.reader(svh_results_csv)
+-            header = next(reader_obj)
+-            hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'raw svh csv', read_value=header[0:17])
+-            for row in reader_obj:
+-                hlsa_logger(level='info', ident='Description', test_code=self.test_code, operation=f'raw svh csv', read_value=row[0:17])
++            data = {}
++            for current_dic in data_dict:
++                if current_dic['oam'] not in data:
++                    data[current_dic['oam']] = {}
++                reduced_dic = current_dic.copy()
++                del reduced_dic['oam']
++                del reduced_dic['absolut_lane']
++                data[current_dic['oam']][current_dic['absolut_lane']] = reduced_dic
+ 
+-        with open(path_csv_file, 'r') as svh_results_csv:
+-            reader = csv.DictReader(svh_results_csv)
+-            data_dict = [row for row in reader]
++            for device in self.connected_pcie_devices:
++                try:
++                    self.devices[device]['svh_results'] = data[str(self.devices[device]['mezz'])]
++                except Exception as exception:
++                    hlsa_logger(level='warning', ident='Description', dev_address=device,
++                                operation=f'Exception during analyze svh result: {exception}')
++                    hlsa_logger(level='warning', ident='Description', dev_address=device,
++                                operation=f'Set device log status to false')
++                    log_manager.update_status_false(device)
++                    self.devices[device]["status"] = False
+ 
+-        data = {}
+-        for current_dic in data_dict:
+-            if current_dic['oam'] not in data:
+-                data[current_dic['oam']] = {}
+-            reduced_dic = current_dic.copy()
+-            del reduced_dic['oam']
+-            del reduced_dic['absolut_lane']
+-            data[current_dic['oam']][current_dic['absolut_lane']] = reduced_dic
++            for device in self.connected_pcie_devices:
++                try:
++                    log_manager.log_browser(self.pci_to_mezz_log_format[device])
++                    for abs_line, svh_output in self.devices[device]['svh_results'].items():
++                        hlsa_checker.check_values_in_range(float(svh_output['ber']), ident='Value',
++                                                           driver_number=self.devices[device]['hl_num'],
++                                                           dev_address=device,
++                                                           mezzanine=self.devices[device]['mezz'],
++                                                           test_code=self.test_code,
++                                                           operation=f'ber value for die {svh_output["die"]} '
++                                                                     f'phy {svh_output["phy"]} lane {svh_output["lane"]} '
++                                                                     f'absolut_lane {abs_line}', units='BER',
++                                                           max_expected=float(self.test_options["max_ber_criteria"]),
++                                                           min_expected=float(0), ignore_assert=True,
++                                                           exception_to_raise=hlsa_checker_exceptions.raise_not_in_range)
++                        if float(svh_output['ber']) > float(self.test_options["max_ber_criteria"]):
++                            self.devices[device]['functional_tests'][self.snip_method_name] = {
++                                'status': '#RESULTS_FAILED#'}
++                            self.devices[device]["status"] = False
++                            log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                            self.TEST_STATUS = False
++                    if self.devices[device]["status"]:
++                        self.devices[device]['functional_tests'][self.snip_method_name] = {'status': '#RESULTS_PASS#'}
+ 
+-        for device in self.connected_pcie_devices:
+-            try:
+-                self.devices[device]['svh_results'] = data[str(self.devices[device]['mezz'])]
+-            except Exception as exception:
+-                hlsa_logger(level='warning', ident='Description', dev_address=device,
+-                            operation=f'Exception during analyze svh result: {exception}')
+-                hlsa_logger(level='warning', ident='Description', dev_address=device,
+-                            operation=f'Set device log status to false')
+-                log_manager.update_status_false(device)
+-                self.devices[device]["status"] = False
++                except Exception as exception:
++                    hlsa_logger(level='warning', ident='Description', dev_address=device,
++                                operation=f'Exception during analyze svh result: {exception}')
++                    hlsa_logger(level='warning', ident='Description', dev_address=device,
++                                operation=f'Set device log status to false')
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.devices[device]["status"] = False
+ 
+-        for device in self.connected_pcie_devices:
+-            try:
+-                log_manager.log_browser(self.pci_to_mezz_log_format[device])
+-                for abs_line, svh_output in self.devices[device]['svh_results'].items():
+-                    hlsa_checker.check_values_in_range(float(svh_output['ber']), ident='Value',
+-                                                       driver_number=self.devices[device]['hl_num'], dev_address=device,
+-                                                       mezzanine=self.devices[device]['mezz'], test_code=self.test_code,
+-                                                       operation=f'ber value for die {svh_output["die"]} '
+-                                                                 f'phy {svh_output["phy"]} lane {svh_output["lane"]} '
+-                                                                 f'absolut_lane {abs_line}', units='BER',
+-                                                       max_expected=float(self.test_options["max_ber_criteria"]),
+-                                                       min_expected=float(0), ignore_assert=True)
+-                    if float(svh_output['ber']) > float(self.test_options["max_ber_criteria"]):
+-                        self.devices[device]['functional_tests'][self.snip_method_name] = {'status': '#RESULTS_FAILED#'}
+-                        self.devices[device]["status"] = False
+-                        log_manager.update_status_false(self.pci_to_mezz_log_format[device])
+-                        self.TEST_STATUS = False
+-                if self.devices[device]["status"]:
+-                    self.devices[device]['functional_tests'][self.snip_method_name] = {'status': '#RESULTS_PASS#'}
++            # Restore yaml file
++            restore_yaml_command = f'mv {self.path_src} {self.path_dest}'
++            hlsa_logger(level='info', ident='Description', test_code=self.test_code,
++                        operation=f'Restore config yaml on tpc command:{restore_yaml_command}')
++            subprocess.getoutput(restore_yaml_command)
+ 
+-            except Exception as exception:
+-                hlsa_logger(level='warning', ident='Description', dev_address=device,
+-                            operation=f'Exception during analyze svh result: {exception}')
+-                hlsa_logger(level='warning', ident='Description', dev_address=device,
+-                            operation=f'Set device log status to false')
+-                log_manager.update_status_false(self.pci_to_mezz_log_format[device])
+-                self.devices[device]["status"] = False
++            for device in self.connected_pcie_devices:
++                if not self.devices[device]["status"]:
++                    hlsa_logger(level='warning', ident='Description', dev_address=device,
++                                operation=f'Set device log status to false')
++                    log_manager.update_status_false(self.pci_to_mezz_log_format[device])
++                    self.TEST_STATUS = False
+ 
+-        # Restore yaml file
+-        restore_yaml_command = f'mv {self.path_src} {self.path_dest}'
+-        hlsa_logger(level='info', ident='Description', test_code=self.test_code,
+-                    operation=f'Restore config yaml on tpc command:{restore_yaml_command}')
+-        subprocess.getoutput(restore_yaml_command)
+-
+-        for device in self.connected_pcie_devices:
+-            if not self.devices[device]["status"]:
+-                hlsa_logger(level='warning', ident='Description', dev_address=device,
+-                            operation=f'Set device log status to false')
+-                log_manager.update_status_false(self.pci_to_mezz_log_format[device])
+-                self.TEST_STATUS = False
+-
+-        self.global_status = self.analyze_results()
+-        log_manager.log_browser()
+-        assert self.TEST_STATUS and self.global_status
++            self.global_status = self.analyze_results()
++            log_manager.log_browser()
++            if self.global_status is False and self.TEST_STATUS is False:
++                raise default_exceptions.CustomMsgException(
++                    "self.TEST_STATUS is False or self.global_status is False , Test (test_svh_ber) Failed")
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='fan_speed',
++                                          operation='Test (test_svh_ber) Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     # def test_analyze_global_result(self):
+     #     log_manager.log_browser()
+@@ -472,10 +533,15 @@
+ 
+     @classmethod
+     def teardown_class(cls):
+-        # Log to All Logs
+-        if len(cls.devices) > 0:
+-            log_manager.log_browse_all()
+-        log_manager.log_browser()
++        try:
++            # Log to All Logs
++            if len(cls.devices) > 0:
++                log_manager.log_browse_all()
++            log_manager.log_browser()
++        except Exception as exception:
++            hlsa_checker.classmethod_fail(ident='Description', test_code='TestHl338NicPorts',
++                                          operation='Test (TestSVHBER) Teardown Failed',
++                                          read_value='Exception: %s' % str(exception))
+ 
+     def update_operational_devices_info(self):
+         self.operational_devices_address = self.driver_cli.get_operational_devices()
+@@ -490,7 +556,8 @@
+                 self.devices[device]["long_pci_address"])
+             self.devices[device]["mezz"] = self.smi_control.get_module_id(self.devices[device]["long_pci_address"])
+ 
+-    def remove_old_logs(self, pattern):
++    @staticmethod
++    def remove_old_logs(pattern):
+         svh_output_path = f'/tmp/HL338s_stability'
+         cmd_remove_previous_logs = f"sudo rm -rf {svh_output_path}/{pattern}"
+         os.popen(cmd_remove_previous_logs)
+@@ -499,4 +566,3 @@
+         cmd_remove_previous_logs = f"sudo rm -rf {svh_output_path}/logfile.txt"
+         os.popen(cmd_remove_previous_logs)
+         hlsa_logger(ident='Description', operation=f'Remove Previous SVH Logs {cmd_remove_previous_logs}')
+-

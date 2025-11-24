@@ -1,0 +1,57 @@
+From bdde315f08f65a1b405203e2d860d83492b051af Mon Sep 17 00:00:00 2001
+From: Sailaja <sbandarupalli@habana.ai>
+Date: Sun, 24 Nov 2024 08:16:32 +0200
+Subject: [PATCH] [SW-0] debug patch for boot info corruption
+
+Dont merge
+
+Change-Id: I2b12187174280fde1035870919d4ad123a1d7356
+Signed-off-by: Sailaja <sbandarupalli@habana.ai>
+---
+
+diff --git a/app/ppboot/ppboot.c b/app/ppboot/ppboot.c
+index 4664fc6..5ed1aab 100644
+--- a/app/ppboot/ppboot.c
++++ b/app/ppboot/ppboot.c
+@@ -11,7 +11,8 @@
+ #include <baremetal.h>
+ #include <device.h>
+ #include <hl_fw_upd_if.h> /* requires baremetal.h for __packed */
+-
++#include <gaudi3_blocks_linux_driver.h>
++#include <psoc_security_regs.h>
+ #include "common.h"
+ #include "uart.h"
+ #include <spi_flash.h>
+@@ -356,6 +357,31 @@
+ 		hl_pcie_enable_elbi_access();
+ 	ppboot_time_critical_section_end();
+ 	/**********time critical section end************/
++	preboot_puts_hex("SPSRAM offset0 : ", *((volatile u32 *)(0x23120000)), false);
++	preboot_puts_hex("SPSRAM offset1 : ", *((volatile u32 *)(0x23120004)), false);
++	preboot_puts_hex("SPSRAM offset2 : ", *((volatile u32 *)(0x23120008)), false);
++	preboot_puts_hex("SPSRAM offset3 : ", *((volatile u32 *)(0x2312000c)), false);
++	preboot_puts_hex("SPSRAM offset4 : ", *((volatile u32 *)(0x23120010)), false);
++	preboot_puts_hex("SPSRAM offset5 : ", *((volatile u32 *)(0x23120014)), false);
++	preboot_puts_hex("SPSRAM offset6 : ", *((volatile u32 *)(0x23120018)), false);
++	preboot_puts_hex("SPSRAM offset7 : ", *((volatile u32 *)(0x2312001c)), false);
++	preboot_puts_hex("COLD reset flops 0 : ", *((volatile u32 *)(0xFC48B060)), false);
++	preboot_puts_hex("COLD reset flops 1 : ", *((volatile u32 *)(0xFC48B064)), false);
++	preboot_puts_hex("COLD reset flops 2 : ", *((volatile u32 *)(0xFC48B068)), false);
++	preboot_puts_hex("COLD reset flops 3 : ", *((volatile u32 *)(0xFC48B06c)), false);
++
++
++	preboot_puts_hex("Status reg 0 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_0)), false);
++	preboot_puts_hex("Status reg 1 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_1)), false);
++	preboot_puts_hex("Status reg 2 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_2)), false);
++	preboot_puts_hex("Status reg 3 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_3)), false);
++	preboot_puts_hex("Status reg 4 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_4)), false);
++	preboot_puts_hex("Status reg 5 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_5)), false);
++	preboot_puts_hex("Status reg 6 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_6)), false);
++	preboot_puts_hex("Status reg 7 : ", regmap_readl(D0_PSOC_SECURITY_REG(mmPSOC_SECURITY_SW_STATUS_7)), false);
++
++
++
+ 	ppboot_pcie_drain_init();
+ 	hl_check_pcie_link_up_by_erom();
+ 	ppboot_version();

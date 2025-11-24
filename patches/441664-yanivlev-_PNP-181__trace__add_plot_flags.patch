@@ -1,0 +1,83 @@
+From 04be1ea6a64bd7f2d5d3064985510e0f8b799bbe Mon Sep 17 00:00:00 2001
+From: Yaniv Levinsky <ylevinsky@habana.ai>
+Date: Sun, 11 Aug 2024 18:35:38 +0300
+Subject: [PATCH] [PNP-181] trace: add plot flags
+
+Add flags to the plot packet.
+
+The most important flag is the throttling indicator. Since RL is average
+it can't be used to decide if throttling happened during the packet
+timestamp. the flag is needed for some QA checkers.
+
+Change-Id: I68cdbf1082eb52cbb12a8326ed9d85d01d3bd4a2
+Signed-off-by: Yaniv Levinsky <ylevinsky@habana.ai>
+---
+
+diff --git a/include/lib/trace.h b/include/lib/trace.h
+index cc9da85..8558f2f 100644
+--- a/include/lib/trace.h
++++ b/include/lib/trace.h
+@@ -116,6 +116,28 @@
+ BUILD_ASSERT(sizeof(struct trace_thermal_soc_entry) == TRACE_ENTRY_SIZE,
+ 	TRACE_ENTRY_SIZE_ERROR_MSG);
+ 
++/*
++ * struct trace_plot_flags
++ * @throttling: throttling indicator from power_hb controller
++ * @power_regulation: power regulation enabled
++ * @thermal_regulation: thermal regulation enabled
++ * @power_event: notified power event to lkd
++ * @thermal_event: notified thermal event to lkd
++ */
++struct trace_plot_flags {
++	union {
++		uint8_t value;
++		struct {
++			uint8_t throttling : 1;
++			uint8_t power_regulation : 1;
++			uint8_t thermal_regulation : 1;
++			uint8_t power_event : 1;
++			uint8_t thermal_event : 1;
++			uint8_t reserved : 3;
++		};
++	};
++} __packed;
++
+ struct trace_plot_entry {
+ 	uint8_t timestamp[TRACE_TIMESTAMP_SIZE];
+ 	uint16_t current_inst;
+@@ -128,7 +150,7 @@
+ 	uint8_t  soc_temp[TRACE_PLOT_TEMP_SAMPLES];
+ 	uint16_t power_setpoint;
+ 	uint16_t host_tdp;
+-	uint8_t  reserved;
++	uint8_t  flags;
+ 	uint8_t  format;
+ } __packed;
+ 
+diff --git a/lib/common/trace.c b/lib/common/trace.c
+index 5b0f84d..7965971 100644
+--- a/lib/common/trace.c
++++ b/lib/common/trace.c
+@@ -206,6 +206,7 @@
+ 	struct pid_power_table *power = platdata->power;
+ 	struct pid_pvt_table *pvt = &platdata->pvt;
+ 	struct pid_dram_ts_table *dram_ts = &platdata->dram_ts;
++	struct trace_plot_flags flags;
+ 
+ 	struct trace_format_reg format;
+ 	int i;
+@@ -227,6 +228,13 @@
+ 		trace_plot->soc_temp[i] = (uint8_t)MILLI_TO_BASE(pvt->sensors[i].temp[0].high_temp);
+ 	trace_plot->power_setpoint = (uint16_t)MILLI_TO_BASE(*power->power.setpoint_power);
+ 	trace_plot->host_tdp = (uint16_t)(power->power.limit_power / PID_MILLI_MULTIPLIER);
++	flags.throttling = power->throttling;
++	flags.power_regulation = power->regulation;
++	flags.thermal_regulation = pvt->regulation;
++	flags.power_event = platdata->event.power_throttle;
++	flags.thermal_event = platdata->event.thermal_throttle;
++	trace_plot->flags = flags.value;
++
+ 	trace_plot->format = format.reg_value;
+ 
+ 	// Reset high\low measurements for next entry

@@ -1,0 +1,58 @@
+From b9a31bc214462e838c9b480e2d959428c94cdad3 Mon Sep 17 00:00:00 2001
+From: Tamal <tasaha@habana.ai>
+Date: Thu, 17 Oct 2024 11:42:38 +0300
+Subject: [PATCH] [FSW-1318] fs1: add clock gating module dts entry
+
+This patch adds dts entry for clock gating driver.
+It is enabled only for preboot as of now and
+disabled for remaining.
+
+Change-Id: Iaabbce364fe2a63c86d44e356c11bd625c6a8238
+Signed-off-by: Tamal <tasaha@habana.ai>
+---
+
+diff --git a/dts/arc/fs1_emb.dtsi b/dts/arc/fs1_emb.dtsi
+index df80a68..cf426c9 100644
+--- a/dts/arc/fs1_emb.dtsi
++++ b/dts/arc/fs1_emb.dtsi
+@@ -444,6 +444,12 @@
+ 		label = "INTEL_FS_HBM_2";
+ 	};
+ 
++	clock_gating: intel_clock_gating {
++		status = "disabled";
++		compatible = "intel,clock_gating";
++		label = "FS_CLOCK_GATING";
++	};
++
+ 	soc {
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+diff --git a/dts/arc/fs1_preboot.dtsi b/dts/arc/fs1_preboot.dtsi
+index 5746667..fc0684a 100644
+--- a/dts/arc/fs1_preboot.dtsi
++++ b/dts/arc/fs1_preboot.dtsi
+@@ -107,3 +107,8 @@
+ 	reg = <0xf8688000 0x1000>;
+ 	reg-names = "io0_pcie";
+ };
++
++&clock_gating {
++	status = "okay";
++};
++
+diff --git a/dts/bindings/misc/intel,fs_clock_gating.yaml b/dts/bindings/misc/intel,fs_clock_gating.yaml
+new file mode 100644
+index 0000000..9db8c78
+--- /dev/null
++++ b/dts/bindings/misc/intel,fs_clock_gating.yaml
+@@ -0,0 +1,9 @@
++# SPDX-License-Identifier: Apache-2.0
++# Copyright (c) 2024, Habanalabs
++
++description: |
++    This is a representation of the Intel Falcon Shore GPUs clock_gating driver
++
++compatible: "intel,clock_gating"
++
++include: base.yaml

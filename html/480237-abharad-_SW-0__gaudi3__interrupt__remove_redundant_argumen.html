@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change 480237: [SW-0] gaudi3: interrupt: remove redundant argument</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2, h3 {
+            color: #555;
+        }
+        .metadata {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+        .metadata p {
+            margin: 5px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.merged {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.new, .status.open {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.abandoned {
+            background-color: #f44336;
+            color: white;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .labels, .messages, .inline-comments, .files {
+            margin: 30px 0;
+        }
+        .diff-section {
+            margin: 30px 0;
+        }
+        .diff-file {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .diff-filename {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            margin: 0;
+            border-bottom: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #24292e;
+        }
+        .diff-content {
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .diff-content span {
+            display: block;
+            padding: 0 10px;
+            white-space: pre;
+        }
+        .diff-hunk {
+            background-color: #f1f8ff;
+            color: #0366d6;
+            font-weight: bold;
+        }
+        .diff-add {
+            background-color: #e6ffed;
+            color: #22863a;
+        }
+        .diff-del {
+            background-color: #ffeef0;
+            color: #cb2431;
+        }
+        .diff-ctx {
+            color: #24292e;
+        }
+        .message {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        .date {
+            color: #888;
+            font-size: 0.9em;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .file-comments {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Change 480237: [SW-0] gaudi3: interrupt: remove redundant argument</h1>
+        
+        <div class="metadata">
+            <p><strong>Project:</strong> arcevent</p>
+            <p><strong>Branch:</strong> master_next</p>
+            <p><strong>Status:</strong> <span class="status new">NEW</span></p>
+            <p><strong>Owner:</strong> Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;</p>
+            <p><strong>Created:</strong> 2025-05-21 11:25:27.091000000</p>
+            <p><strong>Updated:</strong> 2025-05-27 06:08:05.965000000</p>
+        </div>
+        
+        <div class="commit-message">
+            <h2>Commit Message</h2>
+            <pre>[SW-0] gaudi3: interrupt: remove redundant argument
+
+Function argument &#x27;action&#x27; is not used in individual component
+handlers.
+This patch removes all the instances of this redundant argument.
+
+Change-Id: Ie742af3be9d485070269d6b28c7e9b806c5f05c6
+Signed-off-by: Akshay Pradip Bharad &lt;apbharad@habana.ai&gt;
+</pre>
+        </div>
+        
+        <div class="labels"><h3>Review Labels</h3><ul><li><strong>Code-Review</strong>: +2 by Pavan Sreenivas</li><li><strong>Verified</strong>: -2 by Jenkins EMB Service Account</li><li><strong>Finished</strong>: +2 by Jenkins EMB Service Account</li></ul></div>
+        
+        <div class="files"><h3>Modified Files</h3><ul><li><code>src/gaudi3/interrupt.c</code> (M) +76 -114</li></ul></div>
+        
+        <div class="diff-section"><h3>Code Changes (Diff)</h3><div class="diff-file"><h4 class="diff-filename">b/src/gaudi3/interrupt.c</h4><pre class="diff-content"><span class="diff-hunk">@@ -609,8 +609,7 @@</span>
+<span class="diff-ctx"> #define MME_CTRL_SEI0_QM_INTR_MASK	0x12</span>
+<span class="diff-ctx"> #define MME_CTRL_SEI1_QM_INTR_MASK	0x40</span>
+<span class="diff-ctx"> static void gaudi3_process_mme_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t offset, base = 0, val, idx;</span>
+<span class="diff-ctx"> 	uint32_t spmu_offset, bmon_offset;</span>
+<span class="diff-hunk">@@ -742,8 +741,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_mme_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t offset, base = 0, val, idx, mask;</span>
+<span class="diff-ctx"> 	uint32_t qm_base, arc_base;</span>
+<span class="diff-hunk">@@ -1109,8 +1107,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_tpc_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_tpc_spi_data tpc_spi_data;</span>
+<span class="diff-ctx"> 	uint32_t offset, base = 0;</span>
+<span class="diff-hunk">@@ -1165,8 +1162,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_tpc_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	switch (binned_intr_map-&gt;index) {</span>
+<span class="diff-ctx"> 	case SEI_INTR_TPC0_AXI_SLV_DEC_ERR:</span>
+<span class="diff-hunk">@@ -1285,8 +1281,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_rot_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base = 0, cs_dbg_base, cause, intr_clr;</span>
+<span class="diff-ctx"> 	uint32_t spmu_offset, bmon_offset;</span>
+<span class="diff-hunk">@@ -1349,8 +1344,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_rot_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_rot_sei_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t qm_base, arc_base;</span>
+<span class="diff-hunk">@@ -1400,8 +1394,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_cs_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t cs_base = 0, cs_dbg_base = 0;</span>
+<span class="diff-ctx"> 	uint32_t cs_cause;</span>
+<span class="diff-hunk">@@ -1531,8 +1524,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_cs_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_cs_sei_data data;</span>
+<span class="diff-ctx"> 	uint32_t base;</span>
+<span class="diff-hunk">@@ -1620,8 +1612,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_stlb_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base = 0, syndrom_l, syndrom_h, mask = 0;</span>
+<span class="diff-ctx"> 	struct hl_eq_stlb_spi_data data = { 0 };</span>
+<span class="diff-hunk">@@ -1664,8 +1655,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_stlb_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_stlb_sei_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base, syndrom_l, syndrom_h;</span>
+<span class="diff-hunk">@@ -1705,8 +1695,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_edma_sob_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base, spmu_offset, bmon_offset;</span>
+<span class="diff-ctx"> 	struct hl_eq_generic_spi_data data;</span>
+<span class="diff-hunk">@@ -1765,8 +1754,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_sob_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_sob_sei_data data = {0};</span>
+<span class="diff-ctx"> 	uint32_t base, cq_intr_val;</span>
+<span class="diff-hunk">@@ -1815,8 +1803,7 @@</span>
+<span class="diff-ctx"> #define EDMA_BASE_DIFF		(mmHD1_SEDMA1_QM_DCCM_BASE - mmHD1_SEDMA0_QM_DCCM_BASE)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_edma_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t qm_base, arc_base, ch0_base, offset, idx;</span>
+<span class="diff-ctx"> 	struct hl_eq_edma_sei_data data;</span>
+<span class="diff-hunk">@@ -1980,8 +1967,7 @@</span>
+<span class="diff-ctx"> (mmD1_HBM0_MC01_CS_DBG_ROM_TABLE_BASE - mmD0_HBM0_MC01_CS_DBG_ROM_TABLE_BASE)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_mc_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base, cs_dbg_base, spmu_offset, intr_offset;</span>
+<span class="diff-ctx"> 	struct hl_eq_generic_spi_data data;</span>
+<span class="diff-hunk">@@ -2541,8 +2527,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_mc_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					    struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					    enum hl_intr_action action)</span>
+<span class="diff-add">+					    struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint8_t ecc_derr_err = 0, ecc_serr_err = 0, rd_par_err = 0, ca_par_err = 0, wr_par_err = 0;</span>
+<span class="diff-ctx"> 	uint32_t hbm_dev, mc_cmn_idx, hbm_offset, mc_cmn_offset, sei0_sts, sei1_sts;</span>
+<span class="diff-hunk">@@ -2646,8 +2631,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_dec_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base, cmd_base, spmu_offset, bmon_offset, mask;</span>
+<span class="diff-ctx"> 	struct hl_eq_generic_spi_data dec_data;</span>
+<span class="diff-hunk">@@ -2709,8 +2693,7 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_dec_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_razwi_with_intr_cause_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base;</span>
+<span class="diff-hunk">@@ -2754,8 +2737,7 @@</span>
+<span class="diff-ctx"> #define FARM_ARC1_SEI_INTR_STS_VAL_M		BIT(1)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_arcfarm_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-						 struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-						 enum hl_intr_action action)</span>
+<span class="diff-add">+						 struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base, arc0_base = 0, arc1_base = 0, arc_sts;</span>
+<span class="diff-ctx"> 	struct hl_eq_arcfarm_sei_data data;</span>
+<span class="diff-hunk">@@ -2819,8 +2801,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_edup_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_razwi_with_intr_cause_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base;</span>
+<span class="diff-hunk">@@ -2854,8 +2835,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_psoc_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_psoc_sei_data data = {0};</span>
+<span class="diff-ctx"> 	uint32_t base = mmD0_PSOC_GLOBAL_CONF2_BASE + (DIE_OFFSET * intr_map-&gt;die_id);</span>
+<span class="diff-hunk">@@ -2877,8 +2857,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_parc_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_parc_sei_data data = {0};</span>
+<span class="diff-ctx"> 	uint32_t base = mmD0_PARC_GLOBAL_CONF_BASE + (DIE_OFFSET * intr_map-&gt;die_id);</span>
+<span class="diff-hunk">@@ -2900,8 +2879,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nic_spmu_bmon(struct hl_event_config *config,</span>
+<span class="diff-del">-						struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-						enum hl_intr_action action)</span>
+<span class="diff-add">+						struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t spmu_offset, bmon_offset, nic_offset, die_offset;</span>
+<span class="diff-ctx"> 	struct hl_eq_nic_spi_data data = {0};</span>
+<span class="diff-hunk">@@ -2920,8 +2898,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nch_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_intr_cause data = {0};</span>
+<span class="diff-ctx"> 	uint32_t base = mmD0_NCH_BASE + (DIE_OFFSET * intr_map-&gt;die_id);</span>
+<span class="diff-hunk">@@ -2937,8 +2914,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nic_sw_error(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t qpc_base, rxb_core_base, rxe_base, nic_offset, die_offset;</span>
+<span class="diff-ctx"> 	struct hl_eq_nic_spi_data data = {0};</span>
+<span class="diff-hunk">@@ -2994,8 +2970,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nic_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> 	switch (intr_map-&gt;index) {</span>
+<span class="diff-hunk">@@ -3005,7 +2980,7 @@</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC3_CS_DBG:</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC4_CS_DBG:</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC5_CS_DBG:</span>
+<span class="diff-del">-		gaudi3_process_nic_spmu_bmon(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nic_spmu_bmon(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC0_RXB_QPC_RXE:</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC1_RXB_QPC_RXE:</span>
+<span class="diff-hunk">@@ -3013,7 +2988,7 @@</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC3_RXB_QPC_RXE:</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC4_RXB_QPC_RXE:</span>
+<span class="diff-ctx"> 	case SPI_INTR_SHARED_NIC5_RXB_QPC_RXE:</span>
+<span class="diff-del">-		gaudi3_process_nic_sw_error(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nic_sw_error(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	default:</span>
+<span class="diff-ctx"> 		LOG_ERR(&quot;Invalid interrupt index %d received for comp_type: %d&quot;,</span>
+<span class="diff-hunk">@@ -3023,8 +2998,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nic_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t qpc_base, tmr_base, rxb_core_base, rxe_base, txs_base, txe_base;</span>
+<span class="diff-ctx"> 	struct hl_eq_nic_sei_data data = {0};</span>
+<span class="diff-hunk">@@ -3265,8 +3239,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pcie_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_pcie_sei_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base, dummy_read;</span>
+<span class="diff-hunk">@@ -3329,8 +3302,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pmmu_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_razwi_with_intr_cause_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base = 0;</span>
+<span class="diff-hunk">@@ -3377,8 +3349,7 @@</span>
+<span class="diff-ctx"> #define SPDMA_OFFSET	(mmD0_SPDMA1_CH0_A_BASE - mmD0_SPDMA0_CH0_A_BASE)</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pdma_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_pdma_sei_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint8_t i, j;</span>
+<span class="diff-hunk">@@ -3450,8 +3421,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_cpu_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_cpu_sei_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base;</span>
+<span class="diff-hunk">@@ -3487,8 +3457,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_nch_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					     struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					     enum hl_intr_action action)</span>
+<span class="diff-add">+					     struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_nch_sei_data data = { 0 };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-hunk">@@ -3598,8 +3567,7 @@</span>
+<span class="diff-ctx"> #endif</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_d2dmac_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-						struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-						enum hl_intr_action action)</span>
+<span class="diff-add">+						struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> #ifndef TARGET_IS_ONIX</span>
+<span class="diff-ctx"> 	int ret;</span>
+<span class="diff-hunk">@@ -3640,8 +3608,7 @@</span>
+<span class="diff-ctx"> }</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_d2dphy_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-						struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-						enum hl_intr_action action)</span>
+<span class="diff-add">+						struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> #ifndef TARGET_IS_ONIX</span>
+<span class="diff-ctx"> 	int ret;</span>
+<span class="diff-hunk">@@ -3704,8 +3671,7 @@</span>
+<span class="diff-ctx"> };</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pll_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-						struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-						enum hl_intr_action action)</span>
+<span class="diff-add">+						struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_pll_sei_data data = {0};</span>
+<span class="diff-ctx"> 	uint32_t base;</span>
+<span class="diff-hunk">@@ -3842,8 +3808,7 @@</span>
+<span class="diff-ctx"> #define BMU_REGION_HIT_UNMASK	0x0</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pcie_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	struct hl_eq_pcie_spi_data data = { 0 };</span>
+<span class="diff-ctx"> 	uint32_t base, dbi_access_base, spmu_offset, bmon_offset, die_offset;</span>
+<span class="diff-hunk">@@ -4093,8 +4058,7 @@</span>
+<span class="diff-ctx"> #define SPI_INTR_SHARED_PMMU2_MASK	0x8</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_pmmu_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-del">-					      struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					      enum hl_intr_action action)</span>
+<span class="diff-add">+					      struct gaudi3_async_events_ids_map *intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	uint32_t base = mmD0_PMMU_HBW_MMU_BASE + (DIE_OFFSET * intr_map-&gt;die_id);</span>
+<span class="diff-ctx"> 	uint32_t axi_id1, axi_id2, lsb_va, msb_va, err_type, cause,</span>
+<span class="diff-hunk">@@ -4174,46 +4138,45 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_spi_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					enum hl_intr_action action)</span>
+<span class="diff-add">+					struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	switch (intr_map-&gt;comp_type) {</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_MME:</span>
+<span class="diff-del">-		gaudi3_process_mme_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_mme_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_TPC:</span>
+<span class="diff-del">-		gaudi3_process_tpc_spi_interrupt(config, intr_map, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_tpc_spi_interrupt(config, intr_map, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_ROT:</span>
+<span class="diff-del">-		gaudi3_process_rot_spi_interrupt(config, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_rot_spi_interrupt(config, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_CS:</span>
+<span class="diff-del">-		gaudi3_process_cs_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_cs_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_STLB:</span>
+<span class="diff-del">-		gaudi3_process_stlb_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_stlb_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_EDMA:</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_SOB:</span>
+<span class="diff-del">-		gaudi3_process_edma_sob_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_edma_sob_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_MC:</span>
+<span class="diff-del">-		gaudi3_process_mc_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_mc_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_DEC:</span>
+<span class="diff-del">-		gaudi3_process_dec_spi_interrupt(config, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_dec_spi_interrupt(config, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_NIC:</span>
+<span class="diff-del">-		gaudi3_process_nic_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nic_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PMMU:</span>
+<span class="diff-del">-		gaudi3_process_pmmu_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pmmu_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PCIE:</span>
+<span class="diff-del">-		gaudi3_process_pcie_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pcie_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_NCH:</span>
+<span class="diff-del">-		gaudi3_process_nch_spi_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nch_spi_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	default:</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-hunk">@@ -4222,75 +4185,74 @@</span>
+<span class="diff-ctx"> </span>
+<span class="diff-ctx"> static void gaudi3_process_sei_interrupt(struct hl_event_config *config,</span>
+<span class="diff-ctx"> 					 struct gaudi3_async_events_ids_map *intr_map,</span>
+<span class="diff-del">-					 struct gaudi3_async_events_ids_map *binned_intr_map,</span>
+<span class="diff-del">-					 enum hl_intr_action action)</span>
+<span class="diff-add">+					 struct gaudi3_async_events_ids_map *binned_intr_map)</span>
+<span class="diff-ctx"> {</span>
+<span class="diff-ctx"> 	switch (intr_map-&gt;comp_type) {</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_MME:</span>
+<span class="diff-del">-		gaudi3_process_mme_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_mme_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_TPC:</span>
+<span class="diff-del">-		gaudi3_process_tpc_sei_interrupt(config, intr_map, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_tpc_sei_interrupt(config, intr_map, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_ROT:</span>
+<span class="diff-del">-		gaudi3_process_rot_sei_interrupt(config, intr_map, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_rot_sei_interrupt(config, intr_map, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_CS:</span>
+<span class="diff-del">-		gaudi3_process_cs_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_cs_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_STLB:</span>
+<span class="diff-del">-		gaudi3_process_stlb_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_stlb_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_EDMA:</span>
+<span class="diff-del">-		gaudi3_process_edma_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_edma_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_SOB:</span>
+<span class="diff-del">-		gaudi3_process_sob_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_sob_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_MC:</span>
+<span class="diff-del">-		gaudi3_process_mc_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_mc_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_DEC:</span>
+<span class="diff-del">-		gaudi3_process_dec_sei_interrupt(config, intr_map, binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_dec_sei_interrupt(config, intr_map, binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_ARC_FARM:</span>
+<span class="diff-del">-		gaudi3_process_arcfarm_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_arcfarm_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_EDUP:</span>
+<span class="diff-del">-		gaudi3_process_edup_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_edup_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PSOC:</span>
+<span class="diff-del">-		gaudi3_process_psoc_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_psoc_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PARC:</span>
+<span class="diff-del">-		gaudi3_process_parc_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_parc_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_NIC:</span>
+<span class="diff-del">-		gaudi3_process_nic_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nic_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PCIE:</span>
+<span class="diff-del">-		gaudi3_process_pcie_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pcie_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PMMU:</span>
+<span class="diff-del">-		gaudi3_process_pmmu_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pmmu_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PDMA:</span>
+<span class="diff-del">-		gaudi3_process_pdma_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pdma_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_CPU:</span>
+<span class="diff-del">-		gaudi3_process_cpu_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_cpu_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_NCH:</span>
+<span class="diff-del">-		gaudi3_process_nch_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_nch_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_D2D_MAC:</span>
+<span class="diff-del">-		gaudi3_process_d2dmac_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_d2dmac_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_D2D_PHY:</span>
+<span class="diff-del">-		gaudi3_process_d2dphy_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_d2dphy_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_COMP_TYPE_PLL:</span>
+<span class="diff-del">-		gaudi3_process_pll_sei_interrupt(config, intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_pll_sei_interrupt(config, intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	default:</span>
+<span class="diff-ctx"> 		LOG_ERR(&quot;Interrupt index %d not supported  for comp_type: %d&quot;,</span>
+<span class="diff-hunk">@@ -4599,10 +4561,10 @@</span>
+<span class="diff-ctx"> 		gaudi3_process_rei_interrupt(config, &amp;binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_GRP_TYPE_SEI:</span>
+<span class="diff-del">-		gaudi3_process_sei_interrupt(config, &amp;intr_map, &amp;binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_sei_interrupt(config, &amp;intr_map, &amp;binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_GRP_TYPE_SPI:</span>
+<span class="diff-del">-		gaudi3_process_spi_interrupt(config, &amp;intr_map, &amp;binned_intr_map, action);</span>
+<span class="diff-add">+		gaudi3_process_spi_interrupt(config, &amp;intr_map, &amp;binned_intr_map);</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"> 	case INT_GRP_TYPE_ECO:</span>
+<span class="diff-ctx"> 		break;</span>
+<span class="diff-ctx"></span>
+</pre></div></div>
+        
+        <div class="messages"><h3>Review Messages</h3><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-21 11:25:27.091000000)</span><pre>Uploaded patch set 1.</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 11:25:34.514000000)</span><pre>Patch Set 1: Finished-1
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35961/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 11:31:15.676000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22280/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 11:31:15.738000000)</span><pre>Patch Set 1:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24729/ (3/3)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-21 11:33:48.492000000)</span><pre>Patch Set 2: Commit message was updated.</pre></div><div class="message"><strong>Pavan Sreenivas</strong> <span class="date">(2025-05-21 11:44:52.448000000)</span><pre>Patch Set 2: Code-Review+2</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-21 12:14:20.393000000)</span><pre>Patch Set 1: Finished+1 Verified+1
+
+Build Successful 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22280/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24729/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/35961/ : SUCCESS</pre></div><div class="message"><strong>Tamal Saha</strong> <span class="date">(2025-05-22 15:27:40.339000000)</span><pre>Patch Set 2:
+
+(1 comment)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-24 04:58:25.414000000)</span><pre>Patch Set 2:
+
+(1 comment)</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-24 04:59:04.733000000)</span><pre>Patch Set 2:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-24 04:59:10.505000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36062/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-24 05:04:22.767000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22353/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-24 05:04:22.770000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24809/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-24 06:00:46.462000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24809/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24809/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/26971/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/47891/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22353/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36062/ : SUCCESS</pre></div><div class="message"><strong>Akshay Pradip Bharad</strong> <span class="date">(2025-05-27 04:45:20.394000000)</span><pre>Patch Set 2:
+
+recheck</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 04:45:26.074000000)</span><pre>Patch Set 2: Finished-1 -Verified
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36141/ (1/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 04:50:29.545000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22404/ (2/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 04:50:29.569000000)</span><pre>Patch Set 2:
+
+Build Started https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24876/ (3/3)</pre></div><div class="message"><strong>Jenkins EMB Service Account</strong> <span class="date">(2025-05-27 06:08:05.965000000)</span><pre>Patch Set 2: Finished+1 Verified-1
+
+Build Unstable 
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24876/ : UNSTABLE
+
+Sub-job was unstable ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_zephyr_build_master_next/24876/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_zephyr_build_master_next/27032/ )
+
+script returned exit code 1 (or) code 3 (or) unknown exit code ( https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Tests/job/Test_Embedded_cpu_precommit_master_next/48030/ )
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Launchers/job/Launcher_Build_Embedded_u22_Test_Embedded_cpu_checkpatch_master_next/22404/ : SUCCESS
+
+https://sw-jenkins-ctrl08.habana-labs.com/job/Embedded/job/Build_Embedded_u22_master_next/36141/ : SUCCESS</pre></div></div>
+        
+        <div class="inline-comments"><h3>Inline Comments</h3><div class="file-comments"><h4>/COMMIT_MSG</h4><ul><li><strong>Tamal Saha</strong> (Line 7): is it allowed?</li><li><strong>Akshay Pradip Bharad</strong> (Line 7): Yes. if changes are not functional or minimal</li></ul></div></div>
+    </div>
+</body>
+</html>

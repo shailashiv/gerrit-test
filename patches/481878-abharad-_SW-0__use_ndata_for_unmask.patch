@@ -1,0 +1,35 @@
+From abeee93e165c16fd08ba3a12c59cc2d3a367297e Mon Sep 17 00:00:00 2001
+From: Akshay Pradip Bharad <apbharad@habana.ai>
+Date: Mon, 16 Jun 2025 19:52:45 +0300
+Subject: [PATCH] [SW-0] use ndata for unmask
+
+Change-Id: I643e0e481ecb08eafe61928c11b087a118d56ec9
+Signed-off-by: Akshay Pradip Bharad <apbharad@habana.ai>
+---
+
+diff --git a/arch/gaudi3/cpucp_info.c b/arch/gaudi3/cpucp_info.c
+index aa34755..af75f7a 100644
+--- a/arch/gaudi3/cpucp_info.c
++++ b/arch/gaudi3/cpucp_info.c
+@@ -58,19 +58,14 @@
+ 
+ 	struct hl_dev_config *cfg = hl_get_dev_cfg();
+ 	struct hl_ipm_mbx_config *mbx = &cfg->dev_data->evtmgmt;
+-	uint32_t reply;
+ 	int ret;
+ 
+-	ret = hl_mbx_send_event(mbx, HL_MBX_MSG_UNMASK_EVENT, &pkt->value, true, &reply, sizeof(uint32_t));
++	ret = hl_mbx_send_event(mbx, HL_MBX_MSG_UNMASK_EVENT, &pkt->value, true, NULL, sizeof(uint32_t));
+ 	if (ret) {
+ 		LOG_ERR("Unable to process unmask irq of event: %lld", pkt->value);
+ 		return cpucp_packet_fault;
+ 	}
+-
+-	if (reply)
+-		return cpucp_packet_fault;
+-	else
+-		return cpucp_packet_success;
++	return cpucp_packet_success;
+ }
+ 
+ enum cpucp_packet_rc unmask_razwi_irq_array(__unused struct cpucp_packet *pkt,

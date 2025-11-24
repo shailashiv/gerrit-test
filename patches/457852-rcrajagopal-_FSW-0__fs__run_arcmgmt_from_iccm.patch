@@ -1,0 +1,49 @@
+From 3cbac0270e9b0c8d3ec36f551c83c9c7e17878e7 Mon Sep 17 00:00:00 2001
+From: chandavath <rcrajagopal@habana.ai>
+Date: Tue, 22 Oct 2024 15:33:51 +0300
+Subject: [PATCH] [FSW-0] fs: run arcmgmt from iccm
+
+This patch creates a iccm hex files from arcmgmt zephyr_mgmt.bin,
+using this hex files, we can run arcmgmt app in ARC1 MGMT ICCM
+in palladium.
+
+Change-Id: I79932424a01c73467d85e79f31c595b53b78ad00
+Signed-off-by: chandavath <rcrajagopal@habana.ai>
+---
+
+diff --git a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+index 4d2cab1..5719242 100755
+--- a/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
++++ b/board/habanalabs/fs1_arc/fs1-post-image-spi-arc_global.sh
+@@ -21,6 +21,7 @@
+ PREBOOT_BINFILE=${PREBOOT_BINFILE:-preboot.bin}
+ PREBOOT_COMPUTE_BINFILE=${PREBOOT_COMPUTE_BINFILE:-preboot_compute.bin}
+ PCIE_PHY_BINFILE=${PCIE_PHY_BINFILE:-pcie_phy_fw.bin}
++ZEPHYR_MGMT_BINFILE=${ZEPHYR_MGMT_BINFILE:-zephyr_mgmt.bin}
+ 
+ #SECURITY_BOOT_MODE
+ SECURE_BOOT=1
+@@ -414,6 +415,11 @@
+ 		# convert compute die bootloader to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_compute_bootrom_hex.sh ${COMP_BOOTLOADER_BINFILE} fs1-${HL_TARGET}-bloader_comp
+ 		mv fs1-${HL_TARGET}-bloader*.hex ${HEXS_DIR}
++	
++		# convert mgmt_io.arc application to pallad hex images
++		${SCRIPTS_DIR}/palad/convert_app_to_ccm_hex.sh ${ZEPHYR_MGMT_BINFILE}
++		mv iccm0_0.hex ${HEXS_DIR}/mgmt_iccm0_0.hex
++		mv iccm0_1.hex ${HEXS_DIR}/mgmt_iccm0_1.hex
+ 
+ 		# convert preboot application to pallad hex images
+ 		${SCRIPTS_DIR}/palad/convert_app_to_ccm_hex.sh preboot.bin
+diff --git a/package/mgmt/mgmt.mk b/package/mgmt/mgmt.mk
+index 654d282..b849ee7 100644
+--- a/package/mgmt/mgmt.mk
++++ b/package/mgmt/mgmt.mk
+@@ -139,6 +139,7 @@
+ 
+ define MGMT_INSTALL_TARGET_CMDS
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.elf $(ELFS_DIR)/zephyr_$(MGMT_APP_NAME).elf
++	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.bin $(BINS_DIR)/zephyr_$(MGMT_APP_NAME).bin
+ 	@$(INSTALL) -D -m 0644 $(@D)/build/zephyr/zephyr.stat $(STATS_DIR)/zephyr_$(MGMT_APP_NAME).stat
+ endef
+ 

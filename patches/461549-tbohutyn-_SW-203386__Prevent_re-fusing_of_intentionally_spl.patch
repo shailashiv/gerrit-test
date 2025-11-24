@@ -1,0 +1,81 @@
+From 1e7c2c719b62c0f920912957567e91b24a6191f3 Mon Sep 17 00:00:00 2001
+From: Tomasz Bohutyn <tbohutyn@habana.ai>
+Date: Thu, 07 Nov 2024 13:31:02 +0100
+Subject: [PATCH] [SW-203386] Prevent re-fusing of intentionally split partitions
+
+Change-Id: I818323376ba745182e84b70fa369e16b3baf0593
+---
+
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/utils.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/utils.py
+index d5a66d2..8eeeb58 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/utils.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/_passes/utils.py
+@@ -40,6 +40,7 @@
+     is_dynamic: bool
+     stage: OptimizationPassPlacement
+     current_partitions: List
++    current_partitions_non_mergeable: List
+     habana_partitioner: HabanaPartitioner = None
+     is_submod: bool = False
+ 
+diff --git a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+index 03aa0af..cd9db1b 100644
+--- a/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
++++ b/python_packages/habana_frameworks/torch/dynamo/compile_backend/passes.py
+@@ -409,6 +409,7 @@
+         is_dynamic,
+         stage,
+         None,
++        None,
+     )
+ 
+     def run_passes(ctx: OptimizerContext):
+@@ -464,6 +465,7 @@
+                 ctx.is_backward,
+                 ctx.is_dynamic,
+                 ctx.stage,
++                None,
+                 None,
+                 None,
+                 True,
+@@ -997,16 +999,18 @@
+     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+     assert ctx.graph_module is not None
+     assert ctx.current_partitions is None
++    assert ctx.current_partitions_non_mergeable is None
+     assert ctx.habana_partitioner is None
+ 
+     ctx.current_partitions = []
++    ctx.current_partitions_non_mergeable = []
+     if hpu_backend_config.enable_allreduce_graph_split:
+         allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
+         cls = FusedCollectiveOperatorSupport
+         ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
+         for allreduce in allreduces:
+             setattr(cls, "allreduce_name", allreduce.name)
+-            ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
++            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
+     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
+ 
+@@ -1107,7 +1111,7 @@
+ 
+     assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
+     partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
+-    for partition in ctx.current_partitions:
++    for partition in ctx.current_partitions + ctx.current_partitions_non_mergeable:
+         id = partition.id
+         partitions_by_id[id] = partition
+         for node in list(partition.nodes):
+@@ -1133,9 +1137,10 @@
+     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+     assert ctx.graph_module is not None
+     assert ctx.current_partitions is not None
++    assert ctx.current_partitions_non_mergeable is not None
+     assert ctx.habana_partitioner is not None
+ 
+-    ctx.habana_partitioner.fuse_partitions(ctx.current_partitions)
++    ctx.habana_partitioner.fuse_partitions(ctx.current_partitions + ctx.current_partitions_non_mergeable)
+ 
+     return True
+ 

@@ -1,0 +1,190 @@
+From 11a175f304c23afce37775994eab1029fdb48040 Mon Sep 17 00:00:00 2001
+From: Avi <amarom@habana.ai>
+Date: Thu, 29 May 2025 11:03:42 +0300
+Subject: [PATCH] [HLS3[Tets] HIB Tests
+
+Change-Id: Ib1d940e204e244afa1eb193049857643f36017cb
+Signed-off-by: Avi <amarom@habana.ai>
+---
+
+diff --git a/pytest.ini b/pytest.ini
+index 7e6fa8f..adf5af6 100644
+--- a/pytest.ini
++++ b/pytest.ini
+@@ -103,6 +103,7 @@
+     UBB_cpld_lock: 'Test UBB cpld lock'
+     UBB_cpld_update : 'Test UBB cpld update'
+     HLB_ft4 : 'Test ft4 production tests'
++    HIB_test: 'HIB tests'
+ 
+ addopts = --capture=tee-sys
+ 
+diff --git a/tests/HLS3/UBB/test_bmc_i2c_access.py b/tests/HLS3/UBB/test_bmc_i2c_access.py
+index 9c2eb4b..13f52ab 100644
+--- a/tests/HLS3/UBB/test_bmc_i2c_access.py
++++ b/tests/HLS3/UBB/test_bmc_i2c_access.py
+@@ -23,6 +23,7 @@
+ logger_manager = get_log_manager()
+ logger = logging.getLogger(__name__)
+ 
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_pt_bmc_exp
+ @pytest.mark.HLS3_ft1_bmc
+diff --git a/tests/HLS3/test_bmc_ddr_access.py b/tests/HLS3/test_bmc_ddr_access.py
+index 9ad97fe..0441f96 100644
+--- a/tests/HLS3/test_bmc_ddr_access.py
++++ b/tests/HLS3/test_bmc_ddr_access.py
+@@ -51,6 +51,7 @@
+                             'CompareOR', 'CompareAND', 'SequentialIncrement', 'SolidBits', 'BlockSequential',
+                             'Checkerboard', 'BitSpread', 'BitFlip', 'WalkingOnes', 'WalkingZeroes']
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc
+     @pytest.mark.HLS3_HLB_pt_bmc
+diff --git a/tests/HLS3/test_bmc_gpios.py b/tests/HLS3/test_bmc_gpios.py
+index 539d26c..b418f37 100644
+--- a/tests/HLS3/test_bmc_gpios.py
++++ b/tests/HLS3/test_bmc_gpios.py
+@@ -73,6 +73,7 @@
+                         read_value='Exception:' + str(exception), result='FAIL')
+             pytest.fail()
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc
+     @pytest.mark.HLS3_HLB_pt_bmc
+diff --git a/tests/HLS3/test_bmc_oams_pcie_sw_uart_access.py b/tests/HLS3/test_bmc_oams_pcie_sw_uart_access.py
+index 8b7116c..16ed5f4 100644
+--- a/tests/HLS3/test_bmc_oams_pcie_sw_uart_access.py
++++ b/tests/HLS3/test_bmc_oams_pcie_sw_uart_access.py
+@@ -28,6 +28,7 @@
+ from setup_manager.options import get_mode
+ import time
+ import pytest
++
+ @pytest.mark.HLS3_pt_bmc
+ class TestBmcOamsPcieSwUartAccess(TestBase):
+     @classmethod
+@@ -284,6 +285,7 @@
+             # Wait after card power cycle
+             time.sleep(self.test_options.wait_after_card_power_cycle)
+ 
++
+     @pytest.mark.HLS3_pt_bmc
+     def test_bmc_oams_pcie_sw_uart_access(self):
+         self.bmc_cli.clear_log_console()
+@@ -346,6 +348,7 @@
+ 
+             self._jornal_action("start", f"OAM{i}")
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_ft1_bmc
+     def test_bmc_pcie_sw_uart_access(self):
+ 
+diff --git a/tests/HLS3/test_cdfp_present.py b/tests/HLS3/test_cdfp_present.py
+index 48b28db..2e45a4e 100644
+--- a/tests/HLS3/test_cdfp_present.py
++++ b/tests/HLS3/test_cdfp_present.py
+@@ -81,6 +81,7 @@
+                     operation='executing test cdfp present')
+         self._verify_cdfp_connection(self.test_options.num_of_optional_cdfps)
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_ft1_bmc
+     def test_cdfp_present_prod(self):
+         hlsa_logger(level='debug', ident='Description', test_code='CdfpPresent',
+diff --git a/tests/HLS3/test_fan_pwm_control.py b/tests/HLS3/test_fan_pwm_control.py
+index 3ca0e8f..58f73f0 100644
+--- a/tests/HLS3/test_fan_pwm_control.py
++++ b/tests/HLS3/test_fan_pwm_control.py
+@@ -21,7 +21,7 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
+-
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_ft1_bmc
+ @pytest.mark.HLB_ft1_bmc
+diff --git a/tests/HLS3/test_hib_fpga_gpios.py b/tests/HLS3/test_hib_fpga_gpios.py
+index 98adc0d..e102bc5 100644
+--- a/tests/HLS3/test_hib_fpga_gpios.py
++++ b/tests/HLS3/test_hib_fpga_gpios.py
+@@ -29,7 +29,7 @@
+ log_manager = options.get_log_manager()
+ logger = logging.getLogger(__name__)
+ 
+-
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_ft1_bmc
+ @pytest.mark.HLS3_HLB_pt_bmc
+@@ -82,6 +82,7 @@
+                         read_value='Exception:' + str(exception), result='FAIL')
+             pytest.fail()
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc
+     def test_hib_gpios(self):
+diff --git a/tests/HLS3/test_hls3_eeprom_read_write.py b/tests/HLS3/test_hls3_eeprom_read_write.py
+index 76b4cca..ee6aae2 100644
+--- a/tests/HLS3/test_hls3_eeprom_read_write.py
++++ b/tests/HLS3/test_hls3_eeprom_read_write.py
+@@ -320,7 +320,7 @@
+         hlsa_checker.check_status_is_true(result.returncode == 0, ident='Description', test_code='EEprom',
+                                           operation='remove local bin file %s' % (self.bin_file,))
+ 
+-
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc
+     def test_hib_eeprom_write(self):
+@@ -330,6 +330,7 @@
+         self.current_bus_and_addrs = self.get_eeprom_bus_and_addrs_values(self.files_dict['HIB_FRU_EEPROM'])
+         self._test_eeprom_write("HIB")
+ 
++    @pytest.mark.HIB_test
+     @pytest.mark.HLS3_pt_bmc
+     @pytest.mark.HLS3_ft1_bmc
+     def test_hib_eeprom_read(self):
+diff --git a/tests/HLS3/test_information.py b/tests/HLS3/test_information.py
+index 6fb3b34..6ba5eb7 100644
+--- a/tests/HLS3/test_information.py
++++ b/tests/HLS3/test_information.py
+@@ -27,7 +27,7 @@
+ 
+ logger: Logger = logging.getLogger(__name__)
+ 
+-
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_pt_bmc_exp
+ @pytest.mark.HLS3_pt_i2c
+diff --git a/tests/HLS3/test_set_get_rtc.py b/tests/HLS3/test_set_get_rtc.py
+index 88029a8..b19719d 100644
+--- a/tests/HLS3/test_set_get_rtc.py
++++ b/tests/HLS3/test_set_get_rtc.py
+@@ -22,7 +22,7 @@
+ import time
+ import pytest
+ 
+-
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_ft1_bmc
+ @pytest.mark.HLS3_HLB_pt_bmc
+diff --git a/tests/HLS3/test_version.py b/tests/HLS3/test_version.py
+index 66a7727..37fd404 100644
+--- a/tests/HLS3/test_version.py
++++ b/tests/HLS3/test_version.py
+@@ -44,6 +44,7 @@
+ import time
+ import re
+ from tests.HLS3.test_run_rt_engine import TestRunRtEngine as rt
++@pytest.mark.HIB_test
+ @pytest.mark.HLS3_pt_bmc
+ @pytest.mark.HLS3_ft1_bmc
+ @pytest.mark.HLS3_ft_system_verify

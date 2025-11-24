@@ -1,0 +1,159 @@
+From fd2c8835f69d065550f1c3b75c199b54bedab5df Mon Sep 17 00:00:00 2001
+From: Rajesh Sanga <rsanga@habana.ai>
+Date: Wed, 09 Jul 2025 10:43:22 +0300
+Subject: [PATCH] [SW-233360] Upgrade protobuf and requests packages
+
+Change-Id: I7b265e7b225bb304eda4ab813ab13ebde232bf64
+Signed-off-by: Rajesh Sanga <rsanga@habana.ai>
+---
+
+diff --git a/dockerfiles/base/Dockerfile.rhel8.6 b/dockerfiles/base/Dockerfile.rhel8.6
+index 2db29da..3ea36c7 100644
+--- a/dockerfiles/base/Dockerfile.rhel8.6
++++ b/dockerfiles/base/Dockerfile.rhel8.6
+@@ -140,8 +140,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3 -m pip install --upgrade Jinja2
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/Dockerfile.rhel9.2 b/dockerfiles/base/Dockerfile.rhel9.2
+index 0063b71..a5f1e1b 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.2
++++ b/dockerfiles/base/Dockerfile.rhel9.2
+@@ -128,8 +128,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3 -m pip install --upgrade Jinja2
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ RUN ln -s /usr/bin/python3 /usr/bin/python
+ 
+diff --git a/dockerfiles/base/Dockerfile.rhel9.4 b/dockerfiles/base/Dockerfile.rhel9.4
+index 9dc707b..e222530 100644
+--- a/dockerfiles/base/Dockerfile.rhel9.4
++++ b/dockerfiles/base/Dockerfile.rhel9.4
+@@ -145,8 +145,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3 -m pip install --upgrade Jinja2
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ RUN ln -s /usr/bin/python3 /usr/bin/python
+ 
+diff --git a/dockerfiles/base/Dockerfile.suse15.5 b/dockerfiles/base/Dockerfile.suse15.5
+index ebbc445..be18264 100644
+--- a/dockerfiles/base/Dockerfile.suse15.5
++++ b/dockerfiles/base/Dockerfile.suse15.5
+@@ -77,8 +77,8 @@
+ RUN wget https://bootstrap.pypa.io/get-pip.py && \
+     python3 get-pip.py && \
+     rm -f get-pip.py && \
+-    python3 -m pip install setuptools==76.1.0 wheel && \
+-    python3 -m pip install --upgrade Jinja2
++    python3 -m pip install setuptools==79.0.1 wheel && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.tencentos3.1 b/dockerfiles/base/Dockerfile.tencentos3.1
+index d66b5df..c5724bd 100644
+--- a/dockerfiles/base/Dockerfile.tencentos3.1
++++ b/dockerfiles/base/Dockerfile.tencentos3.1
+@@ -119,8 +119,8 @@
+     cd / && \
+     rm -rf /tmp/main.zip /tmp/hccl_ofi_wrapper-main
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3 -m pip install --upgrade Jinja2
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ RUN python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple
+diff --git a/dockerfiles/base/Dockerfile.ubuntu22.04 b/dockerfiles/base/Dockerfile.ubuntu22.04
+index 03bc946..8f67391 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu22.04
++++ b/dockerfiles/base/Dockerfile.ubuntu22.04
+@@ -59,8 +59,8 @@
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ ENV PIP_NO_CACHE_DIR=on
+ 
+-RUN python3 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3 -m pip install --upgrade Jinja2
++RUN python3 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm install_efa.sh && rm -rf /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/base/Dockerfile.ubuntu22.04-py311 b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+index 7b5dab8..2322758 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu22.04-py311
++++ b/dockerfiles/base/Dockerfile.ubuntu22.04-py311
+@@ -66,10 +66,10 @@
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ ENV PIP_NO_CACHE_DIR=on
+ 
+-RUN python3.10 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3.11 -m pip install pip==24.2 setuptools==75.1.0 wheel==0.44.0 && \
+-    python3.10 -m pip install --upgrade Jinja2 && \
+-    python3.11 -m pip install --upgrade Jinja2
++RUN python3.10 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3.11 -m pip install pip==24.2 setuptools==79.0.1 wheel==0.44.0 && \
++    python3.10 -m pip install --upgrade Jinja2 requests protobuf && \
++    python3.11 -m pip install --upgrade Jinja2 requests protobuf
+ 
+ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2 && \
+     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
+diff --git a/dockerfiles/base/Dockerfile.ubuntu24.04 b/dockerfiles/base/Dockerfile.ubuntu24.04
+index c008035..259a278 100644
+--- a/dockerfiles/base/Dockerfile.ubuntu24.04
++++ b/dockerfiles/base/Dockerfile.ubuntu24.04
+@@ -59,8 +59,8 @@
+ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ ENV PIP_NO_CACHE_DIR=on
+ 
+-RUN python3 -m pip install --no-cache-dir pip==24.0 setuptools==75.1.0 wheel==0.42.0 --break-system-packages && \
+-    python3 -m pip install --no-cache-dir --upgrade Jinja2 --break-system-packages
++RUN python3 -m pip install --no-cache-dir pip==24.0 setuptools==79.0.1 wheel==0.42.0 --break-system-packages && \
++    python3 -m pip install --no-cache-dir --upgrade Jinja2 requests protobuf --break-system-packages
+ 
+ COPY install_efa.sh .
+ RUN ./install_efa.sh && rm -f install_efa.sh /etc/ld.so.conf.d/efa.conf /etc/profile.d/efa.sh
+diff --git a/dockerfiles/triton/Dockerfile b/dockerfiles/triton/Dockerfile
+index e16ec64..b8b1bad 100644
+--- a/dockerfiles/triton/Dockerfile
++++ b/dockerfiles/triton/Dockerfile
+@@ -57,7 +57,7 @@
+     apt-get clean && rm -rf /var/lib/apt/lists/*
+ 
+ RUN python3 -m pip install pip==24.2 --disable-pip-version-check && \
+-    python3 -m pip install setuptools==75.1.0 --disable-pip-version-check && \
++    python3 -m pip install setuptools==79.0.1 --disable-pip-version-check && \
+     python3 -m pip install habana_media_loader=="${VERSION}"."${REVISION}" \
+     --extra-index-url https://"${ARTIFACTORY_URL}"/artifactory/api/pypi/"${PYPI_REPO_NAME}"/simple --disable-pip-version-check
+ 
+diff --git a/installer/src/initialize.sh b/installer/src/initialize.sh
+index 13126b1..eb040ac 100644
+--- a/installer/src/initialize.sh
++++ b/installer/src/initialize.sh
+@@ -71,7 +71,7 @@
+                 HABANALABS_SRC_DEPENDENCIES="libjemalloc2"
+                 MIN_PYTHON_VER="3.12"
+                 HABANALABS_PT_PIP_VERSION="24.2"
+-                HABANALABS_PT_SETUPTOOLS_VERSION="75.1.0"
++                HABANALABS_PT_SETUPTOOLS_VERSION="79.0.1"
+                 HABANALABS_PIP_VERSION="${HABANALABS_PT_PIP_VERSION}"
+                 SETUPTOOLS_VERSION="${HABANALABS_PT_SETUPTOOLS_VERSION}"
+                 HABANALABS_PT_DEPENDENCIES="${BASIC_SCRIPT_DEPENDENCIES} unzip libcurl4t64 moreutils iproute2 libcairo2-dev libglib2.0-dev libselinux1-dev libnuma-dev libpcre2-dev libatlas-base-dev libjpeg-dev liblapack-dev libnuma-dev google-perftools numactl libopenblas-dev"

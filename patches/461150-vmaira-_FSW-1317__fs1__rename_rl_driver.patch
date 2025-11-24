@@ -1,0 +1,1787 @@
+From 13699089667b31a98feb91ce9def7795a4e6fe86 Mon Sep 17 00:00:00 2001
+From: Varsha Maira <vmaira@habana.ai>
+Date: Wed, 06 Nov 2024 11:16:00 +0200
+Subject: [PATCH] [FSW-1317] fs1: rename rl driver
+
+This patch renames rate limiter driver from 'hl_rl' to 'rl'.
+This is in preparation for addition of rl driver for falcon
+shores
+
+Change-Id: I81036bc9cedb7bb9d8c9978cddd14e453a4e07e6
+Signed-off-by: Varsha Maira <vmaira@habana.ai>
+---
+
+diff --git a/drivers/clock_control/CMakeLists.txt b/drivers/clock_control/CMakeLists.txt
+index fa2c32b..da75c41 100644
+--- a/drivers/clock_control/CMakeLists.txt
++++ b/drivers/clock_control/CMakeLists.txt
+@@ -24,7 +24,7 @@
+ zephyr_library_sources_ifdef(CONFIG_CLOCK_CONTROL_HL_CLK 	      clock_control_hl_clk.c)
+ zephyr_library_sources_ifdef(CONFIG_CLOCK_CONTROL_HL_PLL 	      clock_control_hl_pll.c)
+ zephyr_library_sources_ifdef(CONFIG_CLOCK_CONTROL_HL_RL         clock_control_hl_rl.c)
+-zephyr_library_sources_ifdef(CONFIG_CLOCK_CONTROL_HL_RL_V2      clock_control_hl_rl_v2.c)
++zephyr_library_sources_ifdef(CONFIG_CLOCK_CONTROL_HL_RL_V2      clock_control_rl.c)
+ if(CONFIG_HL_DUP_ENG_DRIVER)
+ add_compile_definitions(PWRBRK_GROUP_ID=${PWRBRK_GROUP_ID})
+ endif()
+diff --git a/drivers/clock_control/Kconfig b/drivers/clock_control/Kconfig
+index 01a84d6..42184a0 100644
+--- a/drivers/clock_control/Kconfig
++++ b/drivers/clock_control/Kconfig
+@@ -50,7 +50,7 @@
+ 
+ source "drivers/clock_control/Kconfig.hl_pll"
+ 
+-source "drivers/clock_control/Kconfig.hl_rl"
++source "drivers/clock_control/Kconfig.rl"
+ 
+ source "drivers/clock_control/Kconfig.esp32"
+ 
+diff --git a/drivers/clock_control/Kconfig.hl_rl b/drivers/clock_control/Kconfig.hl_rl
+deleted file mode 100644
+index e4ae2d7..0000000
+--- a/drivers/clock_control/Kconfig.hl_rl
++++ /dev/null
+@@ -1,9 +0,0 @@
+-# Habanalabs rl driver
+-
+-# Copyright 2021 HabanaLabs, Ltd.
+-# SPDX-License-Identifier: Apache-2.0
+-
+-config CLOCK_CONTROL_HL_RL_V2
+-	bool "HL RL driver for Gaudi2 and Gaudi3"
+-	help
+-	  Enable support for HabanaLabs RL driver for Gaudi2 and Gaudi3 devices.
+diff --git a/drivers/clock_control/Kconfig.rl b/drivers/clock_control/Kconfig.rl
+new file mode 100644
+index 0000000..f3ce17e
+--- /dev/null
++++ b/drivers/clock_control/Kconfig.rl
+@@ -0,0 +1,9 @@
++# Intel Accelerator/GPU RL driver
++
++# Copyright 2021 HabanaLabs, Ltd.
++# SPDX-License-Identifier: Apache-2.0
++
++config CLOCK_CONTROL_HL_RL_V2
++	bool "RL driver for HabanaLabs Gaudi2, Gaudi3 and Intel Falcon Shores"
++	help
++	  Enable support for RL driver for Gaudi2, Gaudi3 and Falcon Shores devices.
+diff --git a/drivers/clock_control/clock_control_hl_rl_v2.c b/drivers/clock_control/clock_control_hl_rl_v2.c
+deleted file mode 100644
+index b03e661..0000000
+--- a/drivers/clock_control/clock_control_hl_rl_v2.c
++++ /dev/null
+@@ -1,806 +0,0 @@
+-/*
+- * Copyright 2021 HabanaLabs, Ltd.
+- *
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-#include <stdlib.h>
+-#include <drivers/clock_control/hl_rl.h>
+-
+-#define LOG_LEVEL CONFIG_CLOCK_CONTROL_LOG_LEVEL
+-#include <logging/log.h>
+-#include <common_utils.h>
+-#include <hl_fw_if.h>
+-LOG_MODULE_REGISTER(clock_control_hl_rl);
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-#include <dup_api.h>
+-#include <hl_utils.h>
+-
+-#define DUP_GRP_MAX_ADDR	32
+-#endif
+-#include <hl_devs.h>
+-
+-#define DT_DRV_COMPAT hl_rl
+-
+-#define DEV_CFG(dev) \
+-	((const struct hl_rl_drv_cfg_info * const)(dev)->config)
+-
+-#define DEV_DATA(dev) \
+-	((struct hl_rl_drv_data * const)(dev)->data)
+-
+-#define DEV_ID(dev) \
+-	(DEV_CFG(dev)->id)
+-
+-#define HL_RL_LOG_ERR(...) LOG_ERR(__VA_ARGS__)
+-#define HL_RL_LOG_WRN(...) LOG_WRN(__VA_ARGS__)
+-#define HL_RL_LOG_INF(...) LOG_INF(__VA_ARGS__)
+-#define HL_RL_LOG_DBG(...) LOG_DBG(__VA_ARGS__)
+-
+-#define HL_RL_ERR(fmt, ...) HL_RL_LOG_ERR("%s:%d:" fmt, \
+-				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
+-#define HL_RL_WRN(fmt, ...) HL_RL_LOG_WRN("%s:%d:" fmt, \
+-				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
+-#define HL_RL_INF(fmt, ...) HL_RL_LOG_INF("%s:%d:" fmt, \
+-				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
+-#define HL_RL_DBG(fmt, ...) HL_RL_LOG_DBG("%s:%d:" fmt, \
+-				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
+-
+-#define CTRL_LO_EU_RL_ENABLE_V_MASK 0x1
+-#define CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT 0
+-#define CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK 0xFF
+-#define CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT 8
+-#define CTRL_LO_EU_RL_CFG_TIMEOUT_MASK 0xFF00
+-#define CTRL_LO_EU_RL_CFG_SATURATION_SHIFT 16
+-#define CTRL_LO_EU_RL_CFG_SATURATION_MASK 0xFF0000
+-#define CTRL_LO_EU_RL_CFG_DATA_SIZE_SHIFT 24
+-#define CTRL_LO_EU_RL_CFG_DATA_SIZE_MASK 0xFF000000
+-
+-#define CFG_IQ_RL_EN_V_SHIFT 0
+-#define CFG_IQ_RL_EN_V_MASK 0x1
+-#define CFG_IQ_RL_SAT_V_SHIFT 0
+-#define CFG_IQ_RL_SAT_V_MASK 0xFF
+-#define CFG_IQ_RL_RST_TOKEN_V_SHIFT 0
+-#define CFG_IQ_RL_RST_TOKEN_V_MASK 0xFF
+-#define CFG_IQ_RL_TIMEOUT_V_SHIFT 0
+-#define CFG_IQ_RL_TIMEOUT_V_MASK 0xFF
+-
+-#define MSTR_IF_CORE_HBW_RL_SATURATION_SHIFT 0
+-#define MSTR_IF_CORE_HBW_RL_SATURATION_MASK 0xFF
+-#define MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT 8
+-#define MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK 0xFF00
+-#define MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT 16
+-#define MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK 0xFF0000
+-#define MSTR_IF_CORE_HBW_RL_EN_SHIFT 24
+-#define MSTR_IF_CORE_HBW_RL_EN_MASK 0x1000000
+-
+-/* Rate limiter settings differ in the different blocks */
+-enum rl_gaudi2_block_conf {
+-	CTRL_MSTR_IF,
+-	CTRL_LO,
+-	CFG,
+-};
+-
+-struct hl_mstr_if_rl_regs {
+-	uint32_t core_hbw_rl_wr;
+-	uint32_t core_hbw_rl_rd;
+-};
+-
+-struct hl_ctrl_lo_rl_regs {
+-	uint32_t eu_rl_enable;
+-	uint32_t eu_rl_token_sel;
+-	uint32_t eu_rl_cfg;
+-};
+-
+-struct hl_cfg_rl_regs {
+-	uint32_t iq_rl_en;
+-	uint32_t iq_rl_sat;
+-	uint32_t iq_rl_rst_token;
+-	uint32_t iq_rl_timeout;
+-};
+-
+-static int hl_rl_off(const struct device *dev,
+-			clock_control_subsys_t sub_system)
+-{
+-	/* no action needed related with rate limit for clock off */
+-	return 0;
+-}
+-
+-static int hl_rl_get_rate(const struct device *dev,
+-		clock_control_subsys_t sub_system, uint32_t *rate)
+-{
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-
+-	*rate =  data->rate;
+-
+-	return 0;
+-}
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-static int hl_rl_prepare_dup_eng_group(const struct hl_rl_drv_cfg_info *const config,
+-				uint8_t group, uint32_t *base_addr, uint32_t num_base)
+-{
+-	int ret = 0;
+-
+-	ret = dup_program_address(config->dup_eng_dev, DUP_MULTICAST, group, base_addr, num_base);
+-	if (ret) {
+-		LOG_ERR("%s: Failed to program addr in dup engine ret = %d", __func__, ret);
+-		return ret;
+-	}
+-
+-	ret = dup_program_mask(config->dup_eng_dev, group, GEN_BIT_MASK(num_base));
+-	if (ret) {
+-		LOG_ERR("%s: Failed to program mask in dup engine ret = %d", __func__, ret);
+-		return ret;
+-	}
+-
+-	return ret;
+-}
+-
+-static int hl_rl_prepare_dup_eng_master_group(const struct hl_rl_drv_cfg_info *const config,
+-				uint8_t master_group, uint32_t *dup_grp_id_list, uint32_t num_grps)
+-{
+-	int ret = 0;
+-
+-	ret = dup_master_program_address(config->dup_eng_dev, master_group, dup_grp_id_list,
+-		num_grps);
+-	if (ret) {
+-		LOG_ERR("%s: Failed to program addr in master dup group ret = %d", __func__, ret);
+-		return ret;
+-	}
+-
+-	ret = dup_program_mask(config->dup_eng_dev, master_group, GEN_BIT_MASK(num_grps));
+-	if (ret) {
+-		LOG_ERR("%s: Failed to program mask in master dup group ret = %d", __func__, ret);
+-		return ret;
+-	}
+-
+-	return ret;
+-}
+-
+-static int hl_rl_prepare_dup_eng(const struct hl_rl_drv_cfg_info *const config,
+-				struct hl_rl_drv_data * const data)
+-{
+-	int ret = 0;
+-	uint32_t num_base = 0, grp_list_idx, reg_idx, remaining_addr;
+-	uint32_t base_addr[DUP_GRP_MAX_ADDR];
+-	uint8_t num_required_grps;
+-
+-	num_required_grps = config->regs_num / DUP_GRP_MAX_ADDR +
+-			((config->regs_num % DUP_GRP_MAX_ADDR) > 0) ? 1 : 0;
+-
+-	if (config->dup_grp_num < num_required_grps) {
+-		LOG_ERR("%s: Insufficient group count for rl config", __func__);
+-		return -1;
+-	}
+-
+-	for (grp_list_idx = 0; grp_list_idx < num_required_grps; grp_list_idx++) {
+-		num_base = 0;
+-		memset(base_addr, 0, sizeof(base_addr));
+-		remaining_addr = config->regs_num - grp_list_idx * DUP_GRP_MAX_ADDR;
+-
+-		for (reg_idx = 0; reg_idx <  MIN(DUP_GRP_MAX_ADDR, remaining_addr) ; reg_idx++) {
+-			if (!(config->valid_units & BIT(reg_idx)))
+-				continue;
+-
+-			base_addr[reg_idx] = (mem_addr_t)config->base[reg_idx +
+-				grp_list_idx * DUP_GRP_MAX_ADDR];
+-			num_base++;
+-		}
+-
+-		ret = hl_rl_prepare_dup_eng_group(config, config->dup_grp_id_list[grp_list_idx],
+-					(uint32_t *)base_addr, num_base);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	if (num_required_grps > 1) {
+-		ret = hl_rl_prepare_dup_eng_master_group(config, config->dup_master_grp_id,
+-					(uint32_t *)config->dup_grp_id_list, num_required_grps);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	data->dup_grp_id = (num_required_grps > 1) ?
+-			config->dup_master_grp_id :
+-			config->dup_grp_id_list[0];
+-
+-	return ret;
+-}
+-
+-static int hl_rl_dup_program_data(const struct device *dup_eng_dev, uint8_t dup_grp_id,
+-		uint16_t offset, uint32_t val)
+-{
+-	int ret;
+-
+-	ret = dup_program_data(dup_eng_dev, DUP_MULTICAST, dup_grp_id, offset, val);
+-	if (ret) {
+-		LOG_ERR("%s: Failed to program data in dup engine ret = %d", __func__, ret);
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-static int hl_mstr_if_rl_on(const struct device *dev)
+-{
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t cfg = 0;
+-	int ret;
+-	uint16_t offset;
+-
+-	offset = offsetof(struct hl_mstr_if_rl_regs, core_hbw_rl_rd);
+-	cfg = data->mstr_if_hbw_rl_rd;
+-	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+-	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+-	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+-	if (ret < 0)
+-		return ret;
+-
+-	offset = offsetof(struct hl_mstr_if_rl_regs, core_hbw_rl_wr);
+-	cfg = data->mstr_if_hbw_rl_wr;
+-	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+-	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+-	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+-	return ret;
+-}
+-#else
+-static int hl_mstr_if_rl_on(const struct device *dev)
+-{
+-	uint32_t reset_val, max_timeout, i;
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t cfg = 0;
+-
+-	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
+-
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct hl_mstr_if_rl_regs *)
+-			(config->base[i]);
+-
+-		cfg = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
+-		cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+-		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+-		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
+-
+-		cfg = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
+-		cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
+-		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+-		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
+-		cfg = 0;
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-static int hl_ctrl_lo_rl_on(const struct device *dev)
+-{
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t cfg = 0;
+-	uint16_t offset = offsetof(struct hl_ctrl_lo_rl_regs, eu_rl_cfg);
+-
+-	cfg = data->eu_rl_cfg_val;
+-	cfg &= ~(CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK | CTRL_LO_EU_RL_CFG_TIMEOUT_MASK);
+-	cfg |= (data->reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
+-	cfg |= (data->max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
+-
+-	return hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
+-}
+-#else
+-static int hl_ctrl_lo_rl_on(const struct device *dev)
+-{
+-	uint32_t reset_val, max_timeout, i;
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t cfg = 0;
+-
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct hl_ctrl_lo_rl_regs *)
+-			(config->base[i]);
+-
+-		cfg = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_cfg);
+-		cfg &= ~(CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK | CTRL_LO_EU_RL_CFG_TIMEOUT_MASK);
+-		cfg |= (reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
+-		cfg |= (max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->eu_rl_cfg);
+-		cfg = 0;
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-static int hl_cfg_rl_on(const struct device *dev)
+-{
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	uint16_t offset;
+-	int ret;
+-
+-	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_rst_token);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
+-		data->reset_val);
+-	if (ret < 0)
+-		return ret;
+-
+-	/* no need to update max_timeout if it's already set */
+-	if (data->last_max_timeout == data->max_timeout)
+-		return ret;
+-
+-	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_timeout);
+-	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
+-		data->max_timeout);
+-	if (ret == 0)
+-		data->last_max_timeout = data->max_timeout;
+-
+-	return ret;
+-}
+-#else
+-static int hl_cfg_rl_on(const struct device *dev)
+-{
+-	uint32_t reset_val, max_timeout, i;
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	volatile struct hl_cfg_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct hl_cfg_rl_regs *)
+-			(config->base[i]);
+-
+-		sys_write32(reset_val, (mem_addr_t) &reg_base_pu->iq_rl_rst_token);
+-		sys_write32(max_timeout, (mem_addr_t) &reg_base_pu->iq_rl_timeout);
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
+-/*
+- * 1.	Set max BW coefficients to all RLs
+- * 2.	Enable the RL.
+- */
+-static int mstr_if_init_rl_reg_once(const struct device *dev)
+-{
+-	int32_t max_sat, reset_val, max_timeout, i;
+-	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	uint32_t cfg = 0;
+-	int ret = 0;
+-
+-	max_sat = data->max_sat;
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct  hl_mstr_if_rl_regs *)
+-			(config->base[i]);
+-		cfg |= (max_sat << MSTR_IF_CORE_HBW_RL_SATURATION_SHIFT);
+-		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
+-		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
+-		cfg = 0;
+-	}
+-
+-	/* Enable RL */
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_mstr_if_rl_regs *)
+-			 (config->base[i]));
+-		sys_rmwrite32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr, 1,
+-						MSTR_IF_CORE_HBW_RL_EN_MASK);
+-		sys_rmwrite32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd, 1,
+-						MSTR_IF_CORE_HBW_RL_EN_MASK);
+-	}
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-	ret = hl_rl_prepare_dup_eng(config, data);
+-
+-	/*
+-	 * Store mstr_if,core_hbw_rl_rd and core_hbw_rl_wr value, to be used later
+-	 * in fn: hl_mstr_if_rl_on()
+-	 */
+-	data->mstr_if_hbw_rl_rd =
+-		((volatile struct hl_mstr_if_rl_regs *) (config->base[0]))->core_hbw_rl_rd;
+-	data->mstr_if_hbw_rl_wr =
+-		((volatile struct hl_mstr_if_rl_regs *) (config->base[0]))->core_hbw_rl_wr;
+-#endif
+-
+-	return ret;
+-}
+-
+-/*
+- * 1.	Set max BW coefficients to all RLs
+- * 2.	Enable the RL.
+- */
+-static int ctrl_lo_init_rl_reg_once(const struct device *dev)
+-{
+-	int32_t max_sat, reset_val, max_timeout, i;
+-	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	uint32_t cfg;
+-	int ret = 0;
+-
+-	max_sat = data->max_sat;
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct  hl_ctrl_lo_rl_regs *)
+-			(config->base[i]);
+-		cfg = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_cfg);
+-		cfg &= CTRL_LO_EU_RL_CFG_DATA_SIZE_MASK;
+-		cfg |= (max_sat << CTRL_LO_EU_RL_CFG_SATURATION_SHIFT);
+-		cfg |= (reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
+-		cfg |= (max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
+-		sys_write32(cfg, (mem_addr_t) &reg_base_pu->eu_rl_cfg);
+-		cfg = 0;
+-	}
+-
+-	/* Enable RL */
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_ctrl_lo_rl_regs *)
+-			 (config->base[i]));
+-		sys_rmwrite32((mem_addr_t) &reg_base_pu->eu_rl_enable, 1,
+-						CTRL_LO_EU_RL_ENABLE_V_MASK);
+-	}
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-	ret = hl_rl_prepare_dup_eng(config, data);
+-#endif
+-
+-	return ret;
+-}
+-
+-static int cfg_init_rl_reg_once(const struct device *dev)
+-{
+-	/*
+-	 * 1.	Set max BW coefficients to all RLs
+-	 * 2.	Enable the RL.
+-	 */
+-
+-	int32_t max_sat, reset_val, max_timeout, i;
+-	volatile struct hl_cfg_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	int ret = 0;
+-
+-	/* Set max BW coefficients to all SRAM RLs */
+-	max_sat = data->max_sat;
+-	reset_val = data->reset_val;
+-	max_timeout = data->max_timeout;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu = (volatile struct  hl_cfg_rl_regs *)
+-			(config->base[i]);
+-		/* Set max BW coefficients to all sram RLs */
+-		sys_write32(max_sat, (mem_addr_t) &reg_base_pu->iq_rl_sat);
+-		sys_write32(reset_val, (mem_addr_t) &reg_base_pu->iq_rl_rst_token);
+-		sys_write32(max_timeout, (mem_addr_t) &reg_base_pu->iq_rl_timeout);
+-	}
+-
+-	/* Enable SRAM and MEM */
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_cfg_rl_regs *)
+-			 (config->base[i]));
+-		sys_rmwrite32((mem_addr_t) &reg_base_pu->iq_rl_en, 1,
+-						CFG_IQ_RL_EN_V_MASK);
+-	}
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-	data->last_max_timeout = data->max_timeout;
+-	ret = hl_rl_prepare_dup_eng(config, data);
+-#endif
+-
+-	return ret;
+-}
+-
+-/* different on functions, depend on the different rl blocks */
+-static int (* init_rl_reg_once[CFG + 1]) (const struct device *dev) = {
+-						mstr_if_init_rl_reg_once,
+-						ctrl_lo_init_rl_reg_once,
+-						cfg_init_rl_reg_once };
+-
+-/* different on functions, depend on the different rl blocks */
+-static int (* hl_rl_on_func_ptr[CFG + 1]) (const struct device *dev) = {
+-						hl_mstr_if_rl_on,
+-						hl_ctrl_lo_rl_on,
+-						hl_cfg_rl_on };
+-
+-static bool hl_mstr_if_rl_is_first(const struct device *dev)
+-{
+-	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
+-	int i;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t hbw_rl_wr, hbw_rl_rd;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_mstr_if_rl_regs *)
+-			 (config->base[i]));
+-		hbw_rl_wr = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
+-		hbw_rl_rd = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
+-		if (!(hbw_rl_wr & MSTR_IF_CORE_HBW_RL_EN_MASK) ||
+-		    !(hbw_rl_rd & MSTR_IF_CORE_HBW_RL_EN_MASK)) {
+-			return true;
+-		}
+-	}
+-
+-	return false;
+-}
+-
+-static bool hl_ctrl_lo_rl_is_first(const struct device *dev)
+-{
+-	int32_t i;
+-	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t eu_rl_enable;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_ctrl_lo_rl_regs *)
+-			 (config->base[i]));
+-		eu_rl_enable = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_enable);
+-		if (!(eu_rl_enable & CTRL_LO_EU_RL_ENABLE_V_MASK)) {
+-			return true;
+-		}
+-	}
+-
+-	return false;
+-}
+-
+-static bool hl_cfg_rl_is_first(const struct device *dev)
+-{
+-	volatile struct hl_cfg_rl_regs *reg_base_pu;
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	int i;
+-	uint32_t iq_rl_en;
+-
+-	for (i = 0; i < config->regs_num; i++) {
+-		if (!(config->valid_units & BIT(i)))
+-			continue;
+-
+-		reg_base_pu =
+-			((volatile struct  hl_cfg_rl_regs *)
+-			 (config->base[i]));
+-		iq_rl_en = sys_read32((mem_addr_t) &reg_base_pu->iq_rl_en);
+-		if (!(iq_rl_en & CFG_IQ_RL_EN_V_MASK)) {
+-			return true;
+-		}
+-	}
+-
+-	return false;
+-}
+-
+-/* Check if engine is disabled, if so, set it to first configuration */
+-static bool (* hl_rl_is_first_init_ptr[CFG + 1]) (const struct device *dev) = {
+-							hl_mstr_if_rl_is_first,
+-							hl_ctrl_lo_rl_is_first,
+-							hl_cfg_rl_is_first };
+-
+-static int hl_rl_on(const struct device *dev, clock_control_subsys_t sub_system)
+-{
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	struct hl_rl_clock_control_t *rl_cc =
+-				(struct hl_rl_clock_control_t *)(sub_system);
+-	struct hl_rl_drv_cfg_info *config;
+-
+-	config = (struct hl_rl_drv_cfg_info *)(dev)->config;
+-	/* rate needs to be between 1 to 100 */
+-	if ((rl_cc->rate > data->max_rate) ||
+-			(rl_cc->rate < HL_RL_MIN_RATE))	{
+-		HL_RL_ERR(" rate not in range: rate = %u , parent_rate = %u\n",
+-				rl_cc->rate, DEV_DATA(dev)->max_rate);
+-		return -EINVAL;
+-	}
+-
+-	/* rl_div value is controlled by application */
+-	rl_cc->rate = (rl_cc->rate * rl_cc->rl_div) / 100;
+-	if (rl_cc->rate < HL_RL_MIN_RATE) {
+-		rl_cc->rate = HL_RL_MIN_RATE;
+-	}
+-
+-	data->reset_val = (rl_cc->rate * (config->max_timeout + 1)) / 100;
+-	data->rate = rl_cc->rate;
+-	config->valid_units = rl_cc->valid_units;
+-
+-	/* we don't allow reset_val 0, instead we increase max timeout */
+-	if (data->reset_val < HL_RL_MIN_RESET_VAL) {
+-		data->reset_val = HL_RL_MIN_RESET_VAL;
+-		data->max_timeout = HL_RL_MAX_TIMEOUT_DURING_MIN_RATE;
+-	} else {
+-		data->max_timeout = config->max_timeout;
+-	}
+-
+-	if ((*hl_rl_is_first_init_ptr[data->block_conf])(dev)) {
+-		(*init_rl_reg_once[data->block_conf])(dev);
+-	}
+-
+-	return (*hl_rl_on_func_ptr[data->block_conf])(dev);
+-}
+-
+-static int hl_rl_get_type(const struct device *dev)
+-{
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	int ret = 0;
+-
+-	if (!strcmp("mstr_if", config->block_type)) {
+-		data->block_conf = CTRL_MSTR_IF;
+-	} else if (!strcmp("ctrl_lo", config->block_type)) {
+-		data->block_conf = CTRL_LO;
+-	} else if (!strcmp("cfg", config->block_type)) {
+-		data->block_conf = CFG;
+-	} else {
+-		 /* Error */
+-		HL_RL_ERR(" HL RL: unknown type for RL, see block_type prop");
+-		ret = -EINVAL;
+-	}
+-
+-	return ret;
+-}
+-
+-/*
+- * RL DT entries are added for all Dies.
+- * Depending on SKU type need to skip un-available RLs
+- */
+-static bool hl_rl_skip_rl(const struct device *dev)
+-{
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-	uint32_t num_dies = 1;
+-	uint32_t die_id = hl_read_die_id();
+-	bool spi_gw_dis = hl_get_spi_gw_disable();
+-
+-	if (hl_get_sku_type() == HL_DUAL_DIE_SKU)
+-		num_dies = 2;
+-
+-	return !hl_is_cfg_addr_valid((uint32_t)config->base[0], die_id, num_dies, spi_gw_dis);
+-}
+-
+-static int hl_rl_init(const struct device *dev)
+-{
+-	struct hl_rl_drv_data * const data = DEV_DATA(dev);
+-	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
+-
+-	if (hl_rl_skip_rl(dev)) {
+-		HL_RL_ERR("Skipping RL init for %s", DEV_CFG(dev)->name);
+-		return -EINVAL;
+-	}
+-
+-	if (hl_rl_get_type(dev)) {
+-		HL_RL_ERR("invalid prop 'block_type' %s\n", config->block_type);
+-		return -EINVAL;
+-	}
+-
+-	data->max_sat = config->max_sat;
+-	data->max_timeout = config->max_timeout;
+-	data->max_rate = config->max_rate;
+-	data->reset_val = config->init_reset;
+-
+-	if (config->init_reset && ((*hl_rl_is_first_init_ptr[data->block_conf])(dev))) {
+-		(*init_rl_reg_once[data->block_conf])(dev);
+-	}
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-	if (!strcmp("ctrl_lo", config->block_type)) {
+-		/* Store mme ctrl_lo,eu_rl_cfg value, to be used later in fn: hl_ctrl_lo_rl_on() */
+-		data->eu_rl_cfg_val =
+-			((volatile struct hl_ctrl_lo_rl_regs *) (config->base[0]))->eu_rl_cfg;
+-	}
+-#endif
+-
+-	return 0;
+-}
+-
+-static const struct clock_control_driver_api hl_rl_api = {
+-	.on = hl_rl_on,
+-	.off = hl_rl_off,
+-	.get_rate = hl_rl_get_rate,
+-};
+-
+-#ifdef CONFIG_HL_DUP_ENG_DRIVER
+-	#define DUP_ENGINE_DEV(inst) DEVICE_DT_GET(DT_INST_PHANDLE(inst, dup_eng_inst))
+-#else
+-	#define DUP_ENGINE_DEV(inst) NULL
+-#endif
+-
+-#if defined(CONFIG_SOC_SERIES_FS1)
+-#define DEV_INIT_LEVEL PRE_KERNEL_2
+-#else
+-#define DEV_INIT_LEVEL PRE_KERNEL_1
+-#endif
+-
+-#define DUP_GRP_ID_BY_IDX(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx),
+-
+-#define CREATE_HL_RL_DEVICE(inst)					\
+-	const uint32_t regs_##inst##_base[] = { DT_FOREACH_PROP_ELEM(		\
+-			DT_INST(inst, DT_DRV_COMPAT), reg_names,	\
+-			REG_ADDR_BY_IDX) };				\
+-	const uint32_t hl_rl_##inst##_dup_grp_id[] = {DT_FOREACH_PROP_ELEM(	\
+-			DT_INST(inst, DT_DRV_COMPAT), dup_grp_id,		\
+-			DUP_GRP_ID_BY_IDX)};				\
+-									\
+-	static const struct hl_rl_drv_cfg_info hl_rl_##inst##_config = {	\
+-		.base = regs_##inst##_base,				\
+-		.name = DT_INST_LABEL(inst),				\
+-		.max_sat = DT_INST_PROP(inst, max_sat),			\
+-		.max_timeout = DT_INST_PROP(inst, max_timeout),		\
+-		.max_rate = DT_INST_PROP(inst, max_rate),		\
+-		.init_reset = DT_INST_PROP(inst, init_reset),		\
+-		.id = inst,						\
+-		.regs_num = DT_NUM_REGS(DT_DRV_INST(inst)),		\
+-		.block_type = DT_INST_PROP(inst, block_type),		\
+-		.dup_grp_id_list =  hl_rl_##inst##_dup_grp_id,		\
+-		.dup_grp_num = DT_PROP_LEN(DT_DRV_INST(inst), dup_grp_id),		\
+-		.dup_master_grp_id = DT_INST_PROP(inst, dup_master_grp_id),		\
+-		.valid_units = HL_RL_DEFAULT_VALID_UNITS,		\
+-		.dup_eng_dev = DUP_ENGINE_DEV(inst),			\
+-	};								\
+-	static struct hl_rl_drv_data hl_rl_drv_##inst##_data;		\
+-									\
+-	DEVICE_DT_INST_DEFINE(inst, &hl_rl_init,				\
+-			NULL,						\
+-			&hl_rl_drv_##inst##_data,			\
+-			&hl_rl_##inst##_config,				\
+-			DEV_INIT_LEVEL,					\
+-			CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
+-			&hl_rl_api);
+-DT_INST_FOREACH_STATUS_OKAY(CREATE_HL_RL_DEVICE)
+diff --git a/drivers/clock_control/clock_control_rl.c b/drivers/clock_control/clock_control_rl.c
+new file mode 100644
+index 0000000..733f425
+--- /dev/null
++++ b/drivers/clock_control/clock_control_rl.c
+@@ -0,0 +1,812 @@
++/*
++ * Copyright 2021 HabanaLabs, Ltd.
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#include <stdlib.h>
++#include <drivers/clock_control/hl_rl.h>
++
++#define LOG_LEVEL CONFIG_CLOCK_CONTROL_LOG_LEVEL
++#include <logging/log.h>
++#include <common_utils.h>
++#include <hl_fw_if.h>
++LOG_MODULE_REGISTER(clock_control_hl_rl);
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++#include <dup_api.h>
++#include <hl_utils.h>
++
++#define DUP_GRP_MAX_ADDR	32
++#endif
++#include <hl_devs.h>
++
++#if DT_HAS_COMPAT_STATUS_OKAY(hl_rl)
++#define DT_DRV_COMPAT hl_rl
++#elif DT_HAS_COMPAT_STATUS_OKAY(intel_fs_rl)
++#define DT_DRV_COMPAT intel_fs_rl
++#else
++#warning "RL engine driver enabled without any devices"
++#endif
++
++#define DEV_CFG(dev) \
++	((const struct hl_rl_drv_cfg_info * const)(dev)->config)
++
++#define DEV_DATA(dev) \
++	((struct hl_rl_drv_data * const)(dev)->data)
++
++#define DEV_ID(dev) \
++	(DEV_CFG(dev)->id)
++
++#define HL_RL_LOG_ERR(...) LOG_ERR(__VA_ARGS__)
++#define HL_RL_LOG_WRN(...) LOG_WRN(__VA_ARGS__)
++#define HL_RL_LOG_INF(...) LOG_INF(__VA_ARGS__)
++#define HL_RL_LOG_DBG(...) LOG_DBG(__VA_ARGS__)
++
++#define HL_RL_ERR(fmt, ...) HL_RL_LOG_ERR("%s:%d:" fmt, \
++				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
++#define HL_RL_WRN(fmt, ...) HL_RL_LOG_WRN("%s:%d:" fmt, \
++				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
++#define HL_RL_INF(fmt, ...) HL_RL_LOG_INF("%s:%d:" fmt, \
++				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
++#define HL_RL_DBG(fmt, ...) HL_RL_LOG_DBG("%s:%d:" fmt, \
++				__func__, DEV_CFG(dev)->id, ##__VA_ARGS__)
++
++#define CTRL_LO_EU_RL_ENABLE_V_MASK 0x1
++#define CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT 0
++#define CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK 0xFF
++#define CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT 8
++#define CTRL_LO_EU_RL_CFG_TIMEOUT_MASK 0xFF00
++#define CTRL_LO_EU_RL_CFG_SATURATION_SHIFT 16
++#define CTRL_LO_EU_RL_CFG_SATURATION_MASK 0xFF0000
++#define CTRL_LO_EU_RL_CFG_DATA_SIZE_SHIFT 24
++#define CTRL_LO_EU_RL_CFG_DATA_SIZE_MASK 0xFF000000
++
++#define CFG_IQ_RL_EN_V_SHIFT 0
++#define CFG_IQ_RL_EN_V_MASK 0x1
++#define CFG_IQ_RL_SAT_V_SHIFT 0
++#define CFG_IQ_RL_SAT_V_MASK 0xFF
++#define CFG_IQ_RL_RST_TOKEN_V_SHIFT 0
++#define CFG_IQ_RL_RST_TOKEN_V_MASK 0xFF
++#define CFG_IQ_RL_TIMEOUT_V_SHIFT 0
++#define CFG_IQ_RL_TIMEOUT_V_MASK 0xFF
++
++#define MSTR_IF_CORE_HBW_RL_SATURATION_SHIFT 0
++#define MSTR_IF_CORE_HBW_RL_SATURATION_MASK 0xFF
++#define MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT 8
++#define MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK 0xFF00
++#define MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT 16
++#define MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK 0xFF0000
++#define MSTR_IF_CORE_HBW_RL_EN_SHIFT 24
++#define MSTR_IF_CORE_HBW_RL_EN_MASK 0x1000000
++
++/* Rate limiter settings differ in the different blocks */
++enum rl_gaudi2_block_conf {
++	CTRL_MSTR_IF,
++	CTRL_LO,
++	CFG,
++};
++
++struct hl_mstr_if_rl_regs {
++	uint32_t core_hbw_rl_wr;
++	uint32_t core_hbw_rl_rd;
++};
++
++struct hl_ctrl_lo_rl_regs {
++	uint32_t eu_rl_enable;
++	uint32_t eu_rl_token_sel;
++	uint32_t eu_rl_cfg;
++};
++
++struct hl_cfg_rl_regs {
++	uint32_t iq_rl_en;
++	uint32_t iq_rl_sat;
++	uint32_t iq_rl_rst_token;
++	uint32_t iq_rl_timeout;
++};
++
++static int hl_rl_off(const struct device *dev,
++			clock_control_subsys_t sub_system)
++{
++	/* no action needed related with rate limit for clock off */
++	return 0;
++}
++
++static int hl_rl_get_rate(const struct device *dev,
++		clock_control_subsys_t sub_system, uint32_t *rate)
++{
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++
++	*rate =  data->rate;
++
++	return 0;
++}
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++static int hl_rl_prepare_dup_eng_group(const struct hl_rl_drv_cfg_info *const config,
++				uint8_t group, uint32_t *base_addr, uint32_t num_base)
++{
++	int ret = 0;
++
++	ret = dup_program_address(config->dup_eng_dev, DUP_MULTICAST, group, base_addr, num_base);
++	if (ret) {
++		LOG_ERR("%s: Failed to program addr in dup engine ret = %d", __func__, ret);
++		return ret;
++	}
++
++	ret = dup_program_mask(config->dup_eng_dev, group, GEN_BIT_MASK(num_base));
++	if (ret) {
++		LOG_ERR("%s: Failed to program mask in dup engine ret = %d", __func__, ret);
++		return ret;
++	}
++
++	return ret;
++}
++
++static int hl_rl_prepare_dup_eng_master_group(const struct hl_rl_drv_cfg_info *const config,
++				uint8_t master_group, uint32_t *dup_grp_id_list, uint32_t num_grps)
++{
++	int ret = 0;
++
++	ret = dup_master_program_address(config->dup_eng_dev, master_group, dup_grp_id_list,
++		num_grps);
++	if (ret) {
++		LOG_ERR("%s: Failed to program addr in master dup group ret = %d", __func__, ret);
++		return ret;
++	}
++
++	ret = dup_program_mask(config->dup_eng_dev, master_group, GEN_BIT_MASK(num_grps));
++	if (ret) {
++		LOG_ERR("%s: Failed to program mask in master dup group ret = %d", __func__, ret);
++		return ret;
++	}
++
++	return ret;
++}
++
++static int hl_rl_prepare_dup_eng(const struct hl_rl_drv_cfg_info *const config,
++				struct hl_rl_drv_data * const data)
++{
++	int ret = 0;
++	uint32_t num_base = 0, grp_list_idx, reg_idx, remaining_addr;
++	uint32_t base_addr[DUP_GRP_MAX_ADDR];
++	uint8_t num_required_grps;
++
++	num_required_grps = config->regs_num / DUP_GRP_MAX_ADDR +
++			((config->regs_num % DUP_GRP_MAX_ADDR) > 0) ? 1 : 0;
++
++	if (config->dup_grp_num < num_required_grps) {
++		LOG_ERR("%s: Insufficient group count for rl config", __func__);
++		return -1;
++	}
++
++	for (grp_list_idx = 0; grp_list_idx < num_required_grps; grp_list_idx++) {
++		num_base = 0;
++		memset(base_addr, 0, sizeof(base_addr));
++		remaining_addr = config->regs_num - grp_list_idx * DUP_GRP_MAX_ADDR;
++
++		for (reg_idx = 0; reg_idx <  MIN(DUP_GRP_MAX_ADDR, remaining_addr) ; reg_idx++) {
++			if (!(config->valid_units & BIT(reg_idx)))
++				continue;
++
++			base_addr[reg_idx] = (mem_addr_t)config->base[reg_idx +
++				grp_list_idx * DUP_GRP_MAX_ADDR];
++			num_base++;
++		}
++
++		ret = hl_rl_prepare_dup_eng_group(config, config->dup_grp_id_list[grp_list_idx],
++					(uint32_t *)base_addr, num_base);
++		if (ret)
++			return ret;
++	}
++
++	if (num_required_grps > 1) {
++		ret = hl_rl_prepare_dup_eng_master_group(config, config->dup_master_grp_id,
++					(uint32_t *)config->dup_grp_id_list, num_required_grps);
++		if (ret)
++			return ret;
++	}
++
++	data->dup_grp_id = (num_required_grps > 1) ?
++			config->dup_master_grp_id :
++			config->dup_grp_id_list[0];
++
++	return ret;
++}
++
++static int hl_rl_dup_program_data(const struct device *dup_eng_dev, uint8_t dup_grp_id,
++		uint16_t offset, uint32_t val)
++{
++	int ret;
++
++	ret = dup_program_data(dup_eng_dev, DUP_MULTICAST, dup_grp_id, offset, val);
++	if (ret) {
++		LOG_ERR("%s: Failed to program data in dup engine ret = %d", __func__, ret);
++		return ret;
++	}
++
++	return 0;
++}
++#endif
++
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++static int hl_mstr_if_rl_on(const struct device *dev)
++{
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t cfg = 0;
++	int ret;
++	uint16_t offset;
++
++	offset = offsetof(struct hl_mstr_if_rl_regs, core_hbw_rl_rd);
++	cfg = data->mstr_if_hbw_rl_rd;
++	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
++	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
++	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
++	if (ret < 0)
++		return ret;
++
++	offset = offsetof(struct hl_mstr_if_rl_regs, core_hbw_rl_wr);
++	cfg = data->mstr_if_hbw_rl_wr;
++	cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
++	cfg |= (data->reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
++	cfg |= (data->max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
++	return ret;
++}
++#else
++static int hl_mstr_if_rl_on(const struct device *dev)
++{
++	uint32_t reset_val, max_timeout, i;
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t cfg = 0;
++
++	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
++
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct hl_mstr_if_rl_regs *)
++			(config->base[i]);
++
++		cfg = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
++		cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
++		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
++		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
++
++		cfg = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
++		cfg &= ~(MSTR_IF_CORE_HBW_RL_RST_TOKEN_MASK | MSTR_IF_CORE_HBW_RL_TIMEOUT_MASK);
++		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
++		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
++		cfg = 0;
++	}
++
++	return 0;
++}
++#endif
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++static int hl_ctrl_lo_rl_on(const struct device *dev)
++{
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t cfg = 0;
++	uint16_t offset = offsetof(struct hl_ctrl_lo_rl_regs, eu_rl_cfg);
++
++	cfg = data->eu_rl_cfg_val;
++	cfg &= ~(CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK | CTRL_LO_EU_RL_CFG_TIMEOUT_MASK);
++	cfg |= (data->reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
++	cfg |= (data->max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
++
++	return hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset, cfg);
++}
++#else
++static int hl_ctrl_lo_rl_on(const struct device *dev)
++{
++	uint32_t reset_val, max_timeout, i;
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t cfg = 0;
++
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct hl_ctrl_lo_rl_regs *)
++			(config->base[i]);
++
++		cfg = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_cfg);
++		cfg &= ~(CTRL_LO_EU_RL_CFG_RST_TOKEN_MASK | CTRL_LO_EU_RL_CFG_TIMEOUT_MASK);
++		cfg |= (reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
++		cfg |= (max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->eu_rl_cfg);
++		cfg = 0;
++	}
++
++	return 0;
++}
++#endif
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++static int hl_cfg_rl_on(const struct device *dev)
++{
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	uint16_t offset;
++	int ret;
++
++	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_rst_token);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
++		data->reset_val);
++	if (ret < 0)
++		return ret;
++
++	/* no need to update max_timeout if it's already set */
++	if (data->last_max_timeout == data->max_timeout)
++		return ret;
++
++	offset = offsetof(struct hl_cfg_rl_regs, iq_rl_timeout);
++	ret = hl_rl_dup_program_data(config->dup_eng_dev, data->dup_grp_id, offset,
++		data->max_timeout);
++	if (ret == 0)
++		data->last_max_timeout = data->max_timeout;
++
++	return ret;
++}
++#else
++static int hl_cfg_rl_on(const struct device *dev)
++{
++	uint32_t reset_val, max_timeout, i;
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	volatile struct hl_cfg_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct hl_cfg_rl_regs *)
++			(config->base[i]);
++
++		sys_write32(reset_val, (mem_addr_t) &reg_base_pu->iq_rl_rst_token);
++		sys_write32(max_timeout, (mem_addr_t) &reg_base_pu->iq_rl_timeout);
++	}
++
++	return 0;
++}
++#endif
++
++/*
++ * 1.	Set max BW coefficients to all RLs
++ * 2.	Enable the RL.
++ */
++static int mstr_if_init_rl_reg_once(const struct device *dev)
++{
++	int32_t max_sat, reset_val, max_timeout, i;
++	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	uint32_t cfg = 0;
++	int ret = 0;
++
++	max_sat = data->max_sat;
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct  hl_mstr_if_rl_regs *)
++			(config->base[i]);
++		cfg |= (max_sat << MSTR_IF_CORE_HBW_RL_SATURATION_SHIFT);
++		cfg |= (reset_val << MSTR_IF_CORE_HBW_RL_RST_TOKEN_SHIFT);
++		cfg |= (max_timeout << MSTR_IF_CORE_HBW_RL_TIMEOUT_SHIFT);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
++		cfg = 0;
++	}
++
++	/* Enable RL */
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_mstr_if_rl_regs *)
++			 (config->base[i]));
++		sys_rmwrite32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr, 1,
++						MSTR_IF_CORE_HBW_RL_EN_MASK);
++		sys_rmwrite32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd, 1,
++						MSTR_IF_CORE_HBW_RL_EN_MASK);
++	}
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	ret = hl_rl_prepare_dup_eng(config, data);
++
++	/*
++	 * Store mstr_if,core_hbw_rl_rd and core_hbw_rl_wr value, to be used later
++	 * in fn: hl_mstr_if_rl_on()
++	 */
++	data->mstr_if_hbw_rl_rd =
++		((volatile struct hl_mstr_if_rl_regs *) (config->base[0]))->core_hbw_rl_rd;
++	data->mstr_if_hbw_rl_wr =
++		((volatile struct hl_mstr_if_rl_regs *) (config->base[0]))->core_hbw_rl_wr;
++#endif
++
++	return ret;
++}
++
++/*
++ * 1.	Set max BW coefficients to all RLs
++ * 2.	Enable the RL.
++ */
++static int ctrl_lo_init_rl_reg_once(const struct device *dev)
++{
++	int32_t max_sat, reset_val, max_timeout, i;
++	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	uint32_t cfg;
++	int ret = 0;
++
++	max_sat = data->max_sat;
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct  hl_ctrl_lo_rl_regs *)
++			(config->base[i]);
++		cfg = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_cfg);
++		cfg &= CTRL_LO_EU_RL_CFG_DATA_SIZE_MASK;
++		cfg |= (max_sat << CTRL_LO_EU_RL_CFG_SATURATION_SHIFT);
++		cfg |= (reset_val << CTRL_LO_EU_RL_CFG_RST_TOKEN_SHIFT);
++		cfg |= (max_timeout << CTRL_LO_EU_RL_CFG_TIMEOUT_SHIFT);
++		sys_write32(cfg, (mem_addr_t) &reg_base_pu->eu_rl_cfg);
++		cfg = 0;
++	}
++
++	/* Enable RL */
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_ctrl_lo_rl_regs *)
++			 (config->base[i]));
++		sys_rmwrite32((mem_addr_t) &reg_base_pu->eu_rl_enable, 1,
++						CTRL_LO_EU_RL_ENABLE_V_MASK);
++	}
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	ret = hl_rl_prepare_dup_eng(config, data);
++#endif
++
++	return ret;
++}
++
++static int cfg_init_rl_reg_once(const struct device *dev)
++{
++	/*
++	 * 1.	Set max BW coefficients to all RLs
++	 * 2.	Enable the RL.
++	 */
++
++	int32_t max_sat, reset_val, max_timeout, i;
++	volatile struct hl_cfg_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	int ret = 0;
++
++	/* Set max BW coefficients to all SRAM RLs */
++	max_sat = data->max_sat;
++	reset_val = data->reset_val;
++	max_timeout = data->max_timeout;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu = (volatile struct  hl_cfg_rl_regs *)
++			(config->base[i]);
++		/* Set max BW coefficients to all sram RLs */
++		sys_write32(max_sat, (mem_addr_t) &reg_base_pu->iq_rl_sat);
++		sys_write32(reset_val, (mem_addr_t) &reg_base_pu->iq_rl_rst_token);
++		sys_write32(max_timeout, (mem_addr_t) &reg_base_pu->iq_rl_timeout);
++	}
++
++	/* Enable SRAM and MEM */
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_cfg_rl_regs *)
++			 (config->base[i]));
++		sys_rmwrite32((mem_addr_t) &reg_base_pu->iq_rl_en, 1,
++						CFG_IQ_RL_EN_V_MASK);
++	}
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	data->last_max_timeout = data->max_timeout;
++	ret = hl_rl_prepare_dup_eng(config, data);
++#endif
++
++	return ret;
++}
++
++/* different on functions, depend on the different rl blocks */
++static int (* init_rl_reg_once[CFG + 1]) (const struct device *dev) = {
++						mstr_if_init_rl_reg_once,
++						ctrl_lo_init_rl_reg_once,
++						cfg_init_rl_reg_once };
++
++/* different on functions, depend on the different rl blocks */
++static int (* hl_rl_on_func_ptr[CFG + 1]) (const struct device *dev) = {
++						hl_mstr_if_rl_on,
++						hl_ctrl_lo_rl_on,
++						hl_cfg_rl_on };
++
++static bool hl_mstr_if_rl_is_first(const struct device *dev)
++{
++	volatile struct hl_mstr_if_rl_regs *reg_base_pu;
++	int i;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t hbw_rl_wr, hbw_rl_rd;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_mstr_if_rl_regs *)
++			 (config->base[i]));
++		hbw_rl_wr = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_wr);
++		hbw_rl_rd = sys_read32((mem_addr_t) &reg_base_pu->core_hbw_rl_rd);
++		if (!(hbw_rl_wr & MSTR_IF_CORE_HBW_RL_EN_MASK) ||
++		    !(hbw_rl_rd & MSTR_IF_CORE_HBW_RL_EN_MASK)) {
++			return true;
++		}
++	}
++
++	return false;
++}
++
++static bool hl_ctrl_lo_rl_is_first(const struct device *dev)
++{
++	int32_t i;
++	volatile struct hl_ctrl_lo_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t eu_rl_enable;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_ctrl_lo_rl_regs *)
++			 (config->base[i]));
++		eu_rl_enable = sys_read32((mem_addr_t) &reg_base_pu->eu_rl_enable);
++		if (!(eu_rl_enable & CTRL_LO_EU_RL_ENABLE_V_MASK)) {
++			return true;
++		}
++	}
++
++	return false;
++}
++
++static bool hl_cfg_rl_is_first(const struct device *dev)
++{
++	volatile struct hl_cfg_rl_regs *reg_base_pu;
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	int i;
++	uint32_t iq_rl_en;
++
++	for (i = 0; i < config->regs_num; i++) {
++		if (!(config->valid_units & BIT(i)))
++			continue;
++
++		reg_base_pu =
++			((volatile struct  hl_cfg_rl_regs *)
++			 (config->base[i]));
++		iq_rl_en = sys_read32((mem_addr_t) &reg_base_pu->iq_rl_en);
++		if (!(iq_rl_en & CFG_IQ_RL_EN_V_MASK)) {
++			return true;
++		}
++	}
++
++	return false;
++}
++
++/* Check if engine is disabled, if so, set it to first configuration */
++static bool (* hl_rl_is_first_init_ptr[CFG + 1]) (const struct device *dev) = {
++							hl_mstr_if_rl_is_first,
++							hl_ctrl_lo_rl_is_first,
++							hl_cfg_rl_is_first };
++
++static int hl_rl_on(const struct device *dev, clock_control_subsys_t sub_system)
++{
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	struct hl_rl_clock_control_t *rl_cc =
++				(struct hl_rl_clock_control_t *)(sub_system);
++	struct hl_rl_drv_cfg_info *config;
++
++	config = (struct hl_rl_drv_cfg_info *)(dev)->config;
++	/* rate needs to be between 1 to 100 */
++	if ((rl_cc->rate > data->max_rate) ||
++			(rl_cc->rate < HL_RL_MIN_RATE))	{
++		HL_RL_ERR(" rate not in range: rate = %u , parent_rate = %u\n",
++				rl_cc->rate, DEV_DATA(dev)->max_rate);
++		return -EINVAL;
++	}
++
++	/* rl_div value is controlled by application */
++	rl_cc->rate = (rl_cc->rate * rl_cc->rl_div) / 100;
++	if (rl_cc->rate < HL_RL_MIN_RATE) {
++		rl_cc->rate = HL_RL_MIN_RATE;
++	}
++
++	data->reset_val = (rl_cc->rate * (config->max_timeout + 1)) / 100;
++	data->rate = rl_cc->rate;
++	config->valid_units = rl_cc->valid_units;
++
++	/* we don't allow reset_val 0, instead we increase max timeout */
++	if (data->reset_val < HL_RL_MIN_RESET_VAL) {
++		data->reset_val = HL_RL_MIN_RESET_VAL;
++		data->max_timeout = HL_RL_MAX_TIMEOUT_DURING_MIN_RATE;
++	} else {
++		data->max_timeout = config->max_timeout;
++	}
++
++	if ((*hl_rl_is_first_init_ptr[data->block_conf])(dev)) {
++		(*init_rl_reg_once[data->block_conf])(dev);
++	}
++
++	return (*hl_rl_on_func_ptr[data->block_conf])(dev);
++}
++
++static int hl_rl_get_type(const struct device *dev)
++{
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	int ret = 0;
++
++	if (!strcmp("mstr_if", config->block_type)) {
++		data->block_conf = CTRL_MSTR_IF;
++	} else if (!strcmp("ctrl_lo", config->block_type)) {
++		data->block_conf = CTRL_LO;
++	} else if (!strcmp("cfg", config->block_type)) {
++		data->block_conf = CFG;
++	} else {
++		 /* Error */
++		HL_RL_ERR(" HL RL: unknown type for RL, see block_type prop");
++		ret = -EINVAL;
++	}
++
++	return ret;
++}
++
++/*
++ * RL DT entries are added for all Dies.
++ * Depending on SKU type need to skip un-available RLs
++ */
++static bool hl_rl_skip_rl(const struct device *dev)
++{
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++	uint32_t num_dies = 1;
++	uint32_t die_id = hl_read_die_id();
++	bool spi_gw_dis = hl_get_spi_gw_disable();
++
++	if (hl_get_sku_type() == HL_DUAL_DIE_SKU)
++		num_dies = 2;
++
++	return !hl_is_cfg_addr_valid((uint32_t)config->base[0], die_id, num_dies, spi_gw_dis);
++}
++
++static int hl_rl_init(const struct device *dev)
++{
++	struct hl_rl_drv_data * const data = DEV_DATA(dev);
++	const struct hl_rl_drv_cfg_info *const config = DEV_CFG(dev);
++
++	if (hl_rl_skip_rl(dev)) {
++		HL_RL_ERR("Skipping RL init for %s", DEV_CFG(dev)->name);
++		return -EINVAL;
++	}
++
++	if (hl_rl_get_type(dev)) {
++		HL_RL_ERR("invalid prop 'block_type' %s\n", config->block_type);
++		return -EINVAL;
++	}
++
++	data->max_sat = config->max_sat;
++	data->max_timeout = config->max_timeout;
++	data->max_rate = config->max_rate;
++	data->reset_val = config->init_reset;
++
++	if (config->init_reset && ((*hl_rl_is_first_init_ptr[data->block_conf])(dev))) {
++		(*init_rl_reg_once[data->block_conf])(dev);
++	}
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	if (!strcmp("ctrl_lo", config->block_type)) {
++		/* Store mme ctrl_lo,eu_rl_cfg value, to be used later in fn: hl_ctrl_lo_rl_on() */
++		data->eu_rl_cfg_val =
++			((volatile struct hl_ctrl_lo_rl_regs *) (config->base[0]))->eu_rl_cfg;
++	}
++#endif
++
++	return 0;
++}
++
++static const struct clock_control_driver_api hl_rl_api = {
++	.on = hl_rl_on,
++	.off = hl_rl_off,
++	.get_rate = hl_rl_get_rate,
++};
++
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	#define DUP_ENGINE_DEV(inst) DEVICE_DT_GET(DT_INST_PHANDLE(inst, dup_eng_inst))
++#else
++	#define DUP_ENGINE_DEV(inst) NULL
++#endif
++
++#if defined(CONFIG_SOC_SERIES_FS1)
++#define DEV_INIT_LEVEL PRE_KERNEL_2
++#else
++#define DEV_INIT_LEVEL PRE_KERNEL_1
++#endif
++
++#define DUP_GRP_ID_BY_IDX(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx),
++
++#define CREATE_HL_RL_DEVICE(inst)					\
++	const uint32_t regs_##inst##_base[] = { DT_FOREACH_PROP_ELEM(		\
++			DT_INST(inst, DT_DRV_COMPAT), reg_names,	\
++			REG_ADDR_BY_IDX) };				\
++	const uint32_t hl_rl_##inst##_dup_grp_id[] = {DT_FOREACH_PROP_ELEM(	\
++			DT_INST(inst, DT_DRV_COMPAT), dup_grp_id,		\
++			DUP_GRP_ID_BY_IDX)};				\
++									\
++	static const struct hl_rl_drv_cfg_info hl_rl_##inst##_config = {	\
++		.base = regs_##inst##_base,				\
++		.name = DT_INST_LABEL(inst),				\
++		.max_sat = DT_INST_PROP(inst, max_sat),			\
++		.max_timeout = DT_INST_PROP(inst, max_timeout),		\
++		.max_rate = DT_INST_PROP(inst, max_rate),		\
++		.init_reset = DT_INST_PROP(inst, init_reset),		\
++		.id = inst,						\
++		.regs_num = DT_NUM_REGS(DT_DRV_INST(inst)),		\
++		.block_type = DT_INST_PROP(inst, block_type),		\
++		.dup_grp_id_list =  hl_rl_##inst##_dup_grp_id,		\
++		.dup_grp_num = DT_PROP_LEN(DT_DRV_INST(inst), dup_grp_id),		\
++		.dup_master_grp_id = DT_INST_PROP(inst, dup_master_grp_id),		\
++		.valid_units = HL_RL_DEFAULT_VALID_UNITS,		\
++		.dup_eng_dev = DUP_ENGINE_DEV(inst),			\
++	};								\
++	static struct hl_rl_drv_data hl_rl_drv_##inst##_data;		\
++									\
++	DEVICE_DT_INST_DEFINE(inst, &hl_rl_init,				\
++			NULL,						\
++			&hl_rl_drv_##inst##_data,			\
++			&hl_rl_##inst##_config,				\
++			DEV_INIT_LEVEL,					\
++			CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
++			&hl_rl_api);
++DT_INST_FOREACH_STATUS_OKAY(CREATE_HL_RL_DEVICE)
+diff --git a/include/drivers/clock_control/rl.h b/include/drivers/clock_control/rl.h
+new file mode 100644
+index 0000000..e7fb67c
+--- /dev/null
++++ b/include/drivers/clock_control/rl.h
+@@ -0,0 +1,82 @@
++/*
++ * Copyright 2021 HabanaLabs, Ltd.
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef ZEPHYR_DRIVERS_CLOCK_CONTROL_HLL_RL_H_
++#define ZEPHYR_DRIVERS_CLOCK_CONTROL_HLL_RL_H_
++
++#define REG_ADDR_BY_IDX(node_id, prop, idx) DT_REG_ADDR_BY_IDX(node_id, idx),
++
++#include <device.h>
++#include <drivers/clock_control.h>
++
++#define HL_TPC_RST_MAX 23
++#define HL_TPC_TIMEOUT_MAX 49
++#define HL_MME_RST_MAX 20
++#define HL_MME_TIMEOUT_MAX 19
++#define HL_RL_MIN_RATE 1
++#define HL_RL_MIN_RESET_VAL 1
++/*
++ * The following max_timeout value is used only when rate limit is at the minimum in order to
++ * reduce the jobs intake without shuting it down completely (rl=0). On any other situation, the
++ * max_timeout value is taken for the device tree config.
++ */
++#define HL_RL_MAX_TIMEOUT_DURING_MIN_RATE 99
++
++#define HL_RL_DEFAULT_VALID_UNITS	0xFFFFFFFF
++
++struct hl_std_rl_cfg {
++	uint32_t rate;
++	uint32_t rst_token;
++};
++
++struct hl_rl_drv_data {
++	uint32_t rate;
++	uint32_t reset_val;
++	uint32_t max_rate;
++	uint32_t max_sat;
++	uint32_t max_rst;
++	uint32_t max_timeout;
++	uint32_t last_max_timeout;
++	const uint32_t *pu_config;
++	uint8_t block_conf;
++	uint8_t dup_grp_id;
++#ifdef CONFIG_HL_DUP_ENG_DRIVER
++	uint32_t eu_rl_cfg_val;
++	uint32_t mstr_if_hbw_rl_wr;
++	uint32_t mstr_if_hbw_rl_rd;
++#endif
++};
++
++struct hl_rl_drv_cfg_info {
++	uint8_t  *name;
++	uint8_t id;
++	uint8_t max_sat;
++	uint8_t max_timeout;
++	const uint32_t *base;
++	uint8_t regs_num;
++	uint8_t *block_type;
++	uint8_t max_rate;
++	uint8_t dup_master_grp_id;
++	uint8_t dup_grp_num;
++	const uint32_t *dup_grp_id_list;
++	uint32_t valid_units;
++	uint32_t init_reset;
++	const struct device *dup_eng_dev;
++};
++
++/*
++ * @valid_units: reg map, each bit represent a HW unit, the order goes
++ * according to the order in the <reg> DT property
++ * @rl_div: divider for RL rate (0-100) controlled by user (host side)
++ *  i.e. if rl_div is 50 (%), all values selected by application (pid) are divided by 2.
++ */
++struct hl_rl_clock_control_t {
++	uint32_t rate;
++	uint32_t valid_units;
++	uint8_t rl_div;
++};
++
++#endif /* ZEPHYR_DRIVERS_CLOCK_CONTROL_HLL_RL_H_ */

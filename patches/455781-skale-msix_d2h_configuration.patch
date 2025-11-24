@@ -1,0 +1,86 @@
+From 031cf3e2952822e84b6f397146ba66fa704b1a0b Mon Sep 17 00:00:00 2001
+From: Sanyog Kale <skale@habana.ai>
+Date: Fri, 11 Oct 2024 12:22:50 +0300
+Subject: [PATCH] msix d2h configuration
+
+Change-Id: Idb594489823f89f9f6f0aa4396ab998c1925fd1f
+---
+
+diff --git a/drivers/misc/queue/queue.c b/drivers/misc/queue/queue.c
+index 1532c7d..437e472 100644
+--- a/drivers/misc/queue/queue.c
++++ b/drivers/misc/queue/queue.c
+@@ -67,6 +67,7 @@
+ 	struct fs_queue_regs *reg_base = (struct fs_queue_regs *)(config->base);
+ 	struct fs_queue_data *const data = DEV_DATA(dev);
+ 	uint32_t claimed_len;
++	uint32_t msix_idx;
+ 
+ 	if (!size)
+ 		return -EINVAL;
+@@ -85,6 +86,13 @@
+ 
+ 	data->queue.pi = (data->queue.pi + size) % data->queue.len;
+ 	sys_write32(data->queue.pi, (mem_addr_t) &reg_base->pi);
++	if (config->type == FS_QUEUE_TYPE_D2H) {
++		msix_idx = (uint32_t) sys_read32((mem_addr_t) &reg_base->msix_id);
++		LOG_ERR("raising msix for vector id:%d", msix_idx);
++		//write32 0x300007FF9C06000 514
++		sys_write32(msix_idx, 0xF9C06000);
++		LOG_ERR("msix interrupt raised by FW");
++	}
+ 	return 0;
+ }
+ 
+@@ -121,9 +129,11 @@
+ int fs_queue_get_set_enabled(const struct device *dev, uint8_t enable)
+ {
+ 	const struct fs_queue_config *config = DEV_CFG(dev);
++	//struct fs_queue_regs *reg_base = (struct fs_queue_regs *)(config->base);
+ 	struct fs_queue_data *const data = DEV_DATA(dev);
+ 	int val = sys_read32(config->intr_mask);
+-
++	
++	LOG_ERR("%s %d enable: %d", __func__, __LINE__, enable);
+ 	if (enable) {
+ 		shared_irq_enable(data->shared_irq_dev, dev);
+ 		data->ready = true;
+@@ -205,7 +215,9 @@
+ 	struct fs_queue_data *const data = DEV_DATA(dev);
+ 	struct fs_queue_regs *reg_base = (struct fs_queue_regs *)(config->base);
+ 	uint32_t val;
++	uint32_t msix_idx, offset;
+ 
++	LOG_ERR("%s %d dev: %p\n", __func__, __LINE__, dev);
+ 	val = (uint32_t)sys_read32((mem_addr_t) &reg_base->base_addr_msb);
+ 	data->queue.base_addr = ((uint64_t)val) << 32;
+ 	val = (uint32_t)sys_read32((mem_addr_t) &reg_base->base_addr_lsb);
+@@ -216,6 +228,28 @@
+ 	data->queue.pi_to_cb = 0;
+ 	data->init_done = true;
+ 
++	if (config->type == FS_QUEUE_TYPE_D2H) {
++		LOG_ERR("configure MSIX registers for d2h queue");
++		msix_idx = (uint32_t) sys_read32((mem_addr_t) &reg_base->msix_id);
++		offset = (msix_idx * 4) + 0xF9C07000;
++		LOG_ERR("msix_index is: %d offset:0x%x", msix_idx, offset);
++		sys_write32(0xFFFFFFFF, offset);
++		//msix_idx = (uint32_t) sys_read32((mem_addr_t) offset);
++
++		//enable MSI-X Gateway
++		sys_write32(0xF, 0xF9C0500C);
++		//write32 0x300007FF9C0500C 0xF
++
++		//enable DBI Gateway
++		//write32 0x300007FF9C05130 0
++		sys_write32(0x0, 0xF9C05130);
++
++		//Set SAI level
++		//write32 0x300007FF9C05128 0xFFFFFFFF
++		sys_write32(0xFFFFFFFF, 0xF9C05128);
++		LOG_ERR("msix configuration done\n");
++	}
++	
+ 	return 0;
+ }
+ 

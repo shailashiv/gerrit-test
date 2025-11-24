@@ -1,0 +1,1041 @@
+From a56259084facb1c8f4355d59827b630e17e1a282 Mon Sep 17 00:00:00 2001
+From: Oded Rot <orot@habana.ai>
+Date: Tue, 08 Apr 2025 16:23:37 +0300
+Subject: [PATCH] Merge remote-tracking branch 'origin/hl-sa_3.8.2.3' into Development Split the merge commit: In this part the VUART functions
+
+Change-Id: I2f594c2919d38c3e81fdaaa20f202ebea482a048
+---
+
+diff --git a/connection/connection_manager.py b/connection/connection_manager.py
+index ead3eee..400cdfa 100644
+--- a/connection/connection_manager.py
++++ b/connection/connection_manager.py
+@@ -44,16 +44,20 @@
+     OVEN = 10
+     ARISTA = 14
+ 
++
+ class ConnectionDetails:
+     """This class just aggregates SSH details (like a C struct)"""
++
+     def __init__(self, hostname, port=22, username='root', password='root'):
+         self.hostname = hostname
+         self.port = port
+         self.username = username
+         self.password = password
+ 
++
+ class UartConnectionDetails:
+     """This class just aggregates UART details (like a C struct)"""
++
+     def __init__(self, port, baudrate=115200, connection_timeout=0.1, write_timeout=0.5, sampling_rate_sec=0.5,
+                  lines_to_read=300, save_results_to_file=False):
+         self.port = port
+@@ -63,6 +67,7 @@
+         self.sampling_rate_sec = sampling_rate_sec
+         self.lines_to_read = lines_to_read
+         self.save_results_to_file = save_results_to_file
++
+ 
+ class ConnectionManager:
+     """Manage all the active connections in the system"""
+@@ -86,7 +91,7 @@
+             self._this_machine = this_machine
+         else:
+             hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
+-                        mezzanine="",operation="Machine type %s is not supported" %this_machine, result='FAIL')
++                        mezzanine="", operation="Machine type %s is not supported" % this_machine, result='FAIL')
+             raise RuntimeError
+ 
+         # assert usb_connected_to in [self._machine_type_dev_str, self._machine_type_test_pc_str,
+@@ -96,7 +101,8 @@
+             self._usb_connected_to = usb_connected_to
+         else:
+             hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
+-                        mezzanine="", operation="USB Machine type %s is not supported" %usb_connected_to,result='FAIL')
++                        mezzanine="", operation="USB Machine type %s is not supported" % usb_connected_to,
++                        result='FAIL')
+             raise RuntimeError
+ 
+     def _get_connection_details(self, con_type):
+@@ -181,8 +187,9 @@
+             if self._usb_connected_to == self._machine_type_dev_str:
+                 return StubUsbI2cConnection()
+             else:
+-                hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",mezzanine="",
+-                 operation="USB Machine %s is not %s" %(self._usb_connected_to,self._machine_type_dev_str),result='FAIL' )
++                hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                            operation="USB Machine %s is not %s" % (self._usb_connected_to, self._machine_type_dev_str),
++                            result='FAIL')
+                 return None
+ 
+         if self._usb_connected_to == self._this_machine:
+@@ -197,7 +204,8 @@
+                 ssh_connection = self.get_connection(ConType.USB_MACHINE_CONTROL)
+             else:
+                 hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                            operation="USB Machine %s is not %s" %(self._usb_connected_to,self._machine_type_usb_str),result='FAIL')
++                            operation="USB Machine %s is not %s" % (self._usb_connected_to, self._machine_type_usb_str),
++                            result='FAIL')
+                 return None
+ 
+         if ssh_connection is not None:
+@@ -209,7 +217,7 @@
+         connection = OvenConnection(details)
+         return connection
+ 
+-    def _add_uart_connection(self, uart_id = 0):
++    def _add_uart_connection(self, uart_id=0, extras=None):
+         if self._this_machine == self._machine_type_dev_str:
+             pass
+             # return StubUart()    -> add StubUart() for unitest?
+@@ -218,19 +226,25 @@
+         if details is None:
+             return None
+         uart_details = None
+-        uart_info = getattr(details,str(uart_id))
++        uart_info = getattr(details, str(uart_id))
+ 
+-        if uart_info != None:
+-                uart_details =UartConnectionDetails(uart_info['port'], uart_info['baudrate'], uart_info['connection_timeout'],
+-                                                     uart_info['write_timeout'], uart_info['sampling_rate_sec'], uart_info['lines_to_read'],
+-                                                     uart_info['save_results_to_file'])
++        if uart_info is not None:
++            uart_details = UartConnectionDetails(uart_info['port'], uart_info['baudrate'],
++                                                 uart_info['connection_timeout'],
++                                                 uart_info['write_timeout'], uart_info['sampling_rate_sec'],
++                                                 uart_info['lines_to_read'],
++                                                 uart_info['save_results_to_file'])
+ 
+-        if uart_details != None:
+-            if self._usb_connected_to == self._machine_type_host_str:
++        if uart_details is not None:
++            if extras is not None and isinstance(extras, str) and extras == "virtual_uart":
+                 ssh_connection = self.get_connection(ConType.PCI_MACHINE_CONTROL)
+-                return RemoteUartConnection(ssh_connection,uart_details)
++                return RemoteUartConnection(ssh_connection, uart_details)
+             else:
+-                return UartConnection(uart_details)
++                if self._usb_connected_to == self._machine_type_host_str:
++                    ssh_connection = self.get_connection(ConType.PCI_MACHINE_CONTROL)
++                    return RemoteUartConnection(ssh_connection, uart_details)
++                else:
++                    return UartConnection(uart_details)
+         else:
+             return None
+ 
+@@ -248,7 +262,7 @@
+         connection = AristaConnection(details)
+         return connection
+ 
+-    def _add_connection(self, con_type, dev_id):
++    def _add_connection(self, con_type, dev_id, extras=None):
+         connection = None
+         if con_type in (ConType.PCI_MACHINE_CONTROL, ConType.BMC_CONTROL, ConType.USB_MACHINE_CONTROL,
+                         ConType.CPU_BMC_CONTROL, ConType.SVE_USB_CONTROL, ConType.SVE_PCI_CONTROL):
+@@ -260,7 +274,7 @@
+         elif con_type == ConType.USB_I2C:
+             connection = self._add_usb_i2c_connection(dev_id)
+         elif con_type == ConType.UART:
+-            connection = self._add_uart_connection(dev_id) #dev_id = uart_id connection
++            connection = self._add_uart_connection(dev_id, extras=extras)  # dev_id = uart_id connection
+         elif con_type == ConType.OVEN:
+             connection = self._add_oven_connection(con_type)
+         elif con_type == ConType.IPMI or con_type == ConType.CPU_IPMI:
+@@ -272,20 +286,20 @@
+         self._connections[con_type, dev_id] = connection
+         return connection
+ 
+-    def get_connection(self, con_type, dev_id=0):
++    def get_connection(self, con_type, dev_id=0, extras=None):
+         """Return the connection object if one exists, creates new one if needed, return None if machine details
+          cannot be found in json setup. dev_id is only needed for connections that have it (I2C and PCI)"""
+         hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                    operation="requesting %s connection"% con_type)
++                    operation="requesting %s connection" % con_type)
+ 
+         if con_type == ConType.USB_GPIO:
+             # USB_GPIO uses the same MCP interface as USB_I2C
+             con_type = ConType.USB_I2C
+         connection = self._connections.get((con_type, dev_id), None)
+         if connection is None:
+-            connection = self._add_connection(con_type, dev_id)
++            connection = self._add_connection(con_type, dev_id, extras=extras)
+         hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                    operation="returning %s" %type(connection).__name__)
++                    operation="returning %s" % type(connection).__name__)
+         return connection
+ 
+     def get_num_devices(self, con_type):
+@@ -320,11 +334,12 @@
+             return int(num_devices)
+         hlsa_logger(level='critical', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+                     operation="Can't get num devices for type [%s] with this machine [%s] and usb machine [%s]"
+-                              %(str(con_type) ,self._this_machine ,self._usb_connected_to))
++                              % (str(con_type), self._this_machine, self._usb_connected_to))
+         return None
+         # Adding the return since pylint wants all flows to return a value
+         # noinspection PyUnreachableCode
+         # return 0
++
+ 
+ def get_connection_manager():
+     """Returns the singleton connection manager instance"""
+@@ -341,12 +356,13 @@
+     get_connection_manager.manager = ConnectionManager(test_machines_sobj, this_machine, usb_connected_to)
+     return get_connection_manager.manager
+ 
++
+ def set_new_uart_in_connection_manager(uart_name):
+-    dict_uarts= dict()
++    dict_uarts = dict()
+     test_machines_sobj = get_cfg_option("test_machines")
+-    uart_info= test_machines_sobj._json_obj['uart']['#']
++    uart_info = test_machines_sobj._json_obj['uart']['#']
+     uarts = test_machines_sobj._json_obj['uart']
+-    #new_uart = '0'
++    # new_uart = '0'
+ 
+     new_uart = len(uarts.keys())
+     if '#' in uarts.keys():
+@@ -359,10 +375,11 @@
+ 
+     return int(new_uart)
+ 
++
+ def remove_uart_name_in_connection_manager(uart_name):
+     delete_uart_id = None
+     uarts = get_connection_manager.manager._test_machines_sobj._json_obj['uart']
+-    for uart_id,uart_info in uarts.items():
++    for uart_id, uart_info in uarts.items():
+         if uart_info['port'] == uart_name:
+             delete_uart_id = uart_id
+-    del uarts[delete_uart_id]
+\ No newline at end of file
++    del uarts[delete_uart_id]
+diff --git a/connection/remote_uart.py b/connection/remote_uart.py
+index 5837d01..baf71d7 100644
+--- a/connection/remote_uart.py
++++ b/connection/remote_uart.py
+@@ -108,7 +108,7 @@
+ 
+     def stop_sniffer(self):
+         uart_buffer = self.get_uart_buffer()
+-        print("uart_buffer: %s" %uart_buffer)
++        print("uart_buffer: %s" % uart_buffer)
+         with open(self.res_file, 'w') as f:
+             f.write(str(uart_buffer))
+ 
+@@ -121,7 +121,7 @@
+         Get the last 'lines_to_read' from all the collected data.
+         If save_results_to_file=True, this data will be saves to file.
+         """
+-        if self.fp == None:
++        if self.fp is None:
+             os.chmod(self.fp_name, 0o777)
+             self.fp = open(self.fp_name, 'ab+')
+             self.fp.seek(0)
+@@ -133,6 +133,10 @@
+     @staticmethod
+     def _tail(f, lines=20):
+         total_lines_wanted = lines
++
++    @staticmethod
++    def _tail(f, lines=20):
++        total_lines_wanted = lines
+         block_size = 1024
+         f.seek(0, 2)
+         block_end_byte = f.tell()
+diff --git a/connection/ssh_connection.py b/connection/ssh_connection.py
+index 57e1b52..d2a8018 100644
+--- a/connection/ssh_connection.py
++++ b/connection/ssh_connection.py
+@@ -45,11 +45,11 @@
+         return 0, ['']
+ 
+     @staticmethod
+-    def put_file(src, dst,is_folder = False):
++    def put_file(src, dst, is_folder=False):
+         return True
+ 
+     @staticmethod
+-    def get_file(src, dst,is_folder = False):
++    def get_file(src, dst, is_folder=False):
+         return True
+ 
+     @staticmethod
+@@ -76,7 +76,7 @@
+                     operation="running on local host")
+ 
+     def execute_remote_command(self, cmd, stdin_str=None, print_errors=True, total_sleep_count=4200,
+-                               sleep_between_status_check=1, return_if_no_ping_host=False,disconnect = True):
++                               sleep_between_status_check=1, return_if_no_ping_host=False, disconnect=True):
+         result = False
+         flag = False
+         return_code = -1
+@@ -226,7 +226,7 @@
+     def _copy_dir(self, src, dst):
+         if src == dst:
+             hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                        operation=f"can't copy dir to itself: {src}" )
++                        operation=f"can't copy dir to itself: {src}")
+             return False
+ 
+         result = False
+@@ -244,7 +244,7 @@
+             hlsa_logger(level='error', ident='Description', operation=f"copying {src} to {dst} failed")
+         else:
+             hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                        operation=f"copying {src} to {dst} succeeded" )
++                        operation=f"copying {src} to {dst} succeeded")
+         return result
+ 
+     def put_file(self, src, dst, root=False, is_folder=False):
+@@ -263,7 +263,7 @@
+ 
+         return result
+ 
+-    def get_file(self, src, dst, root=False,is_folder = False):
++    def get_file(self, src, dst, root=False, is_folder=False):
+         return self._copy_file(src, dst, root)  # both are local...
+ 
+     def _delete_file_as_root(self, filename):
+@@ -346,7 +346,7 @@
+                     hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
+                                 mezzanine="",
+                                 operation="Connection Verification Failed! Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, ssh_verification_retries))
++                                    str(exception), retry, ssh_verification_retries))
+                     self._disconnect()
+                     return False
+                 # Retry (Refresh Connection)
+@@ -354,7 +354,7 @@
+                     hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
+                                 mezzanine="",
+                                 operation="Connection Verification Failed Retrying... Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, ssh_verification_retries))
++                                    str(exception), retry, ssh_verification_retries))
+                     # Refresh Connection
+                     self._disconnect()
+                     time.sleep(ssh_wait_between_verification_retries)
+@@ -397,7 +397,8 @@
+                 self._tune_parakimo_loggers()
+                 self._sshclient.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+                 self._sshclient.connect(self._details.hostname, self._details.port,
+-                                        self._details.username, self._details.password, look_for_keys=False,auth_timeout=100)
++                                        self._details.username, self._details.password, look_for_keys=False,
++                                        auth_timeout=100)
+                 # SFTP Settings
+                 if self._copy_files_protocol == "sftp":
+                     self._copy_files_client = self._sshclient.open_sftp()
+@@ -421,7 +422,7 @@
+                     hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
+                                 mezzanine="",
+                                 operation="SSH Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, ssh_connection_retries))
++                                    str(exception), retry, ssh_connection_retries))
+                     hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
+                                 mezzanine="",
+                                 operation="SSH Session Encountered an Error - Retrying to Connect...")
+@@ -463,9 +464,9 @@
+                 return False
+         return True
+ 
+-
+     def execute_remote_command(self, cmd, stdin_str=None, print_errors=True,
+-                               total_sleep_count=4200, sleep_between_status_check=1, return_if_no_ping_host=False,disconnect = True):
++                               total_sleep_count=4200, sleep_between_status_check=1, return_if_no_ping_host=False,
++                               disconnect=True, get_pty=False):
+         hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+                     operation="Executing Remote Command: %s" % cmd)
+         """
+@@ -484,7 +485,7 @@
+             hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+                         operation="SSH Command Retry (%d/%d)" % (retry, ssh_command_execution_retries))
+             try:
+-                stdin, stdout, stderr = self._sshclient.exec_command(cmd, timeout=self._command_timeout)
++                stdin, stdout, stderr = self._sshclient.exec_command(cmd, timeout=self._command_timeout, get_pty=get_pty)
+                 if stdin_str is not None:
+                     stdin.write(stdin_str)
+                     stdin.flush()
+@@ -500,7 +501,8 @@
+                         if return_if_no_ping_host:
+                             if time_count % check_ping_after_sec == 0 and time_count != 0:
+                                 from tests.test_base import TestBase
+-                                hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                hlsa_logger(level='debug', ident='Description', loop="", driver_number="",
++                                            dev_address="",
+                                             mezzanine="",
+                                             operation="check ping host started")
+                                 res = TestBase.ping_wait(self._logger, 1, False, True)
+@@ -512,14 +514,16 @@
+                             operation="time_count before response rec_exit_status = %s" % time_count)
+                 if time_count >= total_sleep_count and return_code == -1:
+                     if not disconnect:
+-                        return None,None
++                        return None, None
+                     self._disconnect()
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="SSH Session Encountered an Error - Refreshing Connection...")
+                     self._check_connection()
+                     time.sleep(ssh_command_wait_between_retries)
+                     output_msg = "No output after waiting %s seconds" % total_sleep_count * sleep_between_status_check
+-                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation=output_msg)
+                     return return_code, [output_msg]
+                 # return_lines = stdout.read().decode("utf-8").splitlines()
+@@ -530,7 +534,8 @@
+                 # End of Retries - Log Error
+                 if retry == ssh_command_execution_retries:
+                     self._disconnect()
+-                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="SSH Command Execution Failed! Command: %s" % cmd)
+                     # Print Errors
+                     if print_errors:
+@@ -542,7 +547,8 @@
+                 # Refresh SSH Connection
+                 else:
+                     self._disconnect()
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="SSH Session Encountered an Error - Refreshing Connection...")
+                     self._check_connection()
+                     time.sleep(ssh_command_wait_between_retries)
+@@ -656,7 +662,7 @@
+ 
+         return 0, output
+ 
+-    def put_file(self, src, dst,is_folder = False):
++    def put_file(self, src, dst, is_folder=False):
+         """Local Host -> Remote Host"""
+         if not self._check_connection():
+             return False
+@@ -678,15 +684,18 @@
+             # Exception Occurred
+             except Exception as exception:
+                 if retry == put_file_retries - 1:
+-                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="File Transfer Failed! Exception: %s" % str(exception))
+                     return False
+                 # Retry
+                 else:
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="File Transfer Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, put_file_retries))
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                                    str(exception), retry, put_file_retries))
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="File Transfer Encountered an Error - Retrying to Transfer...")
+             # Succeeded
+             else:
+@@ -695,8 +704,7 @@
+                             operation="File Transfer Succeeded!")
+                 return True
+ 
+-
+-    def get_file(self, src, dst,is_folder = False):
++    def get_file(self, src, dst, is_folder=False):
+         """Remote Host -> Local Host"""
+         if not self._check_connection():
+             return False
+@@ -712,7 +720,7 @@
+                     if self._copy_files_protocol == "sftp":
+                         self.sftp_recursive_get(self._copy_files_client, src, dst)
+                     else:
+-                        self._copy_files_client.get(src, dst,recursive=True)
++                        self._copy_files_client.get(src, dst, recursive=True)
+                 else:
+                     self._copy_files_client.get(src, dst)
+             # Exception Occurred
+@@ -724,10 +732,12 @@
+                     return False
+                 # Retry
+                 else:
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="File Transfer Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, get_file_retries))
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                                    str(exception), retry, get_file_retries))
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="File Transfer Encountered an Error - Retrying to Transfer...")
+             # Succeeded
+             else:
+@@ -735,7 +745,6 @@
+                 hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+                             operation="File Transfer Succeeded!")
+                 return True
+-
+ 
+     def delete_remote_file(self, remote_filename, print_errors=True):
+         if not self._check_connection():
+@@ -770,7 +779,6 @@
+                         operation="%s succeeded" % op_str)
+         return result
+ 
+-
+     def _disconnect(self):
+         # Disconnect Copy Protocol
+         hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+@@ -778,20 +786,24 @@
+         for retry in range(copy_protocol_disconnect_retries):
+             try:
+                 if self._copy_files_client:
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="Attempt to Disconnect the Copy Protocol Session... (Retry: %d/%d)" % (
+-                                retry, copy_protocol_disconnect_retries))
++                                    retry, copy_protocol_disconnect_retries))
+                     self._copy_files_client.close()
+             except Exception as exception:
+                 # Copy Protocol Disconnection Failed
+                 if retry == copy_protocol_disconnect_retries:
+-                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                                operation="Failed to Disconnect the Copy Protocol Session! Exception: %s" % str(exception))
++                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
++                                operation="Failed to Disconnect the Copy Protocol Session! Exception: %s" % str(
++                                    exception))
+ 
+                     # Retry
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="Copy Protocol Disconnect Failed Retrying... Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, copy_protocol_disconnect_retries))
++                                    str(exception), retry, copy_protocol_disconnect_retries))
+             # Disconnect Copy Protocol Succeeded
+             else:
+                 hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+@@ -804,19 +816,22 @@
+         for retry in range(ssh_disconnect_retries):
+             try:
+                 if self._sshclient:
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="Attempt to Disconnect the SSH Session... (Retry: %d/%d)' % (retry, ssh_disconnect_retries)")
+                     self._sshclient.close()
+             except Exception as exception:
+                 # SSH Disconnection Failed
+                 if retry == ssh_disconnect_retries:
+-                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="Failed to Disconnect the SSH Session! Exception: %s" % str(exception))
+                 # Retry
+                 else:
+-                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
++                    hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="",
++                                mezzanine="",
+                                 operation="SSH Disconnect Exception: %s (Retry: %d/%d)" % (
+-                                str(exception), retry, copy_protocol_disconnect_retries))
++                                    str(exception), retry, copy_protocol_disconnect_retries))
+             # Disconnect SSH Succeeded
+             else:
+                 hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+@@ -824,7 +839,6 @@
+                 self._sshclient = None
+                 self._connected = False
+                 break
+-
+ 
+     def check_and_upate_detalis(self):
+         connection_manager = connection.connection_manager.get_connection_manager()
+@@ -852,7 +866,6 @@
+             # disconnect with old ssh conn and reconnet with new updated ssh conn
+             self._disconnect()
+             self._connect()
+-
+ 
+     def __del__(self):
+         if len(self._file_transfer_history) > 0:
+diff --git a/connection/uart_connection.py b/connection/uart_connection.py
+index 62183ed..0743c39 100644
+--- a/connection/uart_connection.py
++++ b/connection/uart_connection.py
+@@ -42,7 +42,7 @@
+         self.stop_sniffer()
+         self._disconnect()
+ 
+-    def start_sniffer(self,timestamp = False):
++    def start_sniffer(self, timestamp=False):
+         # verify uart connection is open
+         if not self.serial_connection.is_open:
+             self._connect()
+@@ -51,11 +51,11 @@
+             # create new thread
+             self.UART_THREAD = SuperThread('Uart', lambda: self._sniff(timestamp))
+             hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                        operation="Open thread UART",result="SUCCESS")
++                        operation="Open thread UART", result="SUCCESS")
+             self.UART_THREAD.start()
+             return True
+ 
+-    def _sniff(self,timestamp):
++    def _sniff(self, timestamp):
+         while True:
+             binary_data = self.serial_connection.read(self.serial_connection.in_waiting)
+             if timestamp:
+@@ -76,7 +76,7 @@
+             self.UART_THREAD.terminate()
+             time.sleep(self._wait_after_terminate)
+             hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                        operation="Close thread UART",result="SUCCESS")
++                        operation="Close thread UART", result="SUCCESS")
+             self.is_sniffed = False
+ 
+     def _connect(self):
+@@ -123,7 +123,7 @@
+ 
+             if not self.serial_connection.is_open:
+                 hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                            operation="Open port UART port: %s" %self.serial_connection.port,result="FAIL")
++                            operation="Open port UART port: %s" % self.serial_connection.port, result="FAIL")
+                 assert self.serial_connection.is_open, "Failed to open serial connection"
+ 
+         self.is_connected = True
+@@ -131,12 +131,14 @@
+ 
+     def print_connection_details(self):
+         hlsa_logger(level='info', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                    operation="Connect UART  serial port %s" %self.serial_connection.port,result="SUCCESS")
++                    operation="Connect UART  serial port %s" % self.serial_connection.port, result="SUCCESS")
+         hlsa_logger(level='debug', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+                     operation="Connection details UART baudrate: %s connection_timeout: %s sampling_rate_sec: %s "
+-                     "save_results_to_file: %s" %(self.connection_details.baudrate,
+-                     self.connection_details.connection_timeout, self.connection_details.sampling_rate_sec,
+-                     self.connection_details.save_results_to_file),result="SUCCESS")
++                              "save_results_to_file: %s" % (self.connection_details.baudrate,
++                                                            self.connection_details.connection_timeout,
++                                                            self.connection_details.sampling_rate_sec,
++                                                            self.connection_details.save_results_to_file),
++                    result="SUCCESS")
+ 
+     def _configure_connection(self):
+         """
+@@ -162,15 +164,15 @@
+             return True
+         else:
+             hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                        operation="Close port UART port: %s" %self.serial_connection.port,result="FAIL")
++                        operation="Close port UART port: %s" % self.serial_connection.port, result="FAIL")
+             # assert self.serial_connection.is_open, "Failed to close serial connection"
+             if self.serial_connection.is_open:
+                 hlsa_logger(level='error', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                            operation="Failed to close serial connection",result="FAIL")
++                            operation="Failed to close serial connection", result="FAIL")
+                 return False
+ 
+         hlsa_logger(level='info', ident='Description', loop="", driver_number="", dev_address="", mezzanine="",
+-                    operation="Disconnect UART  serial port %s" %self.serial_connection.port,result="SUCCESS")
++                    operation="Disconnect UART  serial port %s" % self.serial_connection.port, result="SUCCESS")
+ 
+     def get_uart_buffer(self):
+         """
+@@ -193,7 +195,7 @@
+             fout.write(decoded_buf)
+         return decoded_buf
+ 
+-    def write_to_port(self, str_to_write="test",time_wait = 0 ):
++    def write_to_port(self, str_to_write="test", time_wait=0):
+         """
+         Write string directly to serial port.
+         return: True if write status OK, False otherwise.
+@@ -271,15 +273,16 @@
+     def get_num_devices():
+         return 1
+ 
++
+ class RemoteUartConnection(BaseConnection):
+     tmux_session_name = "remote_uart"
+     tmux_new_session_cmd = "tmux new -d -s %s" % tmux_session_name
+     tmux_attach_session_cmd = "tmux attach-session -t %s" % tmux_session_name
+     host_directory = "/home/labuser/remote_uart/"
+     dir_name = 'remote_uart'
+-    create_dir_cmd = "mkdir -p %s/" %dir_name
++    create_dir_cmd = "mkdir -p %s/" % dir_name
+ 
+-    def __init__(self,ssh_connection,details):
++    def __init__(self, ssh_connection, details):
+         super().__init__()
+         self.ssh_connection = ssh_connection
+         self.connection_details = details
+@@ -288,56 +291,47 @@
+     def _prepare_host(self):
+         self.ssh_connection.execute_remote_command(self.tmux_new_session_cmd)
+         res, _ = self.ssh_connection.execute_remote_command(self.create_dir_cmd)
+-        hlsa_checker.check_status_is_true(res==0, ident='Description', operation='create temp directory on remote host')
++        hlsa_checker.check_status_is_true(res == 0, ident='Description', operation='create temp directory '
++                                                                                   'on remote host')
+         res = self.ssh_connection.put_file('connection/remote_uart.py', self.host_directory + 'remote_uart.py')
+         hlsa_checker.check_status_is_true(res, ident='Description', operation='copy file to remote host')
+ 
++    def start_sniffer(self, timeout=300):
++        start_cmd = "-a start -t %s -p %s -b %s -c %s -w %s -r %s -l %s" % (timeout, self.connection_details.port,
++                                                                            self.connection_details.baudrate,
++                                                                            self.connection_details.connection_timeout,
++                                                                            self.connection_details.write_timeout,
++                                                                            self.connection_details.sampling_rate_sec,
++                                                                            self.connection_details.lines_to_read)
++        self.ssh_connection.execute_remote_command(
++            "tmux send-keys -t %s.0 \"sudo python3 remote_uart/remote_uart.py %s\" ENTER" %
++            (self.tmux_session_name, start_cmd))
+ 
+-    def start_sniffer(self,timeout=300):
+-        start_cmd = "-a start -t %s -p %s -b %s -c %s -w %s -r %s -l %s" %(timeout,self.connection_details.port,
+-            self.connection_details.baudrate,self.connection_details.connection_timeout,self.connection_details.write_timeout,
+-            self.connection_details.sampling_rate_sec,self.connection_details.lines_to_read)
+-
+-        self.ssh_connection.execute_remote_command("tmux send-keys -t %s.0 \"sudo python3 remote_uart/remote_uart.py %s\" ENTER" %
+-                        (self.tmux_session_name,start_cmd ))
+-
+-    def stop_sniffer(self):
+-        stop_cmd = "-a stop -p %s" %self.connection_details.port
+-        tmux_uart_file = "res_%s.txt" %(self.connection_details.port.split("/")[-1])
+-        self.ssh_connection.execute_remote_command("tmux send-keys -t %s.0 \"sudo python3 remote_uart/remote_uart.py %s\" ENTER"
+-                                                   %(self.tmux_session_name,stop_cmd))
+-        res = self.ssh_connection.get_file(self.host_directory +tmux_uart_file,tmux_uart_file )
++    def stop_sniffer(self, res_file_path=None):
++        stop_cmd = "-a stop -p %s" % self.connection_details.port
++        tmux_uart_file = "res_%s.txt" % (self.connection_details.port.split("/")[-1])
++        res_file_path = tmux_uart_file if res_file_path is None else res_file_path
++        self.ssh_connection.execute_remote_command(
++            "tmux send-keys -t %s.0 \"sudo python3 remote_uart/remote_uart.py %s\" ENTER"
++            % (self.tmux_session_name, stop_cmd))
++        res = self.ssh_connection.get_file(self.host_directory + tmux_uart_file, res_file_path)
+         hlsa_checker.check_status_is_true(res, ident='Description', operation='get uart buffer file')
+         uart_buffer = ""
+-        with open (tmux_uart_file,"r") as file:
++        tmux_uart_file = tmux_uart_file if res_file_path is None else res_file_path
++        with open(tmux_uart_file, "r") as file:
+             uart_buffer = file.read()
+         return uart_buffer
+-
+ 
+     def get_uart_buffer(self):
+         self.stop_sniffer()
+         self.start_sniffer()
+ 
+     def flush_uart(self):
+-        flush_cmd = "-a flush_uart -p %s"%self.connection_details.port
++        flush_cmd = "-a flush_uart -p %s" % self.connection_details.port
+         self.ssh_connection.execute_remote_command("tmux send-keys -t %s.0 \"sudo python3 tmp/remote_uart.py %s\" ENTER"
+-                                % (self.tmux_session_name, flush_cmd))
++                                                   % (self.tmux_session_name, flush_cmd))
+ 
+-    def write_to_port(self,str_to_write="test"):
+-        write_cmd = "-a write_to_port -p %s -s %s" %(self.connection_details.port,str_to_write)
++    def write_to_port(self, str_to_write="test"):
++        write_cmd = "-a write_to_port -p %s -s %s" % (self.connection_details.port, str_to_write)
+         self.ssh_connection.execute_remote_command("tmux send-keys -t %s.0 \"sudo python3 tmp/remote_uart.py %s\" ENTER"
+-                % (self.tmux_session_name,write_cmd))
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
++                                                   % (self.tmux_session_name, write_cmd))
+diff --git a/hlsa_utils/functional_hl_qual_parser.py b/hlsa_utils/functional_hl_qual_parser.py
+index 0e70053..f2e4d2e 100644
+--- a/hlsa_utils/functional_hl_qual_parser.py
++++ b/hlsa_utils/functional_hl_qual_parser.py
+@@ -23,9 +23,9 @@
+ 
+         for idx, line in enumerate(self.lines):
+             if "hl qual report" in line:
+-                next_index = idx + 1
+-                if next_index < len(self.lines):
+-                    return self.lines[next_index].strip()
++                status = [line for line in self.lines[idx::] if
++                          line and (line.strip() == 'PASSED' or line.strip() == 'FAILED')]
++                return status[0]
+         return ""
+ 
+     def _get_num_devices(self):
+@@ -54,7 +54,7 @@
+         self.hl_qual_dict['device_count'] = self._get_num_devices()
+         self.hl_qual_dict['status'] = self.status
+         curr_card = self.hl_qual_dict['hl_qual_command_line'].split('-c')[1].strip().split(' ')[0]
+-        self.hl_qual_dict['current_card'] = '' if curr_card == 'all' else curr_card
++        self.hl_qual_dict['current_card'] = '' if curr_card == 'all' or 'quad' in curr_card else curr_card
+ 
+     def _create_hl_smi_short_report(self):
+         data_short_report = []
+diff --git a/hw_manager/controls/cli.py b/hw_manager/controls/cli.py
+index 2ae7538..fb92f09 100644
+--- a/hw_manager/controls/cli.py
++++ b/hw_manager/controls/cli.py
+@@ -18,6 +18,7 @@
+ 
+ class Cli(Control):
+     max_retry_execute_cmd = 5
++
+     def __init__(self, control_config):
+         super().__init__(control_config)
+         self.test_options = get_test_options()
+@@ -43,24 +44,26 @@
+                     sleep(1)
+                 else:
+                     break
+-            hlsa_checker.check_status_is_true(status == 0, ident='Description', operation='init cli control kernel version',
++            hlsa_checker.check_status_is_true(status == 0, ident='Description',
++                                              operation='init cli control kernel version',
+                                               ignore_assert=self.test_options.ignore_assert)
+             self.kernel_version = self.kernel_version[0]
+ 
+     def reconnect(self):
+         self.interface.reconnect()
+ 
+-    def execute_command(self, cmd, stdin_str=None, print_errors=True, return_if_no_ping_host=False,total_sleep_count = None,disconnect = True):
++    def execute_command(self, cmd, stdin_str=None, print_errors=True, return_if_no_ping_host=False,
++                        total_sleep_count=None, disconnect=True, get_pty=False):
+         input_purpose = get_cfg_option("purpose")
+-        if total_sleep_count == None and input_purpose is not None and input_purpose.upper() == "STRESS":
++        if total_sleep_count is None and input_purpose is not None and input_purpose.upper() == "STRESS":
+             total_sleep_count = 300
+-        elif total_sleep_count == None:
++        elif total_sleep_count is None:
+             total_sleep_count = self.test_options.ssh_total_sleep_count
+         return self.interface.execute_command(cmd, stdin_str, print_errors,
+                                               total_sleep_count=total_sleep_count,
+                                               sleep_between_status_check=self.test_options.ssh_sleep_between_status_check,
+                                               return_if_no_ping_host=return_if_no_ping_host,
+-                                              disconnect=disconnect)
++                                              disconnect=disconnect, get_pty=get_pty)
+ 
+     def execute_shell_command(self, cmd_list, long_command_index_list=None, wait_for_command=True):
+         return self.interface.execute_shell_command(cmd_list, long_command_index_list, wait_for_command)
+@@ -71,14 +74,14 @@
+     def put_file(self, src, dst):
+         return self.interface.put_file(src, dst)
+ 
+-    def put_folder(self, src, dst,is_folder = True):
+-        return self.interface.put_file(src, dst,is_folder)
++    def put_folder(self, src, dst, is_folder=True):
++        return self.interface.put_file(src, dst, is_folder)
+ 
+     def get_file(self, src, dst):
+         return self.interface.get_file(src, dst)
+ 
+-    def get_folder(self, src, dst,is_folder = True):
+-        return self.interface.get_file(src, dst,is_folder)
++    def get_folder(self, src, dst, is_folder=True):
++        return self.interface.get_file(src, dst, is_folder)
+ 
+     def change_file_name_on_host(self, file_path, curr_name, new_name):
+         return self.execute_command("cd " + file_path + "&& mv " + curr_name + " " + new_name)
+diff --git a/hw_manager/controls/hl_qual_cli.py b/hw_manager/controls/hl_qual_cli.py
+index 80e9d40..40ce177 100644
+--- a/hw_manager/controls/hl_qual_cli.py
++++ b/hw_manager/controls/hl_qual_cli.py
+@@ -210,7 +210,7 @@
+             return None
+         for flag, value in flags.items():
+             if flag == 'c':
+-                if value.upper() == "ALL":
++                if value.upper() == "ALL" or 'QUAD' in value.upper():
+                     devices_exist = operational_devices_address
+                     if len(operational_devices_address) != len(connected_pcie_devices):
+                         hlsa_logger(level='error', ident='Description', test_code='hl-qual-cli',
+@@ -416,7 +416,7 @@
+ 
+     def get_csv_results(self, pcie_addr='all'):
+         results = {}
+-        if pcie_addr == 'all':
++        if pcie_addr == 'all' or 'quad' in pcie_addr:
+             res, output = self.device_cli.execute_command(
+                 f'ls {self._csv_file_path} | grep {self._csv_file_name_prefix}')
+             files = output if res == 0 and output else []
+diff --git a/hw_manager/functions.py b/hw_manager/functions.py
+index 6e0bed7..3fc2b46 100644
+--- a/hw_manager/functions.py
++++ b/hw_manager/functions.py
+@@ -704,12 +704,13 @@
+         return cls._user_connections[connection_type]
+ 
+     @classmethod
+-    def add_dynamic_uart(cls, uart_name):
++    def add_dynamic_uart(cls, uart_name, extras=None):
+         uart_id = set_new_uart_in_connection_manager(uart_name)
+         connection_manager = get_connection_manager()
+         if ConType.UART not in cls._user_connections:
+             cls._user_connections[ConType.UART] = dict()
+-        cls._user_connections[ConType.UART][uart_id] = connection_manager.get_connection(ConType.UART, uart_id)
++        cls._user_connections[ConType.UART][uart_id] = connection_manager.get_connection(ConType.UART, uart_id,
++                                                                                         extras=extras)
+         cls._dynamic_uarts[uart_name] = cls._user_connections[ConType.UART][uart_id]
+         return cls._dynamic_uarts[uart_name]
+ 
+diff --git a/hw_manager/interfaces/general_connection.py b/hw_manager/interfaces/general_connection.py
+index 8719b3e..ad6a7ee 100644
+--- a/hw_manager/interfaces/general_connection.py
++++ b/hw_manager/interfaces/general_connection.py
+@@ -30,16 +30,16 @@
+         # self.connection.print_connection_details()
+ 
+     def execute_command(self, cmd, stdin_str=None, print_errors=True, total_sleep_count=None,
+-                        sleep_between_status_check=1, return_if_no_ping_host=False, disconnect=True):
++                        sleep_between_status_check=1, return_if_no_ping_host=False, disconnect=True, get_pty=False):
+         input_purpose = get_cfg_option("purpose")
+-        if total_sleep_count == None and input_purpose is not None and input_purpose.upper() == "STRESS":
++        if total_sleep_count is None and input_purpose is not None and input_purpose.upper() == "STRESS":
+             total_sleep_count = 300
+-        elif total_sleep_count == None:
++        elif total_sleep_count is None:
+             total_sleep_count = self.test_options.ssh_total_sleep_count
+         return self.connection.execute_remote_command(cmd, stdin_str, print_errors, total_sleep_count=total_sleep_count,
+                                                       sleep_between_status_check=sleep_between_status_check,
+                                                       return_if_no_ping_host=return_if_no_ping_host,
+-                                                      disconnect=disconnect)
++                                                      disconnect=disconnect, get_pty=get_pty)
+ 
+     def execute_shell_command(self, cmd_list, long_command_index_list=None, wait_for_command=True):
+         return self.connection.execute_shell_remote_command(cmd_list, long_command_index_list, wait_for_command)
+diff --git a/monitor_manager/main.py b/monitor_manager/main.py
+index b527597..f0dc12e 100644
+--- a/monitor_manager/main.py
++++ b/monitor_manager/main.py
+@@ -12,6 +12,7 @@
+ from monitor_manager.monitor_manager import MonitorManager as _MonitorManger
+ from monitor_manager.monitors.sensor_monitor import SensorsMonitor as _SensorsMonitor
+ from monitor_manager.monitors.uart_monitor import UartMonitor as _UartMonitor
++from monitor_manager.monitors.virtual_uart_monitor import VirtualUartMonitor as _VirtualUartMonitor
+ from monitor_manager.monitors.dmesg_monitor import DmesgMonitor as _DmesgMonitor
+ from monitor_manager.monitors.HL325_jig_monitor import HL325JigMonitor as _HL325JigMonitor
+ 
+@@ -35,6 +36,7 @@
+     MONITOR_BASE = _MonitorClass
+     SENSORS_MONITOR = _SensorsMonitor
+     UART_MONITOR = _UartMonitor
++    VIRTUAL_UART_MONITOR = _VirtualUartMonitor
+     DMESG_MONITOR = _DmesgMonitor
+     HL325_JIG_MONITOR = _HL325JigMonitor
+ 
+diff --git a/monitor_manager/monitor.py b/monitor_manager/monitor.py
+index 99af285..8589f15 100644
+--- a/monitor_manager/monitor.py
++++ b/monitor_manager/monitor.py
+@@ -31,7 +31,7 @@
+         # Args is Dict
+         raise NotImplementedError()
+ 
+-    def pause_and_save(self,test_name):
++    def pause_and_save(self, test_name):
+         raise NotImplementedError()
+ 
+     def pause(self):
+@@ -70,8 +70,10 @@
+     def close_report_file(self, key):
+         self.report_dict[key].close()
+ 
+-    def _remove_previous_report_file(self,key):
++    def _remove_previous_report_file(self,key=None, file_name=None):
+         report_name_path = os.path.join(self.REPORTS_FOLDER_RELATIVE_PATH, f"{key}.csv")
++        if file_name is not None:
++            report_name_path = os.path.join(self.REPORTS_FOLDER_RELATIVE_PATH, f"{file_name}")
+ 
+         if os.path.exists(report_name_path):
+             old_file_name = f'old_{os.path.basename(report_name_path)}'
+diff --git a/monitor_manager/monitor_manager.py b/monitor_manager/monitor_manager.py
+index d847d68..ecb7282 100644
+--- a/monitor_manager/monitor_manager.py
++++ b/monitor_manager/monitor_manager.py
+@@ -13,6 +13,7 @@
+ import monitor_manager
+ from hlsa_utils.thread_pool import ThreadPool
+ 
++
+ class MonitorManager:
+     _REPORTS_FOLDER_RELATIVE_PATH = "monitor_manager/monitor_reports"
+ 
+@@ -30,13 +31,13 @@
+         self.id = self.id + 1
+         return monitor_name
+ 
+-    def start_monitor(self, monitor_name,monitor_args=None):
++    def start_monitor(self, monitor_name, monitor_args=None):
+         if monitor_name in self.added_monitors.keys():
+             monitor = self.added_monitors[monitor_name]
+         else:
+             return None
+ 
+-        self._thread_pool.start_thread(monitor_name, monitor.start,monitor_args,stop_function=monitor.stop)
++        self._thread_pool.start_thread(monitor_name, monitor.start, monitor_args, stop_function=monitor.stop)
+         return True
+ 
+     def stop_monitor(self, monitor_name):
+@@ -45,10 +46,17 @@
+         else:
+             return None
+ 
+-    def get_monitor_report_result(self, monitor_name,monitor_args=None):
++    def get_monitor_report_result(self, monitor_name, monitor_args=None):
+         if monitor_name in self.added_monitors.keys():
+             monitor = self.added_monitors[monitor_name]
+             return monitor.get_monitor_report_data(monitor_args)
++        else:
++            return None
++
++    def get_start_status(self, monitor_name, monitor_args=None):
++        if monitor_name in self.added_monitors.keys():
++            monitor = self.added_monitors[monitor_name]
++            return monitor.get_start_status()
+         else:
+             return None
+ 
+@@ -57,6 +65,8 @@
+ 
+     def stop_all_monitors(self):
+         self._thread_pool.stop_all_threads()
++
++
+ 
+     def get_monitor_class_instance(self, name):
+         if name in self.added_monitors.keys():
+@@ -102,7 +112,7 @@
+             except Exception as e:
+                 print("Failed to delete: " + file_path + file_name + ".csv was deleted")
+ 
+-    def pause_monitors_and_save_results(self,test_name):
++    def pause_monitors_and_save_results(self, test_name):
+         for monitor_name in self.added_monitors.keys():
+             monitor = self.added_monitors[monitor_name]
+             monitor.pause_and_save(test_name)
+diff --git a/monitor_manager/monitors/uart_monitor.py b/monitor_manager/monitors/uart_monitor.py
+index a619558..2a0e36c 100644
+--- a/monitor_manager/monitors/uart_monitor.py
++++ b/monitor_manager/monitors/uart_monitor.py
+@@ -11,7 +11,7 @@
+ 
+ import time
+ from monitor_manager.monitor import Monitor
+-from setup_manager.hlsa_logger import hlsa_logger, hlsa_checker
++from setup_manager.hlsa_logger import hlsa_logger
+ import hw_manager
+ 
+ 

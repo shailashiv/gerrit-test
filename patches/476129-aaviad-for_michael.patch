@@ -1,0 +1,53 @@
+From 717eabc32c11566d70ac45d26449e5f98aed363d Mon Sep 17 00:00:00 2001
+From: Ariel Aviad <aaviad@habana.ai>
+Date: Thu, 27 Mar 2025 15:16:11 +0200
+Subject: [PATCH] for michael
+
+Change-Id: Ibf075a97c8e121081dedabf010b1d776eb1cf4dd
+Signed-off-by: Ariel Aviad <aaviad@habana.ai>
+---
+
+diff --git a/board/habanalabs/gaudi3_arc/serdes-conf-lfs.its b/board/habanalabs/gaudi3_arc/serdes-conf-lfs.its
+new file mode 100644
+index 0000000..5f816b8
+--- /dev/null
++++ b/board/habanalabs/gaudi3_arc/serdes-conf-lfs.its
+@@ -0,0 +1,38 @@
++/*
++ * Simple standalone image source file containing a
++ * HabanaLabs Zephyr fw loader agent
++ */
++
++/dts-v1/;
++
++/ {
++	hl-version = "hl-gaudi3-1.21.0-rc-fw-58.0.0-38-ge50a37ff-dirty-sec-2";
++	hl-erom-version = "hl-gaudi3-1.21.0-fw-59.0.0-sec-2";
++	hl-device = "gaudi3";
++	description = "FIT simple";
++	#address-cells = <2>;
++
++	images {
++		serdes_conf_lfs {
++			description = "SerDes configuration in littlefs binary image for Gaudi3";
++			data = /incbin/("/home/aaviad/trees/npu-stack/embedded/buildroot-external/board/habanalabs/gaudi3/serdes/FlashMemory.bin");
++			type = "standalone";
++			compression = "none";
++			loadaddr = <0x001C0000>;
++			offset = <0x001C0000>;
++			hash {
++				algo = "sha384";
++			};
++		};
++	};
++
++	configurations {
++		default = "fw-loader-conf";
++
++		fw-loader-conf {
++			load-type = <4>; /* FIT_LOAD_TYPE_FLASH */
++			description = "Habanalabs device boot loader";
++			loadables = "serdes_conf_lfs";
++		};
++	};
++};

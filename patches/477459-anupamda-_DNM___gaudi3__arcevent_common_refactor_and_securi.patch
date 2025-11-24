@@ -1,0 +1,2630 @@
+From 27d1dcee268aa773b3a0c7ab60bb5a95a677bc79 Mon Sep 17 00:00:00 2001
+From: Anupam Datta <andatta@habana.ai>
+Date: Wed, 16 Apr 2025 09:12:33 +0300
+Subject: [PATCH] [DNM]: gaudi3: arcevent common refactor and security fixes
+
+WIP
+
+Change-Id: Ic9ca785a88834926df311d0621058f714d28d9c6
+Signed-off-by: Anupam Datta <andatta@habana.ai>
+---
+
+diff --git a/src/gaudi3/dev.c b/src/gaudi3/dev.c
+index a18fc32..25fd288 100644
+--- a/src/gaudi3/dev.c
++++ b/src/gaudi3/dev.c
+@@ -46,20 +46,26 @@
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_REGISTER(GAUDI3_EVENT_LOG_ID);
+ 
+-#define BIS_RESTRICTION_VIOLATION_RESET_DELAY_MS  (RESET_DELAY_MS * 5)
++static uint8_t bis_performance_calc_num;
++static struct hl_component_versions component_versions = COMPONENT_VERSIONS;
+ 
+-struct hl_event_dev_data gaudi3_event_dev_data;
+-
+-struct intr_data {
+-	void *fifo_reserved;   /* 1st word reserved for use by FIFO */
+-	uint32_t info;
+-};
+-
+-static void gaudi3_init_hbm_mem_pool(struct hl_event_config *config)
++static int gaudi3_init_hbm_mem_pool(struct hl_event_config *config)
+ {
++	/* Validate config data */
++	if (!config || !config->dev_data) {
++		LOG_ERR("Invalid configuration data");
++		return -EINVAL;
++	}
++
+ 	struct sys_heap *mem_pool = &config->dev_data->hbm_mem_pool;
+ 	void *mem_base = (void *)DT_REG_ADDR(DT_NODELABEL(hbm_mem));
+ 	size_t mem_size = DT_REG_SIZE(DT_NODELABEL(hbm_mem));
++
++	/* Validate memory base and size */
++	if (!mem_base || mem_size == 0) {
++		LOG_ERR("Invalid HBM memory base or size");
++		return -ENOMEM;
++	}
+ 
+ 	memset(mem_base, 0, mem_size);
+ 	sys_heap_init(mem_pool, mem_base, mem_size);
+@@ -69,6 +75,8 @@
+ 		return;
+ 	}
+ #endif /* CONFIG_SYS_HEAP_VALIDATE */
++
++	return 0;
+ }
+ 
+ static void hl_mbx_send_reply(const struct device *dev,
+@@ -332,8 +340,6 @@
+ 	return ret;
+ }
+ 
+-static struct hl_component_versions component_versions = COMPONENT_VERSIONS;
+-
+ static void evt_send_versions(struct hl_event_config *config)
+ {
+ 	int ret;
+@@ -364,6 +370,8 @@
+ 
+ int hl_event_prepare(struct hl_event_config *config)
+ {
++	struct hl_event_dev_data gaudi3_event_dev_data;
++
+ 	config->hl_intr_dev = HL_INTR_DEV_INST;
+ 	if (!config->hl_intr_dev) {
+ 		LOG_ERR("Failed to get pointer to %s device!",
+@@ -420,7 +428,7 @@
+ 	}
+ }
+ 
+-#define EVT_CHECK_TIMEOUT_MS	2
++
+ void hl_event_process_interrupt(struct hl_event_config *config)
+ {
+ 	int64_t curr_time = k_uptime_get();
+@@ -493,34 +501,6 @@
+ 	return !!(config->dev_data->fuse_sys_cfg & EFUSE_BIS_COMPLIANT_EN_MASK);
+ }
+ 
+-#define MME_SHADOW_N_TEN_ST_OFF	(mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_ST_BASE - \
+-				 mmHD0_MME_CTRL_HI_BASE)
+-#define MME_SHADOW_N_TEN_OFF	(mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_BASE - \
+-				 mmHD0_MME_CTRL_HI_BASE)
+-
+-#define MME_SHADOW_ST_DIST	(mmHD0_MME_CTRL_HI_SHADOW_1_N_TEN_ST_BASE - \
+-				 mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_ST_BASE)
+-#define MME_SHADOW_DIST		(mmHD0_MME_CTRL_HI_SHADOW_1_N_TEN_BASE - \
+-				 mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_BASE)
+-
+-#define DATA_TYPE_IN_ZERO	0x00
+-#define DATA_TYPE_IN_FP16	0x08
+-#define DATA_TYPE_IN_BF16	0x09
+-#define DATA_TYPE_IN_FP32	0x0A
+-#define DATA_TYPE_IN_TF32	0x0B
+-#define DATA_TYPE_IN_FP8	0x0C
+-
+-#define TOKEN_DEC_DEFAULT	0xFFFF
+-/* draw hdcore and shadow from the current time lsb bits */
+-#define HDCORE_MASK		(8 - 1)
+-#define SHADOW_MASK		(4 - 1)
+-#define SHADOW_SHIFT		3
+-
+-#define SATURATION_VALUE_1	0x20800
+-#define SATURATION_VALUE_2	0x10C00
+-
+-static uint8_t bis_performance_calc_num;
+-
+ /*
+  * The GC is changing the INC_VAL to control the allowed compute per data type. Thus, it is required
+  * from FW, besides initializing the values in the PMU, to also periodically check the data type
+@@ -548,6 +528,7 @@
+ 	uint8_t hdcore, shadow;
+ 	bool reset_required;
+ 
++
+ 	while (end_tick > uptime) {
+ 		reset_required = false;
+ 		hdcore = bis_performance_calc_num & HDCORE_MASK;
+diff --git a/src/gaudi3/dev.h b/src/gaudi3/dev.h
+index b631c4a..a03768c 100644
+--- a/src/gaudi3/dev.h
++++ b/src/gaudi3/dev.h
+@@ -15,6 +15,36 @@
+ #define EVENT_IPM_BUSY_WAIT_US	5
+ #define HEARTBEAT_TIMEOUT_MS	2000
+ 
++#define BIS_RESTRICTION_VIOLATION_RESET_DELAY_MS  (RESET_DELAY_MS * 5)
++
++#define EVT_CHECK_TIMEOUT_MS	2
++
++#define MME_SHADOW_N_TEN_ST_OFF	(mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_ST_BASE - \
++	mmHD0_MME_CTRL_HI_BASE)
++#define MME_SHADOW_N_TEN_OFF	(mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_BASE - \
++	mmHD0_MME_CTRL_HI_BASE)
++
++#define MME_SHADOW_ST_DIST	(mmHD0_MME_CTRL_HI_SHADOW_1_N_TEN_ST_BASE - \
++	mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_ST_BASE)
++#define MME_SHADOW_DIST		(mmHD0_MME_CTRL_HI_SHADOW_1_N_TEN_BASE - \
++	mmHD0_MME_CTRL_HI_SHADOW_0_N_TEN_BASE)
++
++#define DATA_TYPE_IN_ZERO	0x00
++#define DATA_TYPE_IN_FP16	0x08
++#define DATA_TYPE_IN_BF16	0x09
++#define DATA_TYPE_IN_FP32	0x0A
++#define DATA_TYPE_IN_TF32	0x0B
++#define DATA_TYPE_IN_FP8	0x0C
++
++#define TOKEN_DEC_DEFAULT	0xFFFF
++/* draw hdcore and shadow from the current time lsb bits */
++#define HDCORE_MASK		(8 - 1)
++#define SHADOW_MASK		(4 - 1)
++#define SHADOW_SHIFT		3
++
++#define SATURATION_VALUE_1	0x20800
++#define SATURATION_VALUE_2	0x10C00
++
+ struct hl_event_ops {
+ 	struct mbx_msg_id id;
+ 	bool pending;
+@@ -34,4 +64,9 @@
+ 	bool process_pend_intr;
+ };
+ 
++struct intr_data {
++	void *fifo_reserved;   /* 1st word reserved for use by FIFO */
++	uint32_t info;
++};
++
+ #endif /* _INCLUDE_GAUDI3_DEV_H_ */
+diff --git a/src/gaudi3/ecc_info.c b/src/gaudi3/ecc_info.c
+index 7dde18d..54f4e10 100644
+--- a/src/gaudi3/ecc_info.c
++++ b/src/gaudi3/ecc_info.c
+@@ -23,28 +23,36 @@
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_DECLARE(ECC_INFO);
+ 
+-/*
+- * This to get the offset 0x11000 and 0x12000. As we need base addresses
+- * for D0_NIC0_MSTR_IF_CTRL and D0_NIC0_MSTR_IF_DATA which are calculated
+- * using mmD0_NIC0_RXE_BASE and these offsets.
+- */
+-#define MSTR_IF_CTRL_OFFSET			(mmD0_NIC0_UMR_7_BASE - mmD0_NIC0_QM_DCCM_BASE)
+-#define MSTR_IF_DATA_OFFSET			(mmD0_NIC0_UMR_8_BASE - mmD0_NIC0_QM_DCCM_BASE)
++static struct gaudi3_evt_ecc_counters sram_ecc_counters;
++static struct gaudi3_evt_ecc_counters hbm_ecc_counters;
+ 
+-#define ECC_INTR_BLOCK_2			2
+-#define ECC_INTR_BLOCK_3			3
+-#define ECC_INTR_BLOCK_4			4
+-#define ECC_INTR_BLOCK_9			9
++static int get_nic_base(int block_idx, uint32_t *base) {
++    static const uint32_t nic_bases[] = {
++        mmD0_NIC0_RXB_CORE_BASE,
++        mmD0_NIC0_RXE_BASE,
++        mmD0_NIC0_TXS_BASE,
++        mmD0_NIC0_TXE_BASE,
++        mmD0_NIC0_TMR_BASE,
++        mmD0_NIC0_QPC_BASE,
++        mmD0_NIC0_TXB_BASE,
++        mmD0_NIC0_RXE_BASE + MSTR_IF_CTRL_OFFSET,
++        mmD0_NIC0_RXE_BASE + MSTR_IF_DATA_OFFSET
++    };
+ 
+-#define SBTE_DIVIDER				4
+-#define BLOCK_ID0				0
+-#define BLOCK_ID1				1
+-#define BLOCK_ID2				2
++    if (block_idx < 0 || block_idx >= sizeof(nic_bases) / sizeof(nic_bases[0])) {
++        LOG_ERR("Invalid block index");
++        return -1;
++    }
++
++    *base = nic_bases[block_idx];
++    return 0;
++}
+ 
+ static int get_shared_ecc_event_info(struct gaudi3_async_events_ids_map *intr_map,
+ 					int block_idx, uint32_t *base)
+ {
+ 	uint32_t die_offset = DIE_OFFSET;
++	int ret = 0;
+ 
+ 	switch (intr_map->index) {
+ 	case REI_INTR_SHARED_PCIE_CORE:
+@@ -57,40 +65,11 @@
+ 		*base = mmD0_PCIE_PHY_BASE;
+ 		break;
+ 	case REI_INTR_SHARED_NIC0...REI_INTR_SHARED_NIC5:
+-		switch (block_idx) {
+-		case 0:
+-			*base = mmD0_NIC0_RXB_CORE_BASE;
+-			break;
+-		case 1:
+-			*base = mmD0_NIC0_RXE_BASE;
+-			break;
+-		case 2:
+-			*base = mmD0_NIC0_TXS_BASE;
+-			break;
+-		case 3:
+-			*base = mmD0_NIC0_TXE_BASE;
+-			break;
+-		case 4:
+-			*base = mmD0_NIC0_TMR_BASE;
+-			break;
+-		case 5:
+-			*base = mmD0_NIC0_QPC_BASE;
+-			break;
+-		case 6:
+-			*base = mmD0_NIC0_TXB_BASE;
+-			break;
+-		case 7:
+-			*base = (mmD0_NIC0_RXE_BASE + MSTR_IF_CTRL_OFFSET);
+-			break;
+-		case 8:
+-			*base = (mmD0_NIC0_RXE_BASE + MSTR_IF_DATA_OFFSET);
+-			break;
+-		default:
+-			LOG_ERR("Invalid block index");
+-			return -1;
++		ret = get_nic_base(block_idx, base);
++		if (ret == 0) {
++			*base += intr_map->comp_inst * NIC_OFFSET;
++			die_offset = NIC_DIE_OFFSET;
+ 		}
+-		*base += (intr_map->comp_inst * NIC_OFFSET);
+-		die_offset = NIC_DIE_OFFSET;
+ 		break;
+ 	case REI_INTR_SHARED_NCH:
+ 		*base = mmD0_NCH_BASE;
+@@ -126,13 +105,23 @@
+ 		LOG_ERR("Illegal SHARED event id for ARC2: %d", intr_map->index);
+ 		return -1;
+ 	}
+-	*base += (die_offset * intr_map->die_id);
+ 
+-	return 0;
++    if (ret == 0) {
++        *base += die_offset * intr_map->die_id;
++    }
++
++	return ret;
+ }
+ 
++static inline uint32_t calculate_base(uint32_t base, uint32_t comp_offset, uint8_t comp_id,
++				      uint8_t sub_id, uint32_t vdec_die_offset,
++				      struct gaudi3_async_events_ids_map *intr_map)
++{
++	return base + (comp_offset * comp_id) + (MME_SBTE_OFFSET * sub_id) +
++	       (HDCORE_OFFSET * intr_map->hdcore_type) + (vdec_die_offset * intr_map->die_id);
++}
+ static int get_hdcore_ecc_event_info(struct gaudi3_async_events_ids_map *intr_map,
+-					int block_idx, uint32_t *base)
++				     int block_idx, uint32_t *base)
+ {
+ 	uint8_t comp_id = 0, sub_id = 0;
+ 
+@@ -140,49 +129,42 @@
+ 	case REI_INTR_MME0_SBTE0...REI_INTR_MME1_SBTE3:
+ 		comp_id = intr_map->index / SBTE_DIVIDER;
+ 		sub_id = intr_map->index % SBTE_DIVIDER;
+-		*base = mmHD0_MME0_SBTE0_BASE + (MME_OFFSET * comp_id) + (MME_SBTE_OFFSET * sub_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_MME0_SBTE0_BASE, MME_OFFSET, comp_id,
++				       sub_id, 0, intr_map);
+ 		break;
+ 	case REI_INTR_MME_QM:
+-		*base = mmHD0_MME_QM_BASE + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_MME_QM_BASE, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_MME0_ACC:
+ 	case REI_INTR_MME1_ACC:
+ 		comp_id = intr_map->index - REI_INTR_MME0_ACC;
+-		*base = mmHD0_MME0_ACC_BASE + (MME_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_MME0_ACC_BASE, MME_OFFSET, comp_id, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_TPC0_ECC...REI_INTR_TPC8_ECC:
+ 		comp_id = intr_map->comp_inst;
+ 		*base = block_idx ? mmHD0_TPC0_QM_ARC_AUX_BASE : mmHD0_TPC0_CFG_BASE;
+-		*base += (comp_id * TPC_OFFSET) + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base += calculate_base(0, TPC_OFFSET, comp_id, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_ROT0:
+ 	case REI_INTR_ROT1:
+ 		comp_id = intr_map->index - REI_INTR_ROT0;
+-		*base = mmHD1_ROT0_BASE + (ROT_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD1_ROT0_BASE, ROT_OFFSET, comp_id, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_STLB:
+-		*base = mmHD0_STLB_BASE + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_STLB_BASE, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_CS0...REI_INTR_CS7:
+ 		comp_id = intr_map->comp_inst;
+-		*base = mmHD0_CS0_MAIN_BASE  + (CS_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_CS0_MAIN_BASE, CS_OFFSET, comp_id, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_RRTR0...REI_INTR_RRTR7:
+ 		if ((intr_map->hdcore_type == INT_HDCORE2) ||
+-			(intr_map->hdcore_type == INT_HDCORE3))
++		    (intr_map->hdcore_type == INT_HDCORE3))
+ 			comp_id = REI_INTR_RRTR7 - intr_map->index;
+ 		else
+ 			comp_id = intr_map->index - REI_INTR_RRTR0;
+ 		*base = block_idx ? mmHD0_RRTR0_DTLB_BASE : mmHD0_RRTR0_BASE;
+-		*base += (RRTR_OFFSET * comp_id) + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base += calculate_base(0, RRTR_OFFSET, comp_id, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_EDMA:
+ 		if (block_idx == BLOCK_ID0)
+@@ -193,7 +175,7 @@
+ 			*base = mmHD1_SEDMA1_QM_ARC_AUX_BASE;
+ 		else
+ 			*base = mmHD1_SEDMA1_CMN_BASE;
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base += calculate_base(0, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_HBM_CMN_MC_CH01...REI_INTR_HBM_CMN_MC_CH67:
+ 		comp_id = intr_map->index - REI_INTR_HBM_CMN_MC_CH01;
+@@ -203,31 +185,29 @@
+ 			*base = mmD0_HBM0_MC0_BASE + (HBM_MC_OFFSET * comp_id);
+ 		else
+ 			*base = mmD0_HBM0_MC1_BASE + (HBM_MC_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base += calculate_base(0, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_SYNC_MNGR_GLBL:
+-		*base = mmHD0_SYNC_MNGR_GLBL_BASE + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_SYNC_MNGR_GLBL_BASE, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_ARC_FARM_ARC_AUX:
+ 		*base = block_idx ? mmHD0_ARC_FARM_ARC1_AUX_BASE : mmHD0_ARC_FARM_ARC0_AUX_BASE;
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (DIE_OFFSET * intr_map->die_id);
++		*base += calculate_base(0, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	case REI_INTR_VDEC0_CTRL:
+ 	case REI_INTR_VDEC1_CTRL:
+ 		comp_id = intr_map->comp_inst;
+-		*base = mmHD0_VDEC0_CTRL_BASE + (VDEC_CTRL_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (VDEC_DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_VDEC0_CTRL_BASE, VDEC_CTRL_OFFSET, comp_id,
++				       0, VDEC_DIE_OFFSET, intr_map);
+ 		break;
+ 	case REI_INTR_VDEC0_BRDG_CTRL:
+ 	case REI_INTR_VDEC1_BRDG_CTRL:
+ 		comp_id = intr_map->comp_inst;
+-		*base = mmHD0_VDEC0_BRDG_CTRL_BASE + (VDEC_BRDG_CTRL_OFFSET * comp_id);
+-		*base += (HDCORE_OFFSET * intr_map->hdcore_type) + (VDEC_DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_VDEC0_BRDG_CTRL_BASE, VDEC_BRDG_CTRL_OFFSET,
++				       comp_id, 0, VDEC_DIE_OFFSET, intr_map);
+ 		break;
+ 	case REI_INTR_HIF:
+-		*base = mmHD0_HIF_BASE + (HDCORE_OFFSET * intr_map->hdcore_type);
+-		*base += (DIE_OFFSET * intr_map->die_id);
++		*base = calculate_base(mmHD0_HIF_BASE, 0, 0, 0, 0, intr_map);
+ 		break;
+ 	default:
+ 		LOG_ERR("Illegal HDCORE event id for ARC2: %d", intr_map->index);
+@@ -295,9 +275,6 @@
+ 	ecc_data->memory_wrapper_idx = memory_wrapper_idx;
+ 	ecc_data->block_id = block_id;
+ }
+-
+-static struct gaudi3_evt_ecc_counters sram_ecc_counters;
+-static struct gaudi3_evt_ecc_counters hbm_ecc_counters;
+ 
+ static void gaudi3_update_evt_shm_counters(struct hl_event_config *config,
+ 					   struct gaudi3_evt_ecc_counters *ecc_counters,
+diff --git a/src/gaudi3/ecc_info.h b/src/gaudi3/ecc_info.h
+index d685fac..6e213d2 100644
+--- a/src/gaudi3/ecc_info.h
++++ b/src/gaudi3/ecc_info.h
+@@ -11,7 +11,6 @@
+ #include <gaudi3/interrupt_map.h>
+ #include <hl_evt_shm.h>
+ 
+-
+ #define GAUDI3_ECC_MEM_NUM_OFFSET		0xF0C
+ #define GAUDI3_ECC_MEM_SEL_OFFSET		0xF10
+ #define GAUDI3_ECC_CONTROL_OFFSET		0xF14
+@@ -20,6 +19,24 @@
+ #define GAUDI3_ECC_STATUS_OFFSET		0xF20
+ #define GAUDI3_ECC_ADDRESS_OFFSET		0xF24
+ 
++/*
++ * This to get the offset 0x11000 and 0x12000. As we need base addresses
++ * for D0_NIC0_MSTR_IF_CTRL and D0_NIC0_MSTR_IF_DATA which are calculated
++ * using mmD0_NIC0_RXE_BASE and these offsets.
++ */
++#define MSTR_IF_CTRL_OFFSET			(mmD0_NIC0_UMR_7_BASE - mmD0_NIC0_QM_DCCM_BASE)
++#define MSTR_IF_DATA_OFFSET			(mmD0_NIC0_UMR_8_BASE - mmD0_NIC0_QM_DCCM_BASE)
++
++#define ECC_INTR_BLOCK_2			2
++#define ECC_INTR_BLOCK_3			3
++#define ECC_INTR_BLOCK_4			4
++#define ECC_INTR_BLOCK_9			9
++
++#define SBTE_DIVIDER				4
++#define BLOCK_ID0				0
++#define BLOCK_ID1				1
++#define BLOCK_ID2				2
++
+ int __gaudi3_process_rei_interrupt(struct hl_event_config *config,
+ 				   struct gaudi3_async_events_ids_map *intr_map,
+ 				   struct hl_eq_ecc_data *ecc_data);
+diff --git a/src/gaudi3/glbl_err.c b/src/gaudi3/glbl_err.c
+index 617b7ed..8b31c1a 100644
+--- a/src/gaudi3/glbl_err.c
++++ b/src/gaudi3/glbl_err.c
+@@ -128,12 +128,6 @@
+ 	return 0;
+ }
+ 
+-#define SPECIAL_BLOCK_OFFSET	(mmD0_PSOC_GLOBAL_CONF2_SPECIAL_BASE - mmD0_PSOC_GLOBAL_CONF2_BASE)
+-#define GLBL_ERR_ADDR_OFFSET	mmPSOC_GLOBAL_CONF2_SPECIAL_GLBL_ERR_ADDR
+-#define GLBL_ERR_CAUSE_OFFSET	mmPSOC_GLOBAL_CONF2_SPECIAL_GLBL_ERR_CAUSE
+-#define D1_DUP_ENGINE_BASE	(HL_CFG_BASE + mmD1_PSOC_DUP_ENG_BASE)
+-#define D1_DUP_ENGINE_MSTR_IF_BASE	(HL_CFG_BASE + \
+-					(mmD1_PSOC_DUP_MSTR_IF_AXADDR_LBW_BASE & 0xFFFFF000))
+ static int gaudi3_read_glbl_errors(struct gaudi3_redundancy_ctx *ctx, uint32_t blk_idx,
+ 				   uint32_t major, uint32_t minor,
+ 				   uint32_t sub_minor, struct hl_eq_glbl_err_reg_info *regs)
+diff --git a/src/gaudi3/glbl_err.h b/src/gaudi3/glbl_err.h
+index 0e666f9..c39dd44 100644
+--- a/src/gaudi3/glbl_err.h
++++ b/src/gaudi3/glbl_err.h
+@@ -10,6 +10,13 @@
+ #include <cpucp_if.h>
+ #include <gaudi3_fw_if.h>
+ 
++#define SPECIAL_BLOCK_OFFSET	(mmD0_PSOC_GLOBAL_CONF2_SPECIAL_BASE - mmD0_PSOC_GLOBAL_CONF2_BASE)
++#define GLBL_ERR_ADDR_OFFSET	mmPSOC_GLOBAL_CONF2_SPECIAL_GLBL_ERR_ADDR
++#define GLBL_ERR_CAUSE_OFFSET	mmPSOC_GLOBAL_CONF2_SPECIAL_GLBL_ERR_CAUSE
++#define D1_DUP_ENGINE_BASE	(HL_CFG_BASE + mmD1_PSOC_DUP_ENG_BASE)
++#define D1_DUP_ENGINE_MSTR_IF_BASE	(HL_CFG_BASE + \
++					(mmD1_PSOC_DUP_MSTR_IF_AXADDR_LBW_BASE & 0xFFFFF000))
++
+ /**
+  * struct iterate_special_ctx - HW module special block iterator
+  * @fn: function to apply to each HW module special block instance
+diff --git a/src/gaudi3/razwi.c b/src/gaudi3/razwi.c
+index 9e874f1..e9db206 100644
+--- a/src/gaudi3/razwi.c
++++ b/src/gaudi3/razwi.c
+@@ -15,813 +15,19 @@
+ #include <interrupt_map.h>
+ #include <hl_platform_defs.h>
+ #include <hl_fw_info.h>
+-#include <gaudi3_blocks_linux_driver.h>
+-#include <rtr_ctrl_ch_razwi_hbw_regs.h>
+-#include <mstr_if_v7_xresp_lbw_regs.h>
+-#include <mstr_if_v7_xresp_lbw_masks.h>
+-#include <mstr_if_v7_illegal_tran_lbw_regs.h>
+-#include <mstr_if_v7_illegal_tran_hbw_regs.h>
+-#include <mstr_if_v7_dup_crdt_regs.h>
+-#include <mstr_if_v7_isec_regs.h>
+-#include <mstr_if_v7_rr_hbw_regs.h>
+-#include <mstr_if_v7_rr_lbw_regs.h>
+ 
+ #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_DECLARE(GAUDI3_RAZWI);
+ 
+-struct razwi_mstr_if_initiator_info {
+-	bool rr_hbw;
+-	bool rr_lbw;
+-	bool isec;
+-	bool dup_crdt;
+-	bool illegal_hbw;
+-	bool illegal_lbw;
+-	bool xresp_hbw;
+-	bool xresp_lbw;
+-};
+-
+-const static struct razwi_mstr_if_initiator_info mstr_if_initiator[] = {
+-	{false, false, true, true, true, true, true, true},		/* MSTR_IF_V1 */
+-	{false, false, true, true, true, true,  true, true},		/* MSTR_IF_V2 */
+-	{false, false, false, false, true, false, true, false},		/* MSTR_IF_V3 */
+-	{false, false, true, true, false, true,  false, true},		/* MSTR_IF_V4 */
+-	{false, true, true, true, false, true, false, true},		/* MSTR_IF_V5 */
+-	{false, true, false, false, false, true, false, true},		/* MSTR_IF_V6 */
+-	{true, true, true, true, true, true, true, true},		/* MSTR_IF_V7 */
+-	{true, true, false, false, true, true, true, true},		/* MSTR_IF_V8 */
+-	{false, false, false, false, false, true, false, true},		/* MSTR_IF_V9 */
+-	{false, false, true, true, true, true, true, true}		/* MSTR_IF_V10 */
+-};
+-
+-#define RAZWI_MSTR_IF_RR_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_RR_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_RR_LBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_ISEC_OFF		(mmD0_PCIE_MSTR_RR_MSTR_IF_ISEC_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_DUP_CREDIT_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_DUP_CRDT_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_ILLEGAL_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_ILLEGAL_TRAN_HBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_ILLEGAL_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_ILLEGAL_TRAN_LBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_XRESP_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_XRESP_HBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-#define RAZWI_MSTR_IF_XRESP_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_XRESP_LBW_BASE - \
+-					 mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
+-
+-struct razwi_mstr_if_initator_info {
+-	uint32_t base;
+-	enum mstr_if_type type;
+-};
+-
+-const static struct razwi_initiator_info psoc_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_mstr_if_initator_info psoc_mstr_if_razwi_info[] = {
+-	{mmD0_PSOC_DUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-	{mmD0_PSOC_ETR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-	{mmD0_JT_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8},
+-	{mmD0_SMI_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8},
+-	{mmD0_I2C_S_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8}
+-};
+-
+-const static struct razwi_initiator_info nic_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC1_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC2_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC3_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC4_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NIC5_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC1_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC2_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC3_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC4_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NIC5_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_initiator_info pif_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V7},
+-		{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V7},
+-};
+-
+-const static struct razwi_mstr_if_initator_info pcie_mstr_if_razwi_info[] = {
+-	{mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE, MSTR_IF_V7},
+-	{mmD0_PCIE_ELBI_RR_MSTR_IF_RR_LBW_BASE, MSTR_IF_V5},
+-	{mmD0_PCIE_LBW_RR_MSTR_IF_RR_LBW_BASE, MSTR_IF_V6},
+-	{mmD0_PIF_ARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
+-};
+-
+-const static struct razwi_initiator_info pmmu_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_PMMU_HBW_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_PMMU_HBW_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_initiator_info parc_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-};
+-
+-const static struct razwi_mstr_if_initator_info parc_mstr_if_razwi_info[] = {
+-	{mmD0_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-	{mmD0_PARC_ARC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-	{mmD0_PARC_ARC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-	{mmD0_PARC_ARC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_initiator_info dec_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
+-};
+-
+-const static struct razwi_initiator_info arc_farm_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-};
+-
+-const static struct razwi_initiator_info pdma_razwi_info[] = {
+-		{mmD0_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmD0_SPDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD0_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmD0_SPDMA1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmD1_SPDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmD1_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmD1_SPDMA1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
+-};
+-
+-const static struct razwi_initiator_info tpc_razwi_info[] = {
+-		{mmHD0_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD0_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD0_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD0_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD0_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD0_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD0_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD0_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD0_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD1_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD2_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD2_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD2_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD2_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD2_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD2_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD2_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD2_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD3_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD4_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD5_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD5_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD5_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD5_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD5_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD5_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD5_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD5_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD6_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD7_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD7_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD7_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD7_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD7_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD7_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD7_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD7_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD0_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
+-			mmHD0_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD2_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
+-			mmHD2_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD5_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
+-			mmHD5_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-		{mmHD7_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
+-			mmHD7_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
+-
+-};
+-
+-const static struct razwi_initiator_info cpu_gic_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			0, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_mstr_if_initator_info cpu_mstr_if_razwi_info[] = {
+-	{mmD0_CPU_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-	{mmD0_CPU_INT_AGG_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
+-};
+-
+-const static struct razwi_initiator_info stlb_razwi_info[] = {
+-		{mmHD0_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD0_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD1_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD2_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD2_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD3_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD4_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD5_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD5_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD6_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmHD7_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
+-			mmHD7_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
+-};
+-
+-const static struct razwi_initiator_info edma_razwi_info[] = {
+-		{mmHD1_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD3_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD4_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD6_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
+-};
+-
+-const static struct razwi_initiator_info sm_razwi_info[] = {
+-		{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
+-			mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-};
+-
+-const static struct razwi_initiator_info rot_razwi_info[] = {
+-		{mmHD1_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD1_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD3_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD3_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD4_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD4_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD6_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD6_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-};
+-
+-const static struct razwi_initiator_info edup_razwi_info[] = {
+-		{0, mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
+-		{0, mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
+-};
+-
+-const static struct razwi_initiator_info nch_razwi_info[] = {
+-		{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD0_NCH_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-		{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
+-			mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
+-			mmD1_NCH_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
+-};
+-
+-const static struct razwi_initiator_info mme_razwi_info[] = {
+-		{mmHD0_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,			/* QMAN RD */
+-			mmHD0_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,			/* QMAN WR */
+-			mmHD0_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD0_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD0_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 ACC */
+-			mmHD0_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 ACC */
+-			mmHD0_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME0 SBTE0 */
+-			mmHD0_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 SBTE1 */
+-			mmHD0_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME0 SBTE2 */
+-			mmHD0_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 SBTE3 */
+-			mmHD0_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 SBTE0 */
+-			mmHD0_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME1 SBTE1 */
+-			mmHD0_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 SBTE2 */
+-			mmHD0_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD0_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME1 SBTE3 */
+-			mmHD0_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD1_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD1_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD1_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD1_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD1_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD1_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD2_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD2_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD2_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD2_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD2_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD2_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD3_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD3_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD3_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD3_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD3_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD3_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD4_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD4_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD4_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD4_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD4_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD4_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD5_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD5_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD5_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD5_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD5_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD5_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD6_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD6_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD6_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD6_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD6_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD6_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
+-			mmHD7_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
+-			mmHD7_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
+-			mmHD7_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
+-		{mmHD7_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
+-		{mmHD7_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
+-			mmHD7_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3}
+-};
++/*
++* Check if RAZWI happened. If so, retrieve address and initiator
++* id which caused it.
++*/
++static inline bool check_razwi_happened(uint32_t base, uint32_t offset, struct hl_eq_razwi_regs *regs) {
++    regs->razwi_happened = (uint8_t)CFG_RREG32(base + offset);
++    return regs->razwi_happened != 0;
++}
+ 
+ static void gaudi3_razwi_status(const struct razwi_initiator_info *initiator,
+ 				enum razwi_type type, bool is_hbw,
+@@ -871,14 +77,8 @@
+ 		return;
+ 	}
+ 
+-	/*
+-	 * Check if RAZWI happened. If so, retrieve address and initiator
+-	 * id which caused it.
+-	 */
+-	regs->razwi_happened = (uint8_t) CFG_RREG32(base +
+-					mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AW_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AW_HAPPENED_ST, regs))
++        return;
+ 
+ 	regs->hi_reg = CFG_RREG32(base + mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AW_ADDR_HI);
+ 	regs->lo_reg = CFG_RREG32(base + mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AW_ADDR_LO);
+@@ -917,9 +117,8 @@
+ 
+ static void ___gaudi3_mstr_if_hbw_rr_razwi(uint32_t base, struct hl_eq_razwi_regs *regs)
+ {
+-	regs->razwi_happened = (uint8_t)CFG_RREG32(base + mmMSTR_IF_V7_RR_HBW_AW_RAZWI_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmMSTR_IF_V7_RR_HBW_AW_RAZWI_HAPPENED_ST, regs))
++        return;
+ 
+ 	regs->hi_reg = CFG_RREG32(base + mmMSTR_IF_V7_RR_HBW_AW_RAZWI_HI);
+ 	regs->lo_reg = CFG_RREG32(base + mmMSTR_IF_V7_RR_HBW_AW_RAZWI_LO);
+@@ -933,9 +132,8 @@
+ 
+ static void ___gaudi3_mstr_if_lbw_rr_razwi(uint32_t base, struct hl_eq_razwi_regs *regs)
+ {
+-	regs->razwi_happened = (uint8_t)CFG_RREG32(base + mmMSTR_IF_V7_RR_LBW_AW_RAZWI_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmMSTR_IF_V7_RR_LBW_AW_RAZWI_HAPPENED_ST, regs))
++        return;
+ 
+ 	regs->hi_reg = 0x0;
+ 	regs->lo_reg = CFG_RREG32(base + mmMSTR_IF_V7_RR_LBW_AW_RAZWI);
+@@ -945,11 +143,6 @@
+ 		regs->lo_reg, regs->id, base);
+ 	CFG_WREG32(base + mmMSTR_IF_V7_RR_LBW_AW_RAZWI_HAPPENED_CLR, 0x1);
+ }
+-
+-#define RR_LBW_AW_AR_RAZWI_DIFF	(mmMSTR_IF_V7_RR_LBW_AR_RAZWI_HAPPENED_CLR - \
+-				 mmMSTR_IF_V7_RR_LBW_AW_RAZWI_HAPPENED_CLR)
+-#define RR_HBW_AW_AR_RAZWI_DIFF	(mmMSTR_IF_V7_RR_HBW_AR_RAZWI_HAPPENED_CLR - \
+-				 mmMSTR_IF_V7_RR_HBW_AW_RAZWI_HAPPENED_CLR)
+ 
+ static void gaudi3_mstr_if_rr_razwi(uint32_t base, bool is_hbw,
+ 				    struct hl_eq_razwi_mstr_if_reg_data *data)
+@@ -966,10 +159,8 @@
+ static void __gaudi3_mstr_if_isec_razwi(uint32_t base,
+ 					struct hl_eq_razwi_regs *regs)
+ {
+-	regs->razwi_happened = (uint8_t) CFG_RREG32(base +
+-					mmMSTR_IF_V7_ISEC_AW_RAZWI_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmMSTR_IF_V7_ISEC_AW_RAZWI_HAPPENED_ST, regs))
++        return;
+ 
+ 	regs->lo_reg = CFG_RREG32(base + mmMSTR_IF_V7_ISEC_RAZWI_AWADDR);
+ 	regs->id = CFG_RREG32(base + mmMSTR_IF_V7_ISEC_RAZWI_AWID);
+@@ -979,9 +170,6 @@
+ 
+ 	CFG_WREG32(base + mmMSTR_IF_V7_ISEC_AW_RAZWI_HAPPENED_CLR, 0x1);
+ }
+-
+-#define ISEC_AR_AW_RAZWI_DIFF	(mmMSTR_IF_V7_ISEC_AR_RAZWI_HAPPENED_CLR - \
+-				 mmMSTR_IF_V7_ISEC_AW_RAZWI_HAPPENED_CLR)
+ 
+ static void gaudi3_mstr_if_isec_razwi(uint32_t base,
+ 				      struct hl_eq_razwi_mstr_if_reg_data *data)
+@@ -996,10 +184,8 @@
+ static void gaudi3_mstr_if_dup_crdt_razwi(uint32_t base,
+ 					  struct hl_eq_razwi_regs *regs)
+ {
+-	regs->razwi_happened = (uint8_t) CFG_RREG32(base +
+-					mmMSTR_IF_V7_DUP_CRDT_AW_RAZWI_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmMSTR_IF_V7_DUP_CRDT_AW_RAZWI_HAPPENED_ST, regs))
++        return;
+ 
+ 	regs->lo_reg = CFG_RREG32(base + mmMSTR_IF_V7_DUP_CRDT_RAZWI_AWADDR);
+ 	regs->id = CFG_RREG32(base + mmMSTR_IF_V7_DUP_CRDT_RAZWI_AWID);
+@@ -1013,10 +199,8 @@
+ static void __gaudi3_mstr_if_illegal_txn_razwi(uint32_t base,
+ 					       struct hl_eq_razwi_regs *regs, bool is_hbw)
+ {
+-	regs->razwi_happened = (uint8_t) CFG_RREG32(base +
+-					mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AW_RAZWI_HAPPENED_ST);
+-	if (!regs->razwi_happened)
+-		return;
++    if (!check_razwi_happened(base, mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AW_RAZWI_HAPPENED_ST, regs))
++        return;
+ 
+ 	if (is_hbw) {
+ 		regs->hi_reg = CFG_RREG32(base + mmMSTR_IF_V7_ILLEGAL_TRAN_HBW_RAZWI_AWADDR_HI);
+@@ -1032,11 +216,6 @@
+ 
+ 	CFG_WREG32(base + mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AW_RAZWI_HAPPENED_CLR, 0x1);
+ }
+-
+-#define ILLEGAL_TXN_AR_AW_HBW_DIFF (mmMSTR_IF_V7_ILLEGAL_TRAN_HBW_AR_RAZWI_HAPPENED_CLR - \
+-				    mmMSTR_IF_V7_ILLEGAL_TRAN_HBW_AW_RAZWI_HAPPENED_CLR)
+-#define ILLEGAL_TXN_AR_AW_LBW_DIFF (mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AR_RAZWI_HAPPENED_CLR - \
+-				    mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AW_RAZWI_HAPPENED_CLR)
+ 
+ static void gaudi3_mstr_if_illegal_txn_razwi(uint32_t base,
+ 					     struct hl_eq_razwi_mstr_if_reg_data *data,
+@@ -1084,7 +263,6 @@
+ 	}
+ }
+ 
+-#define RAZWI_MSTR_IF_4K_MASK	0xFFFFF000
+ static void gaudi3_check_for_mstr_if_razwi(uint32_t base, enum mstr_if_type type,
+ 					   struct hl_eq_razwi_mstr_if_data *mstr_if_data,
+ 					   struct hl_eq_razwi_xresp_block_info *xresp_data)
+@@ -1258,9 +436,6 @@
+ 			       razwi_data, mstr_if_data, xresp_data);
+ }
+ 
+-#define EDMA01_MSTR_IF_DIFF	(mmHD1_SEDMA1_MSTR_IF_AXADDR_LBW_BASE - \
+-				 mmHD1_SEDMA0_MSTR_IF_AXADDR_LBW_BASE)
+-
+ static void gaudi3_check_for_edma_razwi(struct gaudi3_async_events_ids_map *intr_map,
+ 					struct hl_eq_razwi_rtr_data *razwi_data,
+ 					struct hl_eq_razwi_mstr_if_data *mstr_if_data,
+@@ -1396,9 +571,6 @@
+ 	}
+ }
+ 
+-#define NIC_MSTR_IF_DIFF (mmD0_NIC0_MSTR_IF_DATA_AXUSER_HBW_BASE - \
+-			  mmD0_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE)
+-
+ static void gaudi3_check_for_nic_razwi(struct gaudi3_async_events_ids_map *intr_map,
+ 				       struct hl_eq_razwi_rtr_data *razwi_data,
+ 				       struct hl_eq_razwi_mstr_if_data *mstr_if_data,
+@@ -1417,11 +589,6 @@
+ 	mstr_if_base = nic_razwi_info[idx].mstr_if_base + NIC_MSTR_IF_DIFF;
+ 	gaudi3_check_for_mstr_if_razwi(mstr_if_base, MSTR_IF_V3, &mstr_if_data[1], &xresp_data[1]);
+ }
+-
+-#define ARCFARM_ARC0_MSTR_IF_DIFF (mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE - \
+-				   mmHD0_ARC_FARM_ARC0_DUP_MSTR_IF_AXADDR_LBW_BASE)
+-#define ARCFARM_ARC1_MSTR_IF_DIFF (mmHD0_ARC_FARM_ARC0_DUP_MSTR_IF_AXADDR_LBW_BASE - \
+-				   mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE)
+ 
+ static void gaudi3_check_for_arcfarm_razwi(struct gaudi3_async_events_ids_map *intr_map,
+ 					   struct hl_eq_razwi_rtr_data *razwi_data,
+@@ -1452,9 +619,6 @@
+ 				       &mstr_if_data[ARCFARM_MSTR_IF_ARC1_DUP],
+ 				       &xresp_data[ARCFARM_MSTR_IF_ARC0_DUP]);
+ }
+-
+-#define PDMA_MSTR_IF_DIFF (mmD0_SPDMA0_DUP_MSTR_IF_AXADDR_LBW_BASE - \
+-			  mmD0_SPDMA0_MSTR_IF_AXADDR_LBW_BASE)
+ 
+ static void gaudi3_check_for_pdma_razwi(struct gaudi3_async_events_ids_map *intr_map,
+ 					struct hl_eq_razwi_rtr_data *razwi_data,
+diff --git a/src/gaudi3/razwi.h b/src/gaudi3/razwi.h
+index dee2fe4..e38f7b6 100644
+--- a/src/gaudi3/razwi.h
++++ b/src/gaudi3/razwi.h
+@@ -9,11 +9,68 @@
+ 
+ #include <cpucp_if.h>
+ #include <interrupt_map.h>
++#include <rtr_ctrl_ch_razwi_hbw_regs.h>
++#include <mstr_if_v7_xresp_lbw_regs.h>
++#include <mstr_if_v7_xresp_lbw_masks.h>
++#include <mstr_if_v7_illegal_tran_lbw_regs.h>
++#include <mstr_if_v7_illegal_tran_hbw_regs.h>
++#include <mstr_if_v7_dup_crdt_regs.h>
++#include <mstr_if_v7_isec_regs.h>
++#include <mstr_if_v7_rr_hbw_regs.h>
++#include <mstr_if_v7_rr_lbw_regs.h>
++#include <gaudi3_blocks_linux_driver.h>
+ 
+ #define RAZWI_RR_AW_OFFSET		mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AW_HAPPENED_CLR
+ #define RAZWI_RR_AR_OFFSET		mmRTR_CTRL_CH_RAZWI_HBW_RR_RAZWI_AR_HAPPENED_CLR
+ #define RAZWI_ADDR_DECODER_AW_OFFSET	mmRTR_CTRL_CH_RAZWI_HBW_ADEC_RAZWI_AW_CLR
+ #define RAZWI_ADDR_DECODER_AR_OFFSET	mmRTR_CTRL_CH_RAZWI_HBW_ADEC_RAZWI_AR_CLR
++
++#define RAZWI_MSTR_IF_RR_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_RR_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_RR_LBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_ISEC_OFF		(mmD0_PCIE_MSTR_RR_MSTR_IF_ISEC_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_DUP_CREDIT_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_DUP_CRDT_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_ILLEGAL_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_ILLEGAL_TRAN_HBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_ILLEGAL_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_ILLEGAL_TRAN_LBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_XRESP_HBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_XRESP_HBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++#define RAZWI_MSTR_IF_XRESP_LBW_OFF	(mmD0_PCIE_MSTR_RR_MSTR_IF_XRESP_LBW_BASE - \
++	mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE)
++
++#define RR_LBW_AW_AR_RAZWI_DIFF	(mmMSTR_IF_V7_RR_LBW_AR_RAZWI_HAPPENED_CLR - \
++		mmMSTR_IF_V7_RR_LBW_AW_RAZWI_HAPPENED_CLR)
++#define RR_HBW_AW_AR_RAZWI_DIFF	(mmMSTR_IF_V7_RR_HBW_AR_RAZWI_HAPPENED_CLR - \
++		mmMSTR_IF_V7_RR_HBW_AW_RAZWI_HAPPENED_CLR)
++
++#define ISEC_AR_AW_RAZWI_DIFF	(mmMSTR_IF_V7_ISEC_AR_RAZWI_HAPPENED_CLR - \
++		mmMSTR_IF_V7_ISEC_AW_RAZWI_HAPPENED_CLR)
++
++#define ILLEGAL_TXN_AR_AW_HBW_DIFF (mmMSTR_IF_V7_ILLEGAL_TRAN_HBW_AR_RAZWI_HAPPENED_CLR - \
++			mmMSTR_IF_V7_ILLEGAL_TRAN_HBW_AW_RAZWI_HAPPENED_CLR)
++#define ILLEGAL_TXN_AR_AW_LBW_DIFF (mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AR_RAZWI_HAPPENED_CLR - \
++			mmMSTR_IF_V7_ILLEGAL_TRAN_LBW_AW_RAZWI_HAPPENED_CLR)
++
++#define RAZWI_MSTR_IF_4K_MASK	0xFFFFF000
++
++#define EDMA01_MSTR_IF_DIFF	(mmHD1_SEDMA1_MSTR_IF_AXADDR_LBW_BASE - \
++	mmHD1_SEDMA0_MSTR_IF_AXADDR_LBW_BASE)
++
++#define NIC_MSTR_IF_DIFF (mmD0_NIC0_MSTR_IF_DATA_AXUSER_HBW_BASE - \
++	mmD0_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE)
++
++#define ARCFARM_ARC0_MSTR_IF_DIFF (mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE - \
++		mmHD0_ARC_FARM_ARC0_DUP_MSTR_IF_AXADDR_LBW_BASE)
++#define ARCFARM_ARC1_MSTR_IF_DIFF (mmHD0_ARC_FARM_ARC0_DUP_MSTR_IF_AXADDR_LBW_BASE - \
++		mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE)
++
++#define PDMA_MSTR_IF_DIFF (mmD0_SPDMA0_DUP_MSTR_IF_AXADDR_LBW_BASE - \
++	mmD0_SPDMA0_MSTR_IF_AXADDR_LBW_BASE)
++
+ 
+ enum mstr_if_type {
+ 	MSTR_IF_V1,
+@@ -42,6 +99,782 @@
+ 	ADEC_AR
+ };
+ 
++struct razwi_mstr_if_initiator_info {
++	bool rr_hbw;
++	bool rr_lbw;
++	bool isec;
++	bool dup_crdt;
++	bool illegal_hbw;
++	bool illegal_lbw;
++	bool xresp_hbw;
++	bool xresp_lbw;
++};
++
++struct razwi_mstr_if_initator_info {
++	uint32_t base;
++	enum mstr_if_type type;
++};
++
++const static struct razwi_mstr_if_initiator_info mstr_if_initiator[] = {
++	{false, false, true, true, true, true, true, true},		/* MSTR_IF_V1 */
++	{false, false, true, true, true, true,  true, true},		/* MSTR_IF_V2 */
++	{false, false, false, false, true, false, true, false},		/* MSTR_IF_V3 */
++	{false, false, true, true, false, true,  false, true},		/* MSTR_IF_V4 */
++	{false, true, true, true, false, true, false, true},		/* MSTR_IF_V5 */
++	{false, true, false, false, false, true, false, true},		/* MSTR_IF_V6 */
++	{true, true, true, true, true, true, true, true},		/* MSTR_IF_V7 */
++	{true, true, false, false, true, true, true, true},		/* MSTR_IF_V8 */
++	{false, false, false, false, false, true, false, true},		/* MSTR_IF_V9 */
++	{false, false, true, true, true, true, true, true}		/* MSTR_IF_V10 */
++};
++
++const static struct razwi_initiator_info psoc_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V1}
++};
++
++const static struct razwi_mstr_if_initator_info psoc_mstr_if_razwi_info[] = {
++{mmD0_PSOC_DUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++{mmD0_PSOC_ETR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++{mmD0_JT_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8},
++{mmD0_SMI_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8},
++{mmD0_I2C_S_MSTR_IF_RR_HBW_BASE, MSTR_IF_V8}
++};
++
++const static struct razwi_initiator_info nic_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC1_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC2_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC3_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC4_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NIC5_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC0_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_NW0_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC1_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC2_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC3_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC4_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_NW2_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NIC5_MSTR_IF_CTRL_AXADDR_LBW_BASE, MSTR_IF_V1}
++};
++
++const static struct razwi_initiator_info pif_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V7},
++	{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V7},
++};
++
++const static struct razwi_mstr_if_initator_info pcie_mstr_if_razwi_info[] = {
++{mmD0_PCIE_MSTR_RR_MSTR_IF_RR_HBW_BASE, MSTR_IF_V7},
++{mmD0_PCIE_ELBI_RR_MSTR_IF_RR_LBW_BASE, MSTR_IF_V5},
++{mmD0_PCIE_LBW_RR_MSTR_IF_RR_LBW_BASE, MSTR_IF_V6},
++{mmD0_PIF_ARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
++};
++
++const static struct razwi_initiator_info pmmu_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_PMMU_HBW_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_PMMU_HBW_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
++};
++
++const static struct razwi_initiator_info parc_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++};
++
++const static struct razwi_mstr_if_initator_info parc_mstr_if_razwi_info[] = {
++{mmD0_PARC_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++{mmD0_PARC_ARC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++{mmD0_PARC_ARC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++{mmD0_PARC_ARC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
++};
++
++const static struct razwi_initiator_info dec_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_VDEC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_VDEC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
++};
++
++const static struct razwi_initiator_info arc_farm_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_ARC_FARM_FARM_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++};
++
++const static struct razwi_initiator_info pdma_razwi_info[] = {
++	{mmD0_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmD0_SPDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD0_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmD0_SPDMA1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmD1_SPDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmD1_NRTR0_1CH_CTRL1_PD_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_1CH_CTRL1_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmD1_SPDMA1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
++};
++
++const static struct razwi_initiator_info tpc_razwi_info[] = {
++	{mmHD0_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD0_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD0_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD0_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD0_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD0_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD0_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD0_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD0_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD1_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD2_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD2_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD2_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD2_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD2_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD2_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD2_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD2_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD3_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD4_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD5_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD5_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD5_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD5_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD5_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD5_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD5_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD5_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD6_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR1_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD7_RRTR0_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR1_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD7_RRTR1_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR2_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD7_RRTR2_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC2_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR2_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD7_RRTR3_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC3_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR5_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD7_RRTR5_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC4_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR5_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD7_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC5_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR6_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD7_RRTR6_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC6_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RRTR6_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD7_RRTR7_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC7_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD0_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
++		mmHD0_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD2_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
++		mmHD2_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD5_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
++		mmHD5_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++	{mmHD7_RIF_RTR_CTRL_CH2_RAZWI_HBW_BASE,
++		mmHD7_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_TPC8_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V10},
++
++};
++
++const static struct razwi_initiator_info cpu_gic_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_PCI_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH1_BASE,
++		0, MSTR_IF_V1}
++};
++
++const static struct razwi_mstr_if_initator_info cpu_mstr_if_razwi_info[] = {
++{mmD0_CPU_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++{mmD0_CPU_INT_AGG_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
++};
++
++const static struct razwi_initiator_info stlb_razwi_info[] = {
++	{mmHD0_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD0_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD1_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD2_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD2_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD3_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD4_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD5_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD5_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD6_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmHD7_RIF_RTR_CTRL_CH3_RAZWI_HBW_BASE,
++		mmHD7_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_STLB_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1}
++};
++
++const static struct razwi_initiator_info edma_razwi_info[] = {
++	{mmHD1_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD3_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD4_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD6_RIF_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_SEDMA0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2}
++};
++
++const static struct razwi_initiator_info sm_razwi_info[] = {
++	{mmD0_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD0_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_GRTR1_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_GRTR0_DEC_CTRL_CH_RAZWI_HBW_BASE,
++		mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR0_3CH_CTRL0_DEC_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_SYNC_MNGR_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++};
++
++const static struct razwi_initiator_info rot_razwi_info[] = {
++	{mmHD1_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD1_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD3_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD3_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD4_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD4_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD6_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_ROT0_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD6_RIF_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RIF_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_ROT1_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++};
++
++const static struct razwi_initiator_info edup_razwi_info[] = {
++	{0, mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD0_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD0_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD0_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD1_GRTR1_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD1_NRTR1_2CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD1_GRTR0_1CH_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4},
++	{0, mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_SCD_EDUP_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V4}
++};
++
++const static struct razwi_initiator_info nch_razwi_info[] = {
++	{mmD0_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD0_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD0_NCH_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++	{mmD1_NRTR1_3CH_CTRL_NW1_CH_RAZWI_HBW_BASE,
++		mmD1_NRTR0_2CH_CTRL0_LBW_CH_RAZWI_LBW_CH1_BASE,
++		mmD1_NCH_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V1},
++};
++
++const static struct razwi_initiator_info mme_razwi_info[] = {
++	{mmHD0_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,			/* QMAN RD */
++		mmHD0_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,			/* QMAN WR */
++		mmHD0_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD0_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD0_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 ACC */
++		mmHD0_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 ACC */
++		mmHD0_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME0 SBTE0 */
++		mmHD0_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 SBTE1 */
++		mmHD0_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME0 SBTE2 */
++		mmHD0_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME0 SBTE3 */
++		mmHD0_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 SBTE0 */
++		mmHD0_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME1 SBTE1 */
++		mmHD0_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,			/* MME1 SBTE2 */
++		mmHD0_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD0_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,			/* MME1 SBTE3 */
++		mmHD0_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD1_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD1_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD1_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD1_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD1_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD1_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD1_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD1_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD1_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD1_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD1_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD1_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD1_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD1_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD1_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD2_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD2_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD2_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD2_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD2_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD2_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD2_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD2_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD2_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD2_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD2_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD2_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD2_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD2_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD2_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD3_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD3_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD3_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD3_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD3_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD3_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD3_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD3_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD3_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD3_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD3_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD3_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD3_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD3_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD3_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD4_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD4_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD4_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD4_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD4_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD4_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD4_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD4_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD4_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD4_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD4_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD4_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD4_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD4_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD4_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD5_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD5_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD5_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD5_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD5_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD5_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD5_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD5_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD5_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD5_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD5_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD5_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD5_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD5_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD5_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD6_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD6_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD6_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD6_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD6_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD6_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD6_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD6_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD6_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD6_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD6_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD6_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD6_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD6_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD6_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE,
++		mmHD7_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE,
++		mmHD7_RRTR4_RTR_CTRL_LBW_CH_RAZWI_LBW_CH0_BASE,
++		mmHD7_MME_QMAN_MSTR_IF_AXADDR_LBW_BASE, MSTR_IF_V2},
++	{mmHD7_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD7_MME0_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD7_MME1_WB_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR3_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD7_MME0_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR3_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD7_MME0_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR0_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD7_MME0_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR0_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD7_MME0_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR4_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD7_MME1_SBTE0_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR4_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD7_MME1_SBTE1_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR7_RTR_CTRL_CH0_RAZWI_HBW_BASE, 0,
++		mmHD7_MME1_SBTE2_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3},
++	{mmHD7_RRTR7_RTR_CTRL_CH1_RAZWI_HBW_BASE, 0,
++		mmHD7_MME1_SBTE3_MSTR_IF_AXUSER_HBW_BASE, MSTR_IF_V3}
++};
++
+ /*
+  * gaudi3_razwi_handler scan's both RTR (routers) and Master Interface
+  * to check for any voilations captured in status register. In case of
+diff --git a/src/gaudi3/rma.c b/src/gaudi3/rma.c
+index 0ac2a61..de44b65 100644
+--- a/src/gaudi3/rma.c
++++ b/src/gaudi3/rma.c
+@@ -15,32 +15,6 @@
+ #include <zephyr/logging/log.h>
+ LOG_MODULE_REGISTER(rma);
+ 
+-struct generic_entry_serr {
+-	sys_snode_t node;
+-	struct generic_entry entry;
+-	uint32_t count;
+-};
+-
+-struct rma_serr_list {
+-	sys_slist_t serr_fifo; /* list of generic_entry_serr */
+-	struct k_mem_slab serr_mem_slab;
+-	uint8_t threshold;
+-	bool valid_table;
+-};
+-
+-/* Search function to find an existing HBM or SRAM serr */
+-typedef void (*rma_serr_search_func)(struct rma_serr_list *list,
+-				     struct generic_entry *entry,
+-				     struct generic_entry_serr **prev_entry,
+-				     struct generic_entry_serr **found_entry);
+-
+-/* number of serrs until multi-serr is triggered */
+-#define HBM_SERR_THRESHOLD	16
+-#define SRAM_SERR_THRESHOLD	16
+-
+-#define MAX_SERR_ENTRIES	1024
+-#define SERR_TABLE_SIZE		(sizeof(struct generic_entry_serr) * MAX_SERR_ENTRIES)
+-
+ /* memory used to back the serr lists */
+ static uint8_t *rma_hbm_serrs;
+ static uint8_t *rma_sram_serrs;
+@@ -49,45 +23,36 @@
+ static struct rma_serr_list hbm_serrs;
+ static struct rma_serr_list sram_serrs;
+ 
+-static void find_sram_entry(struct rma_serr_list *list,
+-			    struct generic_entry *entry,
+-			    struct generic_entry_serr **prev_entry,
+-			    struct generic_entry_serr **found_entry)
++/* Generic function to find an entry in the list */
++static void find_entry_generic(struct rma_serr_list *list,
++			       struct generic_entry *entry,
++                               mem_type_t mem_type,
++                               struct generic_entry_serr **prev_entry,
++                               struct generic_entry_serr **found_entry)
+ {
+-	struct generic_entry_serr *curr_entry;
++    struct generic_entry_serr *curr_entry;
+ 
+-	SYS_SLIST_FOR_EACH_CONTAINER(&list->serr_fifo, curr_entry, node) {
+-		if (curr_entry->entry.sram_ecc.block_index == entry->sram_ecc.block_index &&
+-		    curr_entry->entry.sram_ecc.wrapper_idx == entry->sram_ecc.wrapper_idx &&
+-		    curr_entry->entry.sram_ecc.address == entry->sram_ecc.address) {
+-			*found_entry = curr_entry;
+-			return;
+-		}
++    SYS_SLIST_FOR_EACH_CONTAINER(&list->serr_fifo, curr_entry, node) {
++        bool match = false;
++        if (mem_type == TYPE_SRAM) {
++            match = curr_entry->entry.sram_ecc.block_index == entry->sram_ecc.block_index &&
++                    curr_entry->entry.sram_ecc.wrapper_idx == entry->sram_ecc.wrapper_idx &&
++                    curr_entry->entry.sram_ecc.address == entry->sram_ecc.address;
++        } else if (mem_type == TYPE_HBM) {
++            match = curr_entry->entry.hbm_ecc.device == entry->hbm_ecc.device &&
++                    curr_entry->entry.hbm_ecc.pc == entry->hbm_ecc.pc &&
++                    curr_entry->entry.hbm_ecc.sid == entry->hbm_ecc.sid &&
++                    curr_entry->entry.hbm_ecc.bank == entry->hbm_ecc.bank &&
++                    curr_entry->entry.hbm_ecc.row == entry->hbm_ecc.row &&
++                    curr_entry->entry.hbm_ecc.addr == entry->hbm_ecc.addr;
++        }
+ 
+-		*prev_entry = curr_entry;
+-	}
+-}
+-
+-static void find_hbm_entry(struct rma_serr_list *list,
+-			   struct generic_entry *entry,
+-			   struct generic_entry_serr **prev_entry,
+-			   struct generic_entry_serr **found_entry)
+-{
+-	struct generic_entry_serr *curr_entry;
+-
+-	SYS_SLIST_FOR_EACH_CONTAINER(&list->serr_fifo, curr_entry, node) {
+-		if (curr_entry->entry.hbm_ecc.device == entry->hbm_ecc.device &&
+-		    curr_entry->entry.hbm_ecc.pc == entry->hbm_ecc.pc &&
+-		    curr_entry->entry.hbm_ecc.sid == entry->hbm_ecc.sid &&
+-		    curr_entry->entry.hbm_ecc.bank == entry->hbm_ecc.bank &&
+-		    curr_entry->entry.hbm_ecc.row == entry->hbm_ecc.row &&
+-		    curr_entry->entry.hbm_ecc.addr == entry->hbm_ecc.addr) {
+-			*found_entry = curr_entry;
+-			return;
+-		}
+-
+-		*prev_entry = curr_entry;
+-	}
++        if (match) {
++            *found_entry = curr_entry;
++            return;
++        }
++        *prev_entry = curr_entry;
++    }
+ }
+ 
+ static void rma_serr_update_existing_entry(struct rma_serr_list *list,
+@@ -114,10 +79,9 @@
+ static void rma_serr_add_new_entry(struct rma_serr_list *list, struct generic_entry *entry)
+ {
+ 	struct generic_entry_serr *new_entry;
++	int ret;
+ 
+ 	if (k_mem_slab_num_used_get(&list->serr_mem_slab) < MAX_SERR_ENTRIES) {
+-		int ret;
+-
+ 		/* table is not full; allocate a new entry */
+ 		ret = k_mem_slab_alloc(&list->serr_mem_slab, (void **)&new_entry, K_FOREVER);
+ 		if (ret) {
+@@ -140,7 +104,7 @@
+ 
+ static void rma_digest_serr(struct rma_serr_list *list,
+ 			    struct generic_entry *entry,
+-			    rma_serr_search_func search_func,
++			    mem_type_t mem_type,
+ 			    bool *is_multi_serr)
+ {
+ 	struct generic_entry_serr *found_entry = NULL;
+@@ -154,7 +118,7 @@
+ 	}
+ 
+ 	/* check if there was a previous serr for this location */
+-	search_func(list, entry, &prev_entry, &found_entry);
++	find_entry_generic(list, entry, mem_type, &prev_entry, &found_entry);
+ 
+ 	if (found_entry)
+ 		rma_serr_update_existing_entry(list, prev_entry, found_entry, is_multi_serr);
+@@ -168,7 +132,7 @@
+ 			      uint8_t threshold)
+ {
+ 	if (memory_size < SERR_TABLE_SIZE) {
+-		LOG_ERR("Insufficent memory for serr table: expected=%zu actual=%zu",
++		LOG_ERR("Insufficient memory for serr table: expected=%zu actual=%zu",
+ 			SERR_TABLE_SIZE, memory_size);
+ 		return -EINVAL;
+ 	}
+@@ -186,48 +150,29 @@
+ 	return 0;
+ }
+ 
+-static int hbm_serrs_list_init(struct sys_heap *mem_pool)
++static int serrs_list_init(struct sys_heap *mem_pool, mem_type_t mem_type)
+ {
+-	int rc;
++	uint8_t **rma_serrs;
++	struct rma_serr_list *serr_list;
++	uint8_t threshold;
+ 
+-	rma_hbm_serrs = sys_heap_alloc(mem_pool, SERR_TABLE_SIZE);
+-	if (!rma_hbm_serrs) {
+-		LOG_ERR("Not enough memory to allocate rma_serr on HBM");
++	if (mem_type == TYPE_HBM) {
++		rma_serrs = &rma_hbm_serrs;
++		serr_list = &hbm_serrs;
++		threshold = HBM_SERR_THRESHOLD;
++	} else if (mem_type == TYPE_SRAM) {
++		rma_serrs = &rma_sram_serrs;
++		serr_list = &sram_serrs;
++		threshold = SRAM_SERR_THRESHOLD;
++	}
++
++	*rma_serrs = sys_heap_alloc(mem_pool, SERR_TABLE_SIZE);
++	if (!*rma_serrs) {
++		LOG_ERR("Failed to allocate serr table for %s", mem_type == TYPE_HBM ? "HBM" : "SRAM");
+ 		return -ENOMEM;
+ 	}
+ 
+-	rc = rma_serr_init_list(&hbm_serrs,
+-				rma_hbm_serrs,
+-				SERR_TABLE_SIZE,
+-				HBM_SERR_THRESHOLD);
+-	if (rc) {
+-		LOG_ERR("Failed to init RMA_HBM_ECC_TABLE: %d", rc);
+-		return rc;
+-	}
+-
+-	return 0;
+-}
+-
+-static int sram_serrs_list_init(struct sys_heap *mem_pool)
+-{
+-	int rc;
+-
+-	rma_sram_serrs = sys_heap_alloc(mem_pool, SERR_TABLE_SIZE);
+-	if (!rma_sram_serrs) {
+-		LOG_ERR("Failed to alloc SRAM serr table");
+-		return -ENOMEM;
+-	}
+-
+-	rc = rma_serr_init_list(&sram_serrs,
+-				rma_sram_serrs,
+-				SERR_TABLE_SIZE,
+-				SRAM_SERR_THRESHOLD);
+-	if (rc) {
+-		LOG_ERR("Failed to init RMA_SRAM_ECC_TABLE: %d", rc);
+-		return rc;
+-	}
+-
+-	return 0;
++	return rma_serr_init_list(serr_list, *rma_serrs, SERR_TABLE_SIZE, threshold);
+ }
+ 
+ int rma_init(struct sys_heap *mem_pool)
+@@ -237,11 +182,11 @@
+ 	if (!mem_pool)
+ 		return -EINVAL;
+ 
+-	rc = hbm_serrs_list_init(mem_pool);
++	rc = serrs_list_init(mem_pool, TYPE_HBM);
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = sram_serrs_list_init(mem_pool);
++	rc = serrs_list_init(mem_pool, TYPE_SRAM);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -295,7 +240,7 @@
+ 
+ 			rma_digest_serr(&hbm_serrs,
+ 					&ecc_entry,
+-					find_hbm_entry,
++					TYPE_HBM,
+ 					is_multi_serr);
+ 		}
+ 	}
+@@ -327,6 +272,6 @@
+ 
+ 	rma_digest_serr(&sram_serrs,
+ 			&ecc_entry,
+-			find_sram_entry,
++			TYPE_SRAM,
+ 			is_multi_serr);
+ }
+diff --git a/src/gaudi3/rma.h b/src/gaudi3/rma.h
+index f897a91..6bfbb05 100644
+--- a/src/gaudi3/rma.h
++++ b/src/gaudi3/rma.h
+@@ -12,6 +12,32 @@
+ #include <cpucp_if.h>
+ #include <stdbool.h>
+ 
++/* number of serrs until multi-serr is triggered */
++#define HBM_SERR_THRESHOLD	16
++#define SRAM_SERR_THRESHOLD	16
++
++#define MAX_SERR_ENTRIES	1024
++#define SERR_TABLE_SIZE		(sizeof(struct generic_entry_serr) * MAX_SERR_ENTRIES)
++
++/* Enum to specify the type of memory/entry */
++typedef enum {
++    TYPE_SRAM,
++    TYPE_HBM
++} mem_type_t;
++
++struct generic_entry_serr {
++	sys_snode_t node;
++	struct generic_entry entry;
++	uint32_t count;
++};
++
++struct rma_serr_list {
++	sys_slist_t serr_fifo; /* list of generic_entry_serr */
++	struct k_mem_slab serr_mem_slab;
++	uint8_t threshold;
++	bool valid_table;
++};
++
+ int rma_init(struct sys_heap *mem_pool);
+ 
+ void rma_handle_hbm_ecc_serr(const struct hl_eq_hbm_mc_cmn_sei_info *sei_info,

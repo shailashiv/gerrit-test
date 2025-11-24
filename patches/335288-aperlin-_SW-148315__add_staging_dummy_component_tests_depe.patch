@@ -1,0 +1,40 @@
+From 65c0cc2211cc979fc571a0fd7f24c18515bdf833 Mon Sep 17 00:00:00 2001
+From: Alex Perlin <aperlin@habana.ai>
+Date: Mon, 19 Jun 2023 17:36:33 +0300
+Subject: [PATCH] [SW-148315] add staging_dummy_component tests dependecies
+
+Change-Id: I33577ec72f599d9acf05be3c5bc112b48873895e
+Signed-off-by: Alex Perlin <aperlin@habana.ai>
+---
+
+diff --git a/.ci/pipelines/tests/dummy_test.yml b/.ci/pipelines/tests/dummy_test.yml
+index 6741fed..1761de8 100644
+--- a/.ci/pipelines/tests/dummy_test.yml
++++ b/.ci/pipelines/tests/dummy_test.yml
+@@ -1,13 +1,23 @@
+ common:
++  testRepos:
++    - repository: automation
++    - repository: habanalabs
++    - repository: coral-sim
++    - repository: rdma-core
++    - repository: hl-thunk
++    - repository: nic_kmd
++  dependencies:
++    - RDMA_CORE
++    - CORAL_SIM
++    - TPCSIM
+   config:
+     testCommand: "echo Hello"
+     loadLKD: true
+     releaseFlag: true
+     lkdSimHealtcheckParams:
+-        lkdParam: 'timeout_locked=600'
++        lkdParam: 'timeout_locked=1000'
+         checkDmesg: false
+-        lkdSwitch: '-ib'
+-        checkDeviceHealthTimeout : 60
++        checkDeviceHealthTimeout: 60
+         rebootOnFailure: true
+         startNetworkIfs: true
+ testsMap:
